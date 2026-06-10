@@ -1,0 +1,13 @@
+# 上游 Codex 克隆，单独管理，不纳入本仓库
+codex-upstream/
+
+# 依赖与构建产物
+node_modules/
+target/
+dist/
+.DS_Store
+
+# 密钥（绝不入库）
+.env
+*.key
+**/secrets.*
