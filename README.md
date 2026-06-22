@@ -66,6 +66,8 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 
 协作流程见 [CONTRIBUTING](CONTRIBUTING.md)。一句话：采用 **GitHub Flow**——从 `main` 切短命功能分支，开 PR，1 人 Review + CI 绿后 Squash 合并。
 
+常用命令速查见 [快捷命令行](快捷命令行.md)（启动客户端、构建内核、起网关等）。
+
 ## 合规
 
 本项目计划 Fork 的 [openai/codex](https://github.com/openai/codex) 为 Apache-2.0 许可。商业 Fork 合法,但须保留原始版权与 `NOTICE`、声明修改、不得用 OpenAI 商标为本产品背书。详见 [07 护城河与风险](docs/07-护城河与风险.md)。
