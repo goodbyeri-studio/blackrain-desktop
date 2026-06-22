@@ -34,7 +34,7 @@ python3 gateway/gateway.py
 codex 内核侧 `config.toml` 对应配置：
 
 ```toml
-model = "deepseek-chat"
+model = "deepseek-v4-flash"
 model_provider = "deepseek"
 
 [model_providers.deepseek]
@@ -57,7 +57,7 @@ wire_api = "responses"
 - 并行多工具、3+ 轮深循环
 - `namespace` 工具（如 `multi_agent_v1`，当前被丢弃）
 - reasoning 内容、错误鲁棒性
-- `deepseek-chat` 模型元数据未注册的 warning（内核报 fallback metadata）
+- `deepseek-v4-flash` / `deepseek-v4-pro` 模型元数据未注册的 warning（内核报 fallback metadata）
 
 ### 关键翻译映射（已验证版，固化自实测）
 

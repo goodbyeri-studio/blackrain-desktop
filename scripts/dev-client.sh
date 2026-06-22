@@ -39,7 +39,10 @@ echo "✓ codex 内核：$(command -v codex)"
 DEV_HOME="$REPO/.scratch/dev-codex-home"
 mkdir -p "$DEV_HOME"
 cat > "$DEV_HOME/config.toml" <<'TOML'
-model = "deepseek-chat"
+# 默认 deepseek-v4-flash（高性价比主力，1M 上下文）。
+# 攻坚/关键任务可改 deepseek-v4-pro（1.6T 旗舰，1M 上下文）。
+# 注：旧名 deepseek-chat / deepseek-reasoner 将于 2026-07-24 弃用。
+model = "deepseek-v4-flash"
 model_provider = "deepseek"
 
 [model_providers.deepseek]

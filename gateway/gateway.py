@@ -44,7 +44,7 @@ def responses_to_chat(body):
                 out = out.get("content", json.dumps(out, ensure_ascii=False))
             msgs.append({"role": "tool", "tool_call_id": item.get("call_id"), "content": str(out)})
 
-    chat = {"model": body.get("model", "deepseek-chat"), "messages": msgs, "stream": False}
+    chat = {"model": body.get("model", "deepseek-v4-flash"), "messages": msgs, "stream": False}
     if not STRIP_TOOLS:
         tools = []
         for tdef in body.get("tools", []):
@@ -116,7 +116,7 @@ class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self):
         self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
-        self.wfile.write(json.dumps({"data": [{"id": "deepseek-chat"}]}).encode())
+        self.wfile.write(json.dumps({"data": [{"id": "deepseek-v4-flash"}, {"id": "deepseek-v4-pro"}]}).encode())
     def do_POST(self):
         n = int(self.headers.get("Content-Length", 0) or 0)
         body = json.loads(self.rfile.read(n)) if n else {}
