@@ -56,7 +56,15 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 
 ## 当前状态
 
-战略与蓝图已完成并沉淀为文档(01-09)。仓库骨架已就位:`apps/desktop/` 已用 git subtree 导入 CodexMonitor 壳,`gateway/` `plugins/` 槽位待落地。下一步 M0:让壳在本机跑起来。
+- **战略与蓝图**：已完成并沉淀为文档（01-09）。
+- **仓库骨架**：已就位。`apps/desktop/` 用 git subtree 导入 CodexMonitor 壳；`gateway/` `plugins/` 为待落地槽位。
+- **M0（壳↔内核打通）**：✅ 已验证。壳前端可编译、内核可编译、协议四探针（initialize / model·list / thread·start / turn·start）全绿。
+- **M1 可行性（接国产模型）**：✅ 已实测。`wire_api="chat"` 已被上游删除，必须走翻译网关；自写最小 responses⇄chat 网关已让 **DeepSeek 真正驱动内核跑通多轮工具调用**（含上游会崩的工具历史配对点）。详见 [09 运行时架构](docs/09-运行时架构与里程碑.md)。
+- **下一步**：将网关原型固化为 `gateway/` 正式组件；产品侧转向 Spike 0（验证「AI 带小白用」承重假设）。
+
+## 参与开发
+
+协作流程见 [CONTRIBUTING](CONTRIBUTING.md)。一句话：采用 **GitHub Flow**——从 `main` 切短命功能分支，开 PR，1 人 Review + CI 绿后 Squash 合并。
 
 ## 合规
 
