@@ -48,8 +48,8 @@ base_url = "http://127.0.0.1:8899/v1"
 env_key = "DEEPSEEK_API_KEY"
 wire_api = "responses"
 TOML
-export CODEX_HOME="$DEV_HOME"
-echo "✓ CODEX_HOME：$DEV_HOME（DeepSeek via gateway）"
+export CODEX_HOME="${DEV_HOME}"
+echo "✓ CODEX_HOME: ${DEV_HOME} (DeepSeek via gateway)"
 
 # ── 4. 起翻译网关（后台），退出时自动清理 ──
 GW_PORT="${GW_PORT:-8899}"
