@@ -92,3 +92,33 @@ gh api --method PATCH repos/goodbyeri-studio/BlackRain \
 - `.env` 已 gitignore，**绝不提交**；`.env.example` 只放空占位，可提交。
 - **密钥暂不进 GitHub Secrets**：当前没有 CI 用它，提前放只会多一个暴露面。将来 CI 需要调模型（如集成测试）时再加。
 - 密钥只存本地 `.env` 或本地环境变量，**永不在聊天 / IM / PR 里明文出现**；一旦明文泄露，立即去对应控制台吊销重发。
+
+## 第三方代码 License 纪律（红线，全员遵守）
+
+本产品是**闭源商业 B2B**，引入第三方代码必须先看许可证。一条分界线记牢：
+
+> **MIT / Apache-2.0 → 可进仓库、可借用代码（保留 NOTICE 署名）。
+> AGPL / GPL / BSL / 无许可证 → 只能看、只能学架构、要自己重写；绝不进仓库、绝不复制源码、绝不 fork 到组织账号。**
+
+为什么：AGPL/GPL 有"传染性"——一旦其代码进入我们的产品，会要求**整个产品（含 SaaS 网络服务）开源**，直接摧毁闭源商业模式。无许可证 = 默认保留全部版权，同样不可用。
+
+### 能进 vs 不能进（实例）
+
+| 来源 | License | 能否进仓库 |
+|---|---|---|
+| CodexMonitor（壳，已 subtree） | MIT | ✅ |
+| cdesktop 的 `provider_catalog.json`（国产 provider 清单） | Apache | ✅（保留 NOTICE 署名） |
+| open-codex 的中文 UI 文案 | Apache | ✅ |
+| **codexia 的代码** | **AGPL** | ❌ **永不进仓库，只作参考标杆** |
+| opcode / siteboon 等 | AGPL | ❌ 同上 |
+
+### 参考类（AGPL/GPL）项目放哪
+
+放在**仓库之外、产品目录之外**，与闭源代码物理隔离，保证取证清白：
+
+- 统一放 `~/Projects/GithubForks/`（第三方参考仓专区，**不在 `goodbyeri-studio/` 产品目录内**）。
+- 例：`cd ~/Projects/GithubForks && git clone --depth 1 https://github.com/milisp/codexia.git`
+- 读它、学它的架构、照着自己重写都合法；**绝不 copy-paste 其源码进我们的源文件**。
+- 看一眼就够的，直接用 GitHub 网页或 `gh` 临时拉单文件，不必本地 clone。
+
+> 一句话纪律：**参考标杆放仓库外，照着重写不照抄；许可证没看清，代码不落地。**
