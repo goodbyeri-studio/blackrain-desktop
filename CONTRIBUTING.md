@@ -116,8 +116,8 @@ gh api --method PATCH repos/goodbyeri-studio/BlackRain \
 
 放在**仓库之外、产品目录之外**，与闭源代码物理隔离，保证取证清白：
 
-- 统一放 `~/Projects/GithubForks/`（第三方参考仓专区，**不在 `goodbyeri-studio/` 产品目录内**）。
-- 例：`cd ~/Projects/GithubForks && git clone --depth 1 https://github.com/milisp/codexia.git`
+- 统一放 `~/Projects/refs/`（第三方参考仓专区，**不在 `goodbyeri-studio/` 产品目录内**）。
+- 例：`cd ~/Projects/refs && git clone --depth 1 https://github.com/milisp/codexia.git`
 - 读它、学它的架构、照着自己重写都合法；**绝不 copy-paste 其源码进我们的源文件**。
 - 看一眼就够的，直接用 GitHub 网页或 `gh` 临时拉单文件，不必本地 clone。
 
