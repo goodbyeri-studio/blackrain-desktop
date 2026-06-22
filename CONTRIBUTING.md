@@ -59,7 +59,7 @@ gh pr create                             # 5. 开 PR（或网页开）
 
 - **`apps/desktop/` 是 subtree（来自 CodexMonitor）**：日常改它就是普通 commit，无需特殊操作。但**同步上游**（`git subtree pull`）是维护者动作，别随手做，约定一人负责。详见 [docs/08](docs/08-仓库结构与上游策略.md)。
 - **`codex-upstream/` 内核不入库**：本地克隆、黑盒子进程，已在 `.gitignore`。
-- **密钥绝不入库**：API key 等放 `.scratch/`（已双重忽略）或本地环境变量，永不写进会提交的文件。
+- **密钥绝不入库**：API key 等放本地 `.env`（已 gitignore，从 `.env.example` 复制填写）或本地环境变量，永不写进会提交的文件、也不在聊天/IM 里明文发送。
 - **`.scratch/` 是个人草稿区**：实验脚本、临时产物放这里，不入库、不评审。
 
 ## 不做什么（避免过度工程）
@@ -67,3 +67,28 @@ gh pr create                             # 5. 开 PR（或网页开）
 - ❌ 不设 `develop`/`release`/`hotfix` 分支——GitHub Flow 不需要。
 - ❌ 不搞多层审批、CODEOWNERS 强绑——4 人团队靠默契 + 1 approve。
 - ❌ 不要长命分支——分支活得越久冲突越多，几天内合掉。
+
+## 仓库配置凭据（已配，给将来配仓库的人留底）
+
+仓库托管在 `goodbyeri-studio/BlackRain`（GitHub Free + 私有库）。已落地的配置：
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| 合并策略 | ✅ 已配 | 只允许 **Squash 合并**（禁 merge commit / rebase）+ **合并后自动删分支** |
+| 分支保护（强制 PR / 禁直推 main） | ⚠️ 配不了 | GitHub Free 私有库不提供分支保护，**靠本文件的口头约束**。升级 Team/Pro 后可在 Settings → Branches 启用 |
+| auto-merge | ⚠️ 配不了 | 同属 Free 私有库限制，approve + 合并需手动点 |
+
+复现合并策略配置（需仓库 admin，`gh` 已登录即可）：
+
+```bash
+gh api --method PATCH repos/goodbyeri-studio/BlackRain \
+  -F allow_squash_merge=true -F allow_merge_commit=false \
+  -F allow_rebase_merge=false -F delete_branch_on_merge=true
+```
+
+## 密钥与本地环境
+
+- 复制模板填自己的 key：`cp .env.example .env`，编辑 `.env` 填入真实值。
+- `.env` 已 gitignore，**绝不提交**；`.env.example` 只放空占位，可提交。
+- **密钥暂不进 GitHub Secrets**：当前没有 CI 用它，提前放只会多一个暴露面。将来 CI 需要调模型（如集成测试）时再加。
+- 密钥只存本地 `.env` 或本地环境变量，**永不在聊天 / IM / PR 里明文出现**；一旦明文泄露，立即去对应控制台吊销重发。
