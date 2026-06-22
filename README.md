@@ -20,23 +20,24 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 
 ## 目录结构
 
-轻量、标准化的 monorepo。当前只创建有实际内容的目录;其余为**约定位置**,动工时再落地,以免空目录变垃圾场。
+轻量 monorepo。只创建有实际内容的目录;其余为**约定位置**,动工时再落地。运行时拓扑见 [docs/09](docs/09-运行时架构与里程碑.md)。
 
 ```
 2049-app/
 ├── README.md              入口 + 索引
 ├── docs/                  产品文档（见下方索引）
-│   └── REFERENCES.md      参考项目登记（怎么拿源码、锁哪个版本）
-├── workbenches/           ★ 核心产出：工作台内容（纯 Markdown，不需写代码）
-├── scripts/               工具脚本（如 fetch-references.sh）
+├── apps/
+│   └── desktop/           桌面外壳，fork 自 CodexMonitor（git subtree，持续魔改的底盘）
+├── gateway/               模型路由 / Responses⇄Chat 翻译层（可替换的 sidecar 槽位）
+├── plugins/               能力封装：插件 / 工作台模板（放进 CODEX_HOME 的文件）
+├── workbenches/           ★ 核心产出：工作台内容（纯 Markdown）
+├── scripts/               工具脚本
 │
-│   —— 以下为约定位置，动工时创建 ——
-├── apps/                  各端应用，如 apps/desktop（Tauri 桌面外壳）
-├── packages/              共享库，如模型路由、Responses↔Chat 转译代理
-└── codex-fork/            Fork 的 Codex 内核（独立 git 历史，子模块管理）
+│   —— 约定位置，动工时创建 ——
+└── codex-upstream/        Codex 内核本地克隆（.gitignore，不入库，黑盒子进程）
 ```
 
-> 参考用的上游源码(`codex-upstream/` 等)只读、不入库,通过 `sh scripts/fetch-references.sh` 重建。详见 [docs/REFERENCES.md](docs/REFERENCES.md)。
+> 内核 = vendor 式黑盒（`codex-upstream/`，只读、不入库）;壳 = fork 式底盘（`apps/desktop/`，subtree 入库、持续魔改）。这个区分及上游同步策略详见 [docs/08](docs/08-仓库结构与上游策略.md)。
 
 ## 文档索引
 
@@ -49,10 +50,13 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 | [05 模型路由](docs/05-模型路由.md) | 国产模型按任务分流的策略与选型 |
 | [06 市场与创作者经济](docs/06-市场与创作者经济.md) | 应用市场、冷启动、分成、GPT Store 教训 |
 | [07 护城河与风险](docs/07-护城河与风险.md) | 三处护城河、三大硬风险、诚实的边界 |
+| [08 仓库结构与上游策略](docs/08-仓库结构与上游策略.md) | 内核黑盒 vs 壳底盘、CodexMonitor 用 subtree 导入 |
+| [09 运行时架构与里程碑](docs/09-运行时架构与里程碑.md) | 监工模型、三条铁律、内核形态、M0-M3 里程碑 |
+| [REFERENCES](docs/REFERENCES.md) | 参考项目登记（怎么拿源码、锁哪个版本）|
 
 ## 当前状态
 
-战略与蓝图阶段已完成,正在沉淀为产品文档。尚未进入工程实现。
+战略与蓝图已完成并沉淀为文档(01-09)。仓库骨架已就位:`apps/desktop/` 已用 git subtree 导入 CodexMonitor 壳,`gateway/` `plugins/` 槽位待落地。下一步 M0:让壳在本机跑起来。
 
 ## 合规
 
