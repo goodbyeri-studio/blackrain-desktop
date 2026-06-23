@@ -10,7 +10,8 @@ button {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, filter 0.15s ease;
+  /* 平面化(对齐 codex):hover/active 不位移、不缩放,只过渡颜色/亮度 */
+  transition: box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
   -webkit-app-region: no-drag;
 }
 
@@ -49,18 +50,16 @@ button:disabled {
 }
 
 button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.2);
+  filter: brightness(1.08);
 }
 
 button:active:not(:disabled) {
-  transform: scale(var(--ds-active-scale));
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  filter: brightness(0.94);
   transition-duration: 50ms;
 }
 
 .icon-button:active:not(:disabled) {
-  transform: scale(var(--ds-active-scale-sm));
+  filter: brightness(0.92);
 }
 
 .primary:active:not(:disabled) {

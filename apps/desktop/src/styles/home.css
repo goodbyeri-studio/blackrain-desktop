@@ -649,7 +649,6 @@
 
 .home-usage-refresh:hover {
   color: var(--text-stronger);
-  transform: translateY(-1px);
 }
 
 .home-usage-refresh.is-loading {
@@ -814,7 +813,6 @@
 .home-usage-chart-button:hover {
   background: var(--surface-card-strong);
   border-color: var(--border-strong);
-  transform: translateY(-1px);
 }
 
 .home-usage-chart-button:disabled {
@@ -1045,11 +1043,10 @@
   width: 100%;
   color: inherit;
   font: inherit;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: box-shadow 120ms ease;
 }
 
 .home-latest-card-button:hover {
-  transform: translateY(-1px);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
 }
 
