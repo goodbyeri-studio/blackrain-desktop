@@ -26,6 +26,7 @@
           "y": 24
         },
         "transparent": true,
+        "visible": false,
         "devtools": true
       }
     ],
