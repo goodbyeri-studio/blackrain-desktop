@@ -32,6 +32,7 @@ type MessagesProps = {
   isLoadingMessages?: boolean;
   processingStartedAt?: number | null;
   lastDurationMs?: number | null;
+  lastTurnTokens?: number | null;
   showPollingFetchStatus?: boolean;
   pollingIntervalMs?: number;
   workspacePath?: string | null;
@@ -58,6 +59,7 @@ export const Messages = memo(function Messages({
   isLoadingMessages = false,
   processingStartedAt = null,
   lastDurationMs = null,
+  lastTurnTokens = null,
   showPollingFetchStatus = false,
   pollingIntervalMs = 12000,
   workspacePath = null,
@@ -298,6 +300,7 @@ export const Messages = memo(function Messages({
           isThinking={isThinking}
           processingStartedAt={processingStartedAt}
           lastDurationMs={lastDurationMs}
+          lastTurnTokens={lastTurnTokens}
           hasItems={items.length > 0}
           reasoningLabel={latestReasoningLabel}
           showPollingFetchStatus={showPollingFetchStatus}

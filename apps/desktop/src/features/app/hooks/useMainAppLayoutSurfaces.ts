@@ -463,6 +463,7 @@ function buildPrimarySurface({
       lastDurationMs: activeThreadId
         ? threadStatusById[activeThreadId]?.lastDurationMs ?? null
         : null,
+      lastTurnTokens: activeTokenUsage?.last.totalTokens ?? null,
       showPollingFetchStatus: showMobilePollingFetchStatus,
       pollingIntervalMs: REMOTE_THREAD_POLL_INTERVAL_MS,
     },

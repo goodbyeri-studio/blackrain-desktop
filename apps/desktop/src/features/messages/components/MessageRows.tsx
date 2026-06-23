@@ -35,6 +35,7 @@ import {
   type StatusTone,
   type ToolSummary,
 } from "../utils/messageRenderUtils";
+import { formatCompactNumber } from "../../home/homeFormatters";
 import { Markdown } from "./Markdown";
 import { isStandaloneMarkdownTable } from "./Markdown";
 
@@ -54,6 +55,8 @@ type WorkingIndicatorProps = {
   reasoningLabel?: string | null;
   showPollingFetchStatus?: boolean;
   pollingIntervalMs?: number;
+  // 本轮 token 用量(非整个会话累计):工作中实时显示、结束后并入耗时总结。
+  lastTurnTokens?: number | null;
 };
 
 type MessageRowProps = MarkdownFileLinkProps & {
@@ -310,6 +313,7 @@ export const WorkingIndicator = memo(function WorkingIndicator({
   reasoningLabel = null,
   showPollingFetchStatus = false,
   pollingIntervalMs = 12000,
+  lastTurnTokens = null,
 }: WorkingIndicatorProps) {
   const { tx } = useI18n();
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -364,9 +368,14 @@ export const WorkingIndicator = memo(function WorkingIndicator({
               ? tx("New message will be fetched in {seconds} seconds", {
                   seconds: pollCountdownSeconds,
                 })
-              : tx("Done in {duration}", {
-                  duration: formatDurationMs(lastDurationMs),
-                })}
+              : lastTurnTokens != null && lastTurnTokens > 0
+                ? tx("Done in {duration} · {tokens} tokens", {
+                    duration: formatDurationMs(lastDurationMs),
+                    tokens: formatCompactNumber(lastTurnTokens),
+                  })
+                : tx("Done in {duration}", {
+                    duration: formatDurationMs(lastDurationMs),
+                  })}
           </span>
           <span className="turn-complete-line" aria-hidden />
         </div>
