@@ -23,8 +23,11 @@ type TabletLayoutProps = {
   debugPanelNode: ReactNode;
 };
 
+// 注:tablet 已移除 codex/git/log 竖轨(TabletNav)及 git/log 全屏视图,
+// 工作区固定为聊天视图。git/log 后端能力保留,相关节点(tabletNavNode/
+// gitDiffPanelNode/gitDiffViewerNode/debugPanelNode/tabletTab)仍由 AppLayout
+// 传入但暂不消费,待接入新的前端入口后再使用。
 export function TabletLayout({
-  tabletNavNode,
   approvalToastsNode,
   updateToastNode,
   errorToastsNode,
@@ -32,21 +35,16 @@ export function TabletLayout({
   showHome,
   showWorkspace,
   sidebarNode,
-  tabletTab,
   onSidebarResizeStart,
   topbarLeftNode,
   topbarActionsNode,
   messagesNode,
   composerNode,
-  gitDiffPanelNode,
-  gitDiffViewerNode,
-  debugPanelNode,
 }: TabletLayoutProps) {
   const { tx } = useI18n();
 
   return (
     <>
-      {tabletNavNode}
       <div className="tablet-projects">{sidebarNode}</div>
       <div
         className="projects-resizer"
@@ -67,18 +65,9 @@ export function TabletLayout({
               actionsNode={topbarActionsNode}
               className="tablet-topbar"
             />
-            {tabletTab === "codex" && (
-              <div className="content tablet-content">
-                <ChatPane messagesNode={messagesNode} composerNode={composerNode} />
-              </div>
-            )}
-            {tabletTab === "git" && (
-              <div className="tablet-git">
-                {gitDiffPanelNode}
-                <div className="tablet-git-viewer">{gitDiffViewerNode}</div>
-              </div>
-            )}
-            {tabletTab === "log" && debugPanelNode}
+            <div className="content tablet-content">
+              <ChatPane messagesNode={messagesNode} composerNode={composerNode} />
+            </div>
           </>
         )}
       </section>
