@@ -123,18 +123,6 @@ export function SidebarHeader({
       <div className="sidebar-header-title">
         <div className="sidebar-title-group">
           <button
-            className="sidebar-title-add ds-tooltip-trigger"
-            onClick={onAddWorkspace}
-            data-tauri-drag-region="false"
-            aria-label={tx("Add workspaces")}
-            data-tooltip={tx("Add workspaces")}
-            data-tooltip-align="start"
-            data-tooltip-placement="bottom"
-            type="button"
-          >
-            <FolderPlus aria-hidden />
-          </button>
-          <button
             className="subtitle subtitle-button sidebar-title-button"
             onClick={onSelectHome}
             data-tauri-drag-region="false"
@@ -145,6 +133,18 @@ export function SidebarHeader({
         </div>
       </div>
       <div className="sidebar-header-actions">
+        <button
+          className="sidebar-title-add ds-tooltip-trigger"
+          onClick={onAddWorkspace}
+          data-tauri-drag-region="false"
+          aria-label={tx("Add workspaces")}
+          data-tooltip={tx("Add workspaces")}
+          data-tooltip-align="end"
+          data-tooltip-placement="bottom"
+          type="button"
+        >
+          <FolderPlus aria-hidden />
+        </button>
         <div className="sidebar-sort-menu" ref={sortMenuRef}>
           <MenuTrigger
             isOpen={sortMenuOpen}

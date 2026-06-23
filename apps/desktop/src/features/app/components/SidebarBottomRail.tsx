@@ -10,6 +10,9 @@ import {
 } from "../../design-system/components/popover/PopoverPrimitives";
 import { useMenuController } from "../hooks/useMenuController";
 
+// 注:codex 风格底部已移除用量面板(用量/会话/进度条),仅保留扁平设置行。
+// 用量相关 props(sessionPercent/weeklyPercent/…)仍由 Sidebar 透传但不再消费,
+// 用量数据另在 Home / 托盘等入口展示。
 type SidebarBottomRailProps = {
   sessionPercent: number | null;
   weeklyPercent: number | null;
@@ -30,36 +33,7 @@ type SidebarBottomRailProps = {
   onCancelSwitchAccount: () => void;
 };
 
-type UsageRowProps = {
-  label: string;
-  percent: number | null;
-  resetLabel: string | null;
-};
-
-function UsageRow({ label, percent, resetLabel }: UsageRowProps) {
-  return (
-    <div className="sidebar-usage-row">
-      <div className="sidebar-usage-row-head">
-        <span className="sidebar-usage-name">{label}</span>
-        <span className="sidebar-usage-value">
-          {percent === null ? "--" : `${percent}%`}
-        </span>
-      </div>
-      <div className="sidebar-usage-bar" aria-hidden>
-        <span className="sidebar-usage-bar-fill" style={{ width: `${percent ?? 0}%` }} />
-      </div>
-      {resetLabel && <div className="sidebar-usage-reset">{resetLabel}</div>}
-    </div>
-  );
-}
-
 export function SidebarBottomRail({
-  sessionPercent,
-  weeklyPercent,
-  sessionResetLabel,
-  weeklyResetLabel,
-  creditsLabel,
-  showWeekly,
   onOpenSettings,
   onOpenDebug,
   showDebugButton,
@@ -89,26 +63,6 @@ export function SidebarBottomRail({
 
   return (
     <div className="sidebar-bottom-rail">
-      <div className="sidebar-usage-panel">
-        <div className="sidebar-usage-header">
-          <div className="sidebar-usage-kicker">{tx("Usage")}</div>
-          {creditsLabel && <div className="sidebar-usage-credits">{creditsLabel}</div>}
-        </div>
-        <div className="sidebar-usage-list">
-          <UsageRow
-            label={tx("Session")}
-            percent={sessionPercent}
-            resetLabel={sessionResetLabel}
-          />
-          {showWeekly && (
-            <UsageRow
-              label={tx("Weekly")}
-              percent={weeklyPercent}
-              resetLabel={weeklyResetLabel}
-            />
-          )}
-        </div>
-      </div>
       <div
         className={`sidebar-bottom-actions${showAccountSwitcher ? "" : " is-compact"}`}
       >
@@ -173,7 +127,7 @@ export function SidebarBottomRail({
               aria-label={tx("Open settings")}
             >
               <span className="sidebar-labeled-button-icon" aria-hidden>
-                <Settings size={14} aria-hidden />
+                <Settings size={16} aria-hidden />
               </span>
               <span>{tx("Settings")}</span>
             </button>
