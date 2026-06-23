@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
-import type { AppSettings, ComposerEditorSettings, WorkspaceInfo } from "@/types";
+import type { AppSettings, ComposerEditorSettings, ConversationItem, WorkspaceInfo } from "@/types";
+import type { UseMessageEditResult } from "@/features/messages/hooks/useMessageEdit";
 import type { ThreadState } from "@/features/threads/hooks/useThreadsReducer";
 import type { WorkspaceLaunchScriptsState } from "@app/hooks/useWorkspaceLaunchScripts";
 import { REMOTE_THREAD_POLL_INTERVAL_MS } from "@app/hooks/useRemoteThreadRefreshOnFocus";
@@ -225,6 +226,7 @@ type UseMainAppLayoutSurfacesArgs = {
   dismissErrorToast: LayoutNodesOptions["primary"]["errorToastsProps"]["onDismiss"];
   showDebugButton: boolean;
   handleDebugClick: () => void;
+  messageEditState?: UseMessageEditResult;
 };
 
 type MainAppLayoutSurfacesContext = UseMainAppLayoutSurfacesArgs & {
@@ -374,6 +376,7 @@ function buildPrimarySurface({
   dismissErrorToast,
   showDebugButton,
   handleDebugClick,
+  messageEditState,
 }: MainAppLayoutSurfacesContext): LayoutNodesOptions["primary"] {
   return {
     sidebarProps: {
@@ -466,6 +469,16 @@ function buildPrimarySurface({
       lastTurnTokens: activeTokenUsage?.last.totalTokens ?? null,
       showPollingFetchStatus: showMobilePollingFetchStatus,
       pollingIntervalMs: REMOTE_THREAD_POLL_INTERVAL_MS,
+      editingItemId: messageEditState?.editingItemId,
+      editText: messageEditState?.editText,
+      isConfirmingEdit: messageEditState?.isConfirming,
+      isRegeneratingEdit: messageEditState?.isRegenerating,
+      onStartEdit: messageEditState?.startEdit ? (item: Extract<ConversationItem, { kind: "message" }>) => messageEditState.startEdit(item.id, item.text, item.images) : undefined,
+      onCancelEdit: messageEditState?.cancelEdit,
+      onUpdateEditText: messageEditState?.updateEditText,
+      onRequestRegenerate: messageEditState?.requestRegenerate,
+      onCancelConfirm: messageEditState?.cancelConfirm,
+      onExecuteRegenerate: messageEditState?.executeRegenerate,
     },
     composerProps: composerWorkspaceState.showComposer
       ? {
@@ -1099,6 +1112,7 @@ export function useMainAppLayoutSurfaces({
   dismissErrorToast,
   showDebugButton,
   handleDebugClick,
+  messageEditState,
 }: UseMainAppLayoutSurfacesArgs): LayoutNodesOptions {
   const sidebarRateLimits = activeWorkspace ? activeRateLimits : homeRateLimits;
   const sidebarAccount = activeWorkspace ? activeAccount : homeAccount;
@@ -1261,6 +1275,7 @@ export function useMainAppLayoutSurfaces({
     dismissErrorToast,
     showDebugButton,
     handleDebugClick,
+    messageEditState,
     sidebarRateLimits,
     sidebarAccount,
   };
