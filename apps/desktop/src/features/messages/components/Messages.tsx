@@ -129,9 +129,7 @@ export const Messages = memo(function Messages({
   const {
     bottomRef,
     containerRef,
-    updateAutoScroll,
     requestAutoScroll,
-    handleUserScrollIntent,
     expandedItems,
     toggleExpanded,
     collapsedToolGroups,
@@ -272,9 +270,6 @@ export const Messages = memo(function Messages({
     <div
       className="messages messages-full"
       ref={containerRef}
-      onScroll={updateAutoScroll}
-      onWheel={(e) => handleUserScrollIntent(e.deltaY)}
-      onTouchMove={() => handleUserScrollIntent(-1)}
     >
       <div className="messages-inner">
         {groupedItems.map((entry) => {

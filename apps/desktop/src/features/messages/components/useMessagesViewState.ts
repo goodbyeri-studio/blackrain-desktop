@@ -15,10 +15,9 @@ import {
   scrollKeyForItems,
 } from "../utils/messageRenderUtils";
 
-// 「贴底」判定阈值(px)。极小值=只有几乎到底才算想跟随。
-// 故意不复用 SCROLL_THRESHOLD_PX(120,用于其它宽松判定):上滑停跟随需要
-// 严格的贴底判定,否则富内容大幅跳动时会反复把用户的停跟随意图覆盖掉。
-const BOTTOM_STICK_PX = 8;
+// 底部「跟随区」高度(px)。底部哨兵距底这么近时仍算「在底部」→ 自动跟随。
+// 由 IntersectionObserver 的 rootMargin 使用。比硬贴底宽松,符合「靠近底部就跟随」。
+const BOTTOM_FOLLOW_PX = 120;
 
 function toMarkdownQuote(text: string): string {
   const trimmed = text.trim();
@@ -55,13 +54,8 @@ export function useMessagesViewState({
 }: UseMessagesViewStateArgs) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // 是否自动跟随到底。由底部哨兵的 IntersectionObserver 维护(见下方 effect)。
   const autoScrollRef = useRef(true);
-  // 标记「程序触发的滚动」:程序滚到底也会触发 scroll 事件,需忽略它,
-  // 否则会被误判为用户滚动而污染 autoScrollRef(流式逐字渲染时尤甚)。
-  const isProgrammaticScrollRef = useRef(false);
-  // 记录上一次 isThinking,用于检测「新一轮对话开始」(false→true 上升沿),
-  // 那是唯一重新启用自动跟随的时机。
-  const prevIsThinkingRef = useRef(isThinking);
   const copyTimeoutRef = useRef<number | null>(null);
   const manuallyToggledExpandedRef = useRef<Set<string>>(new Set());
 
@@ -75,84 +69,61 @@ export function useMessagesViewState({
 
   const scrollKey = `${scrollKeyForItems(items)}-${activeUserInputRequestId ?? "no-input"}`;
 
-  // ★阈值不对称:恢复跟随用极小阈值(8px=几乎贴底),不用 120px 宽阈值。
-  // 原因:富内容流式时 scrollHeight 大幅跳动,若用 120px,用户上滑后 onScroll
-  // 仍判定「近底」→ 把 wheel 设的 false 意图覆盖回 true → 下个 delta 猛拽 = 抽搐。
-  // 改成「只有真正贴底(8px内)才算想跟随」,上滑一旦离底就稳定停住,不被覆盖。
-  const isAtBottom = useCallback(
-    (node: HTMLDivElement) =>
-      node.scrollHeight - node.scrollTop - node.clientHeight <= BOTTOM_STICK_PX,
-    [],
-  );
-
-  const updateAutoScroll = useCallback(() => {
-    if (!containerRef.current) {
-      return;
-    }
-    // 程序触发的滚动不算用户意图,忽略。
-    if (isProgrammaticScrollRef.current) {
-      return;
-    }
-    // ★彻底解耦:用户手动滚动一旦离开底部就停跟随,且【永不自动恢复】。
-    // 只设 false、绝不设 true —— 没有任何「位置→设true」的路径,从根上消除
-    // 「AI 吐字拽回底部 vs 用户上滑」的竞态。恢复跟随只发生在新一轮对话开始。
-    if (!isAtBottom(containerRef.current)) {
-      autoScrollRef.current = false;
-    }
-  }, [isAtBottom]);
-
-  // 用户主动上滑意图(wheel/touch),最即时的停跟随信号。
-  // 不再有「向下恢复跟随」分支 —— 彻底解耦,滚动位置由用户完全掌控,
-  // 直到下一轮对话开始才重新跟随。
-  const handleUserScrollIntent = useCallback((deltaY: number) => {
-    if (deltaY < 0) {
-      autoScrollRef.current = false;
-    }
-  }, []);
-
-  // 程序滚到底:置守卫 → 滚 → 下一帧复位守卫(只吞掉这次程序滚动产生的
-  // scroll 事件,不影响用户后续滚动;窗口仅 1 帧,适配高频流式 delta)。
   const scrollToBottom = useCallback(() => {
     const container = containerRef.current;
-    isProgrammaticScrollRef.current = true;
     if (container) {
       container.scrollTop = container.scrollHeight;
     } else {
       bottomRef.current?.scrollIntoView({ block: "end" });
     }
-    requestAnimationFrame(() => {
-      isProgrammaticScrollRef.current = false;
-    });
   }, []);
 
   const requestAutoScroll = useCallback(() => {
-    // 只在用户意图为「跟随」时滚动;去掉旧的 `|| isNearBottom` 兜底——
-    // 那个兜底会在用户上滑后仍从位置反推强行拽底,造成抢视角。
     if (!autoScrollRef.current) {
       return;
     }
     scrollToBottom();
   }, [scrollToBottom]);
 
-  useLayoutEffect(() => {
-    // 切换线程:重置为跟随。
-    autoScrollRef.current = true;
-  }, [threadId]);
-
-  useLayoutEffect(() => {
-    // ★恢复跟随的唯一时机:新一轮对话开始(isThinking false→true 上升沿)。
-    // 这样发新消息时能自动看到回复;一旦用户上滑,本轮内永不再被拽回。
-    if (isThinking && !prevIsThinkingRef.current) {
-      autoScrollRef.current = true;
+  // ★用 IntersectionObserver 监视底部哨兵决定「是否跟随」(业界成熟方案)。
+  // 哨兵距底 BOTTOM_FOLLOW_PX 以内可见 = 在底部 = 跟随;滚出 = 用户上滑 = 停。
+  // 跟随状态由浏览器算的交叉状态决定,完全不读 scroll 事件、不猜阈值,无竞态:
+  //   - 跟随时程序滚到底 → 哨兵一直在视口 → 持续跟随
+  //   - 用户上滑 → 哨兵滚出 → 立刻停跟随,浏览器与我们都不再动它 = 稳定
+  //   - 用户滚回靠近底部 → 哨兵重入视口 → 自动恢复跟随
+  useEffect(() => {
+    const container = containerRef.current;
+    const sentinel = bottomRef.current;
+    if (!container || !sentinel) {
+      return;
     }
-    prevIsThinkingRef.current = isThinking;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        autoScrollRef.current = entries[0]?.isIntersecting ?? false;
+      },
+      {
+        root: container,
+        rootMargin: `0px 0px ${BOTTOM_FOLLOW_PX}px 0px`,
+        threshold: 0,
+      },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
 
-    // 内容更新时(含流式逐字)只在「跟随」意图为真时滚到底。
+  useLayoutEffect(() => {
+    // 切换线程:重置为跟随并滚到底(observer 随后按实际位置校正)。
+    autoScrollRef.current = true;
+    scrollToBottom();
+  }, [threadId, scrollToBottom]);
+
+  useLayoutEffect(() => {
+    // 内容更新时(含流式逐字),只在「跟随」意图为真时滚到底。
     if (!autoScrollRef.current) {
       return;
     }
     scrollToBottom();
-  }, [scrollKey, isThinking, threadId, scrollToBottom]);
+  }, [scrollKey, isThinking, scrollToBottom]);
 
   useEffect(() => {
     return () => {
@@ -333,9 +304,7 @@ export function useMessagesViewState({
   return {
     bottomRef,
     containerRef,
-    updateAutoScroll,
     requestAutoScroll,
-    handleUserScrollIntent,
     expandedItems,
     toggleExpanded,
     collapsedToolGroups,
