@@ -8,6 +8,8 @@ import type {
   DictationModelStatus,
   DictationSessionState,
   LocalUsageSnapshot,
+  OfficeCommandResult,
+  OfficeRuntimeInfo,
   TcpDaemonStatus,
   TailscaleDaemonCommandPreview,
   TailscaleStatus,
@@ -929,6 +931,98 @@ export async function readWorkspaceFile(
   return invoke<{ content: string; truncated: boolean }>("read_workspace_file", {
     workspaceId,
     path,
+  });
+}
+
+export async function getOfficeRuntimeInfo(): Promise<OfficeRuntimeInfo> {
+  return invoke<OfficeRuntimeInfo>("office_runtime_info");
+}
+
+export async function runOfficeCommand(
+  command: string,
+  args: string[] = [],
+  workspaceId?: string | null,
+): Promise<OfficeCommandResult> {
+  return invoke<OfficeCommandResult>("office_run_command", {
+    command,
+    args,
+    workspaceId: workspaceId ?? null,
+  });
+}
+
+export async function createOfficeDocument(
+  filePath: string,
+  workspaceId?: string | null,
+): Promise<OfficeCommandResult> {
+  return invoke<OfficeCommandResult>("office_create_document", {
+    filePath,
+    workspaceId: workspaceId ?? null,
+  });
+}
+
+export async function validateOfficeDocument(
+  filePath: string,
+  workspaceId?: string | null,
+  jsonOutput = true,
+): Promise<OfficeCommandResult> {
+  return invoke<OfficeCommandResult>("office_validate_document", {
+    filePath,
+    workspaceId: workspaceId ?? null,
+    jsonOutput,
+  });
+}
+
+export async function viewOfficeDocument(
+  filePath: string,
+  mode: string,
+  options?: {
+    workspaceId?: string | null;
+    jsonOutput?: boolean;
+    render?: string | null;
+    browser?: boolean;
+    outPath?: string | null;
+  },
+): Promise<OfficeCommandResult> {
+  return invoke<OfficeCommandResult>("office_view_document", {
+    filePath,
+    mode,
+    workspaceId: options?.workspaceId ?? null,
+    jsonOutput: options?.jsonOutput ?? null,
+    render: options?.render ?? null,
+    browser: options?.browser ?? null,
+    outPath: options?.outPath ?? null,
+  });
+}
+
+export async function getOfficeDocumentIssues(
+  filePath: string,
+  options?: {
+    workspaceId?: string | null;
+    jsonOutput?: boolean;
+    issueType?: string | null;
+    limit?: number | null;
+  },
+): Promise<OfficeCommandResult> {
+  return invoke<OfficeCommandResult>("office_document_issues", {
+    filePath,
+    workspaceId: options?.workspaceId ?? null,
+    jsonOutput: options?.jsonOutput ?? null,
+    issueType: options?.issueType ?? null,
+    limit: options?.limit ?? null,
+  });
+}
+
+export async function mergeOfficeTemplate(
+  templatePath: string,
+  outputPath: string,
+  dataJson: string,
+  workspaceId?: string | null,
+): Promise<OfficeCommandResult> {
+  return invoke<OfficeCommandResult>("office_merge_template", {
+    templatePath,
+    outputPath,
+    dataJson,
+    workspaceId: workspaceId ?? null,
   });
 }
 

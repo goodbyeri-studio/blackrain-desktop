@@ -17,6 +17,15 @@
     ]
   },
   "bundle": {
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "resources": {
+      "resources/office-cli/windows-x64": "office-cli/windows-x64",
+      "resources/office-cli/LICENSE-OfficeCLI.txt": "office-cli/LICENSE-OfficeCLI.txt",
+      "resources/office-cli/README.md": "office-cli/README.md",
+      "resources/office-cli/SHA256SUMS": "office-cli/SHA256SUMS",
+      "resources/office-cli/VENDOR.json": "office-cli/VENDOR.json",
+      "../../../plugins/office-cli": "plugins/office-cli",
+      "../../../workbenches/office-agent": "workbenches/office-agent"
+    }
   }
 }

@@ -22,6 +22,8 @@ use crate::shared::process_core::{build_cmd_c_command, resolve_windows_executabl
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
+const ENV_OFFICECLI_DIR: &str = "BLACKRAIN_OFFICECLI_DIR";
+
 fn extract_thread_id(value: &Value) -> Option<String> {
     fn extract_from_container(container: Option<&Value>) -> Option<String> {
         let container = container?;
@@ -560,7 +562,10 @@ impl WorkspaceSession {
     }
 }
 
-pub(crate) fn build_codex_path_env(codex_bin: Option<&str>) -> Option<String> {
+pub(crate) fn build_codex_path_env(
+    codex_bin: Option<&str>,
+    officecli_dir: Option<&Path>,
+) -> Option<String> {
     let mut paths: Vec<PathBuf> = env::var_os("PATH")
         .map(|value| env::split_paths(&value).collect())
         .unwrap_or_default();
@@ -628,6 +633,17 @@ pub(crate) fn build_codex_path_env(codex_bin: Option<&str>) -> Option<String> {
         }
     }
 
+    if let Some(officecli_dir) = officecli_dir {
+        extras.push(officecli_dir.to_path_buf());
+    }
+
+    if let Ok(office_dir) = env::var(ENV_OFFICECLI_DIR) {
+        let office_dir = office_dir.trim();
+        if !office_dir.is_empty() {
+            extras.push(PathBuf::from(office_dir));
+        }
+    }
+
     for extra in extras {
         if !paths.iter().any(|path| path == &extra) {
             paths.push(extra);
@@ -647,13 +663,14 @@ pub(crate) fn build_codex_command_with_bin(
     codex_bin: Option<String>,
     codex_args: Option<&str>,
     args: Vec<String>,
+    officecli_dir: Option<&Path>,
 ) -> Result<Command, String> {
     let bin = codex_bin
         .clone()
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| "codex".into());
 
-    let path_env = build_codex_path_env(codex_bin.as_deref());
+    let path_env = build_codex_path_env(codex_bin.as_deref(), officecli_dir);
     let mut command_args = parse_codex_args(codex_args)?;
     command_args.extend(args);
 
@@ -700,7 +717,8 @@ pub(crate) fn build_codex_command_with_bin(
 pub(crate) async fn check_codex_installation(
     codex_bin: Option<String>,
 ) -> Result<Option<String>, String> {
-    let mut command = build_codex_command_with_bin(codex_bin, None, vec!["--version".to_string()])?;
+    let mut command =
+        build_codex_command_with_bin(codex_bin, None, vec!["--version".to_string()], None)?;
     command.stdout(std::process::Stdio::piped());
     command.stderr(std::process::Stdio::piped());
 
@@ -751,6 +769,7 @@ pub(crate) async fn spawn_workspace_session<E: EventSink>(
     default_codex_bin: Option<String>,
     codex_args: Option<String>,
     codex_home: Option<PathBuf>,
+    officecli_dir: Option<PathBuf>,
     client_version: String,
     event_sink: E,
 ) -> Result<Arc<WorkspaceSession>, String> {
@@ -761,6 +780,7 @@ pub(crate) async fn spawn_workspace_session<E: EventSink>(
         codex_bin,
         codex_args.as_deref(),
         vec!["app-server".to_string()],
+        officecli_dir.as_deref(),
     )?;
     command.current_dir(&entry.path);
     if let Some(path) = codex_home.as_ref() {

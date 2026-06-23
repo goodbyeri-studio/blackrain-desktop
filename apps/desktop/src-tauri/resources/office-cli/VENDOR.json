@@ -1,0 +1,25 @@
+{
+  "name": "OfficeCLI",
+  "upstream": "https://github.com/iOfficeAI/OfficeCLI",
+  "license": "Apache-2.0",
+  "vendorStrategy": "bundle-release-binaries",
+  "notes": [
+    "This project vendors release binaries instead of mirroring the full upstream source tree.",
+    "Keep the app-specific wrapper, skills, and workbench content in this repository.",
+    "Add per-platform binaries under platform-specific subdirectories."
+  ],
+  "platforms": {
+    "windows-x64": {
+      "path": "windows-x64/officecli.exe",
+      "status": "bundled"
+    },
+    "macos-arm64": {
+      "path": "macos-arm64/officecli",
+      "status": "bundled"
+    },
+    "macos-x64": {
+      "path": "macos-x64/officecli",
+      "status": "bundled"
+    }
+  }
+}

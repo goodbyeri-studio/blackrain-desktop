@@ -38,6 +38,17 @@ pub(crate) async fn spawn_workspace_session(
     app_handle: AppHandle,
     codex_home: Option<PathBuf>,
 ) -> Result<Arc<WorkspaceSession>, String> {
+    let office_runtime = crate::office::configure_runtime_environment(&app_handle)
+        .await
+        .ok();
+    crate::office::sync_builtin_assets_to_codex_home(&app_handle, codex_home.as_deref())?;
+    let officecli_dir = office_runtime
+        .as_ref()
+        .and_then(|runtime| runtime.bin_path.as_ref())
+        .and_then(|bin_path| {
+            let bin_path = std::path::Path::new(bin_path);
+            bin_path.parent().map(|path| path.to_path_buf())
+        });
     let client_version = app_handle.package_info().version.to_string();
     let event_sink = TauriEventSink::new(app_handle);
     spawn_workspace_session_inner(
@@ -45,6 +56,7 @@ pub(crate) async fn spawn_workspace_session(
         default_codex_bin,
         codex_args,
         codex_home,
+        officecli_dir,
         client_version,
         event_sink,
     )
