@@ -57,9 +57,9 @@ export function Home({
   return (
     <div className="home">
       <div className="home-hero">
-        <div className="home-title">{tx("Codex Monitor")}</div>
+        <div className="home-title">{tx("BlackRain2049")}</div>
         <div className="home-subtitle">
-          {tx("Orchestrate agents across your local projects.")}
+          {tx("The next-gen Agents platform — start your Vibe working.")}
         </div>
       </div>
       <HomeLatestAgentsSection

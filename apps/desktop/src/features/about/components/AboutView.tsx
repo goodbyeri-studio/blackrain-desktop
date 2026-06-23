@@ -72,9 +72,9 @@ function AboutViewContent() {
           <img
             className="about-icon"
             src="/app-icon.png"
-            alt={tx("Codex Monitor icon")}
+            alt={tx("BlackRain2049 icon")}
           />
-          <div className="about-title">{tx("Codex Monitor")}</div>
+          <div className="about-title">{tx("BlackRain2049")}</div>
         </div>
         <div className="about-version">
           {version ? tx("Version {version}", { version }) : tx("Version —")}
