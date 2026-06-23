@@ -44,9 +44,14 @@ foreach ($asset in $assets) {
   Invoke-WebRequest -Uri $url -OutFile $targetPath -TimeoutSec 600
 }
 
-$shaUrl = "$releaseBase/SHA256SUMS"
 $shaTarget = Join-Path $baseDir "SHA256SUMS"
-Invoke-WebRequest -Uri $shaUrl -OutFile $shaTarget -TimeoutSec 120
+$shaLines = foreach ($asset in $assets) {
+  $targetPath = Join-Path $baseDir $asset.target
+  $hash = (Get-FileHash -Algorithm SHA256 -Path $targetPath).Hash.ToLowerInvariant()
+  $normalizedTarget = $asset.target -replace '\\', '/'
+  "$hash  $normalizedTarget"
+}
+$shaLines | Set-Content -Path $shaTarget -Encoding ascii
 
 $licenseUrl = "https://raw.githubusercontent.com/$repo/main/LICENSE"
 $licenseTarget = Join-Path $baseDir "LICENSE-OfficeCLI.txt"

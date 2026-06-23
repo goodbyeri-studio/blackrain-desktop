@@ -20,6 +20,7 @@ Current repository state:
 - `macos-arm64/officecli` is vendored into the repo.
 - `macos-x64/officecli` is vendored into the repo.
 - Linux is intentionally out of scope for this bundled Office runtime.
+- OfficeCLI executable files are tracked with Git LFS. Run `git lfs pull` before packaging if checkout did not fetch LFS objects.
 
 At runtime the app:
 

@@ -12,7 +12,6 @@ use crate::shared::process_core::tokio_command;
 use crate::state::AppState;
 
 const ENV_OFFICECLI_BIN: &str = "BLACKRAIN_OFFICECLI_BIN";
-const ENV_OFFICECLI_DIR: &str = "BLACKRAIN_OFFICECLI_DIR";
 const ENV_OFFICECLI_SOURCE: &str = "BLACKRAIN_OFFICECLI_SOURCE";
 const OFFICE_RUNTIME_DIR: &str = "tools/officecli";
 const RESOURCE_OFFICE_DIR: &str = "office-cli";
@@ -43,10 +42,12 @@ pub(crate) struct OfficeCommandResult {
     pub(crate) bin_path: String,
 }
 
-fn workspace_dir_for_id(state: &AppState, workspace_id: &str) -> Option<String> {
+async fn workspace_dir_for_id(state: &AppState, workspace_id: Option<&str>) -> Option<String> {
+    let workspace_id = workspace_id?;
     state
         .workspaces
-        .blocking_lock()
+        .lock()
+        .await
         .get(workspace_id)
         .map(|entry| entry.path.clone())
 }
@@ -392,15 +393,7 @@ async fn resolve_office_runtime(app: &AppHandle) -> Result<OfficeRuntimeInfo, St
 }
 
 pub(crate) async fn configure_runtime_environment(app: &AppHandle) -> Result<OfficeRuntimeInfo, String> {
-    let runtime = resolve_office_runtime(app).await?;
-    if let Some(bin_path) = runtime.bin_path.as_deref() {
-        env::set_var(ENV_OFFICECLI_BIN, bin_path);
-        if let Some(parent) = Path::new(bin_path).parent() {
-            env::set_var(ENV_OFFICECLI_DIR, parent);
-        }
-        env::set_var(ENV_OFFICECLI_SOURCE, runtime.source.as_str());
-    }
-    Ok(runtime)
+    resolve_office_runtime(app).await
 }
 
 fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
@@ -491,9 +484,7 @@ pub(crate) async fn office_run_command(
     }
     command_args.push(trimmed_command.to_string());
     command_args.extend(args);
-    let workspace_dir = workspace_id
-        .as_deref()
-        .and_then(|id| workspace_dir_for_id(&state, id));
+    let workspace_dir = workspace_dir_for_id(&state, workspace_id.as_deref()).await;
     run_officecli(&bin_path, command_args, workspace_dir).await
 }
 
@@ -509,9 +500,7 @@ pub(crate) async fn office_create_document(
         .bin_path
         .ok_or_else(|| runtime.message.clone())?;
     let args = vec!["create".to_string(), file_path];
-    let workspace_dir = workspace_id
-        .as_deref()
-        .and_then(|id| workspace_dir_for_id(&state, id));
+    let workspace_dir = workspace_dir_for_id(&state, workspace_id.as_deref()).await;
     run_officecli(&bin_path, args, workspace_dir).await
 }
 
@@ -531,9 +520,7 @@ pub(crate) async fn office_validate_document(
     if json_output.unwrap_or(true) {
         args.push("--json".to_string());
     }
-    let workspace_dir = workspace_id
-        .as_deref()
-        .and_then(|id| workspace_dir_for_id(&state, id));
+    let workspace_dir = workspace_dir_for_id(&state, workspace_id.as_deref()).await;
     run_officecli(&bin_path, args, workspace_dir).await
 }
 
@@ -576,9 +563,7 @@ pub(crate) async fn office_view_document(
             args.push(out_path);
         }
     }
-    let workspace_dir = workspace_id
-        .as_deref()
-        .and_then(|id| workspace_dir_for_id(&state, id));
+    let workspace_dir = workspace_dir_for_id(&state, workspace_id.as_deref()).await;
     run_officecli(&bin_path, args, workspace_dir).await
 }
 
@@ -610,9 +595,7 @@ pub(crate) async fn office_document_issues(
         args.push("--limit".to_string());
         args.push(limit.to_string());
     }
-    let workspace_dir = workspace_id
-        .as_deref()
-        .and_then(|id| workspace_dir_for_id(&state, id));
+    let workspace_dir = workspace_dir_for_id(&state, workspace_id.as_deref()).await;
     run_officecli(&bin_path, args, workspace_dir).await
 }
 
@@ -635,8 +618,6 @@ pub(crate) async fn office_merge_template(
         output_path,
         data_json,
     ];
-    let workspace_dir = workspace_id
-        .as_deref()
-        .and_then(|id| workspace_dir_for_id(&state, id));
+    let workspace_dir = workspace_dir_for_id(&state, workspace_id.as_deref()).await;
     run_officecli(&bin_path, args, workspace_dir).await
 }

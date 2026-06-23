@@ -1,4 +1,5 @@
-This directory vendors OfficeCLI release binaries directly into the BlackRain source tree.
+This directory vendors OfficeCLI release binaries into the BlackRain package resources.
+Executable binaries are tracked through Git LFS.
 
 Recommended layout examples:
 

@@ -1,11 +1,4 @@
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  rmSync,
-  statSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,20 +20,5 @@ if (!existsSync(sourceDir)) {
 
 mkdirSync(dirname(targetDir), { recursive: true });
 rmSync(targetDir, { recursive: true, force: true });
-
-function copyDirRecursive(source, target) {
-  mkdirSync(target, { recursive: true });
-  for (const entry of readdirSync(source)) {
-    const sourcePath = join(source, entry);
-    const targetPath = join(target, entry);
-    const stat = statSync(sourcePath);
-    if (stat.isDirectory()) {
-      copyDirRecursive(sourcePath, targetPath);
-      continue;
-    }
-    copyFileSync(sourcePath, targetPath);
-  }
-}
-
-copyDirRecursive(sourceDir, targetDir);
+cpSync(sourceDir, targetDir, { recursive: true });
 console.log("[sync:material-icons] synced icons to", targetDir);

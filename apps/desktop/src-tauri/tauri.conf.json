@@ -44,11 +44,11 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
-    "resources": [
-      "resources/office-cli",
-      "resources/plugins/office-cli",
-      "resources/workbenches/office-agent"
-    ],
+    "resources": {
+      "resources/office-cli": "office-cli",
+      "../../../plugins/office-cli": "plugins/office-cli",
+      "../../../workbenches/office-agent": "workbenches/office-agent"
+    },
     "iOS": {
       "frameworks": [
         "libz.tbd",

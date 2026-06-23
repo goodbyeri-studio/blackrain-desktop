@@ -1,8 +1,0 @@
-{
-  "name": "office-cli",
-  "version": "0.1.0",
-  "description": "Built-in Office document runtime for BlackRain2049. Wraps the bundled OfficeCLI binary for Word, Excel, and PowerPoint workflows.",
-  "skills": [
-    "skills/office-cli/SKILL.md"
-  ]
-}

@@ -18,7 +18,7 @@ BlackRain2049 桌面端已经完成 OfficeCLI 内置封装。用户安装 Window
 - Codex 子进程启动时注入 OfficeCLI 路径，Agent 会话可直接使用内置能力。
 - 内置 `office-cli` skill 和 `office-agent` workbench，并随安装包一起交付。
 - 前端 TypeScript 服务层增加 Office runtime 和 Office 命令调用封装。
-- Windows 本地打包配置已调整为不要求 updater 私钥，便于本机和交付机直接构建安装包。
+- Windows 本地打包配置保留 updater artifact 生成能力；本机交付构建仍需按现有发布流程提供签名配置。
 
 不在本次范围：
 
@@ -36,10 +36,9 @@ BlackRain2049 桌面端已经完成 OfficeCLI 内置封装。用户安装 Window
 - 前端服务封装：`apps/desktop/src/services/tauri.ts`
 - 前端类型定义：`apps/desktop/src/types.ts`
 - OfficeCLI 资源：`apps/desktop/src-tauri/resources/office-cli/`
+- OfficeCLI 二进制：通过 Git LFS 跟踪，打包前需确保已执行 `git lfs pull`
 - 内置插件资源：`plugins/office-cli/`
-- 打包用插件资源副本：`apps/desktop/src-tauri/resources/plugins/office-cli/`
 - Office Agent 工作台：`workbenches/office-agent/`
-- 打包用工作台资源副本：`apps/desktop/src-tauri/resources/workbenches/office-agent/`
 - Vendor 脚本：`scripts/vendor-officecli.ps1`
 
 ## 安装包产物
@@ -97,11 +96,8 @@ Windows 安装后的 `office-cli` 目录只包含 `windows-x64/officecli.exe`，
 1. 优先读取 `BLACKRAIN_OFFICECLI_BIN` 指定的 OfficeCLI。
 2. 若没有环境变量，则检查应用数据目录中已复制的 runtime。
 3. 若仍不存在，则从安装包资源中查找当前平台 OfficeCLI。
-4. 找到后写入运行时环境变量：
-   - `BLACKRAIN_OFFICECLI_BIN`
-   - `BLACKRAIN_OFFICECLI_DIR`
-   - `BLACKRAIN_OFFICECLI_SOURCE`
-5. Codex 子进程启动时会把 `BLACKRAIN_OFFICECLI_DIR` 加入 PATH。
+4. Codex 子进程启动时显式把 OfficeCLI 运行目录加入该子进程的 PATH。
+5. `BLACKRAIN_OFFICECLI_BIN` 仍可作为开发/调试覆盖项指定外部 OfficeCLI。
 6. 内置 Office skill/workbench 会同步到应用托管的 Codex 环境中。
 
 已暴露 Tauri 命令：
@@ -194,7 +190,7 @@ npm run tauri:build:win
 
 - `npm run tauri:build:win` 已成功生成 MSI 和 NSIS 安装包。
 - 构建过程中存在现有代码 warning 和 Vite chunk size warning，不影响本次 OfficeCLI 交付。
-- Windows 构建配置关闭了 updater artifact 签名要求，因此不需要 `TAURI_SIGNING_PRIVATE_KEY` 也能生成本地交付安装包。
+- Windows 构建配置保留 updater artifact 生成能力；若执行正式 release 构建，仍需提供现有发布签名配置。
 
 ## 重打包步骤
 

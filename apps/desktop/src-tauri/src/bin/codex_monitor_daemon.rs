@@ -109,6 +109,7 @@ fn spawn_with_client(
         default_bin,
         codex_args,
         codex_home,
+        None,
         client_version,
         event_sink,
     )
