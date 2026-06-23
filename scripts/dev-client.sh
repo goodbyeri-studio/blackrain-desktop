@@ -36,13 +36,14 @@ export PATH="$KERNEL_DIR:$PATH"
 echo "✓ codex 内核：$(command -v codex)"
 
 # ── 3. 准备开发用 CODEX_HOME（带 DeepSeek provider 配置，指向网关）──
+# 模型可在启动时指定：DEV_MODEL=deepseek-v4-pro ./scripts/dev-client.sh
+# 默认 deepseek-v4-flash（高性价比主力，1M 上下文）；攻坚改 deepseek-v4-pro（1.6T 旗舰，1M）。
+# 注：旧名 deepseek-chat / deepseek-reasoner 将于 2026-07-24 弃用。
+DEV_MODEL="${DEV_MODEL:-deepseek-v4-flash}"
 DEV_HOME="$REPO/.scratch/dev-codex-home"
 mkdir -p "$DEV_HOME"
-cat > "$DEV_HOME/config.toml" <<'TOML'
-# 默认 deepseek-v4-flash（高性价比主力，1M 上下文）。
-# 攻坚/关键任务可改 deepseek-v4-pro（1.6T 旗舰，1M 上下文）。
-# 注：旧名 deepseek-chat / deepseek-reasoner 将于 2026-07-24 弃用。
-model = "deepseek-v4-flash"
+cat > "$DEV_HOME/config.toml" <<TOML
+model = "${DEV_MODEL}"
 model_provider = "deepseek"
 
 [model_providers.deepseek]
@@ -52,7 +53,7 @@ env_key = "DEEPSEEK_API_KEY"
 wire_api = "responses"
 TOML
 export CODEX_HOME="${DEV_HOME}"
-echo "✓ CODEX_HOME: ${DEV_HOME} (DeepSeek via gateway)"
+echo "✓ CODEX_HOME: ${DEV_HOME} (模型: ${DEV_MODEL})"
 
 # ── 4. 起翻译网关（后台），退出时自动清理 ──
 GW_PORT="${GW_PORT:-8899}"
