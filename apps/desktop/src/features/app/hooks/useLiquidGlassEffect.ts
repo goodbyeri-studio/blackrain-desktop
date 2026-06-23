@@ -12,6 +12,22 @@ type Params = {
   onDebug?: (entry: DebugEntry) => void;
 };
 
+// 窗口启动时 visible:false(见 tauri.conf.json),待毛玻璃应用完成 + 首帧绘制后
+// 再 show,消除「启动透桌面」与「黑闪」两个中间态。整个进程只 show 一次。
+let didShowWindow = false;
+
+async function showWindowOnce() {
+  if (didShowWindow) {
+    return;
+  }
+  didShowWindow = true;
+  try {
+    await getCurrentWindow().show();
+  } catch {
+    // 非 Tauri 环境(测试/Storybook)无窗口,忽略
+  }
+}
+
 export function useLiquidGlassEffect({ reduceTransparency, onDebug }: Params) {
   const supportedRef = useRef<boolean | null>(null);
 
@@ -83,7 +99,14 @@ export function useLiquidGlassEffect({ reduceTransparency, onDebug }: Params) {
       }
     };
 
-    void apply();
+    void apply().finally(() => {
+      if (!cancelled) {
+        // 等下一帧确保 webview 已绘制成品毛玻璃态再显示窗口
+        requestAnimationFrame(() => {
+          void showWindowOnce();
+        });
+      }
+    });
 
     return () => {
       cancelled = true;

@@ -94,6 +94,67 @@
   }
 }
 
+/* codex 式顶部动作区:新对话 / 搜索(平面行,hover 变色无微动) */
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.sidebar-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar-action:hover {
+  background: var(--surface-hover);
+}
+
+.sidebar-action.is-active {
+  background: var(--surface-hover);
+}
+
+/* 占位项(插件/模型广场/智能体市场):暂无后端,略暗、hover 轻提示 */
+.sidebar-action.is-placeholder {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.sidebar-action.is-placeholder .sidebar-action-icon {
+  color: var(--text-faint);
+}
+
+.sidebar-action.is-placeholder:hover {
+  background: var(--surface-hover);
+  opacity: 0.9;
+}
+
+.sidebar-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.sidebar-action-label {
+  min-width: 0;
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -731,34 +792,28 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
-  padding: 10px 12px;
-  border-radius: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
   border: none;
   background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.15s ease;
   -webkit-app-region: no-drag;
   overflow-x: hidden;
   position: relative;
   isolation: isolate;
 }
 
+/* codex 扁平行:无卡片底/边框,hover/active 只整行轻染色 */
 .workspace-row::before {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 16px;
-  background: var(--cm-surface-panel-strong);
-  border: 1px solid var(--cm-border-default);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.02),
-    inset 0 0 0 0 rgba(255, 255, 255, 0);
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+  border-radius: 8px;
+  background: transparent;
+  transition: background 0.15s ease;
   z-index: -1;
 }
 
@@ -771,20 +826,31 @@
 }
 
 .workspace-row:hover::before {
-  background: color-mix(in srgb, var(--cm-surface-panel-hover) 78%, white);
-  border-color: var(--cm-border-default);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 0 0 1px color-mix(in srgb, var(--cm-border-default) 42%, transparent);
+  background: var(--surface-hover);
 }
 
 .workspace-row.active::before {
-  background: var(--cm-surface-panel-active);
-  border-color: var(--cm-border-accent-strong);
+  background: var(--surface-hover);
 }
 
 .workspace-row.active .workspace-name {
   color: var(--text-strong);
+}
+
+/* 项目文件夹图标(codex 扁平行特征) */
+.workspace-folder-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+/* codex 扁平行不显摘要(8 conversations · Updated …) */
+.workspace-summary {
+  display: none;
 }
 
 .workspace-copy {
@@ -800,6 +866,14 @@
   gap: 8px;
   flex-shrink: 0;
   padding-top: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.workspace-row:hover .workspace-actions,
+.workspace-row.active .workspace-actions,
+.workspace-actions:focus-within {
+  opacity: 1;
 }
 
 .workspace-name {
@@ -881,7 +955,7 @@
 
 .workspace-title {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
   min-width: 0;
 }

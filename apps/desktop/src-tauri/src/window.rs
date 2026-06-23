@@ -41,6 +41,32 @@ fn apply_macos_window_appearance(window: &Window, theme: &str) -> Result<(), Str
     Ok(())
 }
 
+/// 让 NSWindow 非不透明 + 背景透明色,消除焦点切换重绘时露出的黑底。
+/// macOS 透明窗 + NSVisualEffectView(毛玻璃)的标准修法:窗口本身不能是
+/// 不透明黑底,否则失焦/重新聚焦的重绘瞬间会闪黑。
+#[cfg(target_os = "macos")]
+fn apply_macos_window_clear_background(window: &Window) -> Result<(), String> {
+    use objc2_app_kit::{NSColor, NSWindow};
+
+    let ns_window = window.ns_window().map_err(|error| error.to_string())?;
+    let ns_window: &NSWindow = unsafe { &*ns_window.cast() };
+
+    ns_window.setOpaque(false);
+    let clear = unsafe { NSColor::clearColor() };
+    ns_window.setBackgroundColor(Some(&clear));
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn clear_macos_window_background(window: &Window) -> Result<(), String> {
+    let window_handle = window.clone();
+    window
+        .run_on_main_thread(move || {
+            let _ = apply_macos_window_clear_background(&window_handle);
+        })
+        .map_err(|error| error.to_string())
+}
+
 pub(crate) fn apply_window_appearance(window: &Window, theme: &str) -> Result<(), String> {
     #[cfg(test)]
     if let Some(handler) = WINDOW_APPEARANCE_OVERRIDE

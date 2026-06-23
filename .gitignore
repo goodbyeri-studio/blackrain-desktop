@@ -14,3 +14,7 @@ dist/
 
 # 本地验证用的隔离环境（不入库）
 .scratch/
+
+# Python
+__pycache__/
+*.pyc

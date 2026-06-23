@@ -1,4 +1,5 @@
 import type { MouseEvent } from "react";
+import Folder from "lucide-react/dist/esm/icons/folder";
 import { useI18n } from "@/i18n";
 
 import type { WorkspaceInfo } from "../../../types";
@@ -60,6 +61,9 @@ export function WorkspaceCard({
         <div className="workspace-copy">
           <div className="workspace-name-row">
             <div className="workspace-title">
+              <span className="workspace-folder-icon" aria-hidden>
+                <Folder size={15} strokeWidth={1.7} />
+              </span>
               <span className="workspace-name">{workspaceName ?? workspace.name}</span>
               <button
                 className={`workspace-toggle ${isCollapsed ? "" : "expanded"}`}

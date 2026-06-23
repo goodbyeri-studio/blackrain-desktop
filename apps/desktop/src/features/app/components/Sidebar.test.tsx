@@ -70,25 +70,20 @@ const baseProps = {
 };
 
 describe("Sidebar", () => {
-  it("toggles the search bar from the header icon", () => {
-    render(<Sidebar {...baseProps} />);
+  it("renders the search bar when opened and accepts a query", () => {
+    // 搜索 UI 入口已移除,功能保留休眠;经 initialSearchOpen 驱动验证过滤栏。
+    render(<Sidebar {...baseProps} initialSearchOpen />);
 
-    const toggleButton = screen.getByRole("button", { name: "Toggle search" });
-    expect(screen.queryByLabelText("Search conversations")).toBeNull();
-
-    fireEvent.click(toggleButton);
     const input = screen.getByLabelText("Search conversations") as HTMLInputElement;
     expect(input).toBeTruthy();
 
     fireEvent.change(input, { target: { value: "alpha" } });
     expect(input.value).toBe("alpha");
+  });
 
-    fireEvent.click(toggleButton);
+  it("hides the search bar when not opened", () => {
+    render(<Sidebar {...baseProps} />);
     expect(screen.queryByLabelText("Search conversations")).toBeNull();
-
-    fireEvent.click(toggleButton);
-    const reopened = screen.getByLabelText("Search conversations") as HTMLInputElement;
-    expect(reopened.value).toBe("");
   });
 
   it("opens thread sort menu from the header filter button", () => {
@@ -281,10 +276,10 @@ describe("Sidebar", () => {
           "ws-1": [{ id: "thread-1", name: "Fix workspace restore", updatedAt: 1000 }],
           "ws-2": [{ id: "thread-2", name: "Unrelated thread", updatedAt: 900 }],
         }}
+        initialSearchOpen
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Toggle search" }));
     fireEvent.change(screen.getByLabelText("Search conversations"), {
       target: { value: "restore" },
     });
@@ -333,10 +328,10 @@ describe("Sidebar", () => {
             { id: "thread-4", name: "Delta thread", updatedAt: 700 },
           ],
         }}
+        initialSearchOpen
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Toggle search" }));
     fireEvent.change(screen.getByLabelText("Search conversations"), {
       target: { value: "delta" },
     });
@@ -381,10 +376,10 @@ describe("Sidebar", () => {
           "ws-1": [{ id: "thread-1", name: "Current page thread", updatedAt: 1000 }],
         }}
         threadListCursorByWorkspace={{ "ws-1": "cursor-1" }}
+        initialSearchOpen
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Toggle search" }));
     fireEvent.change(screen.getByLabelText("Search conversations"), {
       target: { value: "historical" },
     });
@@ -438,10 +433,10 @@ describe("Sidebar", () => {
             { id: "thread-worktree", name: "Feature thread routing fix", updatedAt: 1000 },
           ],
         }}
+        initialSearchOpen
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Toggle search" }));
     fireEvent.change(screen.getByLabelText("Search conversations"), {
       target: { value: "routing fix" },
     });
@@ -507,10 +502,10 @@ describe("Sidebar", () => {
             { id: "thread-clone", name: "Investigate clone search bug", updatedAt: 1000 },
           ],
         }}
+        initialSearchOpen
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Toggle search" }));
     fireEvent.change(screen.getByLabelText("Search conversations"), {
       target: { value: "clone search bug" },
     });

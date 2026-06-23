@@ -10,7 +10,8 @@ button {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, filter 0.15s ease;
+  /* 平面化(对齐 codex):hover/active 不位移、不缩放,只过渡颜色/亮度 */
+  transition: box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
   -webkit-app-region: no-drag;
 }
 
@@ -48,23 +49,23 @@ button:disabled {
   height: 16px;
 }
 
+/* 平面反馈用 inset box-shadow 染色(合成安全):不提升图层、不重算毛玻璃、
+   不改尺寸,避免在透明窗 + vibrancy 上用 filter 触发的整片结构抖动。 */
 button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.07);
 }
 
 button:active:not(:disabled) {
-  transform: scale(var(--ds-active-scale));
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.1);
   transition-duration: 50ms;
 }
 
 .icon-button:active:not(:disabled) {
-  transform: scale(var(--ds-active-scale-sm));
+  box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.12);
 }
 
 .primary:active:not(:disabled) {
-  filter: brightness(0.92);
+  box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.12);
 }
 
 .ghost:active:not(:disabled) {

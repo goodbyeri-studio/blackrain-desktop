@@ -18,6 +18,429 @@
   overflow-x: hidden;
 }
 
+/* ============================================================
+   codex 首页 1:1 复刻:空画布 + 居中「我们该做什么?」+ prompt 卡片
+   ============================================================ */
+.home.home-codex {
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 24px 32px;
+  overflow: hidden;
+}
+
+/* 覆盖 .home > * 的 720px 拉伸,首页内容自行控宽 */
+.app.layout-desktop .home.home-codex > * {
+  width: 100%;
+  margin-inline: 0;
+}
+
+.home-codex-inner {
+  width: min(100%, 720px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 26px;
+  /* 视觉重心略高于几何中心,贴合 codex */
+  transform: translateY(-8%);
+}
+
+.home-codex-greeting {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-stronger);
+  text-align: center;
+}
+
+/* —— prompt 卡片:输入 + meta 行 + 进入项目工作行,同一张圆角卡 —— */
+.home-prompt-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid var(--cm-border-default);
+  background: var(--cm-surface-panel-elevated);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.home-prompt-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 12px;
+}
+
+.home-prompt-input-row {
+  display: flex;
+}
+
+.home-prompt-textarea {
+  width: 100%;
+  min-height: 24px;
+  max-height: 220px;
+  resize: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 2px 2px 0;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-app-region: no-drag;
+}
+
+.home-prompt-textarea:focus {
+  outline: none;
+}
+
+.home-prompt-textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.home-prompt-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-prompt-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+/* 「+」附件键:裸图标,无边框(codex 风格) */
+.home-prompt-attach {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.home-prompt-attach:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.home-prompt-attach:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+/* 触发药丸(完全访问 / 模型 / 进入项目工作):无边框文字+chevron */
+.home-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.home-pill:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.home-pill .home-pill-chevron {
+  width: 13px;
+  height: 13px;
+  opacity: 0.75;
+}
+
+.home-pill-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-pill-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 完全访问 = 橙色警示态 */
+.home-pill.is-access-full {
+  color: var(--status-warning, #e08a3c);
+}
+
+.home-pill.is-access-full:hover {
+  background: color-mix(in srgb, var(--status-warning, #e08a3c) 14%, transparent);
+  color: var(--status-warning, #e08a3c);
+}
+
+/* context 环(复用 composer 视觉) */
+.home-context-ring {
+  --context-free: 100;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background:
+    radial-gradient(circle, var(--surface-context-core) 54%, transparent 56%),
+    conic-gradient(
+      from 180deg,
+      hsl(calc(120deg * var(--context-free) / 100), 80%, 55%)
+        calc(var(--context-free) * 1%),
+      var(--border-strong) 0
+    );
+}
+
+/* 模型药丸文字 */
+.home-model-label {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+/* 发送键:浅灰实心圆 + 深色上箭头 */
+.home-prompt-send {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: none;
+  background: var(--cm-surface-panel-solid, rgba(255, 255, 255, 0.16));
+  color: var(--text-stronger);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 120ms ease, opacity 120ms ease;
+}
+
+.home-prompt-send svg {
+  width: 16px;
+  height: 16px;
+}
+
+.home-prompt-send:hover:not(:disabled) {
+  background: var(--text-faint);
+}
+
+.home-prompt-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* —— 卡内「进入项目工作」行(顶部分隔线) —— */
+.home-project-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-top: 1px solid var(--cm-border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.home-project-trigger {
+  font-size: 13px;
+}
+
+.home-project-trigger .home-pill-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* —— 富菜单容器(锚定定位) —— */
+.home-menu-anchor {
+  position: relative;
+}
+
+.home-menu-popover {
+  position: absolute;
+  z-index: 60;
+  min-width: 240px;
+  padding: 6px;
+}
+
+/* 完全访问菜单:上方弹出,左对齐 */
+.home-menu-popover--access {
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 320px;
+}
+
+/* 模型菜单:上方弹出,右对齐 */
+.home-menu-popover--model {
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+}
+
+/* 进入项目工作菜单:下方弹出,左对齐 */
+.home-menu-popover--project {
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 256px;
+}
+
+/* 富菜单:带标题+描述的项 */
+.home-menu-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px 8px;
+}
+
+.home-menu-title {
+  font-size: 13px;
+  color: var(--text-stronger);
+  font-weight: 500;
+}
+
+.home-menu-learn {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.home-menu-rich-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.home-menu-rich-item:hover {
+  background: var(--surface-hover);
+}
+
+.home-menu-rich-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-menu-rich-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.home-menu-rich-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.home-menu-rich-label {
+  font-size: 13px;
+  color: var(--text-stronger);
+}
+
+.home-menu-rich-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.home-menu-rich-check {
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--text-stronger);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+
+/* 项目菜单:搜索框 + 列表 */
+.home-menu-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+}
+
+.home-menu-search-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.home-menu-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 13px;
+  outline: none;
+  min-width: 0;
+}
+
+.home-menu-search input::placeholder {
+  color: var(--text-faint);
+}
+
+.home-menu-empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.home-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--cm-border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+/* 子菜单(添加新项目 → 右侧展开) */
+.home-submenu-anchor {
+  position: relative;
+}
+
+.home-submenu-popover {
+  position: absolute;
+  left: calc(100% + 4px);
+  top: -6px;
+  z-index: 70;
+  min-width: 200px;
+  padding: 6px;
+}
+
 .app.layout-desktop .home {
   height: 100%;
 }
@@ -226,7 +649,6 @@
 
 .home-usage-refresh:hover {
   color: var(--text-stronger);
-  transform: translateY(-1px);
 }
 
 .home-usage-refresh.is-loading {
@@ -391,7 +813,6 @@
 .home-usage-chart-button:hover {
   background: var(--surface-card-strong);
   border-color: var(--border-strong);
-  transform: translateY(-1px);
 }
 
 .home-usage-chart-button:disabled {
@@ -622,11 +1043,10 @@
   width: 100%;
   color: inherit;
   font: inherit;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: box-shadow 120ms ease;
 }
 
 .home-latest-card-button:hover {
-  transform: translateY(-1px);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
 }
 
