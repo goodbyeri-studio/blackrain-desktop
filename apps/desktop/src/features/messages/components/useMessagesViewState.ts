@@ -52,6 +52,9 @@ export function useMessagesViewState({
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autoScrollRef = useRef(true);
+  // 标记「程序触发的滚动」:程序滚到底也会触发 scroll 事件,需忽略它,
+  // 否则会被误判为用户滚动而污染 autoScrollRef(流式逐字渲染时尤甚)。
+  const isProgrammaticScrollRef = useRef(false);
   const copyTimeoutRef = useRef<number | null>(null);
   const manuallyToggledExpandedRef = useRef<Set<string>>(new Set());
 
@@ -75,40 +78,50 @@ export function useMessagesViewState({
     if (!containerRef.current) {
       return;
     }
+    // 程序触发的滚动不算用户意图,忽略,避免污染 autoScrollRef。
+    if (isProgrammaticScrollRef.current) {
+      return;
+    }
     autoScrollRef.current = isNearBottom(containerRef.current);
   }, [isNearBottom]);
 
-  const requestAutoScroll = useCallback(() => {
+  // 程序滚到底:置守卫 → 滚 → 下一帧复位守卫(只吞掉这次程序滚动产生的
+  // scroll 事件,不影响用户后续滚动;窗口仅 1 帧,适配高频流式 delta)。
+  const scrollToBottom = useCallback(() => {
     const container = containerRef.current;
-    const shouldScroll =
-      autoScrollRef.current || (container ? isNearBottom(container) : true);
-    if (!shouldScroll) {
-      return;
-    }
+    isProgrammaticScrollRef.current = true;
     if (container) {
       container.scrollTop = container.scrollHeight;
+    } else {
+      bottomRef.current?.scrollIntoView({ block: "end" });
+    }
+    requestAnimationFrame(() => {
+      isProgrammaticScrollRef.current = false;
+    });
+  }, []);
+
+  const requestAutoScroll = useCallback(() => {
+    // 只在用户意图为「跟随」时滚动;去掉旧的 `|| isNearBottom` 兜底——
+    // 那个兜底会在用户上滑后仍从位置反推强行拽底,造成抢视角。
+    if (!autoScrollRef.current) {
       return;
     }
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [isNearBottom]);
+    scrollToBottom();
+  }, [scrollToBottom]);
 
   useLayoutEffect(() => {
     autoScrollRef.current = true;
   }, [threadId]);
 
   useLayoutEffect(() => {
-    const container = containerRef.current;
-    const shouldScroll =
-      autoScrollRef.current || (container ? isNearBottom(container) : true);
-    if (!shouldScroll) {
+    // 内容更新时(含流式逐字)只在用户意图为「跟随」时滚到底。
+    // 去掉旧的 `|| isNearBottom` 兜底,改用带程序滚动守卫的 scrollToBottom,
+    // 根除流式渲染时「上滑被反复拽回底部」的抢视角问题。
+    if (!autoScrollRef.current) {
       return;
     }
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-      return;
-    }
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [scrollKey, isThinking, isNearBottom, threadId]);
+    scrollToBottom();
+  }, [scrollKey, isThinking, threadId, scrollToBottom]);
 
   useEffect(() => {
     return () => {
