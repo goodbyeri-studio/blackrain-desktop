@@ -50,10 +50,10 @@ wire_api = "responses"
 
 - 全栈端到端：壳协议 ↔ 内核 ↔ 网关 ↔ DeepSeek
 - 单工具单轮往返；**多轮工具调用 + 工具历史配对**（`tool_calls` ↔ `tool_call_id`，正是 LiteLLM 会崩的点）——实测真建出文件、`turn/completed` 干净收尾
+- **真流式翻译**：DeepSeek `stream=true` 边收边译。`reasoning_content` → `response.reasoning_text.delta`（思考过程实时展开）、`content` → `output_text.delta`（逐字输出）、`tool_calls` 分片按 index 累积。实测 v4-pro 一轮收到 44 个 reasoning delta + 39 个 text delta，零 panic；流式下工具调用建文件正常
 
 **❌ 未验证 / 待补**：
 
-- 真 streaming（当前 buffer 完整响应再合成 SSE，非增量翻译）
 - 并行多工具、3+ 轮深循环
 - `namespace` 工具（如 `multi_agent_v1`，当前被丢弃）
 - reasoning 内容、错误鲁棒性
