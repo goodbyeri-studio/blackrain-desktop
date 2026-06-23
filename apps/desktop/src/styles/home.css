@@ -36,8 +36,38 @@
 
 .home-title {
   font-size: 44px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  /* 致敬 Blade Runner 2049:单行、霓虹辉光。BlackRain 品红 + 2049 黄绿数字感 */
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.14em;
+  white-space: nowrap;
+}
+
+/* 主体:品红→洋红渐变 + 多层霓虹外发光(仿海报 neon) */
+.home-title-brand {
+  background: linear-gradient(180deg, #ff6ec7 0%, #ff2d9b 55%, #d6177e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    0 0 6px rgba(255, 45, 155, 0.55),
+    0 0 18px rgba(255, 45, 155, 0.4),
+    0 0 38px rgba(255, 45, 155, 0.25);
+}
+
+/* 2049:黄绿色 + 等宽数字质感(呼应海报里那个绿色数字),略小、辉光更收敛 */
+.home-title-year {
+  font-family: var(--code-font-family, ui-monospace, monospace);
+  font-weight: 700;
+  font-size: 0.82em;
+  letter-spacing: 0.08em;
+  color: #c8f560;
+  text-shadow:
+    0 0 6px rgba(200, 245, 96, 0.55),
+    0 0 16px rgba(200, 245, 96, 0.35);
 }
 
 .home-subtitle {

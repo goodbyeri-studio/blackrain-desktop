@@ -57,7 +57,10 @@ export function Home({
   return (
     <div className="home">
       <div className="home-hero">
-        <div className="home-title">{tx("BlackRain2049")}</div>
+        <div className="home-title">
+          <span className="home-title-brand">BlackRain</span>
+          <span className="home-title-year">2049</span>
+        </div>
         <div className="home-subtitle">
           {tx("The next-gen Agents platform — start your Vibe working.")}
         </div>
