@@ -59,6 +59,9 @@ export function useMessagesViewState({
   // 标记「程序触发的滚动」:程序滚到底也会触发 scroll 事件,需忽略它,
   // 否则会被误判为用户滚动而污染 autoScrollRef(流式逐字渲染时尤甚)。
   const isProgrammaticScrollRef = useRef(false);
+  // 记录上一次 isThinking,用于检测「新一轮对话开始」(false→true 上升沿),
+  // 那是唯一重新启用自动跟随的时机。
+  const prevIsThinkingRef = useRef(isThinking);
   const copyTimeoutRef = useRef<number | null>(null);
   const manuallyToggledExpandedRef = useRef<Set<string>>(new Set());
 
@@ -86,25 +89,26 @@ export function useMessagesViewState({
     if (!containerRef.current) {
       return;
     }
-    // 程序触发的滚动不算用户意图,忽略,避免污染 autoScrollRef。
+    // 程序触发的滚动不算用户意图,忽略。
     if (isProgrammaticScrollRef.current) {
       return;
     }
-    autoScrollRef.current = isAtBottom(containerRef.current);
-  }, [isAtBottom]);
-
-  // 用户主动滚动意图(wheel/touch)。这是赢得竞态的关键:wheel/touch 只由
-  // 真实用户输入触发(程序滚动绝不产生),所以能同步、可靠地捕捉「用户上滑」,
-  // 而不像 onScroll 那样异步节流、会在高频流式 delta 下被程序滚动事件淹没。
-  const handleUserScrollIntent = useCallback((deltaY: number) => {
-    if (deltaY < 0) {
-      // 向上滚 → 立即停止跟随
+    // ★彻底解耦:用户手动滚动一旦离开底部就停跟随,且【永不自动恢复】。
+    // 只设 false、绝不设 true —— 没有任何「位置→设true」的路径,从根上消除
+    // 「AI 吐字拽回底部 vs 用户上滑」的竞态。恢复跟随只发生在新一轮对话开始。
+    if (!isAtBottom(containerRef.current)) {
       autoScrollRef.current = false;
-    } else if (deltaY > 0 && containerRef.current) {
-      // 向下滚到贴底 → 恢复跟随
-      autoScrollRef.current = isAtBottom(containerRef.current);
     }
   }, [isAtBottom]);
+
+  // 用户主动上滑意图(wheel/touch),最即时的停跟随信号。
+  // 不再有「向下恢复跟随」分支 —— 彻底解耦,滚动位置由用户完全掌控,
+  // 直到下一轮对话开始才重新跟随。
+  const handleUserScrollIntent = useCallback((deltaY: number) => {
+    if (deltaY < 0) {
+      autoScrollRef.current = false;
+    }
+  }, []);
 
   // 程序滚到底:置守卫 → 滚 → 下一帧复位守卫(只吞掉这次程序滚动产生的
   // scroll 事件,不影响用户后续滚动;窗口仅 1 帧,适配高频流式 delta)。
@@ -131,13 +135,19 @@ export function useMessagesViewState({
   }, [scrollToBottom]);
 
   useLayoutEffect(() => {
+    // 切换线程:重置为跟随。
     autoScrollRef.current = true;
   }, [threadId]);
 
   useLayoutEffect(() => {
-    // 内容更新时(含流式逐字)只在用户意图为「跟随」时滚到底。
-    // 去掉旧的 `|| isNearBottom` 兜底,改用带程序滚动守卫的 scrollToBottom,
-    // 根除流式渲染时「上滑被反复拽回底部」的抢视角问题。
+    // ★恢复跟随的唯一时机:新一轮对话开始(isThinking false→true 上升沿)。
+    // 这样发新消息时能自动看到回复;一旦用户上滑,本轮内永不再被拽回。
+    if (isThinking && !prevIsThinkingRef.current) {
+      autoScrollRef.current = true;
+    }
+    prevIsThinkingRef.current = isThinking;
+
+    // 内容更新时(含流式逐字)只在「跟随」意图为真时滚到底。
     if (!autoScrollRef.current) {
       return;
     }
