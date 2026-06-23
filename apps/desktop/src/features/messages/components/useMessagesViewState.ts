@@ -9,12 +9,16 @@ import {
 import type { ConversationItem } from "../../../types";
 import { isPlanReadyTaggedMessage } from "../../../utils/internalPlanReadyMessages";
 import {
-  SCROLL_THRESHOLD_PX,
   buildToolGroups,
   computePlanFollowupState,
   parseReasoning,
   scrollKeyForItems,
 } from "../utils/messageRenderUtils";
+
+// 「贴底」判定阈值(px)。极小值=只有几乎到底才算想跟随。
+// 故意不复用 SCROLL_THRESHOLD_PX(120,用于其它宽松判定):上滑停跟随需要
+// 严格的贴底判定,否则富内容大幅跳动时会反复把用户的停跟随意图覆盖掉。
+const BOTTOM_STICK_PX = 8;
 
 function toMarkdownQuote(text: string): string {
   const trimmed = text.trim();
@@ -68,9 +72,13 @@ export function useMessagesViewState({
 
   const scrollKey = `${scrollKeyForItems(items)}-${activeUserInputRequestId ?? "no-input"}`;
 
-  const isNearBottom = useCallback(
+  // ★阈值不对称:恢复跟随用极小阈值(8px=几乎贴底),不用 120px 宽阈值。
+  // 原因:富内容流式时 scrollHeight 大幅跳动,若用 120px,用户上滑后 onScroll
+  // 仍判定「近底」→ 把 wheel 设的 false 意图覆盖回 true → 下个 delta 猛拽 = 抽搐。
+  // 改成「只有真正贴底(8px内)才算想跟随」,上滑一旦离底就稳定停住,不被覆盖。
+  const isAtBottom = useCallback(
     (node: HTMLDivElement) =>
-      node.scrollHeight - node.scrollTop - node.clientHeight <= SCROLL_THRESHOLD_PX,
+      node.scrollHeight - node.scrollTop - node.clientHeight <= BOTTOM_STICK_PX,
     [],
   );
 
@@ -82,8 +90,8 @@ export function useMessagesViewState({
     if (isProgrammaticScrollRef.current) {
       return;
     }
-    autoScrollRef.current = isNearBottom(containerRef.current);
-  }, [isNearBottom]);
+    autoScrollRef.current = isAtBottom(containerRef.current);
+  }, [isAtBottom]);
 
   // 用户主动滚动意图(wheel/touch)。这是赢得竞态的关键:wheel/touch 只由
   // 真实用户输入触发(程序滚动绝不产生),所以能同步、可靠地捕捉「用户上滑」,
@@ -93,10 +101,10 @@ export function useMessagesViewState({
       // 向上滚 → 立即停止跟随
       autoScrollRef.current = false;
     } else if (deltaY > 0 && containerRef.current) {
-      // 向下滚到底 → 恢复跟随
-      autoScrollRef.current = isNearBottom(containerRef.current);
+      // 向下滚到贴底 → 恢复跟随
+      autoScrollRef.current = isAtBottom(containerRef.current);
     }
-  }, [isNearBottom]);
+  }, [isAtBottom]);
 
   // 程序滚到底:置守卫 → 滚 → 下一帧复位守卫(只吞掉这次程序滚动产生的
   // scroll 事件,不影响用户后续滚动;窗口仅 1 帧,适配高频流式 delta)。
