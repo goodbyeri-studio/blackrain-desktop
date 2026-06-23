@@ -22,6 +22,8 @@ use crate::shared::process_core::{build_cmd_c_command, resolve_windows_executabl
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
+const ENV_OFFICECLI_DIR: &str = "BLACKRAIN_OFFICECLI_DIR";
+
 fn extract_thread_id(value: &Value) -> Option<String> {
     fn extract_from_container(container: Option<&Value>) -> Option<String> {
         let container = container?;
@@ -625,6 +627,13 @@ pub(crate) fn build_codex_path_env(codex_bin: Option<&str>) -> Option<String> {
     if let Some(bin_path) = codex_bin.filter(|value| !value.trim().is_empty()) {
         if let Some(parent) = Path::new(bin_path).parent() {
             extras.push(parent.to_path_buf());
+        }
+    }
+
+    if let Ok(office_dir) = env::var(ENV_OFFICECLI_DIR) {
+        let office_dir = office_dir.trim();
+        if !office_dir.is_empty() {
+            extras.push(PathBuf::from(office_dir));
         }
     }
 

@@ -38,6 +38,8 @@ pub(crate) async fn spawn_workspace_session(
     app_handle: AppHandle,
     codex_home: Option<PathBuf>,
 ) -> Result<Arc<WorkspaceSession>, String> {
+    let _ = crate::office::configure_runtime_environment(&app_handle).await;
+    crate::office::sync_builtin_assets_to_codex_home(&app_handle, codex_home.as_deref())?;
     let client_version = app_handle.package_info().version.to_string();
     let event_sink = TauriEventSink::new(app_handle);
     spawn_workspace_session_inner(

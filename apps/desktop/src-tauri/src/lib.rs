@@ -21,6 +21,7 @@ mod menu;
 #[path = "menu_mobile.rs"]
 mod menu;
 mod notifications;
+mod office;
 mod prompts;
 mod remote_backend;
 mod rules;
@@ -116,6 +117,9 @@ pub fn run() {
         .setup(|app| {
             let state = state::AppState::load(&app.handle());
             app.manage(state);
+            let _ = tauri::async_runtime::block_on(office::configure_runtime_environment(
+                &app.handle(),
+            ));
             #[cfg(target_os = "macos")]
             {
                 let tray_state = app.state::<tray::TrayState>();
@@ -316,6 +320,13 @@ pub fn run() {
             notifications::is_macos_debug_build,
             notifications::app_build_type,
             notifications::send_notification_fallback,
+            office::office_runtime_info,
+            office::office_run_command,
+            office::office_create_document,
+            office::office_validate_document,
+            office::office_view_document,
+            office::office_document_issues,
+            office::office_merge_template,
             tailscale::tailscale_status,
             tailscale::tailscale_daemon_command_preview,
             tailscale::tailscale_daemon_start,
