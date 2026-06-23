@@ -18,6 +18,133 @@
   overflow-x: hidden;
 }
 
+/* ============================================================
+   codex 首页复刻:空画布 + 居中「我们该做什么?」+ prompt 卡片
+   ============================================================ */
+.home.home-codex {
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 24px 32px;
+  overflow: hidden;
+}
+
+/* 覆盖 .home > * 的 720px 拉伸,首页内容自行控宽 */
+.app.layout-desktop .home.home-codex > * {
+  width: 100%;
+  margin-inline: 0;
+}
+
+.home-codex-inner {
+  width: min(100%, 768px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  /* 视觉重心略高于几何中心,贴合 codex */
+  transform: translateY(-6%);
+}
+
+.home-codex-greeting {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-stronger);
+  text-align: center;
+}
+
+.home-prompt-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 14px;
+  border-radius: 22px;
+  border: 1px solid var(--cm-border-heavy);
+  background: var(--cm-surface-panel-elevated);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.home-prompt-input-row {
+  display: flex;
+}
+
+.home-prompt-textarea {
+  width: 100%;
+  min-height: 26px;
+  max-height: 200px;
+  resize: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 4px 4px 2px;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-app-region: no-drag;
+}
+
+.home-prompt-textarea:focus {
+  outline: none;
+}
+
+.home-prompt-textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.home-prompt-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.home-prompt-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.home-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.home-prompt-attach {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.home-codex-footer {
+  display: flex;
+  justify-content: center;
+}
+
+.home-project-picker .composer-icon,
+.home-project-add .composer-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.home-project-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--cm-border-default);
+  background: var(--cm-surface-panel-strong);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.home-project-add:hover {
+  color: var(--text-strong);
+}
+
 .app.layout-desktop .home {
   height: 100%;
 }

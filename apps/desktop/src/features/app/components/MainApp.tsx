@@ -1207,6 +1207,33 @@ export default function MainApp() {
     refresh: refreshAgentMd,
     save: saveAgentMd,
   } = agentMdState;
+
+  // codex 首页:在全局首页输入后选定工作区进入。selectWorkspace 后
+  // setWorkspacePrompt 的闭包才会绑定到新 activeWorkspaceId,故用 ref 暂存草稿,
+  // 待 activeWorkspaceId 切换到目标工作区后由 effect 写入。纯前端状态,零后端改动。
+  const pendingHomeDraftRef = useRef<{ workspaceId: string; draft: string } | null>(
+    null,
+  );
+  const onEnterWorkspaceFromHome = useCallback(
+    (workspaceId: string, draft: string) => {
+      pendingHomeDraftRef.current = draft.trim()
+        ? { workspaceId, draft: draft.trim() }
+        : null;
+      selectWorkspace(workspaceId);
+      if (isCompact) {
+        setActiveTab("codex");
+      }
+    },
+    [selectWorkspace, isCompact, setActiveTab],
+  );
+  useEffect(() => {
+    const pending = pendingHomeDraftRef.current;
+    if (pending && activeWorkspaceId === pending.workspaceId) {
+      setWorkspacePrompt(pending.draft);
+      pendingHomeDraftRef.current = null;
+    }
+  }, [activeWorkspaceId, setWorkspacePrompt]);
+
   const promptActions = useMainAppPromptActions({
     activeWorkspace,
     connectWorkspace,
@@ -1725,6 +1752,7 @@ export default function MainApp() {
     onSelectCodexArgsOverride: handleSelectCodexArgsOverride,
     accessMode,
     onSelectAccessMode: handleSelectAccessMode,
+    onEnterWorkspaceFromHome,
     skills,
     apps,
     prompts,

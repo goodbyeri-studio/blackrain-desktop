@@ -160,6 +160,7 @@ type UseMainAppLayoutSurfacesArgs = {
   onSelectCodexArgsOverride: ComposerProps["onSelectCodexArgsOverride"];
   accessMode: ComposerProps["accessMode"];
   onSelectAccessMode: ComposerProps["onSelectAccessMode"];
+  onEnterWorkspaceFromHome: (workspaceId: string, draft: string) => void;
   skills: ComposerProps["skills"];
   apps: ComposerProps["apps"];
   prompts: ComposerProps["prompts"];
@@ -323,6 +324,7 @@ function buildPrimarySurface({
   onSelectCodexArgsOverride,
   accessMode,
   onSelectAccessMode,
+  onEnterWorkspaceFromHome,
   skills,
   apps,
   prompts,
@@ -595,6 +597,17 @@ function buildPrimarySurface({
       onDismiss: dismissErrorToast,
     },
     homeProps: {
+      workspaces,
+      onEnterWorkspaceFromHome,
+      models,
+      selectedModelId,
+      onSelectModel,
+      accessMode,
+      onSelectAccessMode,
+      reasoningOptions,
+      selectedEffort,
+      onSelectEffort,
+      reasoningSupported,
       onAddWorkspace: handleAddWorkspace,
       onAddWorkspaceFromUrl: openWorkspaceFromUrlPrompt,
       latestAgentRuns,
@@ -1046,6 +1059,7 @@ export function useMainAppLayoutSurfaces({
   onSelectCodexArgsOverride,
   accessMode,
   onSelectAccessMode,
+  onEnterWorkspaceFromHome,
   skills,
   apps,
   prompts,
@@ -1209,6 +1223,7 @@ export function useMainAppLayoutSurfaces({
     onSelectCodexArgsOverride,
     accessMode,
     onSelectAccessMode,
+    onEnterWorkspaceFromHome,
     skills,
     apps,
     prompts,

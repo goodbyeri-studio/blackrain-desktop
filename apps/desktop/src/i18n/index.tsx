@@ -176,6 +176,13 @@ export type TranslateText = (source: string, values?: TranslationValues) => stri
 
 const zhCNTextTranslations: Record<string, string> = {
   "BlackRain2049": "BlackRain2049",
+  "What should we do?": "我们该做什么?",
+  "Type anything": "随心输入",
+  "Enter project work": "进入项目工作",
+  "Add attachment": "添加附件",
+  "Available after you enter a project": "进入项目后可用",
+  Send: "发送",
+  Model: "模型",
   "Made with ♥ by Codex & Dimillian": "由 Codex 与 Dimillian 制作",
   Debug: "调试",
   "No debug events yet.": "暂无调试事件。",
