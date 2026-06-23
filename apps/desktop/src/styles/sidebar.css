@@ -126,6 +126,21 @@
   background: var(--surface-hover);
 }
 
+/* 占位项(插件/模型广场/智能体市场):暂无后端,略暗、hover 轻提示 */
+.sidebar-action.is-placeholder {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.sidebar-action.is-placeholder .sidebar-action-icon {
+  color: var(--text-faint);
+}
+
+.sidebar-action.is-placeholder:hover {
+  background: var(--surface-hover);
+  opacity: 0.9;
+}
+
 .sidebar-action-icon {
   display: inline-flex;
   align-items: center;

@@ -131,6 +131,8 @@ type SidebarProps = {
   showDebugButton: boolean;
   onAddWorkspace: () => void;
   onSelectHome: () => void;
+  /** 搜索功能暂从 UI 移除,机器保留休眠。测试可置 true 驱动过滤逻辑。 */
+  initialSearchOpen?: boolean;
   onSelectWorkspace: (id: string) => void;
   onConnectWorkspace: (workspace: WorkspaceInfo) => void;
   onAddAgent: (workspace: WorkspaceInfo) => void;
@@ -192,6 +194,7 @@ export const Sidebar = memo(function Sidebar({
   showDebugButton,
   onAddWorkspace,
   onSelectHome,
+  initialSearchOpen = false,
   onSelectWorkspace,
   onConnectWorkspace,
   onAddAgent,
@@ -224,7 +227,9 @@ export const Sidebar = memo(function Sidebar({
     new Set<string>(),
   );
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  // 搜索 UI 入口已移除;isSearchOpen 由 prop 派生(默认 false=休眠)。
+  // 搜索栏与过滤逻辑保留,测试可经 initialSearchOpen 驱动。
+  const isSearchOpen = initialSearchOpen;
   const [addMenuAnchor, setAddMenuAnchor] =
     useState<SidebarWorkspaceAddMenuAnchor | null>(null);
   const [allThreadsAddMenuAnchor, setAllThreadsAddMenuAnchor] =
@@ -876,11 +881,7 @@ export const Sidebar = memo(function Sidebar({
       onDrop={onWorkspaceDrop}
     >
       <div className="sidebar-drag-strip" />
-      <SidebarActions
-        onNewConversation={onSelectHome}
-        onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
-        isSearchOpen={isSearchOpen}
-      />
+      <SidebarActions onNewConversation={onSelectHome} />
       <SidebarHeader
         onSelectHome={onSelectHome}
         onAddWorkspace={onAddWorkspace}
