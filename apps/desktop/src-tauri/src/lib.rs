@@ -120,6 +120,12 @@ pub fn run() {
             {
                 let tray_state = app.state::<tray::TrayState>();
                 tray::initialize(&app.handle(), tray_state.inner())?;
+                // 透明窗 + 毛玻璃下,把 NSWindow 设为非不透明 + 背景透明色,
+                // 消除焦点切换重绘时露出的黑底(bug:切换窗口闪黑)。
+                if let Some(main_window) = app.get_webview_window("main") {
+                    let main_ns_window = main_window.as_ref().window();
+                    let _ = window::clear_macos_window_background(&main_ns_window);
+                }
             }
             #[cfg(target_os = "windows")]
             {
@@ -171,7 +177,17 @@ pub fn run() {
         });
 
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+    let builder = builder.plugin(
+        tauri_plugin_window_state::Builder::default()
+            // 不恢复 VISIBLE:否则 window-state 会在 restore 时 show() 覆盖
+            // tauri.conf.json 的 visible:false,导致窗口在毛玻璃就绪前就透明显示。
+            // 仍恢复 SIZE/POSITION 等其它状态。
+            .with_state_flags(
+                tauri_plugin_window_state::StateFlags::all()
+                    & !tauri_plugin_window_state::StateFlags::VISIBLE,
+            )
+            .build(),
+    );
 
     let app = builder
         .plugin(tauri_plugin_liquid_glass::init())
