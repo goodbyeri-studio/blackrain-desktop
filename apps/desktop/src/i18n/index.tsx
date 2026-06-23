@@ -175,7 +175,7 @@ export type Translate = (key: TranslationKey, values?: TranslationValues) => str
 export type TranslateText = (source: string, values?: TranslationValues) => string;
 
 const zhCNTextTranslations: Record<string, string> = {
-  "Codex Monitor": "Codex Monitor",
+  "BlackRain2049": "BlackRain2049",
   "Made with ♥ by Codex & Dimillian": "由 Codex 与 Dimillian 制作",
   Debug: "调试",
   "No debug events yet.": "暂无调试事件。",
@@ -511,7 +511,7 @@ const zhCNAdditionalTextTranslations: Record<string, string> = {
   "Codex args profile": "Codex 参数配置",
   "Codex issue detected": "检测到 Codex 问题",
   "Codex looks good": "Codex 状态正常",
-  "Codex Monitor icon": "Codex Monitor 图标",
+  "BlackRain2049 icon": "BlackRain2049 图标",
   "Codex update failed": "Codex 更新失败",
   "Codex updated": "Codex 已更新",
   "Collaboration mode": "协作模式",
@@ -867,7 +867,7 @@ const zhCNAdditionalTextTranslations: Record<string, string> = {
   "Optional argument hint": "可选参数提示",
   "Optional description": "可选描述",
   "Optional label": "可选标签",
-  "Orchestrate agents across your local projects.": "在本地项目间编排智能体。",
+  "The next-gen Agents platform — start your Vibe working.": "新一代 Agents 平台，开启你的 Vibe working。",
   "Organize and sort threads": "组织并排序线程",
   output: "输出",
   "Package:": "包：",
