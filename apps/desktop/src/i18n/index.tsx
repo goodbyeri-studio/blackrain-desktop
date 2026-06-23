@@ -176,6 +176,8 @@ export type TranslateText = (source: string, values?: TranslationValues) => stri
 
 const zhCNTextTranslations: Record<string, string> = {
   "BlackRain2049": "BlackRain2049",
+  "New conversation": "新对话",
+  "Search": "搜索",
   "What should we do?": "我们该做什么?",
   "Type anything": "随心输入",
   "Enter project work": "进入项目工作",

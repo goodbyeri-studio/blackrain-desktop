@@ -6,7 +6,6 @@ import FolderTree from "lucide-react/dist/esm/icons/folder-tree";
 import ListFilter from "lucide-react/dist/esm/icons/list-filter";
 import ListTree from "lucide-react/dist/esm/icons/list-tree";
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
-import Search from "lucide-react/dist/esm/icons/search";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n";
 import type { ThreadListOrganizeMode, ThreadListSortKey } from "../../../types";
@@ -20,8 +19,6 @@ import { useMenuController } from "../hooks/useMenuController";
 type SidebarHeaderProps = {
   onSelectHome: () => void;
   onAddWorkspace: () => void;
-  onToggleSearch: () => void;
-  isSearchOpen: boolean;
   threadListSortKey: ThreadListSortKey;
   onSetThreadListSortKey: (sortKey: ThreadListSortKey) => void;
   threadListOrganizeMode: ThreadListOrganizeMode;
@@ -34,8 +31,6 @@ type SidebarHeaderProps = {
 export function SidebarHeader({
   onSelectHome,
   onAddWorkspace,
-  onToggleSearch,
-  isSearchOpen,
   threadListSortKey,
   onSetThreadListSortKey,
   threadListOrganizeMode,
@@ -254,19 +249,6 @@ export function SidebarHeader({
             className={refreshInProgress ? "sidebar-refresh-icon spinning" : "sidebar-refresh-icon"}
             aria-hidden
           />
-        </button>
-        <button
-          className={`ghost sidebar-search-toggle ds-tooltip-trigger${isSearchOpen ? " is-active" : ""}`}
-          onClick={onToggleSearch}
-          data-tauri-drag-region="false"
-          aria-label={tx("Toggle search")}
-          data-tooltip={isSearchOpen ? tx("Close search") : tx("Search threads")}
-          data-tooltip-align="end"
-          data-tooltip-placement="bottom"
-          aria-pressed={isSearchOpen}
-          type="button"
-        >
-          <Search aria-hidden />
         </button>
       </div>
     </div>

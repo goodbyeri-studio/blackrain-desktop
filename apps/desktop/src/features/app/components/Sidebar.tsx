@@ -12,6 +12,7 @@ import type { MouseEvent, RefObject } from "react";
 import { useI18n } from "@/i18n";
 import { FolderOpen } from "lucide-react";
 import { SidebarBottomRail } from "./SidebarBottomRail";
+import { SidebarActions } from "./SidebarActions";
 import { SidebarHeader } from "./SidebarHeader";
 import { SidebarSearchBar } from "./SidebarSearchBar";
 import { SidebarThreadsOnlySection } from "./SidebarThreadsOnlySection";
@@ -875,11 +876,14 @@ export const Sidebar = memo(function Sidebar({
       onDrop={onWorkspaceDrop}
     >
       <div className="sidebar-drag-strip" />
+      <SidebarActions
+        onNewConversation={onSelectHome}
+        onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
+        isSearchOpen={isSearchOpen}
+      />
       <SidebarHeader
         onSelectHome={onSelectHome}
         onAddWorkspace={onAddWorkspace}
-        onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
-        isSearchOpen={isSearchOpen}
         threadListSortKey={threadListSortKey}
         onSetThreadListSortKey={onSetThreadListSortKey}
         threadListOrganizeMode={threadListOrganizeMode}

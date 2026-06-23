@@ -94,6 +94,52 @@
   }
 }
 
+/* codex 式顶部动作区:新对话 / 搜索(平面行,hover 变色无微动) */
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.sidebar-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar-action:hover {
+  background: var(--surface-hover);
+}
+
+.sidebar-action.is-active {
+  background: var(--surface-hover);
+}
+
+.sidebar-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.sidebar-action-label {
+  min-width: 0;
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;
