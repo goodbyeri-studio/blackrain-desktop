@@ -127,6 +127,16 @@
 - 影响范围：`model_gateway.rs` `start_model_gateway_runtime`。
 - 后续复查条件：无。
 
+## 2026-06-25：设置页默认模型来源也收敛到网关 registry
+
+- 决策：设置页 Codex/Agents 区的 `useSettingsDefaultModels` 改为从网关 registry 同步派生（复用新抽出的 `features/models/utils/gatewayModelOptions.ts`），不再异步读内核 `model/list`。同时把 `OWN_MODELS`/`modelGatewayToOptions`/`publicGatewayModelId` 从 `useModels.ts` 抽到该共享工具，对话选择器与设置页单一真源。
+- 原因：这是已修 #2 的同源 surface——内核 `model/list` 在 `blackrain_gateway` 下回落到自带 OpenAI 目录（gpt-*），设置页选中会把网关路由不了的 gpt 模型写进 `lastComposerModelId` / agent 配置。
+- 替代方案：保留内核来源，只在设置页按 `providerId` 过滤。
+- 为什么不用替代方案：内核从不回吐网关 registry，过滤后恒为空；且会与对话选择器逻辑分叉。
+- 影响范围：`useSettingsDefaultModels`（改为入参 `gateway`、同步派生、返回 `hasModels`）、`useSettingsCodexSection`（去掉 `projects`，改喂 `appSettings.modelGateway`）、`useSettingsAgentsSection`（加 `appSettings`，仍保留 `projects` 供 generateAgentDescription）、`SettingsCodexSection` 文案与 disabled 判定、`gatewayModelOptions.ts`（新）、`useModels.ts`（改用共享工具）。
+- 遗留：Codex 区「默认模型」下拉与模型网关设置页的「默认模型」都写 `lastComposerModelId`，存在功能重叠；本次只统一数据源，未合并这两个入口，留待后续。
+- 后续复查条件：无。
+
 ## 被推翻的方案
 
 ### 2026-06-24：Codex 直接配置 DeepSeek provider

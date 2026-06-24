@@ -43,6 +43,8 @@
 | 2026-06-25 | 网关 /health 身份标记 smoke | `GW_PORT=8896 python3 gateway/gateway.py` + `curl /v1/health` vs 陌生进程 | 通过 | BlackRain 网关返回 `service:blackrain-gateway`；陌生进程缺标记被 gateway_health 拒判 Running |
 | 2026-06-25 | 前端 typecheck + 相关测试 | `cd apps/desktop && npm run typecheck` + `npm run test -- useModels/SettingsView/tauri` | 通过 | typecheck 0 错；113 tests |
 | 2026-06-25 | 前端 lint | `cd apps/desktop && npm run lint` | 通过 | 0 errors；保留既有 5 个 hook dependency warnings |
+| 2026-06-25 | 设置页默认模型收敛网关 registry | `cd apps/desktop && npm run typecheck` + `npm run test` | 通过 | typecheck 0 错；140 files / 1036 tests；新写 useSettingsDefaultModels 测试断言只出网关模型、gpt 不出现、空/禁用回落 OWN_MODELS |
+| 2026-06-25 | 设置页默认模型 lint | `cd apps/desktop && npm run lint` | 通过 | 0 errors；保留既有 5 个 hook dependency warnings |
 
 ## 已知历史验证
 
@@ -73,6 +75,7 @@
 - 网关已强制 bearer 校验并移除 CORS：`/models`、`/responses` 需正确 `BLACKRAIN_GATEWAY_API_KEY`，`/health` 免鉴权；App spawn 时注入的 token 与内核继承的 token 由 `ensure_gateway_token()` 保证一致。
 - provider 测试连接/刷新模型的密钥来源已下沉 shared core（内联 → 系统凭据 → 环境变量），App 命令与 Daemon RPC 行为一致。
 - 对话模型选择器只用 BlackRain 网关 registry，不再 merge 内核 `model/list`（内核自带 OpenAI 目录无法被网关路由，选中即 `response.failed`）。
+- 设置页 Codex/Agents 区默认模型来源也收敛到网关 registry（与对话选择器复用 `gatewayModelOptions`）；不再读内核目录，gpt 模型不会被写进 `lastComposerModelId` / agent 配置。
 - `gateway_health` 校验 `/health` 返回的 `service: blackrain-gateway` 标记：端口上的陌生进程不再被误判为 Running，dev-client.sh 独立起的同款网关仍能识别、不重复 spawn。
 - `child_port` 记录子进程实际启动端口；settings 端口改变后，refresh 会收掉旧端口上的残留进程并转 Stopped，要求用新端口重启。
 - 写 Codex `blackrain_gateway` config 已与 sidecar 启动解耦：即便缺 key 起不了网关，内核侧 provider 配置也已写入。

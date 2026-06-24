@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppSettings, DebugEntry, ModelOption, WorkspaceInfo } from "../../../types";
 import { getConfigModel, getModelList } from "../../../services/tauri";
 import { normalizeEffortValue } from "../utils/modelListResponse";
+import { OWN_MODELS, modelGatewayToOptions } from "../utils/gatewayModelOptions";
 
 type UseModelsOptions = {
   activeWorkspace: WorkspaceInfo | null;
@@ -13,34 +14,6 @@ type UseModelsOptions = {
 };
 
 const CONFIG_MODEL_DESCRIPTION = "Configured in CODEX_HOME/config.toml";
-
-// 2049 自有模型清单。我们走自己的 DeepSeek 网关，不用内核自带的 OpenAI 目录
-// （那些 GPT-5.x 选了会把无效 model 名发给 DeepSeek 而失败）。
-// 旧名 deepseek-chat / deepseek-reasoner 将于 2026-07-24 弃用，故只列 v4 新名。
-const OWN_MODELS: ModelOption[] = [
-  {
-    id: "deepseek-v4-flash",
-    model: "deepseek-v4-flash",
-    displayName: "DeepSeek V4 Flash",
-    description: "高性价比主力 · 1M 上下文",
-    providerId: "deepseek",
-    providerName: "DeepSeek",
-    supportedReasoningEfforts: [],
-    defaultReasoningEffort: null,
-    isDefault: true,
-  },
-  {
-    id: "deepseek-v4-pro",
-    model: "deepseek-v4-pro",
-    displayName: "DeepSeek V4 Pro",
-    description: "旗舰 1.6T · 1M 上下文 · 攻坚",
-    providerId: "deepseek",
-    providerName: "DeepSeek",
-    supportedReasoningEfforts: [],
-    defaultReasoningEffort: null,
-    isDefault: false,
-  },
-];
 
 const findModelByIdOrModel = (
   models: ModelOption[],
@@ -61,45 +34,6 @@ const pickDefaultModel = (models: ModelOption[], configModel: string | null) =>
   models.find((model) => model.isDefault) ??
   models[0] ??
   null;
-
-function publicGatewayModelId(
-  provider: AppSettings["modelGateway"]["providers"][number],
-  modelId: string,
-): string {
-  if (provider.id === "deepseek" || modelId.includes("/")) {
-    return modelId;
-  }
-  return `${provider.id}/${modelId}`;
-}
-
-function modelGatewayToOptions(
-  gateway: AppSettings["modelGateway"] | null | undefined,
-): ModelOption[] {
-  if (!gateway?.enabled) {
-    return [];
-  }
-  return gateway.providers
-    .filter((provider) => provider.enabled)
-    .flatMap((provider) =>
-      provider.models.map((model) => {
-        const id = publicGatewayModelId(provider, model.id);
-        return {
-          id,
-          model: id,
-          displayName:
-            provider.id === "deepseek"
-              ? model.displayName
-              : `${provider.name} / ${model.displayName}`,
-          description: model.description,
-          providerId: provider.id,
-          providerName: provider.name,
-          supportedReasoningEfforts: [],
-          defaultReasoningEffort: null,
-          isDefault: id === gateway.defaultModel || model.isDefault,
-        } satisfies ModelOption;
-      }),
-    );
-}
 
 export function useModels({
   activeWorkspace,

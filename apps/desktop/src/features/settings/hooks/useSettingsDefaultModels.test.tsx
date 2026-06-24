@@ -1,182 +1,113 @@
 // @vitest-environment jsdom
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { WorkspaceInfo } from "@/types";
-import { connectWorkspace, getConfigModel, getModelList } from "@services/tauri";
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import type { AppSettings } from "@/types";
 import { useSettingsDefaultModels } from "./useSettingsDefaultModels";
 
-vi.mock("@services/tauri", () => ({
-  connectWorkspace: vi.fn(),
-  getConfigModel: vi.fn(),
-  getModelList: vi.fn(),
-}));
+type Gateway = AppSettings["modelGateway"];
 
-const connectWorkspaceMock = vi.mocked(connectWorkspace);
-const getConfigModelMock = vi.mocked(getConfigModel);
-const getModelListMock = vi.mocked(getModelList);
-
-function workspace(id: string, connected = true): WorkspaceInfo {
+function gateway(overrides: Partial<Gateway> = {}): Gateway {
   return {
-    id,
-    name: `Workspace ${id}`,
-    path: `/tmp/${id}`,
-    connected,
-    settings: { sidebarCollapsed: false },
+    enabled: true,
+    port: 8899,
+    defaultModel: "qwen/qwen3-coder-plus",
+    providers: [
+      {
+        id: "qwen",
+        name: "Qwen",
+        kind: "openai-compatible",
+        baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        apiKeyEnv: "QWEN_API_KEY",
+        enabled: true,
+        models: [
+          {
+            id: "qwen3-coder-plus",
+            displayName: "Qwen3 Coder Plus",
+            description: "coding model",
+            isDefault: true,
+          },
+        ],
+      },
+    ],
+    ...overrides,
   };
-}
-
-function modelListResponse(model: string) {
-  return {
-    result: {
-      data: [
-        {
-          id: model,
-          model,
-          displayName: model,
-          description: "",
-          supportedReasoningEfforts: [],
-          defaultReasoningEffort: null,
-          isDefault: false,
-        },
-      ],
-    },
-  };
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
 }
 
 describe("useSettingsDefaultModels", () => {
-  afterEach(() => {
-    vi.clearAllMocks();
+  it("derives models from the gateway registry only", () => {
+    const { result } = renderHook(() => useSettingsDefaultModels(gateway()));
+
+    const ids = result.current.models.map((model) => model.id);
+    expect(ids).toEqual(["qwen/qwen3-coder-plus"]);
+    expect(result.current.models[0]).toMatchObject({
+      providerId: "qwen",
+      providerName: "Qwen",
+    });
+    expect(result.current.hasModels).toBe(true);
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.error).toBeNull();
+    // 内核自带 OpenAI 目录绝不出现。
+    expect(ids).not.toContain("gpt-5.5");
   });
 
-  it("invalidates in-flight results when workspace list becomes empty", async () => {
-    const pending = deferred<any>();
-    getModelListMock.mockReturnValueOnce(pending.promise);
-    getConfigModelMock.mockResolvedValueOnce(null);
-
-    const { result, rerender } = renderHook(
-      ({ projects }: { projects: WorkspaceInfo[] }) => useSettingsDefaultModels(projects),
-      {
-        initialProps: {
-          projects: [workspace("w1", true)],
-        },
-      },
+  it("skips disabled providers", () => {
+    const { result } = renderHook(() =>
+      useSettingsDefaultModels(
+        gateway({
+          providers: [
+            { ...gateway().providers[0], enabled: false },
+            {
+              id: "deepseek",
+              name: "DeepSeek",
+              kind: "deepseek",
+              baseUrl: "https://api.deepseek.com/v1",
+              apiKeyEnv: "DEEPSEEK_API_KEY",
+              enabled: true,
+              models: [
+                {
+                  id: "deepseek-v4-flash",
+                  displayName: "DeepSeek V4 Flash",
+                  description: "",
+                  isDefault: true,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
     );
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(true);
-      expect(result.current.connectedWorkspaceCount).toBe(1);
-    });
-
-    rerender({ projects: [] });
-
-    await waitFor(() => {
-      expect(result.current.models).toEqual([]);
-      expect(result.current.isLoading).toBe(false);
-      expect(result.current.connectedWorkspaceCount).toBe(0);
-    });
-
-    await act(async () => {
-      pending.resolve(modelListResponse("gpt-5"));
-      await Promise.resolve();
-    });
-
-    expect(result.current.models).toEqual([]);
-    expect(result.current.connectedWorkspaceCount).toBe(0);
+    const ids = result.current.models.map((model) => model.id);
+    expect(ids).toEqual(["deepseek-v4-flash"]);
   });
 
-  it("ignores stale results when the first workspace changes", async () => {
-    const first = deferred<any>();
-    const second = deferred<any>();
-    getModelListMock
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise);
-    getConfigModelMock.mockResolvedValue(null);
-
-    const { result, rerender } = renderHook(
-      ({ projects }: { projects: WorkspaceInfo[] }) => useSettingsDefaultModels(projects),
-      {
-        initialProps: {
-          projects: [workspace("w1", true)],
-        },
-      },
+  it("falls back to DeepSeek own models when the gateway is disabled", () => {
+    const { result } = renderHook(() =>
+      useSettingsDefaultModels(gateway({ enabled: false })),
     );
 
-    await waitFor(() => {
-      expect(getModelListMock).toHaveBeenCalledWith("w1");
-    });
-
-    rerender({ projects: [workspace("w2", true)] });
-
-    await waitFor(() => {
-      expect(getModelListMock).toHaveBeenCalledWith("w2");
-    });
-
-    await act(async () => {
-      second.resolve(modelListResponse("gpt-5.1"));
-      await Promise.resolve();
-    });
-
-    await waitFor(() => {
-      expect(result.current.models[0]?.model).toBe("gpt-5.1");
-    });
-
-    await act(async () => {
-      first.resolve(modelListResponse("gpt-4.1"));
-      await Promise.resolve();
-    });
-
-    expect(result.current.models[0]?.model).toBe("gpt-5.1");
+    const ids = result.current.models.map((model) => model.id);
+    expect(ids).toEqual(["deepseek-v4-flash", "deepseek-v4-pro"]);
+    expect(result.current.hasModels).toBe(true);
   });
 
-  it("uses the first workspace as the model source even when disconnected", async () => {
-    connectWorkspaceMock.mockResolvedValueOnce(undefined);
-    getConfigModelMock.mockResolvedValueOnce(null);
-    getModelListMock.mockResolvedValueOnce(modelListResponse("gpt-5.1"));
-
-    const { result } = renderHook(
-      ({ projects }: { projects: WorkspaceInfo[] }) => useSettingsDefaultModels(projects),
-      {
-        initialProps: {
-          projects: [workspace("w1", false), workspace("w2", true)],
-        },
-      },
+  it("falls back to own models when there are no providers", () => {
+    const { result } = renderHook(() =>
+      useSettingsDefaultModels(gateway({ providers: [] })),
     );
 
-    await waitFor(() => {
-      expect(connectWorkspaceMock).toHaveBeenCalledWith("w1");
-      expect(getModelListMock).toHaveBeenCalledWith("w1");
-      expect(getModelListMock).not.toHaveBeenCalledWith("w2");
-      expect(result.current.models[0]?.model).toBe("gpt-5.1");
-    });
+    expect(result.current.models.map((model) => model.id)).toEqual([
+      "deepseek-v4-flash",
+      "deepseek-v4-pro",
+    ]);
   });
 
-  it("falls back to config model when model list cannot be fetched", async () => {
-    connectWorkspaceMock.mockRejectedValueOnce(new Error("connect failed"));
-    getConfigModelMock.mockResolvedValueOnce("gpt-5-codex");
+  it("returns own models when gateway settings are missing", () => {
+    const { result } = renderHook(() => useSettingsDefaultModels(null));
 
-    const { result } = renderHook(
-      ({ projects }: { projects: WorkspaceInfo[] }) => useSettingsDefaultModels(projects),
-      {
-        initialProps: {
-          projects: [workspace("w1", false)],
-        },
-      },
-    );
-
-    await waitFor(() => {
-      expect(result.current.models[0]?.model).toBe("gpt-5-codex");
-      expect(result.current.models[0]?.displayName).toContain("(config)");
-      expect(getModelListMock).not.toHaveBeenCalled();
-    });
+    expect(result.current.models.map((model) => model.id)).toEqual([
+      "deepseek-v4-flash",
+      "deepseek-v4-pro",
+    ]);
   });
 });

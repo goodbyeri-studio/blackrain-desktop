@@ -20,7 +20,7 @@ type SettingsCodexSectionProps = {
   defaultModels: ModelOption[];
   defaultModelsLoading: boolean;
   defaultModelsError: string | null;
-  defaultModelsConnectedWorkspaceCount: number;
+  defaultModelsHasModels: boolean;
   onRefreshDefaultModels: () => void;
   codexPathDraft: string;
   codexArgsDraft: string;
@@ -111,8 +111,7 @@ export function SettingsCodexSection({
   onUpdateAppSettings,
   defaultModels,
   defaultModelsLoading,
-  defaultModelsError,
-  defaultModelsConnectedWorkspaceCount,
+  defaultModelsHasModels,
   onRefreshDefaultModels,
   codexPathDraft,
   codexArgsDraft,
@@ -404,13 +403,9 @@ export function SettingsCodexSection({
           </label>
         }
         subtitle={
-          defaultModelsConnectedWorkspaceCount === 0
-            ? tx("Add a workspace to load available models.")
-            : defaultModelsLoading
-              ? tx("Loading models from the first workspace…")
-              : defaultModelsError
-                ? tx("Couldn’t load models: {error}", { error: defaultModelsError })
-                : tx("Sourced from the first workspace and used when there is no thread-specific override.")
+          !defaultModelsHasModels
+            ? tx("No models yet. Configure providers in Settings → Model Gateway.")
+            : tx("Sourced from the BlackRain model gateway and used when there is no thread-specific override.")
         }
       >
         <div className="settings-field-row">
@@ -437,7 +432,7 @@ export function SettingsCodexSection({
             type="button"
             className="ghost"
             onClick={onRefreshDefaultModels}
-            disabled={defaultModelsLoading || defaultModelsConnectedWorkspaceCount === 0}
+            disabled={defaultModelsLoading || !defaultModelsHasModels}
           >
             {tx("Refresh")}
           </button>
