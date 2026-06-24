@@ -1,24 +1,231 @@
 #!/usr/bin/env python3
 """最小 responses⇄chat 翻译网关：把 codex 内核(Responses API)的请求译成
-DeepSeek(Chat Completions)，再把回复译回内核能解析的 Responses SSE 序列。
+OpenAI-compatible Chat Completions，再把回复译回内核能解析的 Responses SSE 序列。
 
 零依赖(stdlib)。第一版聚焦文本路径：STRIP_TOOLS=1 时剥掉 tools 逼纯文本回复，
 先证通主链(请求翻译 + SSE 事件顺序 + 内核渲染)，再攻工具调用。
 """
-import http.server, json, os, sys, urllib.request, uuid
+import http.server, json, os, re, urllib.parse, urllib.request, uuid
 
-DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
-DEEPSEEK_KEY = os.environ["DEEPSEEK_API_KEY"]
 PORT = int(os.environ.get("GW_PORT", "8899"))
 STRIP_TOOLS = os.environ.get("STRIP_TOOLS", "1") == "1"
 LOG = os.environ.get("GW_LOG", "/tmp/gateway.log")
 
+DEFAULT_PROVIDER = {
+    "id": "deepseek",
+    "name": "DeepSeek",
+    "kind": "openai-compatible",
+    "base_url": "https://api.deepseek.com/v1",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "models": [
+        {
+            "id": "deepseek-v4-flash",
+            "model": "deepseek-v4-flash",
+            "display_name": "DeepSeek V4 Flash",
+            "description": "高性价比主力 · 1M 上下文",
+            "is_default": True,
+        },
+        {
+            "id": "deepseek-v4-pro",
+            "model": "deepseek-v4-pro",
+            "display_name": "DeepSeek V4 Pro",
+            "description": "旗舰 1.6T · 1M 上下文 · 攻坚",
+            "is_default": False,
+        },
+    ],
+}
+
+def redact(value):
+    text = str(value)
+    text = re.sub(r"Bearer\s+[A-Za-z0-9._~+/=-]{8,}", "Bearer <redacted>", text)
+    text = re.sub(
+        r"(?i)(authorization['\"]?\s*[:=]\s*['\"]?)Bearer\s+[^'\"\s,}]+",
+        r"\1Bearer <redacted>",
+        text,
+    )
+    for env_name, env_value in os.environ.items():
+        if not env_value or len(env_value) < 8:
+            continue
+        upper_name = env_name.upper()
+        if not any(marker in upper_name for marker in ("API_KEY", "TOKEN", "SECRET")):
+            continue
+        text = text.replace(env_value, "<redacted>")
+    return text[:2000] + "..." if len(text) > 2000 else text
+
 def log(*a):
     with open(LOG, "a") as f:
-        f.write(" ".join(str(x) for x in a) + "\n")
+        f.write(" ".join(redact(x) for x in a) + "\n")
+
+def _as_bool(value, default=True):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in ("0", "false", "no", "off")
+
+def _as_str(value, fallback=""):
+    if value is None:
+        return fallback
+    return str(value)
+
+def load_provider_configs():
+    """Load the model gateway registry.
+
+    Extra providers can be supplied through BLACKRAIN_MODEL_GATEWAY_PROVIDERS or
+    GW_PROVIDERS_JSON as a JSON array. Later entries replace earlier entries
+    with the same id, so local development can override the built-in DeepSeek
+    default without editing this file.
+    """
+    providers = [DEFAULT_PROVIDER]
+    raw = (
+        os.environ.get("BLACKRAIN_MODEL_GATEWAY_PROVIDERS")
+        or os.environ.get("GW_PROVIDERS_JSON")
+    )
+    if raw and raw.strip():
+        try:
+            extra = json.loads(raw)
+            if isinstance(extra, list):
+                providers.extend(extra)
+            else:
+                log("provider registry ignored: JSON root is not a list")
+        except Exception as exc:
+            log("provider registry ignored:", repr(exc))
+
+    merged = {}
+    for provider in providers:
+        if not isinstance(provider, dict):
+            continue
+        pid = _as_str(provider.get("id")).strip()
+        if not pid:
+            continue
+        merged[pid] = provider
+    return [normalize_provider(provider) for provider in merged.values()]
+
+def normalize_provider(provider):
+    pid = _as_str(provider.get("id")).strip()
+    name = _as_str(provider.get("name"), pid).strip() or pid
+    base_url = _as_str(
+        provider.get("base_url") or provider.get("baseUrl"),
+        "",
+    ).strip()
+    api_key_env = _as_str(
+        provider.get("api_key_env") or provider.get("apiKeyEnv"),
+        "",
+    ).strip()
+    api_key = _as_str(provider.get("api_key") or provider.get("apiKey"), "").strip()
+    enabled = _as_bool(provider.get("enabled"), True)
+    models = provider.get("models")
+    if not isinstance(models, list):
+        models = []
+    return {
+        "id": pid,
+        "name": name,
+        "kind": _as_str(provider.get("kind"), "openai-compatible"),
+        "base_url": base_url,
+        "api_key_env": api_key_env,
+        "api_key": api_key,
+        "enabled": enabled,
+        "models": [
+            normalize_model(pid, name, item, index)
+            for index, item in enumerate(models)
+        ],
+    }
+
+def normalize_model(provider_id, provider_name, item, index):
+    if isinstance(item, str):
+        raw = item
+        record = {}
+    elif isinstance(item, dict):
+        record = item
+        raw = _as_str(record.get("model") or record.get("id"), "")
+    else:
+        record = {}
+        raw = ""
+
+    upstream_model = raw.strip() or f"model-{index + 1}"
+    explicit_id = _as_str(record.get("id") or record.get("public_id") or record.get("publicId"), "").strip()
+    if explicit_id:
+        public_id = explicit_id
+    elif provider_id == "deepseek":
+        public_id = upstream_model
+    else:
+        public_id = f"{provider_id}/{upstream_model}"
+
+    display_name = _as_str(
+        record.get("display_name") or record.get("displayName"),
+        upstream_model,
+    ).strip() or upstream_model
+    description = _as_str(record.get("description"), "").strip()
+    return {
+        "id": public_id,
+        "model": upstream_model,
+        "display_name": display_name,
+        "description": description,
+        "provider_id": provider_id,
+        "provider_name": provider_name,
+        "is_default": _as_bool(record.get("is_default") or record.get("isDefault"), False),
+    }
+
+PROVIDERS = load_provider_configs()
+
+def list_gateway_models():
+    out = []
+    for provider in PROVIDERS:
+        if not provider["enabled"]:
+            continue
+        for model in provider["models"]:
+            out.append({
+                "id": model["id"],
+                "object": "model",
+                "model": model["id"],
+                "displayName": model["display_name"],
+                "description": model["description"],
+                "providerId": model["provider_id"],
+                "providerName": model["provider_name"],
+                "isDefault": model["is_default"],
+            })
+    if out and not any(item["isDefault"] for item in out):
+        out[0]["isDefault"] = True
+    return out
+
+def default_model_id():
+    models = list_gateway_models()
+    for model in models:
+        if model.get("isDefault"):
+            return model["id"]
+    return models[0]["id"] if models else "deepseek-v4-flash"
+
+def resolve_model_route(requested_model):
+    wanted = _as_str(requested_model, "").strip() or default_model_id()
+    fallback = None
+    upstream_match = None
+    for provider in PROVIDERS:
+        if not provider["enabled"]:
+            continue
+        for model in provider["models"]:
+            route = {"provider": provider, "model": model}
+            fallback = fallback or route
+            if wanted == model["id"]:
+                return route
+            if wanted == model["model"]:
+                upstream_match = upstream_match or route
+            prefixed = f'{provider["id"]}/{model["model"]}'
+            if wanted == prefixed:
+                return route
+    if upstream_match:
+        return upstream_match
+    if not wanted and fallback:
+        return fallback
+    raise RuntimeError(f"Unknown model `{wanted}` in BlackRain gateway registry")
+
+def provider_chat_url(provider):
+    base = provider["base_url"].rstrip("/")
+    if base.endswith("/chat/completions"):
+        return base
+    return f"{base}/chat/completions"
 
 # ---------- 请求翻译: Responses → Chat Completions ----------
-def responses_to_chat(body):
+def responses_to_chat(body, upstream_model):
     msgs = []
     if body.get("instructions"):
         msgs.append({"role": "system", "content": body["instructions"]})
@@ -44,7 +251,7 @@ def responses_to_chat(body):
                 out = out.get("content", json.dumps(out, ensure_ascii=False))
             msgs.append({"role": "tool", "tool_call_id": item.get("call_id"), "content": str(out)})
 
-    chat = {"model": body.get("model", "deepseek-v4-flash"), "messages": msgs, "stream": False}
+    chat = {"model": upstream_model, "messages": msgs, "stream": False}
     if not STRIP_TOOLS:
         tools = []
         for tdef in body.get("tools", []):
@@ -59,14 +266,22 @@ def responses_to_chat(body):
             chat["tool_choice"] = "auto"
     return chat
 
-# ---------- 调 DeepSeek ----------
-def call_deepseek_stream(chat):
-    """流式调 DeepSeek，逐块 yield delta dict（含 content / reasoning_content / tool_calls）。
+# ---------- 调 OpenAI-compatible provider ----------
+def call_provider_stream(provider, chat):
+    """流式调 provider，逐块 yield delta dict（含 content / reasoning_content / tool_calls）。
     末尾 yield ('__usage__', usage_dict) 一次（若上游给了 usage）。"""
     chat = {**chat, "stream": True, "stream_options": {"include_usage": True}}
     data = json.dumps(chat).encode()
-    req = urllib.request.Request(DEEPSEEK_URL, data=data, headers={
-        "Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json",
+    key = provider.get("api_key") or (
+        os.environ.get(provider.get("api_key_env") or "") if provider.get("api_key_env") else None
+    )
+    if not key:
+        raise RuntimeError(
+            f"Missing API key for provider `{provider['id']}`"
+            + (f" (env {provider['api_key_env']})" if provider.get("api_key_env") else "")
+        )
+    req = urllib.request.Request(provider_chat_url(provider), data=data, headers={
+        "Authorization": f"Bearer {key}", "Content-Type": "application/json",
     })
     with urllib.request.urlopen(req, timeout=120) as r:
         for raw in r:
@@ -203,21 +418,66 @@ def emit_stream(wfile, deltas):
 
 class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
+
+    def cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
+    def send_json(self, code, payload):
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.cors()
+        self.end_headers()
+        self.wfile.write(json.dumps(payload, ensure_ascii=False).encode())
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.cors()
+        self.end_headers()
+
     def do_GET(self):
-        self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
-        self.wfile.write(json.dumps({"data": [{"id": "deepseek-v4-flash"}, {"id": "deepseek-v4-pro"}]}).encode())
+        path = urllib.parse.urlparse(self.path).path
+        if path.endswith("/models"):
+            self.send_json(200, {"object": "list", "data": list_gateway_models()})
+            return
+        if path.endswith("/health"):
+            self.send_json(200, {
+                "ok": True,
+                "providers": [
+                    {"id": provider["id"], "name": provider["name"], "enabled": provider["enabled"]}
+                    for provider in PROVIDERS
+                ],
+            })
+            return
+        self.send_json(404, {"error": {"message": f"Unknown gateway path: {path}"}})
+
     def do_POST(self):
         n = int(self.headers.get("Content-Length", 0) or 0)
         body = json.loads(self.rfile.read(n)) if n else {}
-        log("REQ input items:", len(body.get("input", [])), "tools:", len(body.get("tools", [])))
         try:
-            chat = responses_to_chat(body)
-            self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.end_headers()
-            emit_stream(self.wfile, call_deepseek_stream(chat))
+            route = resolve_model_route(body.get("model"))
+            provider = route["provider"]
+            model = route["model"]
+            log(
+                "REQ provider:", provider["id"],
+                "model:", model["model"],
+                "input items:", len(body.get("input", [])),
+                "tools:", len(body.get("tools", [])),
+            )
+            chat = responses_to_chat(body, model["model"])
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.cors()
+            self.end_headers()
+            emit_stream(self.wfile, call_provider_stream(provider, chat))
         except Exception as e:
             log("ERROR:", repr(e))
             try:
-                self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.end_headers()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.cors()
+                self.end_headers()
                 self.wfile.write(sse("response.failed", {"type": "response.failed",
                     "response": {"error": {"code": "gateway_error", "message": str(e)}}}))
                 self.wfile.flush()
@@ -225,5 +485,13 @@ class H(http.server.BaseHTTPRequestHandler):
                 pass
 
 if __name__ == "__main__":
-    print(f"[gateway] :{PORT} STRIP_TOOLS={STRIP_TOOLS} -> DeepSeek", flush=True)
-    http.server.HTTPServer(("127.0.0.1", PORT), H).serve_forever()
+    provider_summary = ", ".join(
+        f"{provider['id']}({len(provider['models'])})"
+        for provider in PROVIDERS
+        if provider["enabled"]
+    )
+    print(f"[gateway] :{PORT} STRIP_TOOLS={STRIP_TOOLS} providers={provider_summary}", flush=True)
+    try:
+        http.server.HTTPServer(("127.0.0.1", PORT), H).serve_forever()
+    except KeyboardInterrupt:
+        print("\n[gateway] stopped", flush=True)

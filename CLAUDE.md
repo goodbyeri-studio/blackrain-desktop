@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 2049 App 是**用国产大模型驱动、面向非开发者的中国版 Codex**。它不重写 agent 引擎，而是**复用 openai/codex 内核**（黑盒、原装），换掉模型（国产）、换掉外壳（普通人能用），再加「工作台/插件/市场」让懂业务的人也能造和卖能力。
 
-文档以 `docs/01`~`docs/09` + `README.md` 为权威；战略细节查那里，本文件只讲跨多文件才能理解的架构与命令。
+文档以 `README.md` + `docs/README.md` + `docs/01`~`docs/09` 为权威；战略细节查那里，本文件只讲跨多文件才能理解的架构与命令。跨层新功能还要看 `.specs/` 下对应的 living spec；没有时按下方规则创建。
 
 ## 运行时拓扑（理解一切的前提）
 
@@ -35,8 +35,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `gateway/` | responses⇄chat 翻译网关（`gateway.py`，纯 stdlib 零依赖）。**可行性验证原型，非生产代码**。 | 可替换的 sidecar 槽位。 |
 | `codex-upstream/` | codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 当黑盒用，钉死 commit `51b3cd5`。只读、不改循环。用 `scripts/fetch-references.sh` 克隆。 |
 | `plugins/` `workbenches/` | 能力封装：放进 `CODEX_HOME` 的文件（skills/AGENTS.md/模板，纯 Markdown）。 | 还是待落地槽位。 |
+| `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。 | 只给大功能/架构功能建，随实现同步更新。 |
 
 仓库托管在 `goodbyeri-studio/BlackRain`（私有）。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
+
+## Living Spec 纪律
+
+- 触发条件：跨两层以上、改变运行时边界、形成用户可感知新流程、需要多 PR/多人接手、或依赖易漂移假设（上游协议/模型能力/合规/安全）的功能，必须在 `.specs/<NNN-slug>/` 建 spec。
+- 模板：复制 `.specs/_template/`，保留 `requirements.md`、`design.md`、`tasks.md`、`decisions.md`、`verification.md` 五个文件。
+- 更新规则：代码、配置、脚本或 UI 改变了功能行为，就在同一个 PR 更新对应 spec；验证命令和真实结果写进 `verification.md`，关键取舍写进 `decisions.md`。
+- 不滥用：文案、样式、小 bug、局部重构、只补测试，可以不建 spec；已有 spec 覆盖时只更新对应任务和验证。
+- 冲突处理：总体战略以 `README.md` 与 `docs/01`~`docs/09` 为准；单功能执行以对应 spec 为准。若冲突，不要静默选择一边，必须修正文档或在 `decisions.md` 标明待决。
+
+## 文档治理
+
+- 文档地图看 `docs/README.md`；可复制命令只维护在 `docs/commands.md`。
+- 新文档默认放 `docs/`、`.specs/` 或对应模块目录，不要随手新增根目录 Markdown。
+- 同一事实只维护一处：状态写 `README.md`，战略/架构写 `docs/01`~`docs/09`，功能活文档写 `.specs/`，模块细节写模块 `README.md`。
+- 文档默认记录当前真实状态；过期方案不要留在正文，确需保留时放到 spec 的 `decisions.md`。
+- 根规则同步维护 `AGENTS.md` 与 `CLAUDE.md`，避免不同 agent 读到不同纪律。
 
 ### 壳内部架构（改 `apps/desktop/**` 前的前提）
 
@@ -113,4 +130,3 @@ python3 .scratch/m0_tool_driver.py "$BIN" <CODEX_HOME> <工作区>      # 多轮
 - ⚠️ GitHub Free 私有库**配不了分支保护**，禁直推 main 靠口头约束。
 
 回复、写文档与代码注释默认用中文（与现有代码库一致）。
-

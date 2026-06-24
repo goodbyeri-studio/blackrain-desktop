@@ -8,6 +8,7 @@ import FileText from "lucide-react/dist/esm/icons/file-text";
 import FlaskConical from "lucide-react/dist/esm/icons/flask-conical";
 import ExternalLink from "lucide-react/dist/esm/icons/external-link";
 import Layers from "lucide-react/dist/esm/icons/layers";
+import Network from "lucide-react/dist/esm/icons/network";
 import ServerCog from "lucide-react/dist/esm/icons/server-cog";
 import Bot from "lucide-react/dist/esm/icons/bot";
 import Info from "lucide-react/dist/esm/icons/info";
@@ -104,6 +105,15 @@ export function SettingsNav({
           onClick={() => onSelectSection("git")}
         >
           {label("git")}
+        </PanelNavItem>
+        <PanelNavItem
+          className="settings-nav"
+          icon={<Network aria-hidden />}
+          active={activeSection === "model-gateway"}
+          showDisclosure={showDisclosure}
+          onClick={() => onSelectSection("model-gateway")}
+        >
+          {label("model-gateway")}
         </PanelNavItem>
         <PanelNavItem
           className="settings-nav"

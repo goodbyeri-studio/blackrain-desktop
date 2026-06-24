@@ -8,6 +8,10 @@ import type {
   DictationModelStatus,
   DictationSessionState,
   LocalUsageSnapshot,
+  ModelGatewayModelConfig,
+  ModelGatewayProviderConfig,
+  ModelGatewayProviderSecretStatus,
+  ModelGatewayRuntimeStatus,
   OfficeCommandResult,
   OfficeRuntimeInfo,
   TcpDaemonStatus,
@@ -873,6 +877,75 @@ export async function isMobileRuntime(): Promise<boolean> {
 
 export async function updateAppSettings(settings: AppSettings): Promise<AppSettings> {
   return invoke<AppSettings>("update_app_settings", { settings });
+}
+
+export type ModelGatewayProviderProbeInput = Pick<
+  ModelGatewayProviderConfig,
+  "id" | "name" | "baseUrl" | "apiKeyEnv"
+>;
+
+export type ModelGatewayProviderProbeResult = {
+  ok: boolean;
+  status: number | null;
+  message: string;
+  modelCount: number;
+  models: ModelGatewayModelConfig[];
+};
+
+export async function testModelGatewayProvider(
+  input: ModelGatewayProviderProbeInput,
+): Promise<ModelGatewayProviderProbeResult> {
+  return invoke<ModelGatewayProviderProbeResult>("model_gateway_test_provider", {
+    input,
+  });
+}
+
+export async function refreshModelGatewayProviderModels(
+  input: ModelGatewayProviderProbeInput,
+): Promise<ModelGatewayModelConfig[]> {
+  return invoke<ModelGatewayModelConfig[]>("model_gateway_refresh_models", {
+    input,
+  });
+}
+
+export async function modelGatewayProviderSecretStatus(
+  providerId: string,
+): Promise<ModelGatewayProviderSecretStatus> {
+  return invoke<ModelGatewayProviderSecretStatus>(
+    "model_gateway_provider_secret_status",
+    { providerId },
+  );
+}
+
+export async function modelGatewayProviderSecretSet(
+  providerId: string,
+  apiKey: string,
+): Promise<ModelGatewayProviderSecretStatus> {
+  return invoke<ModelGatewayProviderSecretStatus>("model_gateway_provider_secret_set", {
+    providerId,
+    apiKey,
+  });
+}
+
+export async function modelGatewayProviderSecretClear(
+  providerId: string,
+): Promise<ModelGatewayProviderSecretStatus> {
+  return invoke<ModelGatewayProviderSecretStatus>(
+    "model_gateway_provider_secret_clear",
+    { providerId },
+  );
+}
+
+export async function modelGatewayDaemonStart(): Promise<ModelGatewayRuntimeStatus> {
+  return invoke<ModelGatewayRuntimeStatus>("model_gateway_daemon_start");
+}
+
+export async function modelGatewayDaemonStop(): Promise<ModelGatewayRuntimeStatus> {
+  return invoke<ModelGatewayRuntimeStatus>("model_gateway_daemon_stop");
+}
+
+export async function modelGatewayDaemonStatus(): Promise<ModelGatewayRuntimeStatus> {
+  return invoke<ModelGatewayRuntimeStatus>("model_gateway_daemon_status");
 }
 
 export async function tailscaleStatus(): Promise<TailscaleStatus> {

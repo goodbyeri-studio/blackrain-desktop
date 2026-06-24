@@ -9,6 +9,8 @@ pub(crate) mod git_core;
 pub(crate) mod git_rpc;
 pub(crate) mod git_ui_core;
 pub(crate) mod local_usage_core;
+pub(crate) mod model_gateway_core;
+pub(crate) mod model_gateway_secrets;
 pub(crate) mod process_core;
 pub(crate) mod prompts_core;
 pub(crate) mod settings_core;

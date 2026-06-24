@@ -20,6 +20,7 @@ mod menu;
 #[cfg(not(desktop))]
 #[path = "menu_mobile.rs"]
 mod menu;
+mod model_gateway;
 mod notifications;
 mod office;
 mod prompts;
@@ -58,6 +59,8 @@ fn keep_daemon_running_after_close(app_handle: &tauri::AppHandle) -> bool {
 
 #[cfg(desktop)]
 async fn stop_managed_daemons_for_exit(app_handle: tauri::AppHandle) {
+    let state = app_handle.state::<state::AppState>();
+    let _ = model_gateway::model_gateway_stop_for_state(state).await;
     let state = app_handle.state::<state::AppState>();
     let _ = tailscale::tailscale_daemon_stop(state).await;
 }
@@ -143,6 +146,7 @@ pub fn run() {
             {
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
+                    let _ = model_gateway::model_gateway_start_for_app(app_handle.clone()).await;
                     let state = app_handle.state::<state::AppState>();
                     let settings = state.app_settings.lock().await.clone();
                     if matches!(
@@ -282,6 +286,14 @@ pub fn run() {
             git::checkout_git_branch,
             git::create_git_branch,
             codex::model_list,
+            model_gateway::model_gateway_test_provider,
+            model_gateway::model_gateway_refresh_models,
+            model_gateway::model_gateway_provider_secret_status,
+            model_gateway::model_gateway_provider_secret_set,
+            model_gateway::model_gateway_provider_secret_clear,
+            model_gateway::model_gateway_daemon_start,
+            model_gateway::model_gateway_daemon_stop,
+            model_gateway::model_gateway_daemon_status,
             codex::experimental_feature_list,
             codex::set_codex_feature_flag,
             codex::get_agents_settings,

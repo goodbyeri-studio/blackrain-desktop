@@ -10,6 +10,7 @@ export const SETTINGS_SECTION_IDS = [
   "shortcuts",
   "open-apps",
   "git",
+  "model-gateway",
   "server",
   "agents",
 ] as const;

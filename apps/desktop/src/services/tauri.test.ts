@@ -18,6 +18,12 @@ import {
   getOpenAppIcon,
   listThreads,
   listMcpServerStatus,
+  modelGatewayDaemonStart,
+  modelGatewayDaemonStatus,
+  modelGatewayDaemonStop,
+  modelGatewayProviderSecretClear,
+  modelGatewayProviderSecretSet,
+  modelGatewayProviderSecretStatus,
   readThread,
   readGlobalAgentsMd,
   readGlobalCodexConfigToml,
@@ -490,6 +496,34 @@ describe("tauri invoke wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("tailscale_daemon_start");
     expect(invokeMock).toHaveBeenCalledWith("tailscale_daemon_stop");
     expect(invokeMock).toHaveBeenCalledWith("tailscale_daemon_status");
+  });
+
+  it("invokes model gateway wrappers", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockResolvedValue(undefined);
+
+    await modelGatewayProviderSecretStatus("deepseek");
+    await modelGatewayProviderSecretSet("deepseek", "sk-test");
+    await modelGatewayProviderSecretClear("deepseek");
+    await modelGatewayDaemonStart();
+    await modelGatewayDaemonStop();
+    await modelGatewayDaemonStatus();
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "model_gateway_provider_secret_status",
+      { providerId: "deepseek" },
+    );
+    expect(invokeMock).toHaveBeenCalledWith("model_gateway_provider_secret_set", {
+      providerId: "deepseek",
+      apiKey: "sk-test",
+    });
+    expect(invokeMock).toHaveBeenCalledWith(
+      "model_gateway_provider_secret_clear",
+      { providerId: "deepseek" },
+    );
+    expect(invokeMock).toHaveBeenCalledWith("model_gateway_daemon_start");
+    expect(invokeMock).toHaveBeenCalledWith("model_gateway_daemon_stop");
+    expect(invokeMock).toHaveBeenCalledWith("model_gateway_daemon_status");
   });
 
   it("reads agent.md for a workspace", async () => {

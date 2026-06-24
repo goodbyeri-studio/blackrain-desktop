@@ -28,8 +28,39 @@ const DEFAULT_REMOTE_BACKEND_HOST = "127.0.0.1:4732";
 const DEFAULT_REMOTE_BACKEND_ID = "remote-default";
 const DEFAULT_REMOTE_BACKEND_NAME = "Primary remote";
 const DEFAULT_REMOTE_PROVIDER: AppSettings["remoteBackendProvider"] = "tcp";
+const DEFAULT_MODEL_GATEWAY_SETTINGS: AppSettings["modelGateway"] = {
+  enabled: true,
+  port: 8899,
+  defaultModel: "deepseek-v4-flash",
+  providers: [
+    {
+      id: "deepseek",
+      name: "DeepSeek",
+      kind: "deepseek",
+      baseUrl: "https://api.deepseek.com/v1",
+      apiKeyEnv: "DEEPSEEK_API_KEY",
+      enabled: true,
+      models: [
+        {
+          id: "deepseek-v4-flash",
+          displayName: "DeepSeek V4 Flash",
+          description: "高性价比主力 · 1M 上下文",
+          isDefault: true,
+        },
+        {
+          id: "deepseek-v4-pro",
+          displayName: "DeepSeek V4 Pro",
+          description: "旗舰 1.6T · 1M 上下文 · 攻坚",
+          isDefault: false,
+        },
+      ],
+    },
+  ],
+};
 
 type RemoteBackendTarget = AppSettings["remoteBackends"][number];
+type ModelGatewayProvider = AppSettings["modelGateway"]["providers"][number];
+type ModelGatewayModel = ModelGatewayProvider["models"][number];
 
 function normalizeRemoteProvider(value: unknown): AppSettings["remoteBackendProvider"] {
   void value;
@@ -123,6 +154,100 @@ function normalizeRemoteBackends(settings: AppSettings): {
   };
 }
 
+function normalizeGatewayId(value: string | null | undefined, fallback: string): string {
+  const normalized = (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || fallback;
+}
+
+function normalizeGatewayModel(
+  model: Partial<ModelGatewayModel> | null | undefined,
+  index: number,
+): ModelGatewayModel {
+  const id = (model?.id ?? "").trim() || `model-${index + 1}`;
+  return {
+    id,
+    displayName: (model?.displayName ?? "").trim() || id,
+    description: (model?.description ?? "").trim(),
+    isDefault: Boolean(model?.isDefault),
+  };
+}
+
+function gatewayPublicModelId(
+  provider: Pick<ModelGatewayProvider, "id">,
+  model: Pick<ModelGatewayModel, "id">,
+): string {
+  if (model.id.includes("/") || provider.id === "deepseek") {
+    return model.id;
+  }
+  return `${provider.id}/${model.id}`;
+}
+
+function normalizeModelGatewaySettings(
+  settings: AppSettings,
+): AppSettings["modelGateway"] {
+  const raw = settings.modelGateway ?? DEFAULT_MODEL_GATEWAY_SETTINGS;
+  const seen = new Set<string>();
+  const providers = (raw.providers?.length
+    ? raw.providers
+    : DEFAULT_MODEL_GATEWAY_SETTINGS.providers
+  ).map((provider, index) => {
+    const baseId = normalizeGatewayId(provider.id, `provider-${index + 1}`);
+    let id = baseId;
+    let suffix = 2;
+    while (seen.has(id)) {
+      id = `${baseId}-${suffix}`;
+      suffix += 1;
+    }
+    seen.add(id);
+    const models = (provider.models?.length
+      ? provider.models
+      : DEFAULT_MODEL_GATEWAY_SETTINGS.providers[0].models
+    ).map(normalizeGatewayModel);
+    return {
+      id,
+      name: provider.name?.trim() || id,
+      kind:
+        provider.kind === "deepseek" || provider.kind === "openai-compatible"
+          ? provider.kind
+          : "openai-compatible",
+      baseUrl: provider.baseUrl?.trim() || "https://api.openai.com/v1",
+      apiKeyEnv: provider.apiKeyEnv?.trim() || "OPENAI_API_KEY",
+      enabled: provider.enabled !== false,
+      models,
+    };
+  });
+
+  const gatewayModels = providers.flatMap((provider) =>
+    provider.models.map((model) => ({ provider, model })),
+  );
+  const availableDefault = gatewayModels.find(
+    ({ provider, model }) =>
+      model.id === raw.defaultModel ||
+      gatewayPublicModelId(provider, model) === raw.defaultModel,
+  );
+  const firstDefault =
+    gatewayModels.find(({ model }) => model.isDefault) ?? null;
+  const fallbackDefault =
+    availableDefault ?? firstDefault ?? gatewayModels[0] ?? null;
+  const defaultModel = fallbackDefault
+    ? gatewayPublicModelId(fallbackDefault.provider, fallbackDefault.model)
+    : null;
+
+  return {
+    enabled: raw.enabled !== false,
+    port:
+      typeof raw.port === "number" && Number.isInteger(raw.port) && raw.port > 0
+        ? raw.port
+        : DEFAULT_MODEL_GATEWAY_SETTINGS.port,
+    defaultModel,
+    providers,
+  };
+}
+
 function buildDefaultSettings(): AppSettings {
   const isMac = isMacPlatform();
   const isMobile = isMobilePlatform();
@@ -137,6 +262,7 @@ function buildDefaultSettings(): AppSettings {
   return {
     codexBin: null,
     codexArgs: null,
+    modelGateway: DEFAULT_MODEL_GATEWAY_SETTINGS,
     backendMode: isMobile ? "remote" : "local",
     remoteBackendProvider: defaultRemote.provider,
     remoteBackendHost: defaultRemote.host,
@@ -279,6 +405,7 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
       settings.reviewDeliveryMode === "detached" ? "detached" : "inline",
     chatHistoryScrollbackItems,
     commitMessagePrompt,
+    modelGateway: normalizeModelGatewaySettings(settings),
     openAppTargets: normalizedTargets,
     selectedOpenAppId,
   };

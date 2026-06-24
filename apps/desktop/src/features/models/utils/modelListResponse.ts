@@ -76,7 +76,7 @@ export function parseModelListResponse(response: unknown): ModelOption[] {
   const items = extractModelItems(response);
 
   return items
-    .map((item) => {
+    .map((item): ModelOption | null => {
       if (!item || typeof item !== "object") {
         return null;
       }
@@ -89,6 +89,18 @@ export function parseModelListResponse(response: unknown): ModelOption[] {
         model: modelSlug,
         displayName,
         description: String(record.description ?? ""),
+        providerId:
+          typeof record.providerId === "string"
+            ? record.providerId
+            : typeof record.provider_id === "string"
+              ? record.provider_id
+              : null,
+        providerName:
+          typeof record.providerName === "string"
+            ? record.providerName
+            : typeof record.provider_name === "string"
+              ? record.provider_name
+              : null,
         supportedReasoningEfforts: parseReasoningEfforts(record),
         defaultReasoningEffort: normalizeEffortValue(
           record.defaultReasoningEffort ?? record.default_reasoning_effort,

@@ -8,6 +8,8 @@ mod daemon;
 mod dispatcher;
 #[path = "rpc/git.rs"]
 mod git;
+#[path = "rpc/model_gateway.rs"]
+mod model_gateway;
 #[path = "rpc/prompts.rs"]
 mod prompts;
 #[path = "rpc/workspace.rs"]

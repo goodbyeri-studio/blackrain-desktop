@@ -270,6 +270,10 @@ export function useSettingsViewOrchestration({
       onSelectOpenAppDefault: handleSelectOpenAppDefault,
     },
     gitSectionProps,
+    modelGatewaySectionProps: {
+      appSettings,
+      onUpdateAppSettings,
+    },
     serverSectionProps,
     agentsSectionProps,
     codexSectionProps,

@@ -5,6 +5,7 @@ import { SettingsDisplaySection } from "./SettingsDisplaySection";
 import { SettingsEnvironmentsSection } from "./SettingsEnvironmentsSection";
 import { SettingsFeaturesSection } from "./SettingsFeaturesSection";
 import { SettingsGitSection } from "./SettingsGitSection";
+import { SettingsModelGatewaySection } from "./SettingsModelGatewaySection";
 import { SettingsOpenAppsSection } from "./SettingsOpenAppsSection";
 import { SettingsProjectsSection } from "./SettingsProjectsSection";
 import { SettingsServerSection } from "./SettingsServerSection";
@@ -49,6 +50,13 @@ export function SettingsSectionContainers({
   }
   if (activeSection === "git") {
     return <SettingsGitSection {...orchestration.gitSectionProps} />;
+  }
+  if (activeSection === "model-gateway") {
+    return (
+      <SettingsModelGatewaySection
+        {...orchestration.modelGatewaySectionProps}
+      />
+    );
   }
   if (activeSection === "server") {
     return <SettingsServerSection {...orchestration.serverSectionProps} />;

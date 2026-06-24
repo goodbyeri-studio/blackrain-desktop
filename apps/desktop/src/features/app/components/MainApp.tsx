@@ -294,6 +294,7 @@ export default function MainApp() {
     preferredModelId,
     preferredEffort,
     selectionKey: threadCodexSelectionKey,
+    modelGateway: appSettings.modelGateway,
   });
 
   const {

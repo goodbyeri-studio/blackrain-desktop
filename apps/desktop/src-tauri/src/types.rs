@@ -376,11 +376,110 @@ pub(crate) struct RemoteBackendTarget {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct ModelGatewayModelConfig {
+    pub(crate) id: String,
+    #[serde(default, rename = "displayName")]
+    pub(crate) display_name: String,
+    #[serde(default)]
+    pub(crate) description: String,
+    #[serde(default, rename = "isDefault")]
+    pub(crate) is_default: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum ModelGatewayProviderKind {
+    Deepseek,
+    OpenaiCompatible,
+}
+
+impl Default for ModelGatewayProviderKind {
+    fn default() -> Self {
+        Self::OpenaiCompatible
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct ModelGatewayProviderConfig {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) kind: ModelGatewayProviderKind,
+    #[serde(default, rename = "baseUrl")]
+    pub(crate) base_url: String,
+    #[serde(default, rename = "apiKeyEnv")]
+    pub(crate) api_key_env: String,
+    #[serde(default = "default_true")]
+    pub(crate) enabled: bool,
+    #[serde(default)]
+    pub(crate) models: Vec<ModelGatewayModelConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum ModelGatewaySecretSource {
+    Keychain,
+    Environment,
+    Missing,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelGatewayProviderSecretStatus {
+    pub(crate) provider_id: String,
+    pub(crate) configured: bool,
+    pub(crate) source: ModelGatewaySecretSource,
+    #[serde(default)]
+    pub(crate) env_key: Option<String>,
+    #[serde(default)]
+    pub(crate) message: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct ModelGatewaySettings {
+    #[serde(default = "default_true")]
+    pub(crate) enabled: bool,
+    #[serde(default = "default_model_gateway_port")]
+    pub(crate) port: u16,
+    #[serde(default, rename = "defaultModel")]
+    pub(crate) default_model: Option<String>,
+    #[serde(default = "default_model_gateway_providers")]
+    pub(crate) providers: Vec<ModelGatewayProviderConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum ModelGatewayRuntimeState {
+    Stopped,
+    Running,
+    Error,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelGatewayRuntimeStatus {
+    pub(crate) state: ModelGatewayRuntimeState,
+    #[serde(default)]
+    pub(crate) pid: Option<u32>,
+    pub(crate) port: u16,
+    pub(crate) base_url: String,
+    #[serde(default)]
+    pub(crate) started_at_ms: Option<i64>,
+    #[serde(default)]
+    pub(crate) last_error: Option<String>,
+    pub(crate) log_path: String,
+    pub(crate) provider_count: usize,
+    pub(crate) model_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct AppSettings {
     #[serde(default, rename = "codexBin")]
     pub(crate) codex_bin: Option<String>,
     #[serde(default, rename = "codexArgs")]
     pub(crate) codex_args: Option<String>,
+    #[serde(default = "default_model_gateway_settings", rename = "modelGateway")]
+    pub(crate) model_gateway: ModelGatewaySettings,
     #[serde(default, rename = "backendMode")]
     pub(crate) backend_mode: BackendMode,
     #[serde(default, rename = "remoteBackendProvider")]
@@ -699,6 +798,48 @@ fn default_remote_backend_host() -> String {
 
 fn default_remote_backends() -> Vec<RemoteBackendTarget> {
     Vec::new()
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_model_gateway_port() -> u16 {
+    8899
+}
+
+fn default_model_gateway_providers() -> Vec<ModelGatewayProviderConfig> {
+    vec![ModelGatewayProviderConfig {
+        id: "deepseek".to_string(),
+        name: "DeepSeek".to_string(),
+        kind: ModelGatewayProviderKind::Deepseek,
+        base_url: "https://api.deepseek.com/v1".to_string(),
+        api_key_env: "DEEPSEEK_API_KEY".to_string(),
+        enabled: true,
+        models: vec![
+            ModelGatewayModelConfig {
+                id: "deepseek-v4-flash".to_string(),
+                display_name: "DeepSeek V4 Flash".to_string(),
+                description: "高性价比主力 · 1M 上下文".to_string(),
+                is_default: true,
+            },
+            ModelGatewayModelConfig {
+                id: "deepseek-v4-pro".to_string(),
+                display_name: "DeepSeek V4 Pro".to_string(),
+                description: "旗舰 1.6T · 1M 上下文 · 攻坚".to_string(),
+                is_default: false,
+            },
+        ],
+    }]
+}
+
+fn default_model_gateway_settings() -> ModelGatewaySettings {
+    ModelGatewaySettings {
+        enabled: true,
+        port: default_model_gateway_port(),
+        default_model: Some("deepseek-v4-flash".to_string()),
+        providers: default_model_gateway_providers(),
+    }
 }
 
 fn default_ui_scale() -> f64 {
@@ -1131,6 +1272,7 @@ impl Default for AppSettings {
         Self {
             codex_bin: None,
             codex_args: None,
+            model_gateway: default_model_gateway_settings(),
             backend_mode: default_backend_mode(),
             remote_backend_provider: RemoteBackendProvider::Tcp,
             remote_backend_host: default_remote_backend_host(),

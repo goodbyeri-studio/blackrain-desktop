@@ -20,6 +20,8 @@ import {
   isMobileRuntime,
   getModelList,
   listWorkspaces,
+  modelGatewayDaemonStatus,
+  modelGatewayProviderSecretStatus,
 } from "@services/tauri";
 import { DEFAULT_COMMIT_MESSAGE_PROMPT } from "@utils/commitMessagePrompt";
 import { SettingsView } from "./SettingsView";
@@ -43,6 +45,8 @@ vi.mock("@services/tauri", async () => {
     getAgentsSettings: vi.fn(),
     isMobileRuntime: vi.fn(),
     listWorkspaces: vi.fn(),
+    modelGatewayDaemonStatus: vi.fn(),
+    modelGatewayProviderSecretStatus: vi.fn(),
   };
 });
 
@@ -54,11 +58,33 @@ const getExperimentalFeatureListMock = vi.mocked(getExperimentalFeatureList);
 const getAgentsSettingsMock = vi.mocked(getAgentsSettings);
 const isMobileRuntimeMock = vi.mocked(isMobileRuntime);
 const listWorkspacesMock = vi.mocked(listWorkspaces);
+const modelGatewayDaemonStatusMock = vi.mocked(modelGatewayDaemonStatus);
+const modelGatewayProviderSecretStatusMock = vi.mocked(
+  modelGatewayProviderSecretStatus,
+);
 connectWorkspaceMock.mockResolvedValue(undefined);
 getAppBuildTypeMock.mockResolvedValue("release");
 getConfigModelMock.mockResolvedValue(null);
 isMobileRuntimeMock.mockResolvedValue(false);
 listWorkspacesMock.mockResolvedValue([]);
+modelGatewayDaemonStatusMock.mockResolvedValue({
+  state: "stopped",
+  pid: null,
+  port: 8899,
+  baseUrl: "http://127.0.0.1:8899/v1",
+  startedAtMs: null,
+  lastError: null,
+  logPath: "/tmp/model-gateway.log",
+  providerCount: 1,
+  modelCount: 1,
+});
+modelGatewayProviderSecretStatusMock.mockResolvedValue({
+  providerId: "deepseek",
+  configured: true,
+  source: "keychain",
+  envKey: "DEEPSEEK_API_KEY",
+  message: "API key is saved in the system credential store.",
+});
 getAgentsSettingsMock.mockResolvedValue({
   configPath: "/Users/me/.codex/config.toml",
   multiAgentEnabled: false,
@@ -70,6 +96,29 @@ getAgentsSettingsMock.mockResolvedValue({
 const baseSettings: AppSettings = {
   codexBin: null,
   codexArgs: null,
+  modelGateway: {
+    enabled: true,
+    port: 8899,
+    defaultModel: "deepseek-v4-flash",
+    providers: [
+      {
+        id: "deepseek",
+        name: "DeepSeek",
+        kind: "deepseek",
+        baseUrl: "https://api.deepseek.com/v1",
+        apiKeyEnv: "DEEPSEEK_API_KEY",
+        enabled: true,
+        models: [
+          {
+            id: "deepseek-v4-flash",
+            displayName: "DeepSeek V4 Flash",
+            description: "高性价比主力 · 1M 上下文",
+            isDefault: true,
+          },
+        ],
+      },
+    ],
+  },
   backendMode: "local",
   remoteBackendProvider: "tcp",
   remoteBackendHost: "127.0.0.1:4732",
@@ -271,6 +320,49 @@ const renderComposerSection = (
     onCancelDictationDownload: vi.fn(),
     onRemoveDictationModel: vi.fn(),
     initialSection: "composer",
+  };
+
+  render(<SettingsView {...props} />);
+  return { onUpdateAppSettings };
+};
+
+const renderModelGatewaySection = (
+  options: {
+    appSettings?: Partial<AppSettings>;
+    onUpdateAppSettings?: ComponentProps<typeof SettingsView>["onUpdateAppSettings"];
+  } = {},
+) => {
+  cleanup();
+  const onUpdateAppSettings =
+    options.onUpdateAppSettings ?? vi.fn().mockResolvedValue(undefined);
+  const props: ComponentProps<typeof SettingsView> = {
+    reduceTransparency: false,
+    onToggleTransparency: vi.fn(),
+    appSettings: { ...baseSettings, ...options.appSettings },
+    openAppIconById: {},
+    onUpdateAppSettings,
+    workspaceGroups: [],
+    groupedWorkspaces: [],
+    ungroupedLabel: "Ungrouped",
+    onClose: vi.fn(),
+    onMoveWorkspace: vi.fn(),
+    onDeleteWorkspace: vi.fn(),
+    onCreateWorkspaceGroup: vi.fn().mockResolvedValue(null),
+    onRenameWorkspaceGroup: vi.fn().mockResolvedValue(null),
+    onMoveWorkspaceGroup: vi.fn().mockResolvedValue(null),
+    onDeleteWorkspaceGroup: vi.fn().mockResolvedValue(null),
+    onAssignWorkspaceGroup: vi.fn().mockResolvedValue(null),
+    onRunDoctor: vi.fn().mockResolvedValue(createDoctorResult()),
+    onUpdateWorkspaceSettings: vi.fn().mockResolvedValue(undefined),
+    scaleShortcutTitle: "Scale shortcut",
+    scaleShortcutText: "Use Command +/-",
+    onTestNotificationSound: vi.fn(),
+    onTestSystemNotification: vi.fn(),
+    dictationModelStatus: null,
+    onDownloadDictationModel: vi.fn(),
+    onCancelDictationDownload: vi.fn(),
+    onRemoveDictationModel: vi.fn(),
+    initialSection: "model-gateway",
   };
 
   render(<SettingsView {...props} />);
@@ -1076,6 +1168,64 @@ describe("SettingsView Environments", () => {
         delete (navigator as any).clipboard;
       }
     }
+  });
+});
+
+describe("SettingsView Model Gateway", () => {
+  it("blocks gateway start when an enabled provider has no API key", async () => {
+    modelGatewayProviderSecretStatusMock.mockResolvedValueOnce({
+      providerId: "deepseek",
+      configured: false,
+      source: "missing",
+      envKey: "DEEPSEEK_API_KEY",
+      message: "API key is missing.",
+    });
+
+    renderModelGatewaySection();
+
+    expect(
+      await screen.findByText("Save an API key for at least one enabled provider."),
+    ).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Start" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(screen.getByText("API key is missing.")).toBeTruthy();
+  });
+
+  it("shows an empty model state before a provider has models", async () => {
+    renderModelGatewaySection({
+      appSettings: {
+        modelGateway: {
+          ...baseSettings.modelGateway,
+          defaultModel: null,
+          providers: [
+            {
+              ...baseSettings.modelGateway.providers[0],
+              models: [],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      await screen.findByText(
+        "Add or refresh at least one model before starting new conversations.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "No models configured. Add models manually or refresh a provider model list.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("No models configured for this provider."),
+    ).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Start" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
   });
 });
 
