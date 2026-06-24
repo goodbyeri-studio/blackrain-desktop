@@ -45,6 +45,7 @@
 - [x] 新线程使用全局默认模型。
 - [x] 线程级模型覆盖可持久化。
 - [ ] 模型不可用时显示清晰降级状态。
+- [ ] 设置页 Codex/Agents 区的 `useSettingsDefaultModels` 也收敛到网关 registry（同源于 #2：当前仍读内核自带 OpenAI 目录并带 gpt 版本排序，可能把网关无法路由的 gpt 模型写进 config.toml 默认）。属 CodexMonitor 既有 surface，本 PR 暂不处理，待办。
 
 ## 阶段 5：Gateway 生产化最小补强
 
