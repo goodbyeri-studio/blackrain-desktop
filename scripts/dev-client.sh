@@ -7,7 +7,7 @@
 #
 # ⚠️ 会开 GUI 窗口，须在有显示器的本机跑（非 SSH/无头）。
 # 前提：① 已 cp .env.example .env 并填好 DEEPSEEK_API_KEY
-#       ② 已编译 codex 内核（见 快捷命令行.md「内核构建」）
+#       ② 已编译 codex 内核（见 docs/commands.md「内核构建」）
 #       ③ apps/desktop 已 npm install
 set -euo pipefail
 
@@ -35,21 +35,22 @@ fi
 export PATH="$KERNEL_DIR:$PATH"
 echo "✓ codex 内核：$(command -v codex)"
 
-# ── 3. 准备开发用 CODEX_HOME（带 DeepSeek provider 配置，指向网关）──
+# ── 3. 准备开发用 CODEX_HOME（Codex 只认识 BlackRain Gateway）──
 # 模型可在启动时指定：DEV_MODEL=deepseek-v4-pro ./scripts/dev-client.sh
 # 默认 deepseek-v4-flash（高性价比主力，1M 上下文）；攻坚改 deepseek-v4-pro（1.6T 旗舰，1M）。
 # 注：旧名 deepseek-chat / deepseek-reasoner 将于 2026-07-24 弃用。
 DEV_MODEL="${DEV_MODEL:-deepseek-v4-flash}"
 DEV_HOME="$REPO/.scratch/dev-codex-home"
 mkdir -p "$DEV_HOME"
+export BLACKRAIN_GATEWAY_API_KEY="${BLACKRAIN_GATEWAY_API_KEY:-local-dev-gateway}"
 cat > "$DEV_HOME/config.toml" <<TOML
 model = "${DEV_MODEL}"
-model_provider = "deepseek"
+model_provider = "blackrain_gateway"
 
-[model_providers.deepseek]
-name = "DeepSeek (via gateway)"
+[model_providers.blackrain_gateway]
+name = "BlackRain Gateway"
 base_url = "http://127.0.0.1:8899/v1"
-env_key = "DEEPSEEK_API_KEY"
+env_key = "BLACKRAIN_GATEWAY_API_KEY"
 wire_api = "responses"
 TOML
 export CODEX_HOME="${DEV_HOME}"

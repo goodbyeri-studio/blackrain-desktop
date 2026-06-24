@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DebugEntry, ModelOption, WorkspaceInfo } from "../../../types";
+import type { AppSettings, DebugEntry, ModelOption, WorkspaceInfo } from "../../../types";
 import { getConfigModel, getModelList } from "../../../services/tauri";
 import { normalizeEffortValue } from "../utils/modelListResponse";
 
@@ -9,6 +9,7 @@ type UseModelsOptions = {
   preferredModelId?: string | null;
   preferredEffort?: string | null;
   selectionKey?: string | null;
+  modelGateway?: AppSettings["modelGateway"] | null;
 };
 
 const CONFIG_MODEL_DESCRIPTION = "Configured in CODEX_HOME/config.toml";
@@ -22,6 +23,8 @@ const OWN_MODELS: ModelOption[] = [
     model: "deepseek-v4-flash",
     displayName: "DeepSeek V4 Flash",
     description: "高性价比主力 · 1M 上下文",
+    providerId: "deepseek",
+    providerName: "DeepSeek",
     supportedReasoningEfforts: [],
     defaultReasoningEffort: null,
     isDefault: true,
@@ -31,6 +34,8 @@ const OWN_MODELS: ModelOption[] = [
     model: "deepseek-v4-pro",
     displayName: "DeepSeek V4 Pro",
     description: "旗舰 1.6T · 1M 上下文 · 攻坚",
+    providerId: "deepseek",
+    providerName: "DeepSeek",
     supportedReasoningEfforts: [],
     defaultReasoningEffort: null,
     isDefault: false,
@@ -57,12 +62,52 @@ const pickDefaultModel = (models: ModelOption[], configModel: string | null) =>
   models[0] ??
   null;
 
+function publicGatewayModelId(
+  provider: AppSettings["modelGateway"]["providers"][number],
+  modelId: string,
+): string {
+  if (provider.id === "deepseek" || modelId.includes("/")) {
+    return modelId;
+  }
+  return `${provider.id}/${modelId}`;
+}
+
+function modelGatewayToOptions(
+  gateway: AppSettings["modelGateway"] | null | undefined,
+): ModelOption[] {
+  if (!gateway?.enabled) {
+    return [];
+  }
+  return gateway.providers
+    .filter((provider) => provider.enabled)
+    .flatMap((provider) =>
+      provider.models.map((model) => {
+        const id = publicGatewayModelId(provider, model.id);
+        return {
+          id,
+          model: id,
+          displayName:
+            provider.id === "deepseek"
+              ? model.displayName
+              : `${provider.name} / ${model.displayName}`,
+          description: model.description,
+          providerId: provider.id,
+          providerName: provider.name,
+          supportedReasoningEfforts: [],
+          defaultReasoningEffort: null,
+          isDefault: id === gateway.defaultModel || model.isDefault,
+        } satisfies ModelOption;
+      }),
+    );
+}
+
 export function useModels({
   activeWorkspace,
   onDebug,
   preferredModelId = null,
   preferredEffort = null,
   selectionKey = null,
+  modelGateway = null,
 }: UseModelsOptions) {
   const [models, setModels] = useState<ModelOption[]>([]);
   const [configModel, setConfigModel] = useState<string | null>(null);
@@ -77,6 +122,10 @@ export function useModels({
 
   const workspaceId = activeWorkspace?.id ?? null;
   const isConnected = Boolean(activeWorkspace?.connected);
+  const configuredGatewayModels = useMemo(
+    () => modelGatewayToOptions(modelGateway),
+    [modelGateway],
+  );
 
   useEffect(() => {
     if (selectionKey === lastSelectionKey.current) {
@@ -223,19 +272,22 @@ export function useModels({
         payload: response,
       });
       setConfigModel(configModelFromConfig);
-      // 2049 魔改：不用内核返回的 OpenAI 目录，只用自有 DeepSeek 模型清单。
-      // response 仍保留上面的 debug 日志，便于排查；但不再喂给选择器。
+      // 2049 魔改：模型选择器只用 BlackRain 网关 registry，不信任内核 model/list。
+      // 内核走自带 OpenAI 目录（models.json: gpt-*），网关根本路由不了，选中即
+      // response.failed。response 仍保留上面的 debug 日志便于排查，但不喂给选择器。
       void response;
-      const dataFromServer: ModelOption[] = OWN_MODELS;
+      const dataFromServer = configuredGatewayModels;
+      const fallbackModels: ModelOption[] =
+        dataFromServer.length > 0 ? dataFromServer : OWN_MODELS;
       const data = (() => {
         if (!configModelFromConfig) {
-          return dataFromServer;
+          return fallbackModels;
         }
-        const hasConfigModel = dataFromServer.some(
+        const hasConfigModel = fallbackModels.some(
           (model) => model.model === configModelFromConfig,
         );
         if (hasConfigModel) {
-          return dataFromServer;
+          return fallbackModels;
         }
         const configOption: ModelOption = {
           id: configModelFromConfig,
@@ -246,7 +298,7 @@ export function useModels({
           defaultReasoningEffort: null,
           isDefault: false,
         };
-        return [configOption, ...dataFromServer];
+        return [configOption, ...fallbackModels];
       })();
       setModels(data);
       lastFetchedWorkspaceId.current = workspaceId;
@@ -280,6 +332,7 @@ export function useModels({
     }
   }, [
     isConnected,
+    configuredGatewayModels,
     onDebug,
     preferredModelId,
     selectedEffort,

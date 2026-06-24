@@ -34,10 +34,11 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 
 ```
 2049-app/
-├── README.md              入口 + 索引
-├── docs/                  产品文档（见下方索引）
+├── README.md              全仓入口 + 当前状态
+├── docs/                  文档地图、产品文档、命令速查
 ├── apps/
 │   └── desktop/           桌面外壳，fork 自 CodexMonitor（git subtree，持续魔改的底盘）
+├── .specs/                轻量 living spec（大功能的需求/设计/任务/决策/验证）
 ├── gateway/               模型路由 / Responses⇄Chat 翻译层（可替换的 sidecar 槽位）
 ├── plugins/               能力封装：插件 / 工作台模板（放进 CODEX_HOME 的文件）
 ├── workbenches/           ★ 核心产出：工作台内容（纯 Markdown）
@@ -53,6 +54,8 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 
 | 文档 | 内容 |
 |---|---|
+| [文档地图](docs/README.md) | 文档分层、写作规则、去哪里写 |
+| [快捷命令行](docs/commands.md) | 启动客户端、构建内核、网关、探针、GitHub Flow |
 | [01 产品愿景](docs/01-产品愿景.md) | 我们要做什么、为谁做、为什么是现在 |
 | [02 市场与竞品](docs/02-市场与竞品.md) | 竞争格局、字节 Coze 的威胁、我们的差异化 |
 | [03 系统架构](docs/03-系统架构.md) | 五层架构、复用 Codex 哪些、自建哪些 |
@@ -63,6 +66,7 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 | [08 仓库结构与上游策略](docs/08-仓库结构与上游策略.md) | 内核黑盒 vs 壳底盘、CodexMonitor 用 subtree 导入 |
 | [09 运行时架构与里程碑](docs/09-运行时架构与里程碑.md) | 监工模型、三条铁律、内核形态、M0-M3 里程碑 |
 | [REFERENCES](docs/REFERENCES.md) | 参考项目登记（怎么拿源码、锁哪个版本）|
+| [.specs](.specs/README.md) | 跨层功能的轻量 living spec 规则与模板 |
 
 ## 当前状态
 
@@ -76,7 +80,7 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 
 协作流程见 [CONTRIBUTING](CONTRIBUTING.md)。一句话：采用 **GitHub Flow**——从 `main` 切短命功能分支，开 PR，1 人 Review + CI 绿后 Squash 合并。
 
-常用命令速查见 [快捷命令行](快捷命令行.md)（启动客户端、构建内核、起网关等）。
+常用命令速查见 [docs/commands.md](docs/commands.md)（启动客户端、构建内核、起网关等）。
 
 ## 合规
 

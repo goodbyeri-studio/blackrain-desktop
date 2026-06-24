@@ -55,10 +55,9 @@ describe("useModels", () => {
     expect(result.current.reasoningSupported).toBe(false);
   });
 
-  it("only shows own DeepSeek models, ignoring the kernel OpenAI catalog", async () => {
-    // 2049 魔改(PR#10):选择器无视内核 model/list 返回的 OpenAI 目录,
-    // 只显示自有 DeepSeek 模型清单(flash + pro)。这里 mock 一堆 OpenAI 模型,
-    // 验证它们全被忽略、下拉只剩我们的两个。
+  it("ignores the kernel OpenAI catalog and only shows gateway registry models", async () => {
+    // 内核 model/list 实际返回自带 OpenAI 目录（models.json: gpt-*），
+    // 网关根本路由不了这些模型。选择器必须无视它，只用 BlackRain 网关 registry。
     vi.mocked(getModelList).mockResolvedValueOnce({
       result: {
         data: [
@@ -73,21 +72,93 @@ describe("useModels", () => {
         ],
       },
     });
-    vi.mocked(getConfigModel).mockResolvedValueOnce("deepseek-v4-flash");
+    vi.mocked(getConfigModel).mockResolvedValueOnce("qwen/qwen3-coder-plus");
 
     const { result } = renderHook(() =>
-      useModels({ activeWorkspace: workspace }),
+      useModels({
+        activeWorkspace: workspace,
+        modelGateway: {
+          enabled: true,
+          port: 8899,
+          defaultModel: "qwen/qwen3-coder-plus",
+          providers: [
+            {
+              id: "qwen",
+              name: "Qwen",
+              kind: "openai-compatible",
+              baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+              apiKeyEnv: "QWEN_API_KEY",
+              enabled: true,
+              models: [
+                {
+                  id: "qwen3-coder-plus",
+                  displayName: "Qwen3 Coder Plus",
+                  description: "coding model",
+                  isDefault: true,
+                },
+              ],
+            },
+          ],
+        },
+      }),
     );
 
     await waitFor(() => expect(result.current.models.length).toBeGreaterThan(0));
 
     const ids = result.current.models.map((m) => m.id);
-    expect(ids).toEqual(["deepseek-v4-flash", "deepseek-v4-pro"]);
-    // 内核的 OpenAI 模型不应出现
+    // 网关模型在；内核的 gpt-5.5 不应出现。
+    expect(ids).toContain("qwen/qwen3-coder-plus");
     expect(ids).not.toContain("gpt-5.5");
-    // config 指定的 flash 已在自有清单里,不重复 prepend
-    expect(result.current.models).toHaveLength(2);
-    expect(result.current.selectedModel?.model).toBe("deepseek-v4-flash");
+    expect(result.current.models[0]).toMatchObject({
+      providerId: "qwen",
+      providerName: "Qwen",
+    });
+    expect(result.current.selectedModel?.model).toBe("qwen/qwen3-coder-plus");
+  });
+
+  it("adds models configured in app model gateway settings", async () => {
+    vi.mocked(getModelList).mockResolvedValueOnce({ data: [] });
+    vi.mocked(getConfigModel).mockResolvedValueOnce("qwen/qwen3-coder-plus");
+
+    const { result } = renderHook(() =>
+      useModels({
+        activeWorkspace: workspace,
+        modelGateway: {
+          enabled: true,
+          port: 8899,
+          defaultModel: "qwen/qwen3-coder-plus",
+          providers: [
+            {
+              id: "qwen",
+              name: "Qwen",
+              kind: "openai-compatible",
+              baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+              apiKeyEnv: "QWEN_API_KEY",
+              enabled: true,
+              models: [
+                {
+                  id: "qwen3-coder-plus",
+                  displayName: "Qwen3 Coder Plus",
+                  description: "coding model",
+                  isDefault: true,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.models.length).toBe(1));
+
+    expect(result.current.models[0]).toMatchObject({
+      id: "qwen/qwen3-coder-plus",
+      model: "qwen/qwen3-coder-plus",
+      displayName: "Qwen / Qwen3 Coder Plus",
+      providerId: "qwen",
+      providerName: "Qwen",
+    });
+    expect(result.current.selectedModelId).toBe("qwen/qwen3-coder-plus");
   });
 
   it("keeps the selected reasoning effort when switching models", async () => {

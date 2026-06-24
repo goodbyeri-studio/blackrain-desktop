@@ -45,6 +45,7 @@
     "targets": "all",
     "createUpdaterArtifacts": true,
     "resources": {
+      "../../../gateway/gateway.py": "gateway/gateway.py",
       "resources/office-cli": "office-cli",
       "../../../plugins/office-cli": "plugins/office-cli",
       "../../../workbenches/office-agent": "workbenches/office-agent"

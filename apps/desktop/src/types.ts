@@ -237,9 +237,60 @@ export type OpenAppTarget = {
   args: string[];
 };
 
+export type ModelGatewayModelConfig = {
+  id: string;
+  displayName: string;
+  description: string;
+  isDefault: boolean;
+};
+
+export type ModelGatewayProviderKind = "deepseek" | "openai-compatible";
+
+export type ModelGatewayProviderConfig = {
+  id: string;
+  name: string;
+  kind: ModelGatewayProviderKind;
+  baseUrl: string;
+  apiKeyEnv: string;
+  enabled: boolean;
+  models: ModelGatewayModelConfig[];
+};
+
+export type ModelGatewaySecretSource = "keychain" | "environment" | "missing";
+
+export type ModelGatewayProviderSecretStatus = {
+  providerId: string;
+  configured: boolean;
+  source: ModelGatewaySecretSource;
+  envKey: string | null;
+  message: string | null;
+};
+
+export type ModelGatewaySettings = {
+  enabled: boolean;
+  port: number;
+  defaultModel: string | null;
+  providers: ModelGatewayProviderConfig[];
+};
+
+export type ModelGatewayRuntimeState = "stopped" | "running" | "error";
+
+export type ModelGatewayRuntimeStatus = {
+  state: ModelGatewayRuntimeState;
+  pid: number | null;
+  port: number;
+  baseUrl: string;
+  startedAtMs: number | null;
+  lastError: string | null;
+  logPath: string;
+  providerCount: number;
+  modelCount: number;
+};
+
 export type AppSettings = {
   codexBin: string | null;
   codexArgs: string | null;
+  modelGateway: ModelGatewaySettings;
   backendMode: BackendMode;
   remoteBackendProvider: RemoteBackendProvider;
   remoteBackendHost: string;
@@ -630,6 +681,8 @@ export type ModelOption = {
   model: string;
   displayName: string;
   description: string;
+  providerId?: string | null;
+  providerName?: string | null;
   supportedReasoningEfforts: { reasoningEffort: string; description: string }[];
   defaultReasoningEffort: string | null;
   isDefault: boolean;

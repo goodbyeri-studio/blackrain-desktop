@@ -10,7 +10,7 @@ codex 默认 `wire_api="responses"`，网关必须实现 `/v1/responses` 端点 
 
 ## `gateway.py` —— 已验证的最小原型
 
-零依赖（纯 Python stdlib）的 responses⇄chat 翻译网关。**这是可行性验证产物，不是生产代码**——用来证明「DeepSeek 经翻译能驱动 codex 内核」这条链路成立。
+零依赖（纯 Python stdlib）的 responses⇄chat 翻译网关。**这是可行性验证产物，不是生产代码**——用来证明「第三方 Chat provider 经翻译能驱动 codex 内核」这条链路成立。当前内置 DeepSeek provider，并支持用环境变量追加 OpenAI-compatible provider。
 
 ### 运行
 
@@ -26,7 +26,8 @@ python3 gateway/gateway.py
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `DEEPSEEK_API_KEY` | （必填） | DeepSeek API key，从环境读，不硬编码 |
+| `DEEPSEEK_API_KEY` | 默认 DeepSeek 时必填 | DeepSeek API key，从环境读，不硬编码 |
+| `BLACKRAIN_MODEL_GATEWAY_PROVIDERS` / `GW_PROVIDERS_JSON` | 空 | JSON 数组，追加或覆盖 provider registry |
 | `GW_PORT` | `8899` | 监听端口 |
 | `STRIP_TOOLS` | `1` | `1`=剥掉 tools 逼纯文本回复（调试用）；`0`=保留工具，允许多轮工具调用 |
 | `GW_LOG` | `/tmp/gateway.log` | 交互日志路径 |
@@ -35,13 +36,38 @@ codex 内核侧 `config.toml` 对应配置：
 
 ```toml
 model = "deepseek-v4-flash"
-model_provider = "deepseek"
+model_provider = "blackrain_gateway"
 
-[model_providers.deepseek]
-name = "DeepSeek (via gateway)"
+[model_providers.blackrain_gateway]
+name = "BlackRain Gateway"
 base_url = "http://127.0.0.1:8899/v1"
-env_key = "DEEPSEEK_API_KEY"
+env_key = "BLACKRAIN_GATEWAY_API_KEY"
 wire_api = "responses"
+```
+
+第三方 OpenAI-compatible provider 示例：
+
+```bash
+export QWEN_API_KEY=sk-...
+export BLACKRAIN_MODEL_GATEWAY_PROVIDERS='[
+  {
+    "id": "qwen",
+    "name": "Qwen",
+    "kind": "openai-compatible",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "api_key_env": "QWEN_API_KEY",
+    "models": [
+      {
+        "model": "qwen3-coder-plus",
+        "display_name": "Qwen3 Coder Plus",
+        "description": "coding model",
+        "is_default": true
+      }
+    ]
+  }
+]'
+python3 gateway/gateway.py
+curl -s http://127.0.0.1:8899/v1/models
 ```
 
 ### 已验证 vs 未验证（诚实边界）
@@ -52,11 +78,29 @@ wire_api = "responses"
 - 单工具单轮往返；**多轮工具调用 + 工具历史配对**（`tool_calls` ↔ `tool_call_id`，正是 LiteLLM 会崩的点）——实测真建出文件、`turn/completed` 干净收尾
 - **真流式翻译**：DeepSeek `stream=true` 边收边译。`reasoning_content` → `response.reasoning_text.delta`（思考过程实时展开）、`content` → `output_text.delta`（逐字输出）、`tool_calls` 分片按 index 累积。实测 v4-pro 一轮收到 44 个 reasoning delta + 39 个 text delta，零 panic；流式下工具调用建文件正常
 
+**✅ M1.5 新增实测**（2026-06-24，`blackrain_gateway` 配置 + App 托管 sidecar 代码路径）：
+
+- `CODEX_HOME/config.toml` 固定写入 `model_provider = "blackrain_gateway"`
+- App 后端具备 Gateway sidecar 启动、停止、状态、健康检查、端口、日志路径能力
+- `m0_protocol_probe.py` 在 `blackrain_gateway` 配置下四探针通过
+- `STRIP_TOOLS=0` 时真实 DeepSeek 工具调用通过：内核发起 `commandExecution`，创建 `hello.txt`，`turn/completed error=None`
+
+**✅ 公开 MVP hardening 已接入**（2026-06-24）：
+
+- 设置页可保存/清除 provider API key；真实 key 走系统凭据存储，不写入 `settings.json` 或 Codex config
+- Provider `/models` 测试和 Gateway sidecar registry 会优先使用系统凭据中的 key，缺失时回退 `api_key_env`
+- Tauri base/windows bundle resources 已纳入 `gateway/gateway.py`，并有 cargo test 守护配置
+- macOS Keychain 真实写入/读取/清理 smoke 已通过
+- macOS 无签名 app/dmg 已完成真实打包、dmg 挂载资源检查和包内二进制短启动 smoke
+
 **❌ 未验证 / 待补**：
 
 - 并行多工具、3+ 轮深循环
 - `namespace` 工具（如 `multi_agent_v1`，当前被丢弃）
 - reasoning 内容、错误鲁棒性
+- 正式签名、公证、updater 私钥配置
+- provider 热重载、真实第二 provider
+- Windows Credential Manager / Linux Secret Service 的人工 smoke
 - `deepseek-v4-flash` / `deepseek-v4-pro` 模型元数据未注册的 warning（内核报 fallback metadata）
 
 ### 关键翻译映射（已验证版，固化自实测）

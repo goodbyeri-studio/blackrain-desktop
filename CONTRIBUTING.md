@@ -54,6 +54,14 @@ gh pr create                             # 5. 开 PR（或网页开）
 - **标题用 Conventional 格式**：`feat: xxx`（Squash 合并后它就是 main 上的提交信息）。
 - **填 PR 模板**：改了什么、怎么测的、有无风险。
 - **自测过再请人看**：本地 build/跑过，别让 Review 帮你抓低级错误。
+- **跨层大功能同步 living spec**：触发条件见 [.specs/README.md](.specs/README.md)。有对应 spec 的 PR，必须同步更新 `tasks.md` / `verification.md`；关键取舍写进 `decisions.md`。
+
+## 文档约定
+
+- 文档入口和分层见 [docs/README.md](docs/README.md)。
+- 可复制命令统一写在 [docs/commands.md](docs/commands.md)，其他文档只链接，避免多处复制后漂移。
+- 新文档默认不要放仓库根。优先放 `docs/`、`.specs/` 或对应模块目录。
+- 改行为就同步改文档；只改文档也按正常 PR 走。
 
 ## 本项目特有约定
 

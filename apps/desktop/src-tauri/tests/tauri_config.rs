@@ -45,3 +45,28 @@ fn macos_private_api_feature_matches_config() {
         );
     }
 }
+
+#[test]
+fn bundle_resources_include_model_gateway_sidecar() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    for config_name in ["tauri.conf.json", "tauri.windows.conf.json"] {
+        let config_path = manifest_dir.join(config_name);
+        let config_contents = fs::read_to_string(&config_path)
+            .unwrap_or_else(|error| panic!("Failed to read {config_path:?}: {error}"));
+        let config: Value = serde_json::from_str(&config_contents)
+            .unwrap_or_else(|error| panic!("Failed to parse {config_name}: {error}"));
+        let resources = config
+            .get("bundle")
+            .and_then(|bundle| bundle.get("resources"))
+            .and_then(Value::as_object)
+            .unwrap_or_else(|| panic!("{config_name} must define bundle.resources"));
+
+        assert_eq!(
+            resources
+                .get("../../../gateway/gateway.py")
+                .and_then(Value::as_str),
+            Some("gateway/gateway.py"),
+            "{config_name} must bundle gateway/gateway.py"
+        );
+    }
+}

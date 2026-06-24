@@ -18,6 +18,10 @@ pub(super) async fn dispatch_rpc_request(
         return result;
     }
 
+    if let Some(result) = model_gateway::try_handle(method, params).await {
+        return result;
+    }
+
     if let Some(result) = git::try_handle(state, method, params).await {
         return result;
     }
