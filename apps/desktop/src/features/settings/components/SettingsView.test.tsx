@@ -1804,8 +1804,14 @@ describe("SettingsView Codex defaults", () => {
     fireEvent.change(modelSelect, { target: { value: "deepseek-v4-pro" } });
 
     await waitFor(() => {
+      // 与模型网关页单一真源：切换默认模型须同时写两处，避免漂移。
       expect(onUpdateAppSettings).toHaveBeenCalledWith(
-        expect.objectContaining({ lastComposerModelId: "deepseek-v4-pro" }),
+        expect.objectContaining({
+          lastComposerModelId: "deepseek-v4-pro",
+          modelGateway: expect.objectContaining({
+            defaultModel: "deepseek-v4-pro",
+          }),
+        }),
       );
     });
   });

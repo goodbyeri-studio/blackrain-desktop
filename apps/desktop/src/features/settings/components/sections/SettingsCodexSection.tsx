@@ -405,7 +405,7 @@ export function SettingsCodexSection({
         subtitle={
           !defaultModelsHasModels
             ? tx("No models yet. Configure providers in Settings → Model Gateway.")
-            : tx("Sourced from the BlackRain model gateway and used when there is no thread-specific override.")
+            : tx("Same default model as Settings → Model Gateway; used when there is no thread-specific override.")
         }
       >
         <div className="settings-field-row">
@@ -418,6 +418,13 @@ export function SettingsCodexSection({
               void onUpdateAppSettings({
                 ...appSettings,
                 lastComposerModelId: event.target.value,
+                // 与模型网关页的「默认模型」保持单一真源：两处都同时写
+                // lastComposerModelId 和 modelGateway.defaultModel，避免漂移
+                // （后者决定写入 config.toml 的 `model =`）。
+                modelGateway: {
+                  ...appSettings.modelGateway,
+                  defaultModel: event.target.value,
+                },
               })
             }
             aria-label={tx("Model")}
