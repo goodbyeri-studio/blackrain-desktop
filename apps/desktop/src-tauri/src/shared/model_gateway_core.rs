@@ -7,6 +7,7 @@ use serde_json::Value;
 use toml_edit::{value, Item, Table};
 
 use crate::shared::config_toml_core;
+use crate::shared::model_gateway_secrets::model_gateway_provider_api_key;
 use crate::types::{ModelGatewayModelConfig, ModelGatewaySettings};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -142,25 +143,25 @@ async fn fetch_provider_models(
     input: &ModelGatewayProviderProbeInput,
 ) -> Result<ProviderModelsResponse, String> {
     validate_probe_input(input)?;
-    let api_key = input
+    let inline_key = input
         .api_key
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .map(ToString::to_string)
-        .or_else(|| {
-            std::env::var(input.api_key_env.trim())
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-        })
-        .ok_or_else(|| {
-            format!(
-                "Missing API key for provider `{}`. Save an API key in Settings or set env `{}`.",
-                input.id.trim(),
-                input.api_key_env.trim()
-            )
-        })?;
+        .map(ToString::to_string);
+    // 内联 key 优先；否则统一走「系统凭据优先 → 环境变量兜底」，
+    // 使 App 命令与 Daemon RPC 的密钥来源一致。
+    let api_key = match inline_key {
+        Some(key) => key,
+        None => model_gateway_provider_api_key(input.id.trim(), input.api_key_env.trim())?
+            .ok_or_else(|| {
+                format!(
+                    "Missing API key for provider `{}`. Save an API key in Settings or set env `{}`.",
+                    input.id.trim(),
+                    input.api_key_env.trim()
+                )
+            })?,
+    };
     let url = provider_models_url(input.base_url.trim())?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(20))

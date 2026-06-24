@@ -81,6 +81,25 @@
 - 影响范围：Tauri command、AppState runtime、Settings 模型网关页面、Codex config 写入。
 - 后续复查条件：打包安装验证通过后，再评估是否把 Python sidecar 替换成正式二进制或 Rust 内嵌实现。
 
+## 2026-06-25：网关强制 bearer 校验，且不对外开 CORS
+
+- 决策：`gateway.py` 对 `/v1/models` 和 `/v1/responses` 强制校验 `Authorization: Bearer <BLACKRAIN_GATEWAY_API_KEY>`；移除此前的 `Access-Control-Allow-Origin: *` 与 OPTIONS 预检；`/health` 仍免鉴权供 App 存活探测。
+- 原因：网关只服务本地 Codex 内核（进程间），不是浏览器端点。开 `*` CORS 且无鉴权时，用户访问的任意网页都能跨域 POST `/v1/responses`，用钥匙串里的第三方 key 盗刷 token 并读取模型输出。
+- 替代方案：保留 CORS 但收紧 Origin 白名单；或只加鉴权不动 CORS。
+- 为什么不用替代方案：网关没有任何合法的浏览器调用方，最稳妥是直接不输出 CORS 头（预检即被浏览器拦死），鉴权作为对本地非浏览器攻击者的纵深防御。
+- 影响范围：`gateway.py` 请求处理、App spawn 网关时注入的 `BLACKRAIN_GATEWAY_API_KEY`、内核 config 的 `env_key`、dev-client.sh。
+- 一致性约束：App 侧 `ensure_gateway_token()` 解析出的 token 必须同时注入网关进程与 App 进程环境，使内核继承到的 bearer 与网关校验值一致；token 为空时（手动调试起网关）跳过校验。
+- 后续复查条件：若将来需要合法的本地浏览器调用方，再评估收紧的 Origin 白名单方案。
+
+## 2026-06-25：provider 测试/刷新的密钥来源下沉到 shared core
+
+- 决策：`fetch_provider_models`（shared core）统一走「内联 key → 系统凭据 → 环境变量」解析；删除 App 侧的 `hydrate_provider_probe_input` 包装。
+- 原因：原实现里 App 命令会先 hydrate 钥匙串再调 core，而 Daemon RPC 直接调 core 只能读环境变量，导致远程后端模式下「测试连接/刷新模型」对钥匙串中的 key 不可见，违反 spec 要求的 Tauri/Daemon 能力对齐。
+- 替代方案：在 Daemon RPC 侧复制一份 hydrate 逻辑。
+- 为什么不用替代方案：违反「领域逻辑先落 shared、App/Daemon 只做薄适配」纪律，两份逻辑易漂移。
+- 影响范围：`shared/model_gateway_core.rs`、`model_gateway.rs`（App 命令）、`rpc/model_gateway.rs`（Daemon）。
+- 后续复查条件：无。
+
 ## 被推翻的方案
 
 ### 2026-06-24：Codex 直接配置 DeepSeek provider

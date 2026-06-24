@@ -113,21 +113,6 @@ fn gateway_registry_env_with_secrets(settings: &ModelGatewaySettings) -> Result<
     serde_json::to_string(providers).map_err(|err| err.to_string())
 }
 
-fn hydrate_provider_probe_input(
-    mut input: ModelGatewayProviderProbeInput,
-) -> Result<ModelGatewayProviderProbeInput, String> {
-    if input
-        .api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .is_none()
-    {
-        input.api_key = model_gateway_provider_api_key(&input.id, &input.api_key_env)?;
-    }
-    Ok(input)
-}
-
 fn path_with_gateway_script(start: &Path) -> Option<PathBuf> {
     let mut current = Some(start);
     while let Some(path) = current {
@@ -285,9 +270,16 @@ async fn wait_until_gateway_healthy(port: u16) -> Result<(), String> {
     Err(last_error.unwrap_or_else(|| "Gateway did not become healthy.".to_string()))
 }
 
-fn ensure_gateway_env() {
-    if std::env::var_os("BLACKRAIN_GATEWAY_API_KEY").is_none() {
-        std::env::set_var("BLACKRAIN_GATEWAY_API_KEY", DEFAULT_GATEWAY_TOKEN);
+/// 解析 App 与本地网关之间的能力 token，并保证它存在于 App 进程环境里，
+/// 使被 spawn 的 Codex app-server 能继承同一个值。返回生效 token，
+/// 供网关进程用同一份值，避免两侧不一致导致 401。
+fn ensure_gateway_token() -> String {
+    match std::env::var("BLACKRAIN_GATEWAY_API_KEY") {
+        Ok(value) if !value.trim().is_empty() => value,
+        _ => {
+            std::env::set_var("BLACKRAIN_GATEWAY_API_KEY", DEFAULT_GATEWAY_TOKEN);
+            DEFAULT_GATEWAY_TOKEN.to_string()
+        }
     }
 }
 
@@ -312,7 +304,7 @@ async fn start_model_gateway_runtime(
         )
     })?;
     persist_blackrain_gateway_codex_config(&codex_home, &settings)?;
-    ensure_gateway_env();
+    let gateway_token = ensure_gateway_token();
 
     let mut runtime = state.model_gateway.lock().await;
     refresh_runtime(&mut runtime, &settings, &data_dir).await;
@@ -332,7 +324,7 @@ async fn start_model_gateway_runtime(
         .env("GW_PORT", settings.port.to_string())
         .env("GW_LOG", &log_path)
         .env("BLACKRAIN_MODEL_GATEWAY_PROVIDERS", registry_json)
-        .env("BLACKRAIN_GATEWAY_API_KEY", DEFAULT_GATEWAY_TOKEN)
+        .env("BLACKRAIN_GATEWAY_API_KEY", &gateway_token)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
@@ -400,14 +392,14 @@ pub(crate) async fn model_gateway_stop_for_state(
 pub(crate) async fn model_gateway_test_provider(
     input: ModelGatewayProviderProbeInput,
 ) -> Result<ModelGatewayProviderProbeResult, String> {
-    model_gateway_test_provider_core(hydrate_provider_probe_input(input)?).await
+    model_gateway_test_provider_core(input).await
 }
 
 #[command]
 pub(crate) async fn model_gateway_refresh_models(
     input: ModelGatewayProviderProbeInput,
 ) -> Result<Vec<ModelGatewayModelConfig>, String> {
-    model_gateway_refresh_models_core(hydrate_provider_probe_input(input)?).await
+    model_gateway_refresh_models_core(input).await
 }
 
 #[command]

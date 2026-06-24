@@ -10,6 +10,9 @@ import http.server, json, os, re, urllib.parse, urllib.request, uuid
 PORT = int(os.environ.get("GW_PORT", "8899"))
 STRIP_TOOLS = os.environ.get("STRIP_TOOLS", "1") == "1"
 LOG = os.environ.get("GW_LOG", "/tmp/gateway.log")
+# App 与本地网关之间的能力 token。设置后强制校验 Authorization；
+# 未设置时（手动调试）跳过校验，方便本地起网关。
+GATEWAY_TOKEN = (os.environ.get("BLACKRAIN_GATEWAY_API_KEY") or "").strip()
 
 DEFAULT_PROVIDER = {
     "id": "deepseek",
@@ -419,28 +422,28 @@ def emit_stream(wfile, deltas):
 class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
-    def cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    def authorized(self):
+        """校验 Authorization bearer。GATEWAY_TOKEN 为空时（手动调试）放行。"""
+        if not GATEWAY_TOKEN:
+            return True
+        header = self.headers.get("Authorization", "")
+        prefix = "Bearer "
+        if not header.startswith(prefix):
+            return False
+        return header[len(prefix):].strip() == GATEWAY_TOKEN
 
     def send_json(self, code, payload):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
-        self.cors()
         self.end_headers()
         self.wfile.write(json.dumps(payload, ensure_ascii=False).encode())
 
-    def do_OPTIONS(self):
-        self.send_response(204)
-        self.cors()
-        self.end_headers()
+    def reject_unauthorized(self):
+        self.send_json(401, {"error": {"message": "Unauthorized: invalid gateway token."}})
 
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
-        if path.endswith("/models"):
-            self.send_json(200, {"object": "list", "data": list_gateway_models()})
-            return
+        # /health 不需鉴权：App 用它做存活探测。
         if path.endswith("/health"):
             self.send_json(200, {
                 "ok": True,
@@ -450,9 +453,18 @@ class H(http.server.BaseHTTPRequestHandler):
                 ],
             })
             return
+        if not self.authorized():
+            self.reject_unauthorized()
+            return
+        if path.endswith("/models"):
+            self.send_json(200, {"object": "list", "data": list_gateway_models()})
+            return
         self.send_json(404, {"error": {"message": f"Unknown gateway path: {path}"}})
 
     def do_POST(self):
+        if not self.authorized():
+            self.reject_unauthorized()
+            return
         n = int(self.headers.get("Content-Length", 0) or 0)
         body = json.loads(self.rfile.read(n)) if n else {}
         try:
@@ -468,7 +480,6 @@ class H(http.server.BaseHTTPRequestHandler):
             chat = responses_to_chat(body, model["model"])
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
-            self.cors()
             self.end_headers()
             emit_stream(self.wfile, call_provider_stream(provider, chat))
         except Exception as e:
@@ -476,7 +487,6 @@ class H(http.server.BaseHTTPRequestHandler):
             try:
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
-                self.cors()
                 self.end_headers()
                 self.wfile.write(sse("response.failed", {"type": "response.failed",
                     "response": {"error": {"code": "gateway_error", "message": str(e)}}}))

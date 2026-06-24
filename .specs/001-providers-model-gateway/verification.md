@@ -35,6 +35,10 @@
 | 2026-06-24 | dmg 挂载资源 smoke | `hdiutil attach ...BlackRain2049_0.7.68_aarch64.dmg -readonly` 后检查 `BlackRain2049.app/Contents/Resources/gateway/gateway.py` | 通过 | 从 dmg 视角确认 gateway 资源存在、语法正常、包名正确 |
 | 2026-06-24 | 包内二进制短启动 smoke | `HOME=.scratch/package-smoke-home .../BlackRain2049.app/Contents/MacOS/codex-monitor` | 通过 | 8 秒内保持运行；退出后无残留 `gateway.py` 进程 |
 | 2026-06-24 | diff whitespace | `git diff --check` | 通过 | 无 whitespace error |
+| 2026-06-25 | 网关语法 | `python3 -m py_compile gateway/gateway.py` | 通过 | bearer 校验 + 去 CORS 改造后执行 |
+| 2026-06-25 | 网关鉴权/去 CORS smoke | `GW_PORT=8897 BLACKRAIN_GATEWAY_API_KEY=… python3 gateway/gateway.py` + `curl` | 通过 | `/health` 免鉴权 200；`/models` 无/错 token 401、正确 token 200；响应无 `Access-Control-*` 头 |
+| 2026-06-25 | 模型网关 Rust 测试 | `cd apps/desktop/src-tauri && cargo test model_gateway` | 通过 | 6 + 1 tests；密钥来源下沉 shared core 后执行 |
+| 2026-06-25 | Rust 后端检查 | `cd apps/desktop/src-tauri && cargo check` | 通过 | 仅仓库既有 dead_code 告警 |
 
 ## 已知历史验证
 
@@ -62,6 +66,8 @@
 - 普通对话模型选择器已合并 Gateway/App registry，新增 provider 能进入 selector。
 - Gateway 日志已加入 API key / token / secret 基础脱敏。
 - 真实 DeepSeek 单工具多轮调用已通过：Gateway `STRIP_TOOLS=0` 时能触发内核 `commandExecution` 并完成收尾。
+- 网关已强制 bearer 校验并移除 CORS：`/models`、`/responses` 需正确 `BLACKRAIN_GATEWAY_API_KEY`，`/health` 免鉴权；App spawn 时注入的 token 与内核继承的 token 由 `ensure_gateway_token()` 保证一致。
+- provider 测试连接/刷新模型的密钥来源已下沉 shared core（内联 → 系统凭据 → 环境变量），App 命令与 Daemon RPC 行为一致。
 
 ## 未验证风险
 
