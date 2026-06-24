@@ -55,16 +55,16 @@ describe("useModels", () => {
     expect(result.current.reasoningSupported).toBe(false);
   });
 
-  it("uses models returned by the gateway model list", async () => {
+  it("ignores the kernel OpenAI catalog and only shows gateway registry models", async () => {
+    // 内核 model/list 实际返回自带 OpenAI 目录（models.json: gpt-*），
+    // 网关根本路由不了这些模型。选择器必须无视它，只用 BlackRain 网关 registry。
     vi.mocked(getModelList).mockResolvedValueOnce({
       result: {
         data: [
           {
-            id: "qwen/qwen3-coder-plus",
-            model: "qwen/qwen3-coder-plus",
-            displayName: "Qwen3 Coder Plus",
-            providerId: "qwen",
-            providerName: "Qwen",
+            id: "gpt-5.5",
+            model: "gpt-5.5",
+            displayName: "GPT-5.5",
             supportedReasoningEfforts: [],
             defaultReasoningEffort: null,
             isDefault: true,
@@ -75,13 +75,40 @@ describe("useModels", () => {
     vi.mocked(getConfigModel).mockResolvedValueOnce("qwen/qwen3-coder-plus");
 
     const { result } = renderHook(() =>
-      useModels({ activeWorkspace: workspace }),
+      useModels({
+        activeWorkspace: workspace,
+        modelGateway: {
+          enabled: true,
+          port: 8899,
+          defaultModel: "qwen/qwen3-coder-plus",
+          providers: [
+            {
+              id: "qwen",
+              name: "Qwen",
+              kind: "openai-compatible",
+              baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+              apiKeyEnv: "QWEN_API_KEY",
+              enabled: true,
+              models: [
+                {
+                  id: "qwen3-coder-plus",
+                  displayName: "Qwen3 Coder Plus",
+                  description: "coding model",
+                  isDefault: true,
+                },
+              ],
+            },
+          ],
+        },
+      }),
     );
 
     await waitFor(() => expect(result.current.models.length).toBeGreaterThan(0));
 
     const ids = result.current.models.map((m) => m.id);
-    expect(ids).toEqual(["qwen/qwen3-coder-plus"]);
+    // 网关模型在；内核的 gpt-5.5 不应出现。
+    expect(ids).toContain("qwen/qwen3-coder-plus");
+    expect(ids).not.toContain("gpt-5.5");
     expect(result.current.models[0]).toMatchObject({
       providerId: "qwen",
       providerName: "Qwen",

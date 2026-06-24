@@ -20,6 +20,9 @@ pub(crate) struct TcpDaemonRuntime {
 
 pub(crate) struct ModelGatewayRuntime {
     pub(crate) child: Option<Child>,
+    /// 子进程实际启动时使用的端口。settings.port 改了但进程还没重启时，
+    /// 用它判断「在跑的网关」和「当前配置端口」是否一致。
+    pub(crate) child_port: Option<u16>,
     pub(crate) status: ModelGatewayRuntimeStatus,
 }
 
@@ -47,6 +50,7 @@ impl ModelGatewayRuntime {
             .to_string();
         Self {
             child: None,
+            child_port: None,
             status: ModelGatewayRuntimeStatus {
                 state: ModelGatewayRuntimeState::Stopped,
                 pid: None,

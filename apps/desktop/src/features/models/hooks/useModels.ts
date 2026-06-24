@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppSettings, DebugEntry, ModelOption, WorkspaceInfo } from "../../../types";
 import { getConfigModel, getModelList } from "../../../services/tauri";
-import { normalizeEffortValue, parseModelListResponse } from "../utils/modelListResponse";
+import { normalizeEffortValue } from "../utils/modelListResponse";
 
 type UseModelsOptions = {
   activeWorkspace: WorkspaceInfo | null;
@@ -99,22 +99,6 @@ function modelGatewayToOptions(
         } satisfies ModelOption;
       }),
     );
-}
-
-function mergeModelOptions(...groups: ModelOption[][]): ModelOption[] {
-  const seen = new Set<string>();
-  const out: ModelOption[] = [];
-  for (const group of groups) {
-    for (const model of group) {
-      const key = model.id || model.model;
-      if (!key || seen.has(key)) {
-        continue;
-      }
-      seen.add(key);
-      out.push(model);
-    }
-  }
-  return out;
 }
 
 export function useModels({
@@ -288,8 +272,11 @@ export function useModels({
         payload: response,
       });
       setConfigModel(configModelFromConfig);
-      const parsedModels = parseModelListResponse(response);
-      const dataFromServer = mergeModelOptions(configuredGatewayModels, parsedModels);
+      // 2049 魔改：模型选择器只用 BlackRain 网关 registry，不信任内核 model/list。
+      // 内核走自带 OpenAI 目录（models.json: gpt-*），网关根本路由不了，选中即
+      // response.failed。response 仍保留上面的 debug 日志便于排查，但不喂给选择器。
+      void response;
+      const dataFromServer = configuredGatewayModels;
       const fallbackModels: ModelOption[] =
         dataFromServer.length > 0 ? dataFromServer : OWN_MODELS;
       const data = (() => {

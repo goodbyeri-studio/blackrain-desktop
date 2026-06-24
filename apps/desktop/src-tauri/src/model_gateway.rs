@@ -193,12 +193,25 @@ async fn gateway_health(port: u16) -> Result<(), String> {
         .send()
         .await
         .map_err(|err| format!("Gateway health check failed at `{url}`: {err}"))?;
-    if response.status().is_success() {
+    if !response.status().is_success() {
+        return Err(format!(
+            "Gateway health check returned HTTP {} at `{url}`.",
+            response.status()
+        ));
+    }
+    // 校验返回体确实是 BlackRain 网关，避免把端口上的陌生进程误判为 Running，
+    // 同时仍能识别 dev-client.sh 独立起的同款网关，不重复 spawn。
+    let body = response
+        .text()
+        .await
+        .map_err(|err| format!("Gateway health check failed to read body at `{url}`: {err}"))?;
+    let payload: serde_json::Value = serde_json::from_str(&body)
+        .map_err(|_| format!("Gateway health check at `{url}` returned non-JSON body."))?;
+    if payload.get("service").and_then(|v| v.as_str()) == Some("blackrain-gateway") {
         Ok(())
     } else {
         Err(format!(
-            "Gateway health check returned HTTP {} at `{url}`.",
-            response.status()
+            "A non-BlackRain service is listening at `{url}`; refusing to treat it as the gateway."
         ))
     }
 }
@@ -209,6 +222,15 @@ async fn refresh_runtime(
     data_dir: &Path,
 ) {
     update_runtime_shape(runtime, settings, data_dir);
+    // 端口被改但旧进程还在跑：先把旧端口上的子进程收掉，避免残留/泄漏，
+    // 再按「无 child」路径处理，让用户用新端口重启。
+    if runtime.child.is_some() && runtime.child_port.is_some_and(|p| p != settings.port) {
+        stop_runtime_child(runtime).await;
+        runtime.status.state = ModelGatewayRuntimeState::Stopped;
+        runtime.status.pid = None;
+        runtime.status.started_at_ms = None;
+        runtime.status.last_error = None;
+    }
     let Some(child) = runtime.child.as_mut() else {
         if gateway_health(settings.port).await.is_ok() {
             runtime.status.state = ModelGatewayRuntimeState::Running;
@@ -225,6 +247,7 @@ async fn refresh_runtime(
         Ok(Some(status)) => {
             let pid = child.id();
             runtime.child = None;
+            runtime.child_port = None;
             if status.success() {
                 runtime.status.state = ModelGatewayRuntimeState::Stopped;
                 runtime.status.pid = None;
@@ -256,6 +279,7 @@ async fn stop_runtime_child(runtime: &mut ModelGatewayRuntime) {
         kill_child_process_tree(&mut child).await;
         let _ = child.wait().await;
     }
+    runtime.child_port = None;
 }
 
 async fn wait_until_gateway_healthy(port: u16) -> Result<(), String> {
@@ -293,8 +317,9 @@ async fn start_model_gateway_runtime(
         return Err("Model gateway is disabled in settings.".to_string());
     }
     let script = resolve_gateway_script(app)?;
-    let registry_json = gateway_registry_env_with_secrets(&settings)?;
     let log_path = data_dir.join("model-gateway.log");
+    // 先把 Codex config 写对，与「sidecar 能否启动」解耦：即便后面因缺 key
+    // 起不了网关，内核侧 blackrain_gateway provider 配置也已就位，不会缺失。
     let codex_home = crate::codex::home::resolve_default_codex_home()
         .ok_or_else(|| "Unable to resolve CODEX_HOME".to_string())?;
     std::fs::create_dir_all(&codex_home).map_err(|err| {
@@ -305,6 +330,9 @@ async fn start_model_gateway_runtime(
     })?;
     persist_blackrain_gateway_codex_config(&codex_home, &settings)?;
     let gateway_token = ensure_gateway_token();
+    // registry 构建会在「无启用 provider / 缺 key」时返回 Err；放在写 config 之后，
+    // 使配置持久化不被启动失败连带回滚。
+    let registry_json = gateway_registry_env_with_secrets(&settings)?;
 
     let mut runtime = state.model_gateway.lock().await;
     refresh_runtime(&mut runtime, &settings, &data_dir).await;
@@ -338,6 +366,7 @@ async fn start_model_gateway_runtime(
     runtime.status.last_error = None;
     update_runtime_shape(&mut runtime, &settings, &data_dir);
     runtime.child = Some(child);
+    runtime.child_port = Some(settings.port);
 
     match wait_until_gateway_healthy(settings.port).await {
         Ok(()) => {

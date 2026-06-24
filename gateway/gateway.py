@@ -447,6 +447,7 @@ class H(http.server.BaseHTTPRequestHandler):
         if path.endswith("/health"):
             self.send_json(200, {
                 "ok": True,
+                "service": "blackrain-gateway",
                 "providers": [
                     {"id": provider["id"], "name": provider["name"], "enabled": provider["enabled"]}
                     for provider in PROVIDERS

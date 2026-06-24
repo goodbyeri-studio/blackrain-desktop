@@ -100,6 +100,33 @@
 - 影响范围：`shared/model_gateway_core.rs`、`model_gateway.rs`（App 命令）、`rpc/model_gateway.rs`（Daemon）。
 - 后续复查条件：无。
 
+## 2026-06-25：对话模型选择器只用网关 registry，不信任内核 model/list
+
+- 决策：`useModels` 的数据源收敛为 App 模型网关 registry（+ config.toml 模型兜底），不再 merge 内核 `model/list` 的返回。
+- 原因：内核 `model/list` 在 `blackrain_gateway`（非 ChatGPT 后端、无 codex auth）下回落到内核自带 `models.json`（gpt-5.5 等 OpenAI 目录），网关 `resolve_model_route` 无法路由这些 id，选中即 `response.failed`。这正是 PR#10 当初 `void response` 要消灭、却在 model gateway MVP 里被 merge 重新引入的回归。
+- 替代方案：保留 merge，但按 `providerId` 过滤内核返回。
+- 为什么不用替代方案：内核从不回吐网关 registry，过滤后内核项永远为空，等于多写一层无效逻辑；registry 才是唯一真源。
+- 影响范围：`features/models/hooks/useModels.ts`（删 `mergeModelOptions`/`parseModelListResponse` 引用）、`useModels.test.tsx`。
+- 遗留同源项：设置页 Codex/Agents 区的 `useSettingsDefaultModels` 仍读内核目录，属本 PR 未触及的既有 surface，单独评估。
+
+## 2026-06-25：网关 /health 身份标记 + 子进程端口追踪
+
+- 决策：`/health` 返回 `service: blackrain-gateway` 标记，`gateway_health` 校验该标记才视为「我们的网关」；`ModelGatewayRuntime` 增加 `child_port` 记录子进程实际启动端口，settings 端口变更后 refresh 主动收掉旧端口上的残留进程。
+- 原因：原 `gateway_health` 只看 HTTP 2xx，端口上任意进程都会被误判为 Running，使内核被指向陌生端点；改端口时旧子进程不被回收。
+- 替代方案：health 阶段不做内容校验，仅靠「必须有 child 才算 Running」。
+- 为什么不用替代方案：dev-client.sh 会独立起网关并让 App 复用（App 不持有 child），「必须有 child」会导致 dev 模式重复 spawn 撞端口；用 service 标记既能拒陌生进程，又能识别同款网关。
+- 影响范围：`gateway.py` `/health`、`model_gateway.rs`（`gateway_health`/`refresh_runtime`/`stop_runtime_child`/spawn）、`state.rs`（`ModelGatewayRuntime`）。
+- 后续复查条件：若将来给 health 加更强的实例指纹（pid/uuid），可在此基础上扩展。
+
+## 2026-06-25：写 Codex config 与 sidecar 启动解耦
+
+- 决策：`start_model_gateway_runtime` 中把 `persist_blackrain_gateway_codex_config` 提到 `gateway_registry_env_with_secrets`（缺 key 即 Err）之前。
+- 原因：原顺序下，缺 key 时 registry 构建先 return Err，导致 `blackrain_gateway` provider 配置永远不写入 `CODEX_HOME/config.toml`；内核侧配置缺失。
+- 替代方案：维持原顺序，靠设置页 readiness 拦住启动。
+- 为什么不用替代方案：readiness 只挡 UI 上的「启动」按钮，自动启动路径仍会让 config 缺失；配置持久化不该依赖 sidecar 能否起。
+- 影响范围：`model_gateway.rs` `start_model_gateway_runtime`。
+- 后续复查条件：无。
+
 ## 被推翻的方案
 
 ### 2026-06-24：Codex 直接配置 DeepSeek provider

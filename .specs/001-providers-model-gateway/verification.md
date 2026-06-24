@@ -39,6 +39,10 @@
 | 2026-06-25 | 网关鉴权/去 CORS smoke | `GW_PORT=8897 BLACKRAIN_GATEWAY_API_KEY=… python3 gateway/gateway.py` + `curl` | 通过 | `/health` 免鉴权 200；`/models` 无/错 token 401、正确 token 200；响应无 `Access-Control-*` 头 |
 | 2026-06-25 | 模型网关 Rust 测试 | `cd apps/desktop/src-tauri && cargo test model_gateway` | 通过 | 6 + 1 tests；密钥来源下沉 shared core 后执行 |
 | 2026-06-25 | Rust 后端检查 | `cd apps/desktop/src-tauri && cargo check` | 通过 | 仅仓库既有 dead_code 告警 |
+| 2026-06-25 | 选择器只用网关 registry | `cd apps/desktop && npm run test -- src/features/models/hooks/useModels.test.tsx` | 通过 | 4 tests；新增「忽略内核 OpenAI 目录」用例 |
+| 2026-06-25 | 网关 /health 身份标记 smoke | `GW_PORT=8896 python3 gateway/gateway.py` + `curl /v1/health` vs 陌生进程 | 通过 | BlackRain 网关返回 `service:blackrain-gateway`；陌生进程缺标记被 gateway_health 拒判 Running |
+| 2026-06-25 | 前端 typecheck + 相关测试 | `cd apps/desktop && npm run typecheck` + `npm run test -- useModels/SettingsView/tauri` | 通过 | typecheck 0 错；113 tests |
+| 2026-06-25 | 前端 lint | `cd apps/desktop && npm run lint` | 通过 | 0 errors；保留既有 5 个 hook dependency warnings |
 
 ## 已知历史验证
 
@@ -68,6 +72,10 @@
 - 真实 DeepSeek 单工具多轮调用已通过：Gateway `STRIP_TOOLS=0` 时能触发内核 `commandExecution` 并完成收尾。
 - 网关已强制 bearer 校验并移除 CORS：`/models`、`/responses` 需正确 `BLACKRAIN_GATEWAY_API_KEY`，`/health` 免鉴权；App spawn 时注入的 token 与内核继承的 token 由 `ensure_gateway_token()` 保证一致。
 - provider 测试连接/刷新模型的密钥来源已下沉 shared core（内联 → 系统凭据 → 环境变量），App 命令与 Daemon RPC 行为一致。
+- 对话模型选择器只用 BlackRain 网关 registry，不再 merge 内核 `model/list`（内核自带 OpenAI 目录无法被网关路由，选中即 `response.failed`）。
+- `gateway_health` 校验 `/health` 返回的 `service: blackrain-gateway` 标记：端口上的陌生进程不再被误判为 Running，dev-client.sh 独立起的同款网关仍能识别、不重复 spawn。
+- `child_port` 记录子进程实际启动端口；settings 端口改变后，refresh 会收掉旧端口上的残留进程并转 Stopped，要求用新端口重启。
+- 写 Codex `blackrain_gateway` config 已与 sidecar 启动解耦：即便缺 key 起不了网关，内核侧 provider 配置也已写入。
 
 ## 未验证风险
 
