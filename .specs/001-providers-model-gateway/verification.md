@@ -45,6 +45,7 @@
 | 2026-06-25 | 前端 lint | `cd apps/desktop && npm run lint` | 通过 | 0 errors；保留既有 5 个 hook dependency warnings |
 | 2026-06-25 | 设置页默认模型收敛网关 registry | `cd apps/desktop && npm run typecheck` + `npm run test` | 通过 | typecheck 0 错；140 files / 1036 tests；新写 useSettingsDefaultModels 测试断言只出网关模型、gpt 不出现、空/禁用回落 OWN_MODELS |
 | 2026-06-25 | 设置页默认模型 lint | `cd apps/desktop && npm run lint` | 通过 | 0 errors；保留既有 5 个 hook dependency warnings |
+| 2026-06-25 | 默认模型入口双写防漂移 | `cd apps/desktop && npm run typecheck` + `npm run test` + `npm run lint` | 通过 | typecheck 0 错；140 files / 1036 tests；新增断言切换默认模型同时写 `lastComposerModelId` 与 `modelGateway.defaultModel` |
 
 ## 已知历史验证
 

@@ -137,6 +137,15 @@
 - 遗留：Codex 区「默认模型」下拉与模型网关设置页的「默认模型」都写 `lastComposerModelId`，存在功能重叠；本次只统一数据源，未合并这两个入口，留待后续。
 - 后续复查条件：无。
 
+## 2026-06-25：两个「默认模型」入口统一写双字段，消除漂移
+
+- 决策：Codex 设置区的「默认模型」下拉与模型网关页的「默认模型」选择器，切换时都同时写 `lastComposerModelId` 和 `modelGateway.defaultModel`。
+- 原因：此前 Codex 区下拉只写 `lastComposerModelId`，而模型网关页写两者；从 Codex 区改默认模型会让 `modelGateway.defaultModel`（决定写入 `config.toml` 的 `model =`）悄悄漂移，两个入口显示不一致。
+- 替代方案：删掉 Codex 区下拉，只留模型网关页一个入口（彻底合并）。
+- 为什么不用替代方案：会动到刚合并（#27）的可用 UI 与测试，且 Codex 区「默认参数」组（模型/推理 effort/访问模式/审查模式）放一起对用户是连贯的；当前先消除数据漂移这个真实缺陷，入口彻底合并留作 UX 打磨。
+- 影响范围：`SettingsCodexSection`（下拉 onChange 双写）、`SettingsView.test.tsx`（断言双写）。
+- 后续复查条件：若决定彻底合并入口，再评估把 Codex 区改为只读展示 + 跳转模型网关页。
+
 ## 被推翻的方案
 
 ### 2026-06-24：Codex 直接配置 DeepSeek provider
