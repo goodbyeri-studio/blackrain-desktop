@@ -25,7 +25,7 @@
 ```text
 .specs/
   001-providers-model-gateway/
-  002-dedicated-codex-home/
+  002-accounts-credits/
   003-workbench-runtime/
 ```
 
