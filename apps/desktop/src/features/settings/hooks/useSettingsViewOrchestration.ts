@@ -194,7 +194,6 @@ export function useSettingsViewOrchestration({
 
   const codexSectionProps = useSettingsCodexSection({
     appSettings,
-    projects,
     onUpdateAppSettings,
     onRunDoctor,
     onRunCodexUpdate,
@@ -212,7 +211,7 @@ export function useSettingsViewOrchestration({
     onUpdateAppSettings,
   });
 
-  const agentsSectionProps = useSettingsAgentsSection({ projects });
+  const agentsSectionProps = useSettingsAgentsSection({ appSettings, projects });
 
   return {
     aboutSectionProps: {

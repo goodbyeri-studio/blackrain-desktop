@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AgentsSettings, GeneratedAgentConfiguration } from "@services/tauri";
-import type { ModelOption, WorkspaceInfo } from "@/types";
+import type { AppSettings, ModelOption, WorkspaceInfo } from "@/types";
 import {
   connectWorkspace,
   createAgent,
@@ -15,6 +15,7 @@ import {
 import { useSettingsDefaultModels } from "./useSettingsDefaultModels";
 
 type UseSettingsAgentsSectionArgs = {
+  appSettings: AppSettings;
   projects: WorkspaceInfo[];
 };
 
@@ -81,6 +82,7 @@ const toErrorMessage = (value: unknown, fallback: string): string => {
 };
 
 export const useSettingsAgentsSection = ({
+  appSettings,
   projects,
 }: UseSettingsAgentsSectionArgs): SettingsAgentsSectionProps => {
   const [settings, setSettings] = useState<AgentsSettings | null>(null);
@@ -102,7 +104,7 @@ export const useSettingsAgentsSection = ({
     models: modelOptions,
     isLoading: modelOptionsLoading,
     error: modelOptionsError,
-  } = useSettingsDefaultModels(projects);
+  } = useSettingsDefaultModels(appSettings.modelGateway);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);

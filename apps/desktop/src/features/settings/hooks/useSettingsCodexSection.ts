@@ -5,7 +5,6 @@ import type {
   AppSettings,
   CodexDoctorResult,
   CodexUpdateResult,
-  WorkspaceInfo,
 } from "@/types";
 import { useGlobalAgentsMd } from "./useGlobalAgentsMd";
 import { useGlobalCodexConfigToml } from "./useGlobalCodexConfigToml";
@@ -15,7 +14,6 @@ import { normalizeCodexArgsInput } from "@/utils/codexArgsInput";
 
 type UseSettingsCodexSectionArgs = {
   appSettings: AppSettings;
-  projects: WorkspaceInfo[];
   onUpdateAppSettings: (next: AppSettings) => Promise<void>;
   onRunDoctor: (
     codexBin: string | null,
@@ -33,7 +31,7 @@ export type SettingsCodexSectionProps = {
   defaultModels: ReturnType<typeof useSettingsDefaultModels>["models"];
   defaultModelsLoading: boolean;
   defaultModelsError: string | null;
-  defaultModelsConnectedWorkspaceCount: number;
+  defaultModelsHasModels: boolean;
   onRefreshDefaultModels: () => void;
   codexPathDraft: string;
   codexArgsDraft: string;
@@ -77,7 +75,6 @@ export type SettingsCodexSectionProps = {
 
 export const useSettingsCodexSection = ({
   appSettings,
-  projects,
   onUpdateAppSettings,
   onRunDoctor,
   onRunCodexUpdate,
@@ -98,9 +95,9 @@ export const useSettingsCodexSection = ({
     models: defaultModels,
     isLoading: defaultModelsLoading,
     error: defaultModelsError,
-    connectedWorkspaceCount: defaultModelsConnectedWorkspaceCount,
+    hasModels: defaultModelsHasModels,
     refresh: refreshDefaultModels,
-  } = useSettingsDefaultModels(projects);
+  } = useSettingsDefaultModels(appSettings.modelGateway);
 
   const {
     content: globalAgentsContent,
@@ -247,7 +244,7 @@ export const useSettingsCodexSection = ({
     defaultModels,
     defaultModelsLoading,
     defaultModelsError,
-    defaultModelsConnectedWorkspaceCount,
+    defaultModelsHasModels,
     onRefreshDefaultModels: () => {
       void refreshDefaultModels();
     },

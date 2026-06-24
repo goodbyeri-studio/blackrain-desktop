@@ -1634,43 +1634,36 @@ describe("SettingsView Codex section", () => {
 });
 
 describe("SettingsView Codex defaults", () => {
-  const createModelListResponse = (models: Array<Record<string, unknown>>) => ({
-    result: { data: models },
-  });
-
-  it("uses the latest model and medium effort by default (no Default option)", async () => {
+  it("defaults to the gateway default model (no Default option)", async () => {
     cleanup();
     const onUpdateAppSettings = vi.fn().mockResolvedValue(undefined);
-    getModelListMock.mockResolvedValue(
-      createModelListResponse([
-        {
-          id: "gpt-4.1",
-          model: "gpt-4.1",
-          displayName: "GPT-4.1",
-          description: "",
-          supportedReasoningEfforts: [
-            { reasoningEffort: "low", description: "" },
-            { reasoningEffort: "medium", description: "" },
-            { reasoningEffort: "high", description: "" },
-          ],
-          defaultReasoningEffort: "medium",
-          isDefault: false,
-        },
-        {
-          id: "gpt-5.1",
-          model: "gpt-5.1",
-          displayName: "GPT-5.1",
-          description: "",
-          supportedReasoningEfforts: [
-            { reasoningEffort: "low", description: "" },
-            { reasoningEffort: "medium", description: "" },
-            { reasoningEffort: "high", description: "" },
-          ],
-          defaultReasoningEffort: "medium",
-          isDefault: false,
-        },
-      ]),
-    );
+    // Codex 默认模型选择器从 BlackRain 网关 registry 取，不读内核 model/list。
+    const codexSettings: AppSettings = {
+      ...baseSettings,
+      modelGateway: {
+        ...baseSettings.modelGateway,
+        defaultModel: "deepseek-v4-flash",
+        providers: [
+          {
+            ...baseSettings.modelGateway.providers[0],
+            models: [
+              {
+                id: "deepseek-v4-flash",
+                displayName: "DeepSeek V4 Flash",
+                description: "",
+                isDefault: true,
+              },
+              {
+                id: "deepseek-v4-pro",
+                displayName: "DeepSeek V4 Pro",
+                description: "",
+                isDefault: false,
+              },
+            ],
+          },
+        ],
+      },
+    };
 
     render(
       <SettingsView
@@ -1693,7 +1686,7 @@ describe("SettingsView Codex defaults", () => {
         onAssignWorkspaceGroup={vi.fn().mockResolvedValue(null)}
         reduceTransparency={false}
         onToggleTransparency={vi.fn()}
-        appSettings={baseSettings}
+        appSettings={codexSettings}
         openAppIconById={{}}
         onUpdateAppSettings={onUpdateAppSettings}
         onRunDoctor={vi.fn().mockResolvedValue(createDoctorResult())}
@@ -1712,62 +1705,54 @@ describe("SettingsView Codex defaults", () => {
     );
 
     const modelSelect = screen.getByLabelText("Model") as HTMLSelectElement;
-    const effortSelect = screen.getByLabelText(
-      "Reasoning effort",
-    ) as HTMLSelectElement;
 
     await waitFor(() => {
-      expect(getModelListMock).toHaveBeenCalledWith("w1");
-      expect(modelSelect.value).toBe("gpt-5.1");
+      expect(modelSelect.value).toBe("deepseek-v4-flash");
     });
 
     expect(within(modelSelect).queryByRole("option", { name: /default/i })).toBeNull();
-    expect(within(effortSelect).queryByRole("option", { name: /default/i })).toBeNull();
-    expect(effortSelect.value).toBe("medium");
+    // 网关模型不带推理 effort 元数据，effort 选择器应为不支持态。
+    expect(getModelListMock).not.toHaveBeenCalled();
 
     await waitFor(() => {
       expect(onUpdateAppSettings).toHaveBeenCalledWith(
         expect.objectContaining({
-          lastComposerModelId: "gpt-5.1",
-          lastComposerReasoningEffort: "medium",
+          lastComposerModelId: "deepseek-v4-flash",
         }),
       );
     });
   });
 
-  it("updates model and effort when the user changes the selects", async () => {
+  it("updates the model when the user changes the select", async () => {
     cleanup();
     const onUpdateAppSettings = vi.fn().mockResolvedValue(undefined);
-    getModelListMock.mockResolvedValue(
-      createModelListResponse([
-        {
-          id: "gpt-4.1",
-          model: "gpt-4.1",
-          displayName: "GPT-4.1",
-          description: "",
-          supportedReasoningEfforts: [
-            { reasoningEffort: "low", description: "" },
-            { reasoningEffort: "medium", description: "" },
-            { reasoningEffort: "high", description: "" },
-          ],
-          defaultReasoningEffort: "medium",
-          isDefault: false,
-        },
-        {
-          id: "gpt-5.1",
-          model: "gpt-5.1",
-          displayName: "GPT-5.1",
-          description: "",
-          supportedReasoningEfforts: [
-            { reasoningEffort: "low", description: "" },
-            { reasoningEffort: "medium", description: "" },
-            { reasoningEffort: "high", description: "" },
-          ],
-          defaultReasoningEffort: "medium",
-          isDefault: false,
-        },
-      ]),
-    );
+    // 网关 registry 提供两个 DeepSeek 模型；选择器在它们之间切换。
+    const codexSettings: AppSettings = {
+      ...baseSettings,
+      modelGateway: {
+        ...baseSettings.modelGateway,
+        defaultModel: "deepseek-v4-flash",
+        providers: [
+          {
+            ...baseSettings.modelGateway.providers[0],
+            models: [
+              {
+                id: "deepseek-v4-flash",
+                displayName: "DeepSeek V4 Flash",
+                description: "",
+                isDefault: true,
+              },
+              {
+                id: "deepseek-v4-pro",
+                displayName: "DeepSeek V4 Pro",
+                description: "",
+                isDefault: false,
+              },
+            ],
+          },
+        ],
+      },
+    };
 
     render(
       <SettingsView
@@ -1790,7 +1775,7 @@ describe("SettingsView Codex defaults", () => {
         onAssignWorkspaceGroup={vi.fn().mockResolvedValue(null)}
         reduceTransparency={false}
         onToggleTransparency={vi.fn()}
-        appSettings={baseSettings}
+        appSettings={codexSettings}
         openAppIconById={{}}
         onUpdateAppSettings={onUpdateAppSettings}
         onRunDoctor={vi.fn().mockResolvedValue(createDoctorResult())}
@@ -1809,33 +1794,18 @@ describe("SettingsView Codex defaults", () => {
     );
 
     const modelSelect = screen.getByLabelText("Model") as HTMLSelectElement;
-    const effortSelect = screen.getByLabelText(
-      "Reasoning effort",
-    ) as HTMLSelectElement;
 
     await waitFor(() => {
       expect(modelSelect.disabled).toBe(false);
-      expect(modelSelect.value).toBe("gpt-5.1");
-      expect(onUpdateAppSettings).toHaveBeenCalledWith(
-        expect.objectContaining({ lastComposerModelId: "gpt-5.1" }),
-      );
+      expect(modelSelect.value).toBe("deepseek-v4-flash");
     });
 
     onUpdateAppSettings.mockClear();
-    fireEvent.change(modelSelect, { target: { value: "gpt-4.1" } });
+    fireEvent.change(modelSelect, { target: { value: "deepseek-v4-pro" } });
 
     await waitFor(() => {
       expect(onUpdateAppSettings).toHaveBeenCalledWith(
-        expect.objectContaining({ lastComposerModelId: "gpt-4.1" }),
-      );
-    });
-
-    onUpdateAppSettings.mockClear();
-    fireEvent.change(effortSelect, { target: { value: "high" } });
-
-    await waitFor(() => {
-      expect(onUpdateAppSettings).toHaveBeenCalledWith(
-        expect.objectContaining({ lastComposerReasoningEffort: "high" }),
+        expect.objectContaining({ lastComposerModelId: "deepseek-v4-pro" }),
       );
     });
   });
