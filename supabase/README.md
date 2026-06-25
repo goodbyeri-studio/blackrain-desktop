@@ -11,19 +11,31 @@
 
 ## 如何应用
 
-本仓库不含 Supabase 项目密钥（service-role key 绝不入库）。你需要：
+云端项目已用 Supabase CLI 建好（新加坡区 `ap-southeast-1`，project ref `jhetzgklmmkekpicutlg`），并已 `link` + `db push` 两个 migration。本仓库不含任何 Supabase 密钥（service-role / access token / db 密码全在 gitignored 的根 `.env`）。
 
-1. 在 [supabase.com](https://supabase.com) 建一个项目（个人版即可）。
-2. 应用 migration（任选其一）：
-   - **Dashboard**：SQL Editor 里按文件名顺序粘贴执行每个 `.sql`。
-   - **CLI**：`supabase link --project-ref <ref>` 后 `supabase db push`。
-3. 把项目的 URL 与 anon key 填进桌面端本地环境（**不要提交**）：
-   ```
-   # apps/desktop/.env.local
-   VITE_SUPABASE_URL=https://<ref>.supabase.co
-   VITE_SUPABASE_ANON_KEY=<anon-key>
-   ```
-   anon key 受 RLS 约束、可公开分发；service-role key 只在平台代理服务端用（M-A2），绝不进前端。
+日常用 CLI 管理（凭据从根 `.env` 读，不进命令行明文）：
+
+```bash
+set -a; source .env; set +a            # 载入 SUPABASE_ACCESS_TOKEN / SUPABASE_DB_PASSWORD 等
+supabase db push                        # 推新增 migration 到云端
+supabase migration list --linked        # 查 Local/Remote 对齐
+supabase db pull                         # 从云端拉回 schema 变更（如在控制台改过）
+```
+
+新增 migration：在 `migrations/` 下加 `<时间戳>_<名>.sql`（或 `supabase migration new <名>`），改完 `db push`。
+
+桌面端连云后端的配置已写入 `apps/desktop/.env.local`（gitignored）：
+
+```
+VITE_SUPABASE_URL=https://jhetzgklmmkekpicutlg.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon-key>
+```
+
+anon key 受 RLS 约束、可公开分发；service-role key 只在平台代理服务端用（M-A2），存根 `.env`，绝不进前端。
+
+### 本地 stack（可选，默认不用）
+
+CLI 也支持 `supabase start` 在 Docker 起本地全栈。但本项目按 decisions 走「云端优先」：本地测不到国内可达性（最大风险），且单人 MVP 维护两套环境不划算。需要纯离线迭代 SQL 时再用。
 
 ## 安全要点（与 spec/decisions 一致）
 
