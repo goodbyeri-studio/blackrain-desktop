@@ -47,7 +47,7 @@ export function RainBackground() {
       canvas.height = Math.floor(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       // 雨量随面积，封顶避免大屏卡顿
-      const count = Math.min(220, Math.floor((w * h) / 7000));
+      const count = Math.min(300, Math.floor((w * h) / 5200));
       drops = Array.from({ length: count }, () => spawn(true));
     };
 
@@ -57,9 +57,9 @@ export function RainBackground() {
       return {
         x: Math.random() * (w + 120) - 60,
         y: anywhere ? Math.random() * h : -20,
-        len: 10 + Math.random() * 18,
-        speed: 4.5 + Math.random() * 6.5,
-        alpha: 0.08 + Math.random() * 0.22,
+        len: 12 + Math.random() * 22,
+        speed: 5 + Math.random() * 7,
+        alpha: 0.14 + Math.random() * 0.28,
         hue,
       };
     };
