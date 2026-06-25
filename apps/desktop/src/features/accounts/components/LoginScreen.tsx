@@ -9,7 +9,7 @@ export function LoginScreen() {
     <div className="account-login-screen">
       <div className="account-login-brand">
         <h1 className="account-login-title">BlackRain</h1>
-        <p className="account-login-subtitle">用国产大模型驱动的 AI 工作台</p>
+        <p className="account-login-subtitle">新一代 working Agent，氛围十足</p>
       </div>
       <AccountAuthCard
         configured={account.status !== "unconfigured"}
