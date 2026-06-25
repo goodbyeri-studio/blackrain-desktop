@@ -6,6 +6,7 @@ import FolderPlus from "lucide-react/dist/esm/icons/folder-plus";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import { FolderAddIcon } from "@/features/shared/components/FolderAddIcon";
 import { useI18n } from "@/i18n";
 import { useMenuController } from "@app/hooks/useMenuController";
 import {
@@ -56,7 +57,7 @@ export function HomeProjectMenu({
         aria-label={tx("Enter project work")}
       >
         <span className="home-pill-icon" aria-hidden>
-          <FolderGit2 size={15} strokeWidth={1.7} />
+          <FolderAddIcon size={15} strokeWidth={1.7} />
         </span>
         {tx("Enter project work")}
         <ChevronDown className="home-pill-chevron" aria-hidden />
