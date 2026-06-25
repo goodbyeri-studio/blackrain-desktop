@@ -177,8 +177,6 @@
     0 0 80px -34px var(--br-magenta-glow);
   backdrop-filter: blur(32px) saturate(1.4);
   -webkit-backdrop-filter: blur(32px) saturate(1.4);
-  /* 入场：淡入 + 轻微上浮 */
-  animation: auth-card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* 卡面全息质感：颗粒 + LED 网点 + 扫描线（与开屏背景同语言，弱一档） */
@@ -203,23 +201,6 @@
 .auth-card > .auth-card-banner {
   position: relative;
   z-index: 1;
-}
-
-@keyframes auth-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(14px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .auth-card {
-    animation: none;
-  }
 }
 
 .auth-card-form {

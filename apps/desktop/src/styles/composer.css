@@ -243,7 +243,6 @@
 .composer-attachment:hover .composer-attachment-preview,
 .composer-attachment:focus-within .composer-attachment-preview {
   opacity: 1;
-  transform: translate(-50%, -6px) scale(1);
   pointer-events: auto;
 }
 
@@ -259,17 +258,11 @@
   background: var(--surface-quiet);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
   opacity: 0;
-  transform: translate(-50%, -2px) scale(0.98);
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
+  /* translateX(-50%) 仅为水平居中(静态),无位移动效;仅 opacity 淡显 */
+  transform: translateX(-50%);
+  transition: opacity 0.15s ease;
   pointer-events: none;
   z-index: 20;
-}
-
-.workspace-home .composer-attachment:hover .composer-attachment-preview,
-.workspace-home .composer-attachment:focus-within .composer-attachment-preview {
-  transform: translate(-50%, 6px) scale(1);
 }
 
 .workspace-home .composer-attachment-preview {
