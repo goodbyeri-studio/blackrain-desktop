@@ -16,6 +16,18 @@ else
   echo "✓ codex-upstream/ 已存在，跳过。"
 fi
 
+# ── NousResearch/hermes-agent ── WORK 引擎黑盒（许可证 MIT）
+# 同 codex 待遇：只读黑盒、不入库、白嫖上游。
+# TODO(钉版本)：spike 阶段先拉 HEAD 探路；架构验通后必须钉死一个 commit 并存证
+#   （MIT 对快照不可撤销，防 Nous 未来版本转 BSL/商业授权）。届时改成
+#   `git clone https://...hermes-agent.git hermes-upstream && cd hermes-upstream && git checkout <commit>`
+if [ ! -d hermes-upstream ]; then
+  echo "→ 克隆 NousResearch/hermes-agent 到 hermes-upstream/ ..."
+  git clone --depth 1 https://github.com/NousResearch/hermes-agent.git hermes-upstream
+else
+  echo "✓ hermes-upstream/ 已存在，跳过。"
+fi
+
 echo ""
 echo "参考源码就绪。其余竞品（Coze Studio、Dify 等）按需临时克隆即可，勿整包入库。"
 echo "详见 docs/REFERENCES.md"
