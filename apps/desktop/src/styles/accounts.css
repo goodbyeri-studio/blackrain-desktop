@@ -15,10 +15,10 @@
   --br-ice: #93a7cc; /* 钢蓝紫：冷高光（去饱和） */
   --br-ice-soft: #b4c2dc;
   --br-violet: #5a4a86; /* 雾里的暗李子 */
-  --br-fog: rgba(26, 18, 42, 0.42); /* 靛紫雾纱：透 → 桌面透出 */
-  --br-fog-floor: rgba(14, 9, 26, 0.55);
-  --br-glass: rgba(28, 20, 46, 0.34); /* 磨砂玻璃面（更透） */
-  --br-glass-border: rgba(217, 163, 194, 0.16); /* 接光 hairline（灰玫） */
+  --br-fog: rgba(24, 16, 40, 0.26); /* 靛紫雾纱：更透 → 桌面更明显透出 */
+  --br-fog-floor: rgba(12, 8, 24, 0.4);
+  --br-glass: rgba(26, 18, 44, 0.26); /* 磨砂玻璃面（更透，靠 blur 立体而非压暗） */
+  --br-glass-border: rgba(217, 163, 194, 0.18); /* 接光 hairline（灰玫） */
   --br-text: #ece4ee;
   --br-text-muted: #9c8aac;
   --br-magenta-glow: rgba(240, 106, 168, 0.42);
@@ -123,41 +123,23 @@
 /* —— 登录/注册卡片：半透明磨砂玻璃（透出雨与桌面） —— */
 .auth-card {
   position: relative;
-  width: min(100%, 384px);
+  width: min(100%, 432px);
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: 34px 32px;
-  border-radius: 16px;
-  background: var(--br-glass);
+  gap: 20px;
+  padding: 38px 40px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 36%),
+    var(--br-glass);
   border: 1px solid var(--br-glass-border);
   box-shadow:
-    0 1px 0 rgba(217, 163, 194, 0.12) inset,
-    0 30px 80px -26px rgba(0, 0, 0, 0.9),
-    0 0 70px -30px var(--br-magenta-glow);
-  backdrop-filter: blur(26px) saturate(1.25);
-  -webkit-backdrop-filter: blur(26px) saturate(1.25);
-}
-
-.auth-card-head {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.auth-card-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--br-text);
-}
-
-.auth-card-subtitle {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--br-text-muted);
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.25) inset,
+    0 40px 90px -32px rgba(0, 0, 0, 0.85),
+    0 0 80px -34px var(--br-magenta-glow);
+  backdrop-filter: blur(32px) saturate(1.35);
+  -webkit-backdrop-filter: blur(32px) saturate(1.35);
 }
 
 .auth-card-form {

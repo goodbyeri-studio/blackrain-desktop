@@ -1,23 +1,33 @@
 import { useEffect, useRef } from "react";
 
-// 002-accounts-credits：登录开屏雨幕。
-// 银翼杀手 2049 霓虹雨夜氛围——斜落雨丝 + 偶发品红/冰蓝着色（穿过霓虹）。
-// canvas 独立绘制，prefers-reduced-motion 时静止；jsdom 下 getContext 返回 null 直接跳过。
+// 002-accounts-credits：登录开屏雨幕（银翼杀手 2049 霓虹雨夜）。
+// 真实感：3 层视差景深（远/中/近，速度·粗细·亮度各异）+ 斜风飘移 + 偶发霓虹着色。
+// 性能：按层「批量成一条 path，整层 stroke 一次」——上百根雨丝每帧仅 ~4 次绘制调用；
+//       用时间戳 delta 归一化速度，掉帧不变速；prefers-reduced-motion 静止；jsdom 跳过。
 
 interface Drop {
   x: number;
   y: number;
   len: number;
-  speed: number;
-  alpha: number;
-  hue: "ice" | "magenta" | "plain";
+  vy: number; // 基础下落速度（像素/帧@60）
+  layer: number;
 }
 
-const HUES: Record<Drop["hue"], string> = {
-  ice: "rgba(180, 200, 255, ",
-  magenta: "rgba(255, 130, 200, ",
-  plain: "rgba(210, 220, 235, ",
-};
+interface Layer {
+  width: number;
+  alpha: number;
+  speed: number; // 速度倍率（景深视差）
+  color: string; // "r,g,b" 不含 alpha
+}
+
+// 远→近：越近越粗、越快、越亮（冷白偏蓝）
+const LAYERS: Layer[] = [
+  { width: 0.6, alpha: 0.16, speed: 0.55, color: "150, 172, 214" },
+  { width: 1.0, alpha: 0.26, speed: 1.0, color: "190, 206, 236" },
+  { width: 1.5, alpha: 0.4, speed: 1.55, color: "226, 234, 250" },
+];
+
+const WIND = 0.18; // 斜风：x 方向相对下落的比例
 
 export function RainBackground() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -32,13 +42,26 @@ export function RainBackground() {
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let raf = 0;
     let drops: Drop[] = [];
     let w = 0;
     let h = 0;
+    let last = 0;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const wind = 1.6; // 斜风：x 方向偏移系数
+    const spawn = (anywhere: boolean): Drop => {
+      // 偏向近层多、远层少，景深更自然
+      const r = Math.random();
+      const layer = r > 0.62 ? 2 : r > 0.28 ? 1 : 0;
+      const base = 5.5 + Math.random() * 5;
+      return {
+        x: Math.random() * (w + 160) - 80,
+        y: anywhere ? Math.random() * h : -30,
+        len: (10 + Math.random() * 16) * (0.7 + layer * 0.3),
+        vy: base,
+        layer,
+      };
+    };
 
     const seed = () => {
       w = canvas.clientWidth;
@@ -46,62 +69,59 @@ export function RainBackground() {
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // 雨量随面积，封顶避免大屏卡顿
-      const count = Math.min(300, Math.floor((w * h) / 5200));
+      const count = Math.min(360, Math.floor((w * h) / 4200));
       drops = Array.from({ length: count }, () => spawn(true));
     };
 
-    const spawn = (anywhere: boolean): Drop => {
-      const r = Math.random();
-      const hue: Drop["hue"] = r > 0.92 ? "magenta" : r > 0.78 ? "ice" : "plain";
-      return {
-        x: Math.random() * (w + 120) - 60,
-        y: anywhere ? Math.random() * h : -20,
-        len: 12 + Math.random() * 22,
-        speed: 5 + Math.random() * 7,
-        alpha: 0.14 + Math.random() * 0.28,
-        hue,
-      };
-    };
-
-    const draw = () => {
+    // 按层批量绘制：每层只 beginPath / stroke 一次
+    const render = (advance: number) => {
       ctx.clearRect(0, 0, w, h);
-      ctx.lineWidth = 1;
-      for (const d of drops) {
-        ctx.strokeStyle = `${HUES[d.hue]}${d.alpha})`;
+      for (let li = 0; li < LAYERS.length; li++) {
+        const layer = LAYERS[li];
+        ctx.strokeStyle = `rgba(${layer.color}, ${layer.alpha})`;
+        ctx.lineWidth = layer.width;
+        ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(d.x, d.y);
-        ctx.lineTo(d.x - wind * (d.len / 4), d.y + d.len);
-        ctx.stroke();
-        d.y += d.speed;
-        d.x -= (wind * d.speed) / 4;
-        if (d.y > h + 20) Object.assign(d, spawn(false));
-      }
-      raf = window.requestAnimationFrame(draw);
-    };
-
-    const drawStatic = () => {
-      ctx.clearRect(0, 0, w, h);
-      ctx.lineWidth = 1;
-      for (const d of drops) {
-        ctx.strokeStyle = `${HUES[d.hue]}${d.alpha * 0.7})`;
-        ctx.beginPath();
-        ctx.moveTo(d.x, d.y);
-        ctx.lineTo(d.x - wind * (d.len / 4), d.y + d.len);
+        for (const d of drops) {
+          if (d.layer !== li) continue;
+          const tail = d.len;
+          const dx = WIND * tail;
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x - dx, d.y + tail);
+          if (advance > 0) {
+            const step = d.vy * layer.speed * advance;
+            d.y += step;
+            d.x -= WIND * step;
+            if (d.y - tail > h) {
+              const ns = spawn(false);
+              d.x = ns.x;
+              d.y = ns.y;
+              d.len = ns.len;
+              d.vy = ns.vy;
+            }
+          }
+        }
         ctx.stroke();
       }
+    };
+
+    const frame = (now: number) => {
+      const advance = last ? Math.min((now - last) / 16.67, 3) : 1;
+      last = now;
+      render(advance);
+      raf = window.requestAnimationFrame(frame);
     };
 
     seed();
     if (reduce) {
-      drawStatic();
+      render(0);
     } else {
-      raf = window.requestAnimationFrame(draw);
+      raf = window.requestAnimationFrame(frame);
     }
 
     const onResize = () => {
       seed();
-      if (reduce) drawStatic();
+      if (reduce) render(0);
     };
     window.addEventListener("resize", onResize);
 

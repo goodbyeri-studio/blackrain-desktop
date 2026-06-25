@@ -16,9 +16,10 @@ describe("AccountAuthCard", () => {
         onSignUp={vi.fn()}
       />,
     );
-    expect(screen.getByText("登录 BlackRain")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "登录" })).toBeTruthy();
     fireEvent.click(screen.getByText("没有账号？去注册"));
-    expect(screen.getByText("注册 BlackRain 账号")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "注册" })).toBeTruthy();
+    expect(screen.getByText("已有账号？去登录")).toBeTruthy();
   });
 
   it("邮箱非法时不调用 onSignIn", async () => {

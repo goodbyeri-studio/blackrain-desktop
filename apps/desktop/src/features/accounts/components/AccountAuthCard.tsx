@@ -64,18 +64,7 @@ export function AccountAuthCard({
   }, [configured, email, password, isSignUp, onSignIn, onSignUp]);
 
   return (
-    <div className="auth-card">
-      <div className="auth-card-head">
-        <h2 className="auth-card-title">
-          {isSignUp ? "注册 BlackRain 账号" : "登录 BlackRain"}
-        </h2>
-        <p className="auth-card-subtitle">
-          {isSignUp
-            ? "注册即获赠 100 credits，可直接对话。"
-            : "登录后即可使用赠送额度对话。"}
-        </p>
-      </div>
-
+    <div className="auth-card" data-tauri-drag-region="false">
       {!configured ? (
         <div className="auth-card-banner auth-card-banner--error">
           账号后端未配置：缺 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY。
