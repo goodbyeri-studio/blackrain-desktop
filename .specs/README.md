@@ -26,7 +26,7 @@
 .specs/
   001-providers-model-gateway/
   002-accounts-credits/
-  003-workbench-runtime/
+  003-dual-engine-architecture/
 ```
 
 编号三位递增，slug 用英文小写短横线。创建时复制 `_template/`。
