@@ -140,6 +140,25 @@
     0 0 80px -34px var(--br-magenta-glow);
   backdrop-filter: blur(32px) saturate(1.35);
   -webkit-backdrop-filter: blur(32px) saturate(1.35);
+  /* 入场：淡入 + 轻微上浮 */
+  animation: auth-card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-card {
+    animation: none;
+  }
 }
 
 .auth-card-form {
@@ -162,37 +181,117 @@
   opacity: 0.88;
 }
 
+/* 输入容器：承载前置图标 + 右侧显隐按钮 */
+.auth-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-field-icon {
+  position: absolute;
+  left: 13px;
+  width: 17px;
+  height: 17px;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--br-ice);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.55;
+  transition: opacity 0.18s ease, stroke 0.18s ease;
+}
+
 .auth-input {
-  height: 42px;
+  width: 100%;
+  height: 46px;
   padding: 0 14px;
-  border-radius: 10px;
+  border-radius: 11px;
   border: 1px solid rgba(180, 160, 220, 0.16);
-  background: rgba(12, 8, 24, 0.5);
+  background: rgba(12, 8, 24, 0.45);
   color: var(--br-text);
   font-size: 14px;
   outline: none;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.auth-input--icon {
+  padding-left: 40px;
+}
+
+.auth-input--toggle {
+  padding-right: 44px;
 }
 
 .auth-input::placeholder {
   color: rgba(168, 146, 184, 0.5);
 }
 
+.auth-input:hover:not(:focus):not(:disabled) {
+  border-color: rgba(180, 160, 220, 0.28);
+}
+
 .auth-input:focus {
   border-color: var(--br-magenta);
-  box-shadow: 0 0 0 3px rgba(217, 106, 158, 0.22), 0 0 18px -4px var(--br-magenta-glow);
+  background: rgba(16, 10, 30, 0.55);
+  box-shadow: 0 0 0 3px rgba(217, 106, 158, 0.2), 0 0 18px -4px var(--br-magenta-glow);
+}
+
+/* 聚焦时前置图标点亮 */
+.auth-input-wrap:focus-within .auth-field-icon {
+  opacity: 0.95;
+  stroke: var(--br-magenta-soft);
 }
 
 .auth-input:disabled {
   opacity: 0.5;
 }
 
+/* 密码显隐切换按钮 */
+.auth-input-eye {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--br-text-muted);
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.auth-input-eye svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.auth-input-eye:hover:not(:disabled) {
+  color: var(--br-magenta-soft);
+  background: rgba(217, 106, 158, 0.12);
+}
+
+.auth-input-eye:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* 主按钮：磨砂玻璃透光（非糖果渐变）——灰玫面 + 品红辉光环 */
 .auth-submit {
-  height: 44px;
-  margin-top: 2px;
+  height: 48px;
+  margin-top: 6px;
   border: 1px solid rgba(240, 106, 168, 0.4);
-  border-radius: 10px;
+  border-radius: 11px;
   background:
     linear-gradient(180deg, rgba(217, 106, 158, 0.26) 0%, rgba(90, 74, 134, 0.22) 100%);
   color: var(--br-text);
@@ -202,7 +301,7 @@
   cursor: pointer;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  transition: filter 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  transition: filter 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, transform 0.12s ease;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.04) inset,
     0 0 22px -8px var(--br-magenta-glow);
@@ -213,6 +312,27 @@
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.06) inset,
     0 0 34px -6px var(--br-magenta-glow);
+}
+
+.auth-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* 加载态：内嵌 spinner + 文案 */
+.auth-submit-busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.auth-submit-spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid rgba(236, 228, 238, 0.3);
+  border-top-color: var(--br-text);
+  animation: account-gate-spin 0.7s linear infinite;
 }
 
 .auth-submit:disabled {

@@ -15,6 +15,36 @@ function isValidEmail(value: string): boolean {
   return /.+@.+\..+/.test(value.trim());
 }
 
+// 细线图标（冰蓝、aria-hidden，纯装饰）
+function MailIcon() {
+  return (
+    <svg className="auth-field-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="m4 7 8 6 8-6" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg className="auth-field-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+    </svg>
+  );
+}
+
+function EyeIcon({ off }: { off: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+      {off ? <path d="m4 4 16 16" /> : null}
+    </svg>
+  );
+}
+
+
 // 登录/注册卡片。开屏专用的独立设计（不再复用弹窗 ModalShell）。
 export function AccountAuthCard({
   configured,
@@ -25,6 +55,7 @@ export function AccountAuthCard({
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -83,32 +114,48 @@ export function AccountAuthCard({
           <label className="auth-field-label" htmlFor={emailId}>
             邮箱
           </label>
-          <input
-            id={emailId}
-            className="auth-input"
-            type="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            value={email}
-            disabled={busy}
-            onChange={(event) => setEmail(event.target.value)}
-          />
+          <div className="auth-input-wrap">
+            <MailIcon />
+            <input
+              id={emailId}
+              className="auth-input auth-input--icon"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              disabled={busy}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </div>
         </div>
 
         <div className="auth-field">
           <label className="auth-field-label" htmlFor={passwordId}>
             密码
           </label>
-          <input
-            id={passwordId}
-            className="auth-input"
-            type="password"
-            autoComplete={isSignUp ? "new-password" : "current-password"}
-            placeholder="至少 6 位"
-            value={password}
-            disabled={busy}
-            onChange={(event) => setPassword(event.target.value)}
-          />
+          <div className="auth-input-wrap">
+            <LockIcon />
+            <input
+              id={passwordId}
+              className="auth-input auth-input--icon auth-input--toggle"
+              type={showPassword ? "text" : "password"}
+              autoComplete={isSignUp ? "new-password" : "current-password"}
+              placeholder="至少 6 位"
+              value={password}
+              disabled={busy}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            <button
+              type="button"
+              className="auth-input-eye"
+              aria-label={showPassword ? "隐藏密码" : "显示密码"}
+              aria-pressed={showPassword}
+              disabled={busy}
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              <EyeIcon off={showPassword} />
+            </button>
+          </div>
         </div>
 
         {error ? (
@@ -123,7 +170,16 @@ export function AccountAuthCard({
           className="auth-submit"
           disabled={busy || !configured}
         >
-          {busy ? "处理中…" : isSignUp ? "注册" : "登录"}
+          {busy ? (
+            <span className="auth-submit-busy">
+              <span className="auth-submit-spinner" aria-hidden="true" />
+              处理中…
+            </span>
+          ) : isSignUp ? (
+            "注册"
+          ) : (
+            "登录"
+          )}
         </button>
 
         <div className="auth-card-foot">

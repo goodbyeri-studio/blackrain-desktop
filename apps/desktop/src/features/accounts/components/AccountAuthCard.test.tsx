@@ -71,4 +71,16 @@ describe("AccountAuthCard", () => {
     const submit = screen.getByRole("button", { name: "登录" }) as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
   });
+
+  it("密码显隐切换", () => {
+    render(
+      <AccountAuthCard configured onSignIn={vi.fn()} onSignUp={vi.fn()} />,
+    );
+    const pwd = screen.getByLabelText("密码") as HTMLInputElement;
+    expect(pwd.type).toBe("password");
+    fireEvent.click(screen.getByRole("button", { name: "显示密码" }));
+    expect(pwd.type).toBe("text");
+    fireEvent.click(screen.getByRole("button", { name: "隐藏密码" }));
+    expect(pwd.type).toBe("password");
+  });
 });
