@@ -86,6 +86,12 @@ export default defineConfig(async () => ({
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: ["src/test/vitest.setup.ts"],
+    // 测试确定性：屏蔽 .env.local 的真实 Supabase 配置，让账号默认「未配置」。
+    // 需要登录态的测试自行 mock useAccount（如 Home.gating.test.tsx）。
+    env: {
+      VITE_SUPABASE_URL: "",
+      VITE_SUPABASE_ANON_KEY: "",
+    },
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

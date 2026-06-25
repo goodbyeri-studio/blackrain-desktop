@@ -31,9 +31,11 @@
 | 2026-06-25 | 容器化代理冒烟 | docker build + run + 真实对话 | 通过 | 绑 0.0.0.0:8080，计量闭环正常 |
 | 2026-06-25 | 代理公网部署 + HTTPS | DO sgp1 droplet + Caddy + Let's Encrypt | 通过 | https://proxy.goodbyeri.cc，systemd 常驻自启 |
 | 2026-06-25 | 公网端到端计量闭环 | 公网 HTTPS 真实对话（DeepSeek+Supabase） | 通过 | flash 22 token→扣 0.0011；首尾 1860ms；门禁 402 |
+| 2026-06-25 | 网关 api_key_file 热读单测 | `cd gateway && python3 -m unittest test_gateway_key` | 通过 | 7 用例：JWT 每请求读盘、空回退、缺失返 None |
+| 2026-06-25 | 桌面 credit 接线（代码） | typecheck + cargo check + 1053 前端用例 | 通过 | registry credit override + JWT 文件命令 + useCreditGatewaySync；GUI 端到端待跑 |
 | YYYY-MM-DD | 会话态持久 | 桌面重开 App（连云端） | 未跑 | 需起桌面：钥匙串落盘、自动恢复、过期刷新 |
-| YYYY-MM-DD | 本地网关 credit 模式接线 | 桌面手动 | 未跑 | base_url 指代理、Bearer 带 JWT、JWT 过期刷新 |
-| YYYY-MM-DD | 余额耗尽 → 前端提示 | 桌面手动 | 未跑 | 代理 402 → 网关 response.failed → 前端提示升级/充值 |
+| YYYY-MM-DD | 本地网关 credit 模式端到端 | 桌面 GUI（登录→选模型→对话） | 未跑 | 需 tauri dev：base_url 切代理、JWT 文件热读、扣 credit |
+| YYYY-MM-DD | 余额耗尽 → 前端提示 | 桌面 GUI | 未跑 | 代理 402 → response.failed 已就绪；前端提示文案待联调 |
 | YYYY-MM-DD | Plus BYOK 不计 credit | 手动 | 未跑 | BYOK 对话余额不变（M-A3） |
 
 ## 已验证

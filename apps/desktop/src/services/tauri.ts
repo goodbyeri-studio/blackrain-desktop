@@ -948,6 +948,21 @@ export async function modelGatewayDaemonStatus(): Promise<ModelGatewayRuntimeSta
   return invoke<ModelGatewayRuntimeStatus>("model_gateway_daemon_status");
 }
 
+// credit 模式：写当前 Supabase JWT 到网关读取的文件。token 刷新时重写即可，无需重启网关。
+export async function modelGatewayCreditJwtSet(jwt: string): Promise<void> {
+  await invoke("model_gateway_credit_jwt_set", { jwt });
+}
+
+// 登出/会话失效：清 JWT 文件，回退 dev/BYOK 模式。
+export async function modelGatewayCreditJwtClear(): Promise<void> {
+  await invoke("model_gateway_credit_jwt_clear");
+}
+
+// 重启网关：模式切换（credit↔dev/BYOK，base_url 变化）必须重起进程才生效。
+export async function modelGatewayDaemonRestart(): Promise<ModelGatewayRuntimeStatus> {
+  return invoke<ModelGatewayRuntimeStatus>("model_gateway_daemon_restart");
+}
+
 export async function tailscaleStatus(): Promise<TailscaleStatus> {
   return invoke<TailscaleStatus>("tailscale_status");
 }

@@ -26,8 +26,8 @@
 - [x] 代理查余额：≤0 返回结构化 `insufficient_credits`（402）。（转发前门禁，真实云端验证）
 - [x] usage 计量：收尾读 input/output token，按倍率算 credit 消耗。（`credit_math`，混合单价 × 倍率 / 10000）
 - [x] 原子扣 `profiles.credits` + 写 `credit_ledger`。（`spend_credits` RPC，单事务，真实云端验证）
-- [ ] 本地网关 credit 模式：base_url 指向代理、Authorization 带 JWT。（待桌面接线 + JWT 刷新设计）
-- [ ] 余额耗尽 → 网关转 `response.failed` → 前端提示升级/充值。（待桌面接线）
+- [x] 本地网关 credit 模式：base_url 指向代理、Authorization 带 JWT。（`gateway_registry_env_with_secrets` credit override + `api_key_file` 每请求读 JWT + `useCreditGatewaySync` 登录写文件/切模式重启；GUI 端到端待用户跑）
+- [x] 余额耗尽 → 网关转 `response.failed` → 前端提示升级/充值。（`ProviderHTTPError` + `do_POST._emit_failed` 把代理 402 转带 code 的 `response.failed`；前端提示文案待 GUI 联调）
 - [x] 代理日志脱敏（平台 key、JWT、用户内容）。（`redact()`，真实日志扫描无泄漏）
 
 ## 阶段 3：BYOK 锁 Plus
