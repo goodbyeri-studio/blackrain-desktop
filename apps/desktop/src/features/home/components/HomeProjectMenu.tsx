@@ -1,13 +1,11 @@
 import { useMemo, useState } from "react";
 import Search from "lucide-react/dist/esm/icons/search";
+import FolderGit2 from "lucide-react/dist/esm/icons/folder-git-2";
+import Folder from "lucide-react/dist/esm/icons/folder";
+import FolderPlus from "lucide-react/dist/esm/icons/folder-plus";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import {
-  FolderGitIcon,
-  FolderPlusIcon,
-  FolderIcon,
-} from "@/features/shared/components/FolderIcons";
 import { useI18n } from "@/i18n";
 import { useMenuController } from "@app/hooks/useMenuController";
 import {
@@ -58,7 +56,7 @@ export function HomeProjectMenu({
         aria-label={tx("Enter project work")}
       >
         <span className="home-pill-icon" aria-hidden>
-          <FolderGitIcon size={15} strokeWidth={1.7} />
+          <FolderGit2 size={15} strokeWidth={1.7} />
         </span>
         {tx("Enter project work")}
         <ChevronDown className="home-pill-chevron" aria-hidden />
@@ -93,7 +91,7 @@ export function HomeProjectMenu({
               }}
             >
               <span className="home-menu-rich-icon" aria-hidden>
-                <FolderGitIcon size={16} strokeWidth={1.7} />
+                <FolderGit2 size={16} strokeWidth={1.7} />
               </span>
               <span className="home-menu-rich-body">
                 <span className="home-menu-rich-label">{workspace.name}</span>
@@ -117,7 +115,7 @@ export function HomeProjectMenu({
               onClick={() => setAddOpen((v) => !v)}
             >
               <span className="home-menu-rich-icon" aria-hidden>
-                <FolderPlusIcon size={16} strokeWidth={1.7} />
+                <FolderPlus size={16} strokeWidth={1.7} />
               </span>
               <span className="home-menu-rich-body">
                 <span className="home-menu-rich-label">{tx("Add new project")}</span>
@@ -157,7 +155,7 @@ export function HomeProjectMenu({
                   }}
                 >
                   <span className="home-menu-rich-icon" aria-hidden>
-                    <FolderIcon size={16} strokeWidth={1.7} />
+                    <Folder size={16} strokeWidth={1.7} />
                   </span>
                   <span className="home-menu-rich-body">
                     <span className="home-menu-rich-label">
