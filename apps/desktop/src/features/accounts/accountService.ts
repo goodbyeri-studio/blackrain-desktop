@@ -104,3 +104,32 @@ export async function fetchProfile(userId: string): Promise<AccountProfile | nul
     createdAt: (data.created_at as string | null) ?? null,
   };
 }
+
+// credit 用量汇总（从 ledger 派生）：累计赠送/充值（正 delta 之和）、累计消耗（负 delta 绝对值之和）。
+// RLS 保证只读自己的流水。供积分额度条展示「已用 / 总额」。
+export interface CreditSummary {
+  granted: number; // 累计获得（赠送+充值）
+  used: number; // 累计消耗
+}
+
+export async function fetchCreditSummary(userId: string): Promise<CreditSummary> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from("credit_ledger")
+    .select("delta")
+    .eq("user_id", userId);
+  if (error) {
+    throw error;
+  }
+  let granted = 0;
+  let used = 0;
+  for (const row of data ?? []) {
+    const delta = Number((row as { delta: number }).delta ?? 0);
+    if (delta >= 0) {
+      granted += delta;
+    } else {
+      used += -delta;
+    }
+  }
+  return { granted, used };
+}

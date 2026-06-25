@@ -33,6 +33,7 @@
 | 2026-06-25 | 公网端到端计量闭环 | 公网 HTTPS 真实对话（DeepSeek+Supabase） | 通过 | flash 22 token→扣 0.0011；首尾 1860ms；门禁 402 |
 | 2026-06-25 | 网关 api_key_file 热读单测 | `cd gateway && python3 -m unittest test_gateway_key` | 通过 | 7 用例：JWT 每请求读盘、空回退、缺失返 None |
 | 2026-06-25 | 桌面 credit 接线（代码） | typecheck + cargo check + 1053 前端用例 | 通过 | registry credit override + JWT 文件命令 + useCreditGatewaySync；GUI 端到端待跑 |
+| 2026-06-25 | 登录开屏门禁（代码） | typecheck + 1055 前端用例 + lint + DS 守卫 | 通过 | AccountProvider 单一真源 + AccountGate 四态分支(4 用例) + 积分额度条 + 登出；会话优先/离线宽限 |
 | YYYY-MM-DD | 会话态持久 | 桌面重开 App（连云端） | 未跑 | 需起桌面：钥匙串落盘、自动恢复、过期刷新 |
 | YYYY-MM-DD | 本地网关 credit 模式端到端 | 桌面 GUI（登录→选模型→对话） | 未跑 | 需 tauri dev：base_url 切代理、JWT 文件热读、扣 credit |
 | YYYY-MM-DD | 余额耗尽 → 前端提示 | 桌面 GUI | 未跑 | 代理 402 → response.failed 已就绪；前端提示文案待联调 |
