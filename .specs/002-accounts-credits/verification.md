@@ -28,6 +28,9 @@
 | 2026-06-25 | 余额耗尽拦截 | 代理端到端：置 0 余额再请求 | 通过 | 返回 402 insufficient_credits |
 | 2026-06-25 | 真实 DeepSeek 经代理计量 | 起代理 + 真实 key 跑一轮 | 通过 | flash 33 token→扣 0.00165 credit；ledger 落账含 token 明细 |
 | 2026-06-25 | 代理日志脱敏 | 扫描 /tmp/proxy.log | 通过 | 无平台 key/JWT/用户内容/完整 user_id |
+| 2026-06-25 | 容器化代理冒烟 | docker build + run + 真实对话 | 通过 | 绑 0.0.0.0:8080，计量闭环正常 |
+| 2026-06-25 | 代理公网部署 + HTTPS | DO sgp1 droplet + Caddy + Let's Encrypt | 通过 | https://proxy.goodbyeri.cc，systemd 常驻自启 |
+| 2026-06-25 | 公网端到端计量闭环 | 公网 HTTPS 真实对话（DeepSeek+Supabase） | 通过 | flash 22 token→扣 0.0011；首尾 1860ms；门禁 402 |
 | YYYY-MM-DD | 会话态持久 | 桌面重开 App（连云端） | 未跑 | 需起桌面：钥匙串落盘、自动恢复、过期刷新 |
 | YYYY-MM-DD | 本地网关 credit 模式接线 | 桌面手动 | 未跑 | base_url 指代理、Bearer 带 JWT、JWT 过期刷新 |
 | YYYY-MM-DD | 余额耗尽 → 前端提示 | 桌面手动 | 未跑 | 代理 402 → 网关 response.failed → 前端提示升级/充值 |
