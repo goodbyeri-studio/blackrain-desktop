@@ -58,12 +58,17 @@ fi
 # 注：旧名 deepseek-chat / deepseek-reasoner 将于 2026-07-24 弃用。
 DEV_MODEL="${DEV_MODEL:-deepseek-v4-flash}"
 GW_PORT="${GW_PORT:-8899}"   # 先定端口，下面 config.toml 与网关共用同一个值
+# 上下文窗口（token）：内核据此算"上下文使用率"环，并触发 auto-compact。
+# 国产模型走自定义 provider，内核不内置其窗口大小，必须在此显式告知。
+# DeepSeek V4 flash/pro 均为 1M 上下文。可用 DEV_CONTEXT_WINDOW 覆盖。
+DEV_CONTEXT_WINDOW="${DEV_CONTEXT_WINDOW:-1000000}"
 DEV_HOME="$REPO/.scratch/dev-codex-home"
 mkdir -p "$DEV_HOME"
 export BLACKRAIN_GATEWAY_API_KEY="${BLACKRAIN_GATEWAY_API_KEY:-local-dev-gateway}"
 cat > "$DEV_HOME/config.toml" <<TOML
 model = "${DEV_MODEL}"
 model_provider = "blackrain_gateway"
+model_context_window = ${DEV_CONTEXT_WINDOW}
 
 [model_providers.blackrain_gateway]
 name = "BlackRain Gateway"
@@ -72,7 +77,7 @@ env_key = "BLACKRAIN_GATEWAY_API_KEY"
 wire_api = "responses"
 TOML
 export CODEX_HOME="${DEV_HOME}"
-echo "✓ CODEX_HOME: ${DEV_HOME} (模型: ${DEV_MODEL})"
+echo "✓ CODEX_HOME: ${DEV_HOME} (模型: ${DEV_MODEL}, 上下文: ${DEV_CONTEXT_WINDOW})"
 
 # ── 5. 起翻译网关（后台），退出时自动清理 ──
 # 端口预检：被上次残留进程占着时，直接给出 PID，别让 bind 失败埋进日志
