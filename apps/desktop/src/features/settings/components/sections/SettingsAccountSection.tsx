@@ -16,10 +16,7 @@ export function SettingsAccountSection() {
   const signedIn = account.status === "signed-in";
 
   return (
-    <SettingsSection
-      title="账号"
-      subtitle="登录后用赠送的 credit 对话；Plus+ 可自带第三方 key。"
-    >
+    <SettingsSection title="账号">
       {unconfigured ? (
         <div className="settings-gateway-provider-status settings-gateway-provider-status--error">
           账号后端未配置：缺 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY。

@@ -12,8 +12,6 @@ import type {
   UsageWorkspaceOption,
 } from "../homeTypes";
 import { useI18n } from "@/i18n";
-import { useAccount } from "@/features/accounts/hooks/useAccount";
-import { AccountBalanceBadge } from "@/features/accounts/components/AccountBalanceBadge";
 import { HomeAccessMenu } from "./HomeAccessMenu";
 import { HomeModelMenu } from "./HomeModelMenu";
 import { HomeProjectMenu } from "./HomeProjectMenu";
@@ -69,7 +67,6 @@ export function Home({
   onAddWorkspaceFromUrl,
 }: HomeProps) {
   const { tx } = useI18n();
-  const account = useAccount();
   const [draft, setDraft] = useState("");
   const [pickedWorkspaceId, setPickedWorkspaceId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -117,13 +114,6 @@ export function Home({
       <div className="home-codex-inner">
         <div className="home-codex-header">
           <h1 className="home-codex-greeting">{tx("What should we do?")}</h1>
-          {account.status === "signed-in" ? (
-            <AccountBalanceBadge
-              className="home-account-badge"
-              profile={account.profile}
-              degraded={!account.online}
-            />
-          ) : null}
         </div>
 
         <div className="home-prompt-card">

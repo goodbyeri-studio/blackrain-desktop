@@ -291,6 +291,31 @@
   padding-right: 44px;
 }
 
+/* 验证码输入：居中、加大字号、等宽数字、字距拉开（仪表盘读数感） */
+.auth-input--otp {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.42em;
+  padding-right: 0;
+  padding-left: calc(0.42em + 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 验证码步骤提示文案 */
+.auth-verify-hint {
+  margin: 0 0 2px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--br-text-muted);
+}
+
+.auth-verify-hint strong {
+  color: var(--br-ice-soft);
+  font-weight: 600;
+  word-break: break-all;
+}
+
 .auth-input::placeholder {
   color: rgba(168, 146, 184, 0.5);
 }

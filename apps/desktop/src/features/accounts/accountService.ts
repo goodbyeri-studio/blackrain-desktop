@@ -44,7 +44,8 @@ function normalizePlan(value: unknown): AccountPlan {
     : "free";
 }
 
-// 注册（邮箱+密码）。trigger 会建 profile + 赠送 credit。
+// 注册（邮箱+密码）。开启邮箱确认后：此调用创建未确认用户并发 6 位验证码邮件，
+// 不返回会话——需再调 verifySignupOtp 输码确认才登录。
 export async function signUp(email: string, password: string): Promise<User | null> {
   const client = requireClient();
   const { data, error } = await client.auth.signUp({ email, password });
@@ -52,6 +53,33 @@ export async function signUp(email: string, password: string): Promise<User | nu
     throw error;
   }
   return data.user;
+}
+
+// 校验注册验证码（type: "signup"）。成功即确认邮箱并返回会话（自动登录）。
+// trigger 在确认时建 profile + 赠送 credit。
+export async function verifySignupOtp(
+  email: string,
+  token: string,
+): Promise<AccountSession | null> {
+  const client = requireClient();
+  const { data, error } = await client.auth.verifyOtp({
+    email,
+    token: token.trim(),
+    type: "signup",
+  });
+  if (error) {
+    throw error;
+  }
+  return toAccountSession(data.session);
+}
+
+// 重发注册验证码（限频由 Supabase auth.email.max_frequency 约束）。
+export async function resendSignupOtp(email: string): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.auth.resend({ type: "signup", email });
+  if (error) {
+    throw error;
+  }
 }
 
 // 登录（邮箱+密码）。
