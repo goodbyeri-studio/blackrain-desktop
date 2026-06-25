@@ -155,9 +155,9 @@
   border-radius: 18px;
   overflow: hidden;
   background:
-    /* 斜向虹彩反光：一束霓虹掠过玻璃 */
-    linear-gradient(125deg, transparent 0%, rgba(240, 106, 168, 0.07) 32%, transparent 46%, rgba(147, 167, 204, 0.06) 64%, transparent 80%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 34%),
+    /* 斜向掠光：仅左上一缕极淡品红，偏在一角，不提亮整面（保明暗层次） */
+    linear-gradient(125deg, rgba(240, 106, 168, 0.03) 0%, transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 32%),
     var(--br-glass);
   border: 1px solid var(--br-glass-border);
   box-shadow:
