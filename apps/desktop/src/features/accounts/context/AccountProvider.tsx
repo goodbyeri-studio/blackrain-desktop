@@ -20,9 +20,11 @@ import {
 import {
   fetchProfile,
   getCurrentSession,
+  resendSignupOtp as svcResendSignupOtp,
   signIn as svcSignIn,
   signOut as svcSignOut,
   signUp as svcSignUp,
+  verifySignupOtp as svcVerifySignupOtp,
   toAccountSession,
 } from "../accountService";
 import { isSupabaseConfigured } from "../config";
@@ -40,7 +42,12 @@ export interface AccountContextValue extends AccountState {
   // 在线 = 后端可达且 profile 已取到。离线缓存会话时为 false（credit 降级）。
   online: boolean;
   signIn(email: string, password: string): Promise<void>;
+  // 注册：创建未确认用户并发验证码邮件（不登录，需再 verifySignupOtp）。
   signUp(email: string, password: string): Promise<void>;
+  // 校验注册验证码：成功即确认邮箱并自动登录、加载 profile。
+  verifySignupOtp(email: string, token: string): Promise<void>;
+  // 重发注册验证码。
+  resendSignupOtp(email: string): Promise<void>;
   signOut(): Promise<void>;
   refreshProfile(): Promise<void>;
 }
@@ -57,6 +64,8 @@ const NO_PROVIDER_FALLBACK: AccountContextValue = {
   online: false,
   signIn: async () => {},
   signUp: async () => {},
+  verifySignupOtp: async () => {},
+  resendSignupOtp: async () => {},
   signOut: async () => {},
   refreshProfile: async () => {},
 };
@@ -170,6 +179,21 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     await svcSignUp(email, password);
   }, []);
 
+  const verifySignupOtp = useCallback(
+    async (email: string, token: string) => {
+      setState((prev) => ({ ...prev, error: null }));
+      const session = await svcVerifySignupOtp(email, token);
+      if (session && mounted.current) {
+        await loadProfile(session);
+      }
+    },
+    [loadProfile],
+  );
+
+  const resendSignupOtp = useCallback(async (email: string) => {
+    await svcResendSignupOtp(email);
+  }, []);
+
   const signOut = useCallback(async () => {
     await svcSignOut();
     if (mounted.current) {
@@ -189,10 +213,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       online: state.status === "signed-in" && state.profile !== null,
       signIn,
       signUp,
+      verifySignupOtp,
+      resendSignupOtp,
       signOut,
       refreshProfile,
     }),
-    [state, signIn, signUp, signOut, refreshProfile],
+    [state, signIn, signUp, verifySignupOtp, resendSignupOtp, signOut, refreshProfile],
   );
 
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;

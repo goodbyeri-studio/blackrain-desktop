@@ -22,6 +22,8 @@ export function LoginScreen() {
           configured={account.status !== "unconfigured"}
           onSignIn={account.signIn}
           onSignUp={account.signUp}
+          onVerifyOtp={account.verifySignupOtp}
+          onResendOtp={account.resendSignupOtp}
         />
       </div>
     </div>
