@@ -27,7 +27,12 @@
 ## 2026-06-25：GUI = 留 CodexMonitor/Tauri 壳，借 Hermes Desktop 的 MIT 组件，不 fork 其壳
 
 - 决策：壳继续用我方 CodexMonitor/Tauri；从 Hermes Desktop（Electron+React，MIT）**摘 React 组件**（skills/memory/provider 面板）放进我方壳。不 fork Hermes Desktop 当壳。
-- 原因：壳要扛**两条接缝**，难的那条（codex app-server + 专属 `CODEX_HOME`）我方已掌握、是核心资产，且正是 Hermes 自己做坏的部分（#5879/#7806/#41905）。留己壳=保住难接缝再 bolt 上易接缝（HTTP 接 Hermes）；换 Hermes 壳=把难接缝移植进不熟的 Electron 单体（1800 issue）且逆其纹理。叠加沉没成本（首页 Codex 像素对齐进行中）、Tauri 比 Electron 轻。
+- 原因（完整因果链，供一秒复述）：
+  1. codex 内核强到**连 Hermes 自己都来集成**（它有 codex skill / app-server runtime 尝试）——这是 codex 价值的最强外部背书 → codex 当 CODE 引擎。
+  2. 但真正把 codex app 协议对接**做对**的是 CodexMonitor，**不是** Hermes Desktop——Hermes 自己接 codex 是坏的（#5879 打错端点 / #7806 碰 `~/.codex` / #41905 丢上下文）。
+  3. 壳要扛**两条接缝**：难的（codex app-server + 专属 `CODEX_HOME`，我方已驯服、是核心资产）+ 易的（Hermes HTTP `/v1`）。
+  4. 留 CodexMonitor 底座 = 难接缝已驯服，补个易接缝（接 Hermes）= **顺势**；换 Hermes Desktop 底座 = 要在陌生 Electron 单体（1800 issue）里**重做别人没做成的难活**且逆其「Hermes 自己是引擎」的纹理 = **逆势**。两个方向技术上都能接通，但**难度极不对称**。
+  5. 独立加固：CodexMonitor 是 Tauri（轻、单二进制、好分发）且已做首页 Codex 像素对齐（沉没成本）；换 Hermes Desktop = 换重 Electron + 丢对齐 + 反向 re-skin。
 - 替代方案：fork Hermes Desktop——仅在「砍掉 CODE 模式、产品只剩 Hermes work 引擎」时才成立。
 - 影响范围：`apps/desktop`。
 - 后续复查条件：若放弃 codex 编码引擎则复查。

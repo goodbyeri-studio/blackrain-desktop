@@ -4,6 +4,18 @@
 
 一个监工壳（Tauri，fork 自 CodexMonitor）指挥**两个引擎黑盒**——Hermes 管 WORK、codex 管 CODE——记忆/skills/computer-use 全部**外置共享**，所有模型调用汇入 new-api 计量形成 token 差价闭环。架构与 Hermes 自身「壳+引擎分离」同形，但 codex 深集成与专属 `CODEX_HOME` 是我方已领先 Hermes 的资产。
 
+## 三层纪律（防两种反向误读）
+
+切分不是「引擎 vs GUI」，是三层。守住它，既不会手痒去改引擎（失血），也不会以为自己只能做个皮（没护城河）。
+
+| 层 | 例子 | 纪律 | 能自定义吗 |
+|---|---|---|---|
+| **引擎(黑盒)** | codex、Hermes | 成千上万人维护的成熟内核，**绝不分叉**，只读/只调用/白嫖上游日更。分叉=日更能力当场归零。 | ❌ 碰都不碰 |
+| **产品层(全自建)** | 监工壳编排、双引擎路由、外置记忆/skills、computer-use 接入、**插件市场、环境复刻引擎、token 差价闭环、网关** | 100% 我方代码，随便造。**护城河全在这层**，比 GUI 更该投入。 | ✅ 主战场 |
+| **借来的零件(抄进来)** | Hermes Desktop 的 React 组件 | **摘零件，不搬房子**：单独抄具体组件进我方 Tauri 壳（保留 MIT 署名），并把数据源重接到我方双引擎。不 fork 整个 Desktop。 | ✅ 抄一段≠fork 整个 |
+
+要点：① **「不分叉引擎」≠「不写代码」**——不写引擎代码，但写海量包在引擎外的产品层代码。② **GUI 只是产品层最显眼的一块**，真正值钱的是插件市场/环境复刻/token 闭环。③ **抄 Desktop = 抄 UI 的样子，重接数据线**（WORK→Hermes `/v1`、CODE→codex），不是把 Electron 单体搬来当壳。
+
 ## 架构边界
 
 - 属于 `apps/desktop` 的逻辑：监工壳；WORK/CODE 两个 surface；编排器（跨模式任务的子任务切分与回传）；纳管 Hermes 子进程（启停 + `/v1` 调用）；驱动 codex app-server（已有）。借 Hermes Desktop 的 MIT React 组件（skills/memory/provider 面板）。
