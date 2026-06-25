@@ -111,15 +111,10 @@
   font-size: 11px;
   color: var(--text-subtle);
   padding-top: 2px;
-  animation: prompt-fade-in 180ms ease-out;
 }
 
 .prompt-delete-confirm span {
   flex: 1;
-}
-
-.prompt-row.is-highlight {
-  animation: prompt-row-flash 650ms ease-out;
 }
 
 .prompt-empty-card {
@@ -131,7 +126,6 @@
   border: 1px dashed var(--border-subtle);
   background: var(--surface-card);
   color: var(--text-faint);
-  animation: prompt-fade-in 220ms ease-out;
 }
 
 .prompt-empty-icon {
@@ -181,7 +175,6 @@
   border-radius: 12px;
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
-  animation: prompt-editor-in 240ms ease-out;
 }
 
 .prompt-editor-row {
@@ -235,43 +228,6 @@
 .prompt-editor-error {
   font-size: 12px;
   color: var(--status-error);
-}
-
-@keyframes prompt-row-flash {
-  0% {
-    background: color-mix(in srgb, var(--surface-active) 65%, var(--surface-control));
-    border-color: var(--border-accent);
-    box-shadow: 0 0 0 1px var(--border-accent-soft);
-    transform: translateY(-2px);
-  }
-  100% {
-    background: var(--surface-control);
-    border-color: var(--border-subtle);
-    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
-    transform: translateY(0);
-  }
-}
-
-@keyframes prompt-editor-in {
-  0% {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes prompt-fade-in {
-  0% {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .prompt-panel-scroll {

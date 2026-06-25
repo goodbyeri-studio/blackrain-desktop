@@ -210,18 +210,22 @@
 /* context 环(复用 composer 视觉) */
 .home-context-ring {
   --context-free: 100;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
   flex-shrink: 0;
-  /* Codex 风格：细、克制的环。核心透空（占 68%），仅留细环；
-     颜色用主题中性灰（text-muted 已用量 / border-subtle 余量），不再用刺眼绿。 */
+  /* 与 .composer-context-ring 同款:radial 打孔造空心,conic 画"已用弧"
+     (已用 = 100 - free)。首页无会话 → free=100 → 空环,即真实状态。 */
   background:
-    radial-gradient(circle, transparent 68%, var(--cm-surface-panel-elevated, transparent) 70%),
+    radial-gradient(
+      circle,
+      var(--cm-surface-panel-elevated, var(--surface-context-core, #1b1b1f)) 68%,
+      transparent 70%
+    ),
     conic-gradient(
       from -90deg,
-      var(--text-muted, #9a9aa2) calc(var(--context-free) * 1%),
-      var(--border-subtle, rgba(127, 127, 127, 0.2)) 0
+      var(--text-muted, #9a9aa2) calc((100 - var(--context-free)) * 1%),
+      var(--border-subtle, rgba(127, 127, 127, 0.22)) 0
     );
 }
 
@@ -272,6 +276,22 @@
 
 .home-project-trigger {
   font-size: 13px;
+  /* Codex 风格:带描边的圆角胶囊 + 轻微背景(区别于 model/access 的纯文字 pill) */
+  padding: 5px 11px;
+  border: 1px solid var(--cm-border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 999px;
+  background: var(--cm-surface-panel, rgba(255, 255, 255, 0.04));
+  color: var(--text-strong);
+}
+
+.home-project-trigger:hover {
+  background: var(--surface-hover);
+  border-color: var(--cm-border-default, rgba(255, 255, 255, 0.18));
+}
+
+.home-project-trigger[aria-expanded="true"] {
+  background: var(--surface-hover);
+  border-color: var(--cm-border-default, rgba(255, 255, 255, 0.18));
 }
 
 .home-project-trigger .home-pill-icon svg {
@@ -302,7 +322,16 @@
 .home-menu-popover--model {
   bottom: calc(100% + 8px);
   right: 0;
-  min-width: 220px;
+  min-width: 260px;
+}
+
+/* 模型菜单:单行模型项(名称不换行、整行垂直居中),与 Codex 一致 */
+.home-menu-popover--model .home-menu-rich-item {
+  align-items: center;
+}
+
+.home-menu-popover--model .home-menu-rich-label {
+  white-space: nowrap;
 }
 
 /* 进入项目工作菜单:下方弹出,左对齐 */

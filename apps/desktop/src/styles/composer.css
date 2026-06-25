@@ -243,7 +243,6 @@
 .composer-attachment:hover .composer-attachment-preview,
 .composer-attachment:focus-within .composer-attachment-preview {
   opacity: 1;
-  transform: translate(-50%, -6px) scale(1);
   pointer-events: auto;
 }
 
@@ -259,17 +258,11 @@
   background: var(--surface-quiet);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
   opacity: 0;
-  transform: translate(-50%, -2px) scale(0.98);
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
+  /* translateX(-50%) 仅为水平居中(静态),无位移动效;仅 opacity 淡显 */
+  transform: translateX(-50%);
+  transition: opacity 0.15s ease;
   pointer-events: none;
   z-index: 20;
-}
-
-.workspace-home .composer-attachment:hover .composer-attachment-preview,
-.workspace-home .composer-attachment:focus-within .composer-attachment-preview {
-  transform: translate(-50%, 6px) scale(1);
 }
 
 .workspace-home .composer-attachment-preview {
@@ -695,20 +688,26 @@
 }
 
 .composer-context-ring {
-  --context-free: 0;
-  width: 20px;
-  height: 20px;
+  --context-free: 100;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
   display: grid;
   place-items: center;
   position: relative;
+  flex-shrink: 0;
+  /* Codex 风格细环:radial 打孔(用面板色填中心,造空心观感,不裁 ::after 提示),
+     conic 画"已用弧"(已用 = 100 - free)。中性灰,不用绿→红渐变。 */
   background:
-    radial-gradient(circle, var(--surface-context-core) 54%, transparent 56%),
+    radial-gradient(
+      circle,
+      var(--cm-surface-panel-elevated, var(--surface-context-core, #1b1b1f)) 68%,
+      transparent 70%
+    ),
     conic-gradient(
-      from 180deg,
-      hsl(calc(120deg * var(--context-free) / 100), 80%, 55%)
-        calc(var(--context-free) * 1%),
-      var(--border-strong) 0
+      from -90deg,
+      var(--text-muted, #9a9aa2) calc((100 - var(--context-free)) * 1%),
+      var(--border-subtle, rgba(127, 127, 127, 0.22)) 0
     );
   transition: background 0.2s ease;
 }
