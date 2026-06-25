@@ -123,11 +123,11 @@
 /* —— 登录/注册卡片：半透明磨砂玻璃（透出雨与桌面） —— */
 .auth-card {
   position: relative;
-  width: min(100%, 432px);
+  width: min(100%, 480px);
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 38px 40px;
+  gap: 18px;
+  padding: 34px 44px;
   border-radius: 18px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 36%),
