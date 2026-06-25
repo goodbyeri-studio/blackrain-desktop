@@ -23,6 +23,7 @@ const enTranslations = {
   "settings.backToSections": "Back to settings sections",
   "settings.sections": "Sections",
 
+  "settings.nav.account": "Account",
   "settings.nav.projects": "Projects",
   "settings.nav.environments": "Environments",
   "settings.nav.display": "Display & Sound",
@@ -101,6 +102,7 @@ const zhCNTranslations: Record<keyof typeof enTranslations, string> = {
   "settings.backToSections": "返回设置分类",
   "settings.sections": "分类",
 
+  "settings.nav.account": "账号",
   "settings.nav.projects": "项目",
   "settings.nav.environments": "环境",
   "settings.nav.display": "显示与声音",

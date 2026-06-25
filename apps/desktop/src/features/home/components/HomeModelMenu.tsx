@@ -3,6 +3,10 @@ import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 import { useI18n } from "@/i18n";
 import { useMenuController } from "@app/hooks/useMenuController";
 import {
+  hasKnownMultiplier,
+  modelMultiplier,
+} from "@/features/accounts/utils/creditPricing";
+import {
   PopoverSurface,
   MenuTrigger,
 } from "../../design-system/components/popover/PopoverPrimitives";
@@ -106,6 +110,9 @@ export function HomeModelMenu({
           )}
           {models.map((model) => {
             const active = model.id === selectedModelId;
+            const multiplier = hasKnownMultiplier(model.model)
+              ? modelMultiplier(model.model)
+              : null;
             return (
               <button
                 key={model.id}
@@ -123,6 +130,11 @@ export function HomeModelMenu({
                     {model.displayName || model.model}
                   </span>
                 </span>
+                {multiplier ? (
+                  <span className="home-model-multiplier" aria-label={`credit 倍率 ${multiplier.label}`}>
+                    {multiplier.label}
+                  </span>
+                ) : null}
                 <span className="home-menu-rich-check" aria-hidden>
                   {active ? <Check size={16} strokeWidth={2} /> : null}
                 </span>

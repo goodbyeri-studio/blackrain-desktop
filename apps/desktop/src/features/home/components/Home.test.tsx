@@ -93,7 +93,7 @@ describe("Home (codex 1:1 replica)", () => {
     render(<Home {...baseProps} onSelectModel={onSelectModel} />);
     fireEvent.click(screen.getByLabelText("Model"));
     fireEvent.click(
-      screen.getByRole("menuitemradio", { name: "DeepSeek V4 Flash" }),
+      screen.getByRole("menuitemradio", { name: /DeepSeek V4 Flash/ }),
     );
     expect(onSelectModel).toHaveBeenCalledWith("deepseek-v4-flash");
   });
