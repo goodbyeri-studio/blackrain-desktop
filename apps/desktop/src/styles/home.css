@@ -228,17 +228,18 @@
 /* context 环(复用 composer 视觉) */
 .home-context-ring {
   --context-free: 100;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   flex-shrink: 0;
+  /* Codex 风格：细、克制的环。核心透空（占 68%），仅留细环；
+     颜色用主题中性灰（text-muted 已用量 / border-subtle 余量），不再用刺眼绿。 */
   background:
-    radial-gradient(circle, var(--surface-context-core) 54%, transparent 56%),
+    radial-gradient(circle, transparent 68%, var(--cm-surface-panel-elevated, transparent) 70%),
     conic-gradient(
-      from 180deg,
-      hsl(calc(120deg * var(--context-free) / 100), 80%, 55%)
-        calc(var(--context-free) * 1%),
-      var(--border-strong) 0
+      from -90deg,
+      var(--text-muted, #9a9aa2) calc(var(--context-free) * 1%),
+      var(--border-subtle, rgba(127, 127, 127, 0.2)) 0
     );
 }
 
