@@ -16,11 +16,13 @@
 | 2026-06-25 | 全量前端回归 | `npm run test` | 通过 | 1053 用例 / 144 文件全绿 |
 | 2026-06-25 | ESLint + DS 守卫 | `npm run lint` / `npm run lint:ds` | 通过 | 0 error；5 既有 warning（非本次引入） |
 | 2026-06-25 | Rust 检查 | `cd apps/desktop/src-tauri && cargo check` | 通过 | 仅既有 dead_code warning；account_session 模块编译干净 |
-| YYYY-MM-DD | 账号注册/登录 | 桌面手动 + Supabase 控制台 | 未跑 | 需用户接真实 Supabase 项目后验：注册→建 profile→赠送 credit |
-| YYYY-MM-DD | 会话态持久 | 重开 App | 未跑 | 需真实项目：自动恢复、过期刷新、钥匙串落盘 |
+| 2026-06-25 | 云端项目 + migration 应用 | Supabase CLI（`projects create` sgp + `link` + `db push`） | 通过 | 新加坡区 ref jhetzgklmmkekpicutlg；两 migration Local/Remote 对齐 |
+| 2026-06-25 | 注册赠送 trigger（真实云端） | REST：admin 建已确认用户 → 查 profiles/ledger | 通过 | 自动建 free profile + 100 credit + signup_grant 流水 |
+| 2026-06-25 | RLS 前端只读自己 | REST：用户 JWT 查 profiles | 通过 | 仅返回本人 1 行 |
+| 2026-06-25 | RLS 前端改不动 credits | REST：用户 JWT PATCH credits → service_role 复查 | 通过 | PATCH 影响 0 行，余额仍 100 未篡改 |
+| YYYY-MM-DD | 会话态持久 | 桌面重开 App（连云端） | 未跑 | 需起桌面：钥匙串落盘、自动恢复、过期刷新 |
 | YYYY-MM-DD | 模式切换 → provider 配置 | shared core 单测 | 未跑 | credit/BYOK base_url+Authorization（M-A2/3） |
 | YYYY-MM-DD | 代理 JWT 校验 + 扣余额原子性 | 代理集成测试 | 未跑 | 并发扣减不超卖（M-A2） |
-| YYYY-MM-DD | RLS 前端改不动 credits | Supabase 策略测试 | 未跑 | 前端只读（需真实项目） |
 | YYYY-MM-DD | 余额耗尽拦截 | 手动置 0 余额对话 | 未跑 | 返回 insufficient_credits → response.failed（M-A2） |
 | YYYY-MM-DD | 真实 DeepSeek 经代理计量 | 起代理 + 真实 key 跑一轮 | 未跑 | usage 正确、credit 下降合理（M-A2） |
 | YYYY-MM-DD | Plus BYOK 不计 credit | 手动 | 未跑 | BYOK 对话余额不变（M-A3） |
@@ -34,13 +36,17 @@
   - SQL migration（profiles + credit_ledger + RLS + 注册赠送 trigger）已写入 `supabase/migrations/`，待用户接真实项目应用。
   - Supabase SDK 接入 + 钥匙串会话存储（Rust `account_session*` 命令 + 前端 adapter）+ `useAccount` 状态机已实现，typecheck/lint/cargo check 全绿。
   - 登录注册卡片、设置页账号区（plan+余额+三档占位）、模型选择器倍率标签已实现并有单测/组件测试覆盖（15 用例账号 + 85 用例全量回归通过）。
-- 仍需真实 Supabase 项目才能验的项（注册建档、会话持久、RLS）已在矩阵标注「需真实项目」。
+- 真实云端验证（2026-06-25，新加坡区 ref jhetzgklmmkekpicutlg）：
+  - Supabase CLI 建项目 + `db push` 应用两 migration，Local/Remote 对齐。
+  - trigger 端到端坐实：admin 建用户 → 自动建 free profile + 赠送 100 credit + 写 signup_grant 流水。
+  - RLS 端到端坐实：用户 JWT 只读到本人 1 行；PATCH credits 影响 0 行、余额未篡改。
+- 仍需起桌面 App 才能验的项（会话钥匙串持久/自动恢复/过期刷新）已在矩阵标注。
 
 ## 未验证风险
 
 - 输入/输出分计 vs 混合单价未定；思考模式 reasoning token 计入方式未定。
 - 价格、Plus/Pro 额度未定，全为占位。
-- Supabase 在国内的网络可达性 / 合规边界未评估（登录、实时余额依赖其可用性）；发行前须实测国内直连。
+- Supabase 在国内的网络可达性 / 合规边界：本机（开发者环境）经 CLI/REST 直连新加坡区项目正常（建项目、push migration、admin/REST 调用均通），但**这不等于终端用户网络**；发行前仍须在目标用户网络/弱网/移动网络下实测登录与实时余额延迟，并评估合规边界。
 - 并发超卖（接受小幅为负、下次充值补齐）的实际损失规模未观测；若偏大需上预授权冻结。
 - 常驻代理的部署/运维（Fly/Railway 等）与平台 key 的服务端保管尚未实操验证。
 
