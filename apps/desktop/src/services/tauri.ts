@@ -1369,3 +1369,17 @@ export async function sendNotification(
 
   await attemptFallback();
 }
+
+// 002-accounts-credits / M-A1.4：账号会话 token 钥匙串存取。
+// 供前端 Supabase storage adapter 调用，把 session JSON 持久化进系统凭据库。
+export async function accountSessionGet(key: string): Promise<string | null> {
+  return invoke<string | null>("account_session_get", { key });
+}
+
+export async function accountSessionSet(key: string, value: string): Promise<void> {
+  await invoke("account_session_set", { key, value });
+}
+
+export async function accountSessionClear(key: string): Promise<void> {
+  await invoke("account_session_clear", { key });
+}

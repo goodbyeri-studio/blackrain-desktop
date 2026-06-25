@@ -12,6 +12,7 @@ import Network from "lucide-react/dist/esm/icons/network";
 import ServerCog from "lucide-react/dist/esm/icons/server-cog";
 import Bot from "lucide-react/dist/esm/icons/bot";
 import Info from "lucide-react/dist/esm/icons/info";
+import UserRound from "lucide-react/dist/esm/icons/user-round";
 import { PanelNavItem, PanelNavList } from "@/features/design-system/components/panel/PanelPrimitives";
 import { useI18n } from "@/i18n";
 import type { CodexSection } from "./settingsTypes";
@@ -34,6 +35,15 @@ export function SettingsNav({
   return (
     <aside className="settings-sidebar">
       <PanelNavList className="settings-nav-list">
+        <PanelNavItem
+          className="settings-nav"
+          icon={<UserRound aria-hidden />}
+          active={activeSection === "account"}
+          showDisclosure={showDisclosure}
+          onClick={() => onSelectSection("account")}
+        >
+          {label("account")}
+        </PanelNavItem>
         <PanelNavItem
           className="settings-nav"
           icon={<LayoutGrid aria-hidden />}

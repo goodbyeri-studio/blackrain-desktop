@@ -10,14 +10,14 @@
 
 ## 阶段 1（M-A1）：账号地基（credit 只存不扣）
 
-- [ ] Supabase 项目：建 `profiles`（plan/credits）与 `credit_ledger` 表 + RLS。
-- [ ] 注册赠送 trigger：`auth.users` insert → 建 profile（free, credits 占位）+ 写 signup_grant。
-- [ ] 桌面接入 Supabase JS SDK：注册、登录、登出。
-- [ ] 会话态持久：session token 存系统钥匙串，重开 App 自动恢复，过期静默刷新。
-- [ ] 登录/注册 UI（design-system 原语，复用 chrome）。
-- [ ] 首页展示当前 plan + credit 余额；设置展示 plan 与（占位）三档。
+- [x] Supabase 项目：建 `profiles`（plan/credits）与 `credit_ledger` 表 + RLS。（`supabase/migrations/*_profiles_and_ledger.sql`；待用户接真实项目应用）
+- [x] 注册赠送 trigger：`auth.users` insert → 建 profile（free, credits 占位）+ 写 signup_grant。（`*_signup_grant_trigger.sql`）
+- [x] 桌面接入 Supabase JS SDK：注册、登录、登出。（`features/accounts/{config,supabaseClient,accountService}.ts`）
+- [x] 会话态持久：session token 存系统钥匙串，重开 App 自动恢复，过期静默刷新。（Rust `account_session*` + 前端 `keychainStorage` adapter + `useAccount`）
+- [x] 登录/注册 UI（design-system 原语，复用 chrome）。（`AccountAuthCard`，复用 ModalShell + settings 输入样式）
+- [~] 首页展示当前 plan + credit 余额；设置展示 plan 与（占位）三档。（设置区 `SettingsAccountSection` 已完成三档+余额；首页余额展示待接 MainApp/Home）
 - [ ] 未登录门禁：对话入口引导登录。
-- [ ] 模型选择器显示 flash(0.5x)/pro(1.5x) 倍率标签。
+- [x] 模型选择器显示 flash(0.5x)/pro(1.5x) 倍率标签。（`HomeModelMenu` + `creditPricing`）
 
 ## 阶段 2（M-A2）：最小代理 + credit 计量
 

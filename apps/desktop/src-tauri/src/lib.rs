@@ -6,6 +6,7 @@ use tauri::RunEvent;
 #[cfg(target_os = "macos")]
 use tauri::WindowEvent;
 
+mod account_session;
 mod backend;
 mod codex;
 mod daemon_binary;
@@ -344,6 +345,9 @@ pub fn run() {
             tailscale::tailscale_daemon_start,
             tailscale::tailscale_daemon_stop,
             tailscale::tailscale_daemon_status,
+            account_session::account_session_get,
+            account_session::account_session_set,
+            account_session::account_session_clear,
             is_mobile_runtime
         ])
         .build(tauri::generate_context!())

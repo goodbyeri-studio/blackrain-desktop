@@ -12,6 +12,7 @@ import { SettingsServerSection } from "./SettingsServerSection";
 import { SettingsShortcutsSection } from "./SettingsShortcutsSection";
 import { SettingsAgentsSection } from "./SettingsAgentsSection";
 import { SettingsAboutSection } from "./SettingsAboutSection";
+import { SettingsAccountSection } from "./SettingsAccountSection";
 import type { CodexSection } from "@settings/components/settingsTypes";
 import type { SettingsViewOrchestration } from "@settings/hooks/useSettingsViewOrchestration";
 
@@ -24,6 +25,9 @@ export function SettingsSectionContainers({
   activeSection,
   orchestration,
 }: SettingsSectionContainersProps) {
+  if (activeSection === "account") {
+    return <SettingsAccountSection />;
+  }
   if (activeSection === "projects") {
     return <SettingsProjectsSection {...orchestration.projectsSectionProps} />;
   }

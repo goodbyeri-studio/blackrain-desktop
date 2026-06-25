@@ -385,6 +385,18 @@
   align-self: center;
 }
 
+/* credit 倍率徽标（模型菜单项） */
+.home-model-multiplier {
+  flex-shrink: 0;
+  align-self: center;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle, rgba(127, 127, 127, 0.25));
+}
+
 /* 项目菜单:搜索框 + 列表 */
 .home-menu-search {
   display: flex;
