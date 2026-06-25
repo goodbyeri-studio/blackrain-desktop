@@ -285,6 +285,18 @@ export function useModels({
     refreshModels();
   }, [isConnected, models.length, refreshModels, workspaceId]);
 
+  // 首页/未连接工作区时，loadModels 不跑（被 !workspaceId||!isConnected 拦），
+  // models 恒为初始空数组 → 选择器显示「无模型」。这里补种子：展示 BlackRain
+  // 自有模型（网关 registry 优先，否则兜底 OWN_MODELS）。只在空时填，不覆盖已加载结果。
+  useEffect(() => {
+    if (workspaceId && isConnected) {
+      return;
+    }
+    const seeded =
+      configuredGatewayModels.length > 0 ? configuredGatewayModels : OWN_MODELS;
+    setModels((prev) => (prev.length > 0 ? prev : seeded));
+  }, [workspaceId, isConnected, configuredGatewayModels]);
+
   useEffect(() => {
     if (!selectedModel) {
       return;
