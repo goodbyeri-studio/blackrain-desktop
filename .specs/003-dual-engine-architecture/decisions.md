@@ -39,6 +39,26 @@
 - 真竞品：国内 no-code agent 平台（字节 Coze 系），见 `docs/02`、memory `no-code-agent-platform-landscape-2026`。
 - 后续复查条件：Nous 若转身做中文+非开发者+国产模型闭环（战略掉头，概率极低，有长预警期）则升级为竞品。
 
+## 2026-06-25：Hermes 交付模型(待决,需拍方向)
+
+- 背景：codex 是单二进制,Hermes 是 git checkout + Python 3.11 + uv + Node 22 + ripgrep + ffmpeg 一整套,官方无 pip/Docker/单二进制现成产物。与「单安装包开箱即用」(docs/03)冲突,且绕不过去,必须选一个方向。
+- 候选:
+  - **A. 首启联网装**:安装器跑 Hermes `install.sh`。简单,但首启要联网、违背本地优先、拉取不可控。
+  - **B. 胖安装包**:把 Python3.11+Node22+依赖+Hermes 全打进包。真离线单包,但包体暴涨、自建封装重。
+  - **C. 容器化**(倾向):Hermes 跑随 App 分发的容器里。隔离干净,**与 microVM 沙箱基建合流**(一份基建同解 Hermes 交付 + 插件沙箱);代价是用户机需容器运行时。
+  - **D. PyInstaller 冻结**:冻成单可执行。接近 codex 形态,但拖 Node/ffmpeg,冻结复杂易碎。
+- 决策:**未定**,倾向 C。待用户拍板。
+- 影响范围:`apps/desktop` 安装器、交付流水线、沙箱基建。
+- 后续复查条件:沙箱方案(本地 microVM vs 云)定了后一起拍,见 memory `2049-feasibility-env-replication-engine`。
+
+## 2026-06-25：Hermes 安全发行配方(闭源 B2B 合规两闸口)
+
+- 决策:以「不接 Portal + 不装 `messaging`/`edge-tts`/`honcho` extra + 不开 `cua_telemetry`」配置打包,即同时过遥测闸口与依赖许可证闸口。
+- 原因:trajectory 纯本地落盘无外传、无内建遥测框架(一手 `agent/trajectory.py`);传染性许可证(LGPL telegram/edge-tts)全在可选 extra,不装即规避;cua-driver 遥测 Hermes 默认已注入 `CUA_DRIVER_RS_TELEMETRY_ENABLED=0` 关闭。
+- 必做人工核实:① `hindsight-client` 包 PyPI 无 license 声明(无则排除);② 若产品引导用户接 Portal,查 Portal ToS 训练/留存条款——默认不接 Portal 则此问题消失。
+- 影响范围:打包配置、`docs/07` 合规、REFERENCES。
+- 后续复查条件:升级 Hermes 版本时重扫依赖树(用 `pip-licenses`/`uv` 扫实际选定的 extra 子集全树)。
+
 ## 被推翻的方案
 
 ### 2026-06-25：「扔掉 codex 直接全换 Hermes」

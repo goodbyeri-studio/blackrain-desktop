@@ -56,6 +56,41 @@ WORK（业务专家）                       CODE（插件创作者）
 | #21522 / #25723 custom provider 流式静默失败 | new-api SSE 必须标准；spike 必测流式 |
 | 数据飞轮（trajectory/RL 外传 Nous） | 闭源商用前配置层关闭外传，读源码确认 |
 
+## Hermes 集成机制(2026-06-25 尽调,一手仓库证据)
+
+### 进程模型与监工纳管
+
+- **没有 `hermes serve`**:OpenAI 兼容 API server 寄生在 `hermes gateway` 进程里,靠 `.env` 的 `API_SERVER_ENABLED=true` 点亮,监听 `127.0.0.1:8642`。
+- **专属目录**:设环境变量 `HERMES_HOME=<app数据目录>/hermes-home`,config/.env/sessions/memory/skills/PID/logs 全 scope 到该目录——`CODEX_HOME` 的孪生,第三铁律一字不改成立。
+- **鉴权**:Bearer token,来自 `.env` 的 `API_SERVER_KEY`,**强制必填**(API 暴露 terminal 执行,绝不能留空)。监工生成随机串写入它管理的 `.env`。
+- **就绪探测**:轮询 `GET /health`(带 Bearer)直到 `{"status":"ok"}`,再 `GET /v1/capabilities` 校验所需 feature。
+- **对话**:监工面板首选 `POST /v1/runs` + `GET /v1/runs/{id}/events`(SSE,可中断、可过审批门);带记忆任务可用 `POST /v1/responses` + `previous_response_id`。
+- **生命周期**:监工直接 spawn 前台 `hermes gateway` 并持句柄,退出发 SIGTERM/SIGINT——与管 codex 子进程同一套打法,**不要用 systemd/launchd**(会脱离监工管控)。
+
+监工纳管步骤草图:
+```text
+1. 安装(一次性):设 HERMES_HOME → 跑 install.sh 或我们二次封装
+2. 写配置(监工唯一写):$HERMES_HOME/.env 写 API_SERVER_ENABLED=true / API_SERVER_KEY=<随机> / PORT=8642
+   + 配好 LLM provider(命名 providers 块接 new-api)
+3. spawn `hermes gateway`(前台,捕获 stdout/stderr),等 "API server listening on ..."
+4. 轮询 /health 就绪 → /v1/capabilities 校验
+5. 对话:POST /v1/runs + SSE 事件流
+6. 关闭:SIGTERM
+```
+
+### 安全发行配方(闭源 B2B 红线)
+
+打包时按此配置即可同时过合规两闸口:
+- **不接 Nous Portal**,只用客户自己的国产模型 key(从架构上消除 Portal ToS 训练/留存问题)。
+- **不装** `messaging`(LGPL python-telegram-bot)、`edge-tts`(LGPL)、`honcho`/`hindsight`(license 未声明)extra。
+- **不开** `computer_use.cua_telemetry`(默认即关,注入 `CUA_DRIVER_RS_TELEMETRY_ENABLED=0`)。
+- trajectory 纯本地落盘,无外传——确认无内建遥测框架。
+- MPL-2.0 的 `certifi`/`pathspec` 是文件级弱 copyleft,未修改分发合规,可用。
+
+### 交付模型(与 codex 最大裂缝,待决)
+
+codex 是单二进制;Hermes 是 git checkout + Python 3.11 + uv + Node 22 + ripgrep + ffmpeg 一整套,官方无 pip/Docker/单二进制现成产物。与「单安装包开箱即用」(docs/03)冲突,四个候选见 `decisions.md` 的待决项,倾向容器化(与 microVM 沙箱基建合流)。
+
 ## 测试策略
 
 - 单元测试：壳侧 Hermes `/v1` 客户端、编排器子任务切分逻辑。
