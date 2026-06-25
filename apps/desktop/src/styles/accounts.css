@@ -5,6 +5,26 @@
  * 全部 scoped 在登录开屏，不动 base.css 全局原语 —— 隔离、可逆。
  */
 
+/* 品牌字体 Chakra Petch（工业招牌，贴 2049 街景）。
+ * OFL 协议、本地打包 latin 子集 woff2（离线可用，不依赖 CDN）。
+ * 许可证见 public/assets/fonts/OFL.txt。 */
+@font-face {
+  font-family: "Chakra Petch";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/assets/fonts/ChakraPetch-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Chakra Petch";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/assets/fonts/ChakraPetch-Bold.woff2") format("woff2");
+}
+
+
 .account-login-screen,
 .account-gate-splash {
   /* —— BR2049 scoped token（去饱和·雾感·胶片，非干净赛博）——
@@ -101,21 +121,25 @@
 
 .account-login-title {
   margin: 0;
-  font-size: 44px;
-  font-weight: 600;
-  letter-spacing: 0.09em;
+  font-family: "Chakra Petch", var(--ui-font-family);
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.04;
   color: var(--br-text);
   /* 全息品红辉光 bloom（光源核心才艳，带钢蓝外晕） */
   text-shadow:
-    0 0 16px rgba(240, 106, 168, 0.4),
-    0 0 40px rgba(240, 106, 168, 0.24),
-    0 0 78px rgba(147, 167, 204, 0.16);
+    0 0 18px rgba(240, 106, 168, 0.42),
+    0 0 46px rgba(240, 106, 168, 0.26),
+    0 0 88px rgba(147, 167, 204, 0.18);
 }
 
 .account-login-subtitle {
   margin: 0;
-  font-size: 13px;
-  letter-spacing: 0.16em;
+  font-family: "Chakra Petch", var(--ui-font-family);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   color: var(--br-magenta-soft);
   opacity: 0.78;
 }
