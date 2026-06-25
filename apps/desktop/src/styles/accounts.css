@@ -1,53 +1,88 @@
 /* 002-accounts-credits：登录开屏 + 门禁占位
- * 美术体系：银翼杀手 2049（冷青为主 / 克制氛围）。
+ * 美术体系：银翼杀手 2049 霓虹雨夜（JOI 全息广告牌那场戏）。
+ *   主色＝品红/热粉（全息光） · 副色＝冰蓝紫（冷高光） · 底＝靛紫雾霾。
+ *   半透明毛玻璃透出桌面 + canvas 雨幕 + 重颗粒/网点。
  * 全部 scoped 在登录开屏，不动 base.css 全局原语 —— 隔离、可逆。
- * 认可后再考虑铺到全 App。
  */
 
 .account-login-screen,
 .account-gate-splash {
-  /* —— BR2049 scoped token —— */
-  --br-base: #06090f; /* 洛杉矶雨夜雾霾：冷蓝黑 */
-  --br-base-2: #0a0f18;
-  --br-cyan: #4fd6e6; /* 全息青：主强调 */
-  --br-cyan-soft: #8fe6f0;
-  --br-amber: #ffae57; /* 钠灯琥珀：仅警示，稀缺才有力 */
-  --br-glass: rgba(16, 24, 34, 0.55); /* 磨砂玻璃面 */
-  --br-glass-border: rgba(120, 200, 220, 0.16); /* 接光 hairline */
-  --br-text: #e8f1f4;
-  --br-text-muted: #7f97a3;
-  --br-cyan-glow: rgba(79, 214, 230, 0.45);
+  /* —— BR2049 scoped token（对着剧照取色，非冷青）—— */
+  --br-magenta: #ff4fa3; /* 全息品红：主强调 */
+  --br-magenta-soft: #ff8fc4;
+  --br-ice: #8fb6ff; /* 冰蓝紫：冷高光/副 */
+  --br-ice-soft: #bcd2ff;
+  --br-violet: #6b4fd6; /* 雾里的紫 */
+  --br-fog: rgba(28, 18, 48, 0.85); /* 靛紫雾纱：半透明＝透出桌面 */
+  --br-glass: rgba(30, 20, 52, 0.42); /* 磨砂玻璃面（更透） */
+  --br-glass-border: rgba(255, 150, 205, 0.18); /* 接光 hairline（偏品红） */
+  --br-text: #f3e9f4;
+  --br-text-muted: #a892b8;
+  --br-magenta-glow: rgba(255, 79, 163, 0.5);
+  --br-ice-glow: rgba(143, 182, 255, 0.4);
 }
 
-/* 极淡 film grain：穿过雾的光。克制 —— opacity 很低、不抢读。 */
-.account-login-screen::after,
-.account-gate-splash::after {
-  content: "";
+/* canvas 雨幕：铺满，置于雾纱之上、内容之下 */
+.account-rain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 霓虹辉光团：品红主光柱 + 冰蓝回光，柔光 bloom */
+.account-login-glow {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.05;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   z-index: 1;
+  background:
+    radial-gradient(620px 720px at 32% 8%, rgba(255, 79, 163, 0.22), transparent 60%),
+    radial-gradient(520px 600px at 78% 90%, rgba(143, 182, 255, 0.16), transparent 62%),
+    radial-gradient(900px 500px at 50% -10%, rgba(107, 79, 214, 0.18), transparent 64%);
+  filter: blur(2px);
 }
 
 .account-login-screen {
   position: fixed;
   inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 40px;
   padding: 40px;
-  /* 体积光雾：顶部一束冷青光柱穿过雾，底部微暖琥珀回光 */
+  /* 靛紫雾纱：半透明 → 桌面隐约透出。雾里压一点品红/冰蓝。 */
   background:
-    radial-gradient(820px 460px at 50% -8%, rgba(79, 214, 230, 0.14), transparent 62%),
-    radial-gradient(680px 520px at 50% 118%, rgba(255, 174, 87, 0.06), transparent 58%),
-    linear-gradient(180deg, var(--br-base-2) 0%, var(--br-base) 60%);
+    radial-gradient(700px 460px at 30% 12%, rgba(255, 79, 163, 0.1), transparent 60%),
+    radial-gradient(620px 520px at 80% 88%, rgba(143, 182, 255, 0.08), transparent 58%),
+    linear-gradient(180deg, var(--br-fog) 0%, rgba(16, 10, 30, 0.9) 100%);
   z-index: 1000;
   overflow: auto;
+}
+
+/* 重颗粒 + LED 网点：穿过霓虹雨夜的胶片质感（比上版明显） */
+.account-login-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.14;
+  mix-blend-mode: overlay;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(rgba(255, 255, 255, 0.5) 0.5px, transparent 0.6px);
+  background-size: 140px 140px, 3px 3px;
+}
+
+.account-login-inner {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
 }
 
 /* —— 品牌区 —— */
@@ -57,50 +92,46 @@
   align-items: center;
   gap: 12px;
   text-align: center;
-  position: relative;
-  z-index: 2;
 }
 
 .account-login-title {
   margin: 0;
-  font-size: 42px;
+  font-size: 44px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   color: var(--br-text);
-  /* 全息青辉光 bloom */
+  /* 全息品红辉光 bloom（带一点冰蓝外晕） */
   text-shadow:
-    0 0 18px var(--br-cyan-glow),
-    0 0 42px rgba(79, 214, 230, 0.22);
+    0 0 20px var(--br-magenta-glow),
+    0 0 46px rgba(255, 79, 163, 0.28),
+    0 0 80px rgba(143, 182, 255, 0.18);
 }
 
 .account-login-subtitle {
   margin: 0;
   font-size: 13px;
   letter-spacing: 0.16em;
-  text-transform: none;
-  color: var(--br-cyan-soft);
-  opacity: 0.78;
+  color: var(--br-magenta-soft);
+  opacity: 0.82;
 }
 
-/* —— 登录/注册卡片：磨砂玻璃 —— */
+/* —— 登录/注册卡片：半透明磨砂玻璃（透出雨与桌面） —— */
 .auth-card {
   position: relative;
-  z-index: 2;
   width: min(100%, 384px);
   display: flex;
   flex-direction: column;
   gap: 22px;
   padding: 34px 32px;
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--br-glass);
   border: 1px solid var(--br-glass-border);
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.4),
-    0 1px 0 rgba(143, 230, 240, 0.12) inset,
-    0 30px 70px -24px rgba(0, 0, 0, 0.85),
-    0 0 60px -30px var(--br-cyan-glow);
-  backdrop-filter: blur(22px) saturate(1.1);
-  -webkit-backdrop-filter: blur(22px) saturate(1.1);
+    0 1px 0 rgba(255, 150, 205, 0.14) inset,
+    0 30px 80px -26px rgba(0, 0, 0, 0.9),
+    0 0 70px -30px var(--br-magenta-glow);
+  backdrop-filter: blur(26px) saturate(1.25);
+  -webkit-backdrop-filter: blur(26px) saturate(1.25);
 }
 
 .auth-card-head {
@@ -140,16 +171,16 @@
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: var(--br-cyan-soft);
-  opacity: 0.85;
+  color: var(--br-ice-soft);
+  opacity: 0.88;
 }
 
 .auth-input {
   height: 42px;
   padding: 0 14px;
-  border-radius: 9px;
-  border: 1px solid rgba(120, 200, 220, 0.14);
-  background: rgba(4, 8, 14, 0.6);
+  border-radius: 10px;
+  border: 1px solid rgba(180, 160, 220, 0.16);
+  background: rgba(12, 8, 24, 0.5);
   color: var(--br-text);
   font-size: 14px;
   outline: none;
@@ -157,37 +188,37 @@
 }
 
 .auth-input::placeholder {
-  color: rgba(127, 151, 163, 0.55);
+  color: rgba(168, 146, 184, 0.5);
 }
 
 .auth-input:focus {
-  border-color: var(--br-cyan);
-  box-shadow: 0 0 0 3px rgba(79, 214, 230, 0.18), 0 0 16px -4px var(--br-cyan-glow);
+  border-color: var(--br-magenta);
+  box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.2), 0 0 18px -4px var(--br-magenta-glow);
 }
 
 .auth-input:disabled {
   opacity: 0.5;
 }
 
-/* 主按钮：冷青 + 辉光 bloom */
+/* 主按钮：品红→紫 渐变 + 辉光 bloom */
 .auth-submit {
   height: 44px;
   margin-top: 2px;
-  border: 1px solid rgba(143, 230, 240, 0.4);
-  border-radius: 9px;
-  background: linear-gradient(180deg, rgba(79, 214, 230, 0.92) 0%, rgba(56, 182, 200, 0.92) 100%);
-  color: #03121a;
+  border: 1px solid rgba(255, 150, 205, 0.45);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(255, 79, 163, 0.96) 0%, rgba(143, 100, 230, 0.96) 100%);
+  color: #1a0512;
   font-size: 14.5px;
   font-weight: 650;
   letter-spacing: 0.04em;
   cursor: pointer;
   transition: filter 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-  box-shadow: 0 0 24px -6px var(--br-cyan-glow);
+  box-shadow: 0 0 26px -6px var(--br-magenta-glow);
 }
 
 .auth-submit:hover:not(:disabled) {
   filter: brightness(1.1);
-  box-shadow: 0 0 32px -4px var(--br-cyan-glow);
+  box-shadow: 0 0 36px -4px var(--br-magenta-glow);
 }
 
 .auth-submit:disabled {
@@ -214,8 +245,8 @@
 }
 
 .auth-link:hover:not(:disabled) {
-  color: var(--br-cyan-soft);
-  text-shadow: 0 0 12px var(--br-cyan-glow);
+  color: var(--br-magenta-soft);
+  text-shadow: 0 0 12px var(--br-magenta-glow);
 }
 
 .auth-link:disabled {
@@ -230,17 +261,17 @@
   line-height: 1.45;
 }
 
-/* 错误用琥珀（稀缺暖色＝警示），不用刺眼红 */
+/* 错误：偏品红的暖（2049 暖色＝品红向，不是琥珀） */
 .auth-card-banner--error {
-  background: rgba(255, 174, 87, 0.1);
-  border: 1px solid rgba(255, 174, 87, 0.3);
-  color: var(--br-amber);
+  background: rgba(255, 99, 132, 0.12);
+  border: 1px solid rgba(255, 99, 132, 0.34);
+  color: #ff9bb0;
 }
 
 .auth-card-banner--notice {
-  background: rgba(79, 214, 230, 0.1);
-  border: 1px solid rgba(79, 214, 230, 0.3);
-  color: var(--br-cyan-soft);
+  background: rgba(143, 182, 255, 0.12);
+  border: 1px solid rgba(143, 182, 255, 0.32);
+  color: var(--br-ice-soft);
 }
 
 /* —— 门禁占位（恢复会话中） —— */
@@ -253,8 +284,8 @@
   justify-content: center;
   gap: 16px;
   background:
-    radial-gradient(700px 420px at 50% 40%, rgba(79, 214, 230, 0.08), transparent 60%),
-    linear-gradient(180deg, var(--br-base-2) 0%, var(--br-base) 70%);
+    radial-gradient(700px 420px at 50% 40%, rgba(255, 79, 163, 0.08), transparent 60%),
+    linear-gradient(180deg, var(--br-fog) 0%, rgba(16, 10, 30, 0.9) 100%);
   z-index: 1000;
 }
 
@@ -262,10 +293,10 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 2px solid rgba(120, 200, 220, 0.18);
-  border-top-color: var(--br-cyan);
+  border: 2px solid rgba(180, 160, 220, 0.2);
+  border-top-color: var(--br-magenta);
   animation: account-gate-spin 0.8s linear infinite;
-  box-shadow: 0 0 16px -2px var(--br-cyan-glow);
+  box-shadow: 0 0 16px -2px var(--br-magenta-glow);
 }
 
 @keyframes account-gate-spin {
