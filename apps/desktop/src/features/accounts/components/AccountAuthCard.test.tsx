@@ -16,9 +16,10 @@ describe("AccountAuthCard", () => {
         onSignUp={vi.fn()}
       />,
     );
-    expect(screen.getByText("登录 BlackRain")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "登录" })).toBeTruthy();
     fireEvent.click(screen.getByText("没有账号？去注册"));
-    expect(screen.getByText("注册 BlackRain 账号")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "注册" })).toBeTruthy();
+    expect(screen.getByText("已有账号？去登录")).toBeTruthy();
   });
 
   it("邮箱非法时不调用 onSignIn", async () => {
@@ -69,5 +70,17 @@ describe("AccountAuthCard", () => {
     ).toBeTruthy();
     const submit = screen.getByRole("button", { name: "登录" }) as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
+  });
+
+  it("密码显隐切换", () => {
+    render(
+      <AccountAuthCard configured onSignIn={vi.fn()} onSignUp={vi.fn()} />,
+    );
+    const pwd = screen.getByLabelText("密码") as HTMLInputElement;
+    expect(pwd.type).toBe("password");
+    fireEvent.click(screen.getByRole("button", { name: "显示密码" }));
+    expect(pwd.type).toBe("text");
+    fireEvent.click(screen.getByRole("button", { name: "隐藏密码" }));
+    expect(pwd.type).toBe("password");
   });
 });
