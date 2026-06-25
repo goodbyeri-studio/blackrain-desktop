@@ -527,7 +527,7 @@ export function SettingsModelGatewaySection({
     >
       <SettingsToggleRow
         title={tx("Enable model gateway")}
-        subtitle={tx("Codex talks to one local BlackRain Gateway provider; vendors stay behind the gateway.")}
+        subtitle={tx("BlackRain talks to one local gateway provider; vendors stay behind the gateway.")}
       >
         <SettingsToggleSwitch
           pressed={gateway.enabled}
