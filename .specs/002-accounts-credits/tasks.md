@@ -15,8 +15,8 @@
 - [x] 桌面接入 Supabase JS SDK：注册、登录、登出。（`features/accounts/{config,supabaseClient,accountService}.ts`）
 - [x] 会话态持久：session token 存系统钥匙串，重开 App 自动恢复，过期静默刷新。（Rust `account_session*` + 前端 `keychainStorage` adapter + `useAccount`）
 - [x] 登录/注册 UI（design-system 原语，复用 chrome）。（`AccountAuthCard`，复用 ModalShell + settings 输入样式）
-- [~] 首页展示当前 plan + credit 余额；设置展示 plan 与（占位）三档。（设置区 `SettingsAccountSection` 已完成三档+余额；首页余额展示待接 MainApp/Home）
-- [ ] 未登录门禁：对话入口引导登录。
+- [x] 首页展示当前 plan + credit 余额；设置展示 plan 与（占位）三档。（首页 `Home` 余额徽标/登录入口 + 设置区 `SettingsAccountSection` 三档）
+- [x] 未登录门禁：对话入口引导登录。（`Home` blockEntry/shouldPromptLogin：signed-out 弹登录卡片，loading 静默等待，unconfigured 不拦截）
 - [x] 模型选择器显示 flash(0.5x)/pro(1.5x) 倍率标签。（`HomeModelMenu` + `creditPricing`）
 
 ## 阶段 2（M-A2）：最小代理 + credit 计量

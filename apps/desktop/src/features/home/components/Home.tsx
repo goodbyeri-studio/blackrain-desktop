@@ -12,6 +12,9 @@ import type {
   UsageWorkspaceOption,
 } from "../homeTypes";
 import { useI18n } from "@/i18n";
+import { useAccount } from "@/features/accounts/hooks/useAccount";
+import { AccountAuthCard } from "@/features/accounts/components/AccountAuthCard";
+import { AccountBalanceBadge } from "@/features/accounts/components/AccountBalanceBadge";
 import { HomeAccessMenu } from "./HomeAccessMenu";
 import { HomeModelMenu } from "./HomeModelMenu";
 import { HomeProjectMenu } from "./HomeProjectMenu";
@@ -67,9 +70,19 @@ export function Home({
   onAddWorkspaceFromUrl,
 }: HomeProps) {
   const { tx } = useI18n();
+  const account = useAccount();
   const [draft, setDraft] = useState("");
   const [pickedWorkspaceId, setPickedWorkspaceId] = useState<string | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // 门禁：后端已配置且未登录时，对话入口需先登录。
+  // - signed-out：弹登录卡片。
+  // - loading：会话恢复在途，阻塞但不弹框（避免已登录用户重开时误闪登录）。
+  // - unconfigured：不拦截，保持本地可用（BYOK/开发路径）。
+  const blockEntry =
+    account.status === "signed-out" || account.status === "loading";
+  const shouldPromptLogin = account.status === "signed-out";
 
   // 默认选中第一个工作区(工作区异步加载完成后)
   useEffect(() => {
@@ -89,6 +102,13 @@ export function Home({
     if (!canSend || !effectiveWorkspaceId) {
       return;
     }
+    // 门禁：未登录阻塞；signed-out 弹登录卡片，loading 静默等待。
+    if (blockEntry) {
+      if (shouldPromptLogin) {
+        setShowAuth(true);
+      }
+      return;
+    }
     onEnterWorkspaceFromHome(effectiveWorkspaceId, draft.trim());
     setDraft("");
   };
@@ -102,6 +122,13 @@ export function Home({
 
   const handleEnterWorkspace = (workspaceId: string) => {
     setPickedWorkspaceId(workspaceId);
+    // 门禁：未登录阻塞；signed-out 弹登录卡片，loading 静默等待。
+    if (blockEntry) {
+      if (shouldPromptLogin) {
+        setShowAuth(true);
+      }
+      return;
+    }
     onEnterWorkspaceFromHome(workspaceId, draft.trim());
     setDraft("");
   };
@@ -109,7 +136,24 @@ export function Home({
   return (
     <div className="home home-codex">
       <div className="home-codex-inner">
-        <h1 className="home-codex-greeting">{tx("What should we do?")}</h1>
+        <div className="home-codex-header">
+          <h1 className="home-codex-greeting">{tx("What should we do?")}</h1>
+          {account.status === "signed-in" ? (
+            <AccountBalanceBadge
+              className="home-account-badge"
+              profile={account.profile}
+              degraded={Boolean(account.error)}
+            />
+          ) : account.status === "signed-out" ? (
+            <button
+              type="button"
+              className="home-account-badge home-account-badge--login"
+              onClick={() => setShowAuth(true)}
+            >
+              登录 / 注册
+            </button>
+          ) : null}
+        </div>
 
         <div className="home-prompt-card">
           <div className="home-prompt-main">
@@ -189,6 +233,15 @@ export function Home({
           </div>
         </div>
       </div>
+
+      {showAuth && account.status !== "signed-in" ? (
+        <AccountAuthCard
+          configured={account.status !== "unconfigured"}
+          onSignIn={account.signIn}
+          onSignUp={account.signUp}
+          onClose={() => setShowAuth(false)}
+        />
+      ) : null}
     </div>
   );
 }

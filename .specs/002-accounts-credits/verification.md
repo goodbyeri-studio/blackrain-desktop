@@ -12,6 +12,8 @@
 | 2026-06-25 | 登录卡片组件测试 | `npm run test -- src/features/accounts` | 通过 | 模式切换/邮箱校验/未配置禁用（4 用例，jsdom） |
 | 2026-06-25 | 前端 typecheck | `npm run typecheck` | 通过 | 无错误 |
 | 2026-06-25 | i18n/settings/accounts 测试 | `npm run test -- src/i18n src/features/settings src/features/accounts` | 通过 | 85 用例全过（含 i18n key 对齐、SettingsView 穷举） |
+| 2026-06-25 | 首页余额展示 + 未登录门禁 | `npm run test -- src/features/home` | 通过 | 11 用例（含 mock signed-out：发送被拦截、弹登录卡片、顶部登录入口） |
+| 2026-06-25 | 全量前端回归 | `npm run test` | 通过 | 1053 用例 / 144 文件全绿 |
 | 2026-06-25 | ESLint + DS 守卫 | `npm run lint` / `npm run lint:ds` | 通过 | 0 error；5 既有 warning（非本次引入） |
 | 2026-06-25 | Rust 检查 | `cd apps/desktop/src-tauri && cargo check` | 通过 | 仅既有 dead_code warning；account_session 模块编译干净 |
 | YYYY-MM-DD | 账号注册/登录 | 桌面手动 + Supabase 控制台 | 未跑 | 需用户接真实 Supabase 项目后验：注册→建 profile→赠送 credit |
