@@ -26,7 +26,9 @@
   justify-content: center;
   gap: 0;
   padding: 24px 32px;
-  overflow: hidden;
+  /* visible：让 prompt 卡内的菜单弹层（权限/模型/项目）可越出卡片，不被裁切。
+     此容器内容固定居中、无滚动，visible 不会产生滚动条。 */
+  overflow: visible;
 }
 
 /* 覆盖 .home > * 的 720px 拉伸,首页内容自行控宽 */
@@ -89,7 +91,10 @@
   border: 1px solid var(--cm-border-default);
   background: var(--cm-surface-panel-elevated);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
+  /* visible：菜单弹层（权限/模型上弹、项目下弹）需越出卡片显示。
+     圆角由 border-radius 裁背景，不依赖 overflow；底部项目行只有 border-top
+     无独立背景，故放开 overflow 不会露出方角。 */
+  overflow: visible;
 }
 
 .home-prompt-main {
