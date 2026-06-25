@@ -99,6 +99,21 @@ WORK（业务专家）                       CODE（插件创作者）
 - trajectory 纯本地落盘,无外传——确认无内建遥测框架。
 - MPL-2.0 的 `certifi`/`pathspec` 是文件级弱 copyleft,未修改分发合规,可用。
 
+### Desktop 组件复用规范(借零件,非搬房子)
+
+Hermes Desktop(`hermes-upstream/apps/desktop/`,Electron+React+Vite,MIT)与引擎**同仓库**:fetch 一次 `hermes-upstream/` 引擎与 Desktop 源码全有,不另拉、不另加 gitignore。但二者纪律相反:
+
+- **引擎 = 黑盒**(只跑 `hermes gateway`、不改、不入库,留在 gitignored 的 `hermes-upstream/`)。
+- **Desktop 的 React 组件 = 借来的零件**(抄进我方 Tauri 壳、变成我方代码、入库)。
+
+复用动作(属阶段 2 产品化,**非 spike**):
+1. **抄**:从 `hermes-upstream/apps/desktop/src/` 挑具体组件(skills 面板 / memory 浏览 / provider 切换器)源文件,复制进 `apps/desktop/src/`。
+2. **重接数据线**:Hermes 组件原连其 dashboard 私有 API;抄进来后数据源换成我方——WORK 面板接 Hermes `/v1`、CODE 面板接 codex。**抄的是 UI 的样子,不是连到哪**。
+3. **署名(MIT 合规,别漏)**:每个抄来的文件加头部注释标明来源 commit;仓库建 `THIRD-PARTY`/`NOTICE` 收 MIT 全文。
+4. **隔离运行时差异**:Hermes Desktop 是 Electron、我方是 Tauri;纯 UI 组件多可直接搬,凡触碰 Electron API(ipcRenderer/preload 等)处必须改写为 Tauri 等价(`@/services/tauri.ts` / `events.ts`)。
+
+铁律:**整个 Hermes Desktop app 我方永不运行、永不分发——它只是「组件捐献者」**。绝不把它当壳跑起来(GUI 底座是 CodexMonitor/Tauri,见 decisions)。
+
 ### 交付模型(形态已定=隔离镜像,落点待决)
 
 codex 是单二进制;Hermes 是 git checkout + Python 3.11 + uv + Node 22 + ripgrep + ffmpeg 一整套,官方无 pip/Docker/单二进制现成产物。**长期形态已定:Hermes 当『钉死版本的隔离镜像』交付**(不可变/自包含/与主机隔离/原子升级回滚/监工掌控)。唯一开放项=镜像跑**本地 microVM vs 云沙箱**,与插件沙箱决策绑定、一起拍,倾向本地优先。完整推理与被否的打包战术(A 联网/B 胖包/D 冻结)见 `decisions.md`。不阻塞 spike(开发机裸跑即可)。
