@@ -99,9 +99,9 @@ WORK（业务专家）                       CODE（插件创作者）
 - trajectory 纯本地落盘,无外传——确认无内建遥测框架。
 - MPL-2.0 的 `certifi`/`pathspec` 是文件级弱 copyleft,未修改分发合规,可用。
 
-### 交付模型(与 codex 最大裂缝,待决)
+### 交付模型(形态已定=隔离镜像,落点待决)
 
-codex 是单二进制;Hermes 是 git checkout + Python 3.11 + uv + Node 22 + ripgrep + ffmpeg 一整套,官方无 pip/Docker/单二进制现成产物。与「单安装包开箱即用」(docs/03)冲突,四个候选见 `decisions.md` 的待决项,倾向容器化(与 microVM 沙箱基建合流)。
+codex 是单二进制;Hermes 是 git checkout + Python 3.11 + uv + Node 22 + ripgrep + ffmpeg 一整套,官方无 pip/Docker/单二进制现成产物。**长期形态已定:Hermes 当『钉死版本的隔离镜像』交付**(不可变/自包含/与主机隔离/原子升级回滚/监工掌控)。唯一开放项=镜像跑**本地 microVM vs 云沙箱**,与插件沙箱决策绑定、一起拍,倾向本地优先。完整推理与被否的打包战术(A 联网/B 胖包/D 冻结)见 `decisions.md`。不阻塞 spike(开发机裸跑即可)。
 
 ## 测试策略
 

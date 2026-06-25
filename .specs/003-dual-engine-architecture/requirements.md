@@ -43,7 +43,7 @@
 
 - [x] Hermes 数据飞轮（trajectory 保存/压缩/RL）能否在配置层彻底关闭外传？→ 已确认:trajectory 纯本地落盘无外传,无内建遥测框架,cua 遥测默认关(2026-06-25 尽调)。
 - [x] Hermes Python 依赖树许可证体检结果（是否混入 copyleft）？→ 已确认:核心全宽松系,LGPL 仅在可选 extra,不装即规避;待人工核实 `hindsight-client`（无 license 声明）。
-- [ ] **Hermes 交付模型**:非单二进制(Python3.11+Node22+uv+ffmpeg),与单安装包冲突,四方案待拍(A 联网装/B 胖包/C 容器/D 冻结),倾向 C。
+- [~] **Hermes 交付模型**:形态已定=钉死版本的隔离镜像(见 decisions);唯一开放项=镜像跑本地 microVM vs 云,与插件沙箱决策绑定、一起拍,倾向本地优先。
 - [ ] Nous Portal ToS 训练/留存条款（若产品引导接 Portal）；默认不接 Portal 则消失。
 - [ ] new-api 是否在未发布分支支持 `/v1/responses` 计量（目前 releases 无证据，CODE 路径仍须走网关翻译）。
 - [ ] 国产模型接 Hermes 的真实第三方成功案例（目前仅官方声称支持）。
