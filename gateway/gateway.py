@@ -5,7 +5,7 @@ OpenAI-compatible Chat Completions，再把回复译回内核能解析的 Respon
 零依赖(stdlib)。第一版聚焦文本路径：STRIP_TOOLS=1 时剥掉 tools 逼纯文本回复，
 先证通主链(请求翻译 + SSE 事件顺序 + 内核渲染)，再攻工具调用。
 """
-import http.server, json, os, re, urllib.parse, urllib.request, uuid
+import http.server, json, os, re, urllib.error, urllib.parse, urllib.request, uuid
 
 PORT = int(os.environ.get("GW_PORT", "8899"))
 STRIP_TOOLS = os.environ.get("STRIP_TOOLS", "1") == "1"
@@ -270,14 +270,49 @@ def responses_to_chat(body, upstream_model):
     return chat
 
 # ---------- 调 OpenAI-compatible provider ----------
+class ProviderHTTPError(Exception):
+    """上游/代理返回非 2xx。携带状态码与结构化错误码，供 do_POST 转 response.failed。"""
+
+    def __init__(self, status, code, message):
+        super().__init__(message)
+        self.status = status
+        self.code = code
+        self.message = message
+
+
+def resolve_provider_key(provider):
+    """解析 provider 的鉴权 key，优先级：inline api_key → api_key_file → env。
+
+    api_key_file（credit 模式用）：每次请求都重新读盘，拿最新 JWT——
+    App 在 Supabase 刷新 token 时更新该文件，网关无需重启。见 002 decisions「JWT 每请求读文件」。
+    """
+    inline = provider.get("api_key")
+    if inline:
+        return inline.strip()
+    key_file = provider.get("api_key_file") or provider.get("apiKeyFile")
+    if key_file:
+        try:
+            with open(key_file, "r", encoding="utf-8") as fh:
+                value = fh.read().strip()
+            if value:
+                return value
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            log("api_key_file 读取失败:", repr(exc))
+            return None
+    api_key_env = provider.get("api_key_env")
+    if api_key_env:
+        return (os.environ.get(api_key_env) or "").strip() or None
+    return None
+
+
 def call_provider_stream(provider, chat):
     """流式调 provider，逐块 yield delta dict（含 content / reasoning_content / tool_calls）。
     末尾 yield ('__usage__', usage_dict) 一次（若上游给了 usage）。"""
     chat = {**chat, "stream": True, "stream_options": {"include_usage": True}}
     data = json.dumps(chat).encode()
-    key = provider.get("api_key") or (
-        os.environ.get(provider.get("api_key_env") or "") if provider.get("api_key_env") else None
-    )
+    key = resolve_provider_key(provider)
     if not key:
         raise RuntimeError(
             f"Missing API key for provider `{provider['id']}`"
@@ -286,7 +321,27 @@ def call_provider_stream(provider, chat):
     req = urllib.request.Request(provider_chat_url(provider), data=data, headers={
         "Authorization": f"Bearer {key}", "Content-Type": "application/json",
     })
-    with urllib.request.urlopen(req, timeout=120) as r:
+    try:
+        upstream = urllib.request.urlopen(req, timeout=120)
+    except urllib.error.HTTPError as e:
+        # 代理/上游错误：尽力解析结构化错误体（如 402 insufficient_credits）。
+        raw = ""
+        try:
+            raw = e.read().decode("utf-8", "replace")
+        except Exception:
+            pass
+        code = "upstream_error"
+        message = f"上游返回 {e.code}。"
+        try:
+            parsed = json.loads(raw)
+            err = parsed.get("error") if isinstance(parsed, dict) else None
+            if isinstance(err, dict):
+                code = err.get("code") or code
+                message = err.get("message") or message
+        except Exception:
+            pass
+        raise ProviderHTTPError(e.code, code, message)
+    with upstream as r:
         for raw in r:
             line = raw.decode("utf-8", "replace").strip()
             if not line.startswith("data:"):
@@ -468,6 +523,7 @@ class H(http.server.BaseHTTPRequestHandler):
             return
         n = int(self.headers.get("Content-Length", 0) or 0)
         body = json.loads(self.rfile.read(n)) if n else {}
+        stream_started = False
         try:
             route = resolve_model_route(body.get("model"))
             provider = route["provider"]
@@ -482,18 +538,31 @@ class H(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.end_headers()
+            stream_started = True
             emit_stream(self.wfile, call_provider_stream(provider, chat))
+        except ProviderHTTPError as e:
+            # 代理/上游结构化错误（如 402 insufficient_credits）→ 转 response.failed，
+            # 保留 code 供前端识别（额度不足 → 提示升级/充值）。
+            log("UPSTREAM-FAIL:", e.status, e.code, e.message)
+            self._emit_failed(stream_started, e.code, e.message)
         except Exception as e:
             log("ERROR:", repr(e))
-            try:
+            self._emit_failed(stream_started, "gateway_error", str(e))
+
+    def _emit_failed(self, stream_started, code, message):
+        """把失败写成内核可消费的 response.failed SSE。
+        头未发则先发 200+SSE 头；头已发则直接追加事件到开着的流。"""
+        event = sse("response.failed", {"type": "response.failed",
+            "response": {"error": {"code": code, "message": message}}})
+        try:
+            if not stream_started:
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
                 self.end_headers()
-                self.wfile.write(sse("response.failed", {"type": "response.failed",
-                    "response": {"error": {"code": "gateway_error", "message": str(e)}}}))
-                self.wfile.flush()
-            except Exception:
-                pass
+            self.wfile.write(event)
+            self.wfile.flush()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     provider_summary = ", ".join(

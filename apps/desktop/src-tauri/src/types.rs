@@ -409,6 +409,10 @@ pub(crate) struct ModelGatewayProviderConfig {
     pub(crate) base_url: String,
     #[serde(default, rename = "apiKeyEnv")]
     pub(crate) api_key_env: String,
+    // credit 模式：网关每请求从此文件读最新 JWT（App 在 Supabase 刷新 token 时更新）。
+    // 空则不用（dev/BYOK 走 api_key_env/keychain）。见 002 decisions「JWT 每请求读文件」。
+    #[serde(default, rename = "apiKeyFile", skip_serializing_if = "String::is_empty")]
+    pub(crate) api_key_file: String,
     #[serde(default = "default_true")]
     pub(crate) enabled: bool,
     #[serde(default)]
@@ -815,6 +819,7 @@ fn default_model_gateway_providers() -> Vec<ModelGatewayProviderConfig> {
         kind: ModelGatewayProviderKind::Deepseek,
         base_url: "https://api.deepseek.com/v1".to_string(),
         api_key_env: "DEEPSEEK_API_KEY".to_string(),
+        api_key_file: String::new(),
         enabled: true,
         models: vec![
             ModelGatewayModelConfig {

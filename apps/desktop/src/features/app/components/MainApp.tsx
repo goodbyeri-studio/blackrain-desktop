@@ -17,6 +17,7 @@ import { useRenameWorktreePrompt } from "@/features/workspaces/hooks/useRenameWo
 import { useLayoutController } from "@app/hooks/useLayoutController";
 import { useUpdaterController } from "@app/hooks/useUpdaterController";
 import { useResponseRequiredNotificationsController } from "@app/hooks/useResponseRequiredNotificationsController";
+import { useCreditGatewaySync } from "@/features/accounts/hooks/useCreditGatewaySync";
 import { useErrorToasts } from "@/features/notifications/hooks/useErrorToasts";
 import { useComposerShortcuts } from "@/features/composer/hooks/useComposerShortcuts";
 import { useComposerMenuActions } from "@/features/composer/hooks/useComposerMenuActions";
@@ -90,6 +91,8 @@ const SettingsView = lazy(() =>
 );
 
 export default function MainApp() {
+  // 账号会话 → 网关 credit 模式同步（登录写 JWT/切代理，登出回 dev）。全局一次。
+  useCreditGatewaySync();
   const {
     appSettings,
     setAppSettings,

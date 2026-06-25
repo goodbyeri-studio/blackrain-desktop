@@ -27,6 +27,36 @@ const DEFAULT_GATEWAY_TOKEN: &str = "local-app-gateway";
 const GATEWAY_SCRIPT_ENV: &str = "BLACKRAIN_GATEWAY_SCRIPT";
 const GATEWAY_PYTHON_ENV: &str = "BLACKRAIN_GATEWAY_PYTHON";
 
+// credit 模式平台代理地址（M-A2 已部署）。可用 env 覆盖（迁 new-api 时改一处）。
+const DEFAULT_CREDIT_PROXY_URL: &str = "https://proxy.goodbyeri.cc/v1";
+const CREDIT_PROXY_URL_ENV: &str = "BLACKRAIN_CREDIT_PROXY_URL";
+// CODEX_HOME 下存当前用户 Supabase JWT 的文件名。网关每请求读它（credit 模式）。
+const CREDIT_JWT_FILENAME: &str = "blackrain-credit-jwt";
+
+fn credit_proxy_url() -> String {
+    std::env::var(CREDIT_PROXY_URL_ENV)
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| DEFAULT_CREDIT_PROXY_URL.to_string())
+}
+
+// CODEX_HOME 下 JWT 文件的绝对路径。
+fn credit_jwt_path() -> Result<PathBuf, String> {
+    let codex_home = crate::codex::home::resolve_default_codex_home()
+        .ok_or_else(|| "Unable to resolve CODEX_HOME".to_string())?;
+    Ok(codex_home.join(CREDIT_JWT_FILENAME))
+}
+
+// credit 模式是否生效：JWT 文件存在且非空（前端登录后写入）。
+fn credit_mode_active() -> bool {
+    credit_jwt_path()
+        .ok()
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false)
+}
+
 fn now_unix_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -79,6 +109,12 @@ fn gateway_registry_env_with_secrets(settings: &ModelGatewaySettings) -> Result<
     let mut configured_count = 0usize;
     let mut missing = Vec::new();
 
+    // credit 模式：登录后 JWT 文件就位。deepseek provider 改指平台代理、用 JWT 文件鉴权，
+    // 不依赖 keychain key。dev/BYOK（无 JWT 文件）则走原有 keychain/env 路径。
+    let credit_active = credit_mode_active();
+    let proxy_url = credit_proxy_url();
+    let jwt_path = credit_jwt_path().ok();
+
     for (index, item) in providers.iter_mut().enumerate() {
         let Some(provider) = settings.providers.get(index) else {
             continue;
@@ -87,6 +123,25 @@ fn gateway_registry_env_with_secrets(settings: &ModelGatewaySettings) -> Result<
             continue;
         }
         enabled_count += 1;
+
+        // credit 模式下的 deepseek：注入代理 base_url + JWT 文件路径，视为已配置。
+        if credit_active && provider.id == "deepseek" {
+            if let (Some(object), Some(path)) = (item.as_object_mut(), jwt_path.as_ref()) {
+                object.insert(
+                    "baseUrl".to_string(),
+                    serde_json::Value::String(proxy_url.clone()),
+                );
+                object.insert(
+                    "apiKeyFile".to_string(),
+                    serde_json::Value::String(path.to_string_lossy().to_string()),
+                );
+                // 清掉可能残留的 inline key，确保走文件。
+                object.remove("apiKey");
+                configured_count += 1;
+                continue;
+            }
+        }
+
         match model_gateway_provider_api_key(&provider.id, &provider.api_key_env)? {
             Some(api_key) => {
                 configured_count += 1;
@@ -484,4 +539,50 @@ pub(crate) async fn model_gateway_daemon_status(
     state: State<'_, AppState>,
 ) -> Result<ModelGatewayRuntimeStatus, String> {
     model_gateway_runtime_status(&state).await
+}
+
+// credit 模式：写入当前用户 Supabase JWT 到 CODEX_HOME 文件（600 权限）。
+// 网关每请求读它，故 token 刷新只需重写文件、无需重启网关。
+#[command]
+pub(crate) async fn model_gateway_credit_jwt_set(jwt: String) -> Result<(), String> {
+    let token = jwt.trim();
+    if token.is_empty() {
+        return model_gateway_credit_jwt_clear().await;
+    }
+    let path = credit_jwt_path()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|err| {
+            format!("Failed to create CODEX_HOME for credit JWT: {err}")
+        })?;
+    }
+    std::fs::write(&path, token).map_err(|err| format!("Failed to write credit JWT: {err}"))?;
+    // 收紧权限：仅属主可读写（Unix）。
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    }
+    Ok(())
+}
+
+// 登出/会话失效：删除 JWT 文件（回退到 dev/BYOK 模式）。幂等。
+#[command]
+pub(crate) async fn model_gateway_credit_jwt_clear() -> Result<(), String> {
+    let path = credit_jwt_path()?;
+    match std::fs::remove_file(&path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(format!("Failed to clear credit JWT: {err}")),
+    }
+}
+
+// 重启网关：模式切换（credit↔dev/BYOK）会改 base_url，必须重起进程才能生效。
+// JWT 在同一 credit 模式内刷新不需要调它（网关每请求读文件）。
+#[command]
+pub(crate) async fn model_gateway_daemon_restart(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<ModelGatewayRuntimeStatus, String> {
+    let _ = stop_model_gateway_runtime(&state).await;
+    start_model_gateway_runtime(&app, &state).await
 }
