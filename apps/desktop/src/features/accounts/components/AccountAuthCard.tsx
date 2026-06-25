@@ -55,12 +55,14 @@ export function AccountAuthCard({
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const emailId = useId();
   const passwordId = useId();
+  const confirmId = useId();
 
   const isSignUp = mode === "sign-up";
 
@@ -79,11 +81,15 @@ export function AccountAuthCard({
       setError("密码至少 6 位。");
       return;
     }
+    if (isSignUp && password !== confirmPassword) {
+      setError("两次输入的密码不一致。");
+      return;
+    }
     setBusy(true);
     try {
       if (isSignUp) {
         await onSignUp(email.trim(), password);
-        setNotice("注册成功。若开启了邮箱确认，请查收邮件后再登录。");
+        setNotice("注册成功，已自动登录。");
       } else {
         await onSignIn(email.trim(), password);
       }
@@ -92,7 +98,7 @@ export function AccountAuthCard({
     } finally {
       setBusy(false);
     }
-  }, [configured, email, password, isSignUp, onSignIn, onSignUp]);
+  }, [configured, email, password, confirmPassword, isSignUp, onSignIn, onSignUp]);
 
   return (
     <div className="auth-card" data-tauri-drag-region="false">
@@ -158,6 +164,27 @@ export function AccountAuthCard({
           </div>
         </div>
 
+        {isSignUp ? (
+          <div className="auth-field">
+            <label className="auth-field-label" htmlFor={confirmId}>
+              确认密码
+            </label>
+            <div className="auth-input-wrap">
+              <LockIcon />
+              <input
+                id={confirmId}
+                className="auth-input auth-input--icon"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="再次输入密码"
+                value={confirmPassword}
+                disabled={busy}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </div>
+          </div>
+        ) : null}
+
         {error ? (
           <div className="auth-card-banner auth-card-banner--error">{error}</div>
         ) : null}
@@ -189,6 +216,7 @@ export function AccountAuthCard({
             disabled={busy}
             onClick={() => {
               setMode(isSignUp ? "sign-in" : "sign-up");
+              setConfirmPassword("");
               setError(null);
               setNotice(null);
             }}

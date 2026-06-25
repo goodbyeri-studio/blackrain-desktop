@@ -83,4 +83,54 @@ describe("AccountAuthCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "隐藏密码" }));
     expect(pwd.type).toBe("password");
   });
+
+  it("注册：两次密码不一致时不调用 onSignUp", async () => {
+    const onSignUp = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AccountAuthCard configured onSignIn={vi.fn()} onSignUp={onSignUp} />,
+    );
+    fireEvent.click(screen.getByText("没有账号？去注册"));
+    fireEvent.change(screen.getByLabelText("邮箱"), {
+      target: { value: "user@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
+      target: { value: "secret123" },
+    });
+    fireEvent.change(screen.getByLabelText("确认密码"), {
+      target: { value: "secret999" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "注册" }));
+    await waitFor(() => {
+      expect(screen.getByText("两次输入的密码不一致。")).toBeTruthy();
+    });
+    expect(onSignUp).not.toHaveBeenCalled();
+  });
+
+  it("注册：两次密码一致时调用 onSignUp", async () => {
+    const onSignUp = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AccountAuthCard configured onSignIn={vi.fn()} onSignUp={onSignUp} />,
+    );
+    fireEvent.click(screen.getByText("没有账号？去注册"));
+    fireEvent.change(screen.getByLabelText("邮箱"), {
+      target: { value: "user@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
+      target: { value: "secret123" },
+    });
+    fireEvent.change(screen.getByLabelText("确认密码"), {
+      target: { value: "secret123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "注册" }));
+    await waitFor(() => {
+      expect(onSignUp).toHaveBeenCalledWith("user@example.com", "secret123");
+    });
+  });
+
+  it("登录模式不显示确认密码字段", () => {
+    render(
+      <AccountAuthCard configured onSignIn={vi.fn()} onSignUp={vi.fn()} />,
+    );
+    expect(screen.queryByLabelText("确认密码")).toBeNull();
+  });
 });
