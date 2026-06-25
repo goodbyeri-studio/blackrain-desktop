@@ -88,7 +88,7 @@ export const SETTINGS_SECTION_LABELS: Record<CodexSection, string> = {
   "model-gateway": "Model Gateway",
   server: "Server",
   agents: "Agents",
-  codex: "Codex",
+  codex: "BlackRain",
   features: "Features",
 };
 
