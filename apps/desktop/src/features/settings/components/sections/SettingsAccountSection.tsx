@@ -1,21 +1,15 @@
 import { useState } from "react";
 import { SettingsSection } from "@/features/design-system/components/settings/SettingsPrimitives";
 import { useAccount } from "@/features/accounts/hooks/useAccount";
-import { AccountAuthCard } from "@/features/accounts/components/AccountAuthCard";
-import {
-  formatCredits,
-  planLabel,
-} from "@/features/accounts/utils/creditDisplay";
-import {
-  ACCOUNT_PLANS,
-  PLAN_DESCRIPTORS,
-} from "@/features/accounts/types";
+import { CreditUsageBar } from "@/features/accounts/components/CreditUsageBar";
+import { planLabel } from "@/features/accounts/utils/creditDisplay";
+import { ACCOUNT_PLANS, PLAN_DESCRIPTORS } from "@/features/accounts/types";
 
-// 002-accounts-credits / M-A1.6：设置页账号区。
-// 展示登录态、当前 plan+余额、三档套餐占位；未登录给登录入口。
+// 002-accounts-credits：设置页账号区。
+// 进入 App 时门禁已保证 signed-in / unconfigured，故此处不再放内联登录。
+// 展示当前账号 + 积分额度条 + 登出 + 三档套餐占位。
 export function SettingsAccountSection() {
   const account = useAccount();
-  const [showAuth, setShowAuth] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const unconfigured = account.status === "unconfigured";
@@ -32,22 +26,24 @@ export function SettingsAccountSection() {
         </div>
       ) : null}
 
-      {/* 当前登录态 */}
+      {/* 当前登录态 + 积分额度条 */}
       <div className="settings-field">
         <div className="settings-field-label">当前账号</div>
         {signedIn ? (
           <>
             <div className="settings-help">
               {account.session?.email ?? "已登录"}
+              {" · 套餐 "}
+              <strong>{planLabel(account.profile?.plan ?? "free")}</strong>
+              {account.online ? "" : "（离线，credit 暂不可用）"}
             </div>
-            <div className="settings-help">
-              套餐 <strong>{planLabel(account.profile?.plan ?? "free")}</strong>
-              {account.profile
-                ? ` · 余额 ${formatCredits(account.profile.credits)} credits`
-                : account.error
-                  ? " · 余额暂不可用"
-                  : ""}
-            </div>
+            {account.session ? (
+              <CreditUsageBar
+                userId={account.session.userId}
+                credits={account.profile?.credits ?? 0}
+                online={account.online}
+              />
+            ) : null}
             <div className="settings-gateway-provider-actions">
               <button
                 type="button"
@@ -55,9 +51,7 @@ export function SettingsAccountSection() {
                 disabled={signingOut}
                 onClick={() => {
                   setSigningOut(true);
-                  void account
-                    .signOut()
-                    .finally(() => setSigningOut(false));
+                  void account.signOut().finally(() => setSigningOut(false));
                 }}
               >
                 {signingOut ? "登出中…" : "登出"}
@@ -65,21 +59,9 @@ export function SettingsAccountSection() {
             </div>
           </>
         ) : (
-          <>
-            <div className="settings-help">
-              {account.status === "loading" ? "正在恢复会话…" : "尚未登录。"}
-            </div>
-            <div className="settings-gateway-provider-actions">
-              <button
-                type="button"
-                className="ghost settings-button-compact"
-                disabled={unconfigured}
-                onClick={() => setShowAuth(true)}
-              >
-                登录 / 注册
-              </button>
-            </div>
-          </>
+          <div className="settings-help">
+            {unconfigured ? "账号后端未配置。" : "尚未登录。"}
+          </div>
         )}
       </div>
 
@@ -87,9 +69,7 @@ export function SettingsAccountSection() {
 
       {/* 三档套餐占位 */}
       <div className="settings-field">
-        <div className="settings-field-label settings-field-label--section">
-          套餐
-        </div>
+        <div className="settings-field-label settings-field-label--section">套餐</div>
         <div className="settings-help">价格与额度待定，当前仅 Free 可用。</div>
         <div className="settings-gateway-provider-list">
           {ACCOUNT_PLANS.map((plan) => {
@@ -116,15 +96,6 @@ export function SettingsAccountSection() {
           })}
         </div>
       </div>
-
-      {showAuth && !signedIn ? (
-        <AccountAuthCard
-          configured={!unconfigured}
-          onSignIn={account.signIn}
-          onSignUp={account.signUp}
-          onClose={() => setShowAuth(false)}
-        />
-      ) : null}
     </SettingsSection>
   );
 }

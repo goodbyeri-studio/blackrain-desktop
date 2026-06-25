@@ -36,11 +36,14 @@ import "./styles/mobile-remote-workspace-modal.css";
 import "./styles/branch-switcher-modal.css";
 import "./styles/git-init-modal.css";
 import "./styles/settings.css";
+import "./styles/accounts.css";
 import "./styles/compact-base.css";
 import "./styles/compact-phone.css";
 import "./styles/compact-tablet.css";
 import { useWindowLabel } from "@/features/layout/hooks/useWindowLabel";
 import MainApp from "@app/components/MainApp";
+import { AccountProvider } from "@/features/accounts/context/AccountProvider";
+import { AccountGate } from "@/features/accounts/components/AccountGate";
 
 const AboutView = lazy(() =>
   import("@/features/about/components/AboutView").then((module) => ({
@@ -59,5 +62,11 @@ export default function App() {
     );
   }
 
-  return <MainApp />;
+  return (
+    <AccountProvider>
+      <AccountGate>
+        <MainApp />
+      </AccountGate>
+    </AccountProvider>
+  );
 }
