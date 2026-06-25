@@ -29,6 +29,7 @@
 - 功能行为：WORK 模式经 Hermes `/v1` 接国产 Chat 模型零翻译跑通；CODE 模式经 codex app-server + 专属 `CODEX_HOME` 跑通；两模式读写同一份外置记忆。
 - 用户体验：WORK / CODE 是面向两拨人的两个 surface，由监工壳编排；跨模式任务（理解→造插件→带用）子任务切干净、只回传结果，不在单轮对话热切引擎。
 - 安全/合规：Hermes MIT 可闭源商用；数据飞轮（trajectory/RL 外传 Nous）默认关闭；不使用 Hermes 商标；钉死所 fork/借的 commit。
+- 数据立场：不承诺推理级本地隐私（用云模型推理必出本地）；守两条零成本底线——BlackRain 自己不训练/不留存用户内容、new-api 中转**只记计量元数据不落内容明文**。详见 `docs/07` 数据立场。
 - 性能/稳定性：多轮不丢上下文；流式不断；function calling 不在中转层丢失；new-api 两条路径都计到量。
 
 ## 约束
