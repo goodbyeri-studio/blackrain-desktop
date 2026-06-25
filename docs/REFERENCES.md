@@ -18,6 +18,7 @@
 |---|---|---|
 | [coze-dev/coze-studio](https://github.com/coze-dev/coze-studio) | 工作流/插件/Bot 的存储与编排机制(竞品对照) | 见仓库 |
 | [langgenius/dify](https://github.com/langgenius/dify) | LLMOps、Agent+RAG+工作流一体的产品形态 | 见仓库 |
+| [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | **WORK 引擎候选**(双引擎之一,见 [.specs/003](../.specs/003-dual-engine-architecture/));参考其 OpenAI 兼容 API server、自定义 provider 机制、Desktop 的 MIT React 组件。⚠️ 本体 MIT 可闭源商用,但**真闸口在 Python 依赖树**(逐包体检拦 GPL/AGPL/BSL);钉 commit 存证;不用其商标;关数据飞轮外传 | MIT |
 
 这些不预先克隆。只在确实要深挖某个具体机制时临时 clone 到仓库外或 gitignore 目录,读完即可。
 
