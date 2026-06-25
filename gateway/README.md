@@ -164,6 +164,24 @@ PROXY_PORT=8800 python3 gateway/proxy.py        # 监听 127.0.0.1:8800
 
 `credit_math.py`：`credits = (input+output) × 模型倍率 / 10000`（混合单价占位）。倍率 flash 0.5x / pro 1.5x，比值钉死 DeepSeek 真实价 3:1，与前端 `creditPricing.ts` 一致。正式定价改 `TOKENS_PER_CREDIT_AT_1X` 一处。
 
-### 部署（待办，需用户定主机）
+### 部署（常驻服务）
 
-常驻服务（Fly.io / Railway / 小 VPS）。环境变量同上；平台 DeepSeek key **只在服务端**，绝不打包进桌面。new-api 搭好后按 `base_url + Bearer <jwt>` 接缝顶替本代理。
+`proxy.py` 纯 stdlib，`Dockerfile` 极简（仅 `credit_math.py` + `proxy.py`）。**密钥一律运行时注入，绝不烤进镜像/入库。** 容器内设 `PROXY_HOST=0.0.0.0`（Dockerfile 已默认），平台注入 `PROXY_PORT`。
+
+需运行时注入的环境变量：`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_ANON_KEY`、`DEEPSEEK_API_KEY`。
+
+本地容器冒烟（已验证）：
+
+```bash
+cd gateway
+docker build -t blackrain-proxy .
+docker run -d --name p -p 8801:8080 \
+  -e SUPABASE_URL=... -e SUPABASE_SERVICE_ROLE_KEY=... \
+  -e SUPABASE_ANON_KEY=... -e DEEPSEEK_API_KEY=... blackrain-proxy
+curl -s http://127.0.0.1:8801/health
+```
+
+**Fly.io**（推荐，起步基本免费）：`fly launch --no-deploy` → `fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... SUPABASE_ANON_KEY=... DEEPSEEK_API_KEY=...` → `fly deploy`。Fly 边缘自动 TLS（HTTPS）。
+**Railway**：连仓库选 `gateway/` 目录，Variables 里设上述四个 secret，自动构建部署。
+
+new-api 搭好后按 `base_url + Bearer <jwt>` 接缝顶替本代理（桌面侧零改动）。

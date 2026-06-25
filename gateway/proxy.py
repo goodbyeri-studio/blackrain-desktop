@@ -38,6 +38,8 @@ ANON_KEY = (os.environ.get("SUPABASE_ANON_KEY") or "").strip()
 DEEPSEEK_KEY = (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
 DEEPSEEK_BASE_URL = (os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com/v1").rstrip("/")
 PORT = int(os.environ.get("PROXY_PORT") or "8800")
+# 绑定地址：默认仅本机（安全）。容器/主机部署时显式设 PROXY_HOST=0.0.0.0 才对外服务。
+HOST = (os.environ.get("PROXY_HOST") or "127.0.0.1").strip()
 LOG_PATH = (os.environ.get("PROXY_LOG") or "").strip()
 
 
@@ -312,10 +314,10 @@ def _require_env():
 if __name__ == "__main__":
     _require_env()
     log(
-        f":{PORT} supabase={redact(SUPABASE_URL)} deepseek={DEEPSEEK_BASE_URL}",
+        f"{HOST}:{PORT} supabase={redact(SUPABASE_URL)} deepseek={DEEPSEEK_BASE_URL}",
         "models=" + ",".join(sorted(MULTIPLIERS)),
     )
     try:
-        http.server.HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+        http.server.HTTPServer((HOST, PORT), Handler).serve_forever()
     except KeyboardInterrupt:
         pass
