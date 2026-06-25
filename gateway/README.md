@@ -121,3 +121,49 @@ curl -s http://127.0.0.1:8899/v1/models
 | **进程内（优雅终态）** | 在 `apps/desktop` 的 Rust 里写翻译线程，移植 [cc-switch](https://github.com/farion1231/cc-switch) 的转译逻辑 | 单一二进制单进程；代价=自己用 Rust 养翻译代码 |
 
 > 本目录的 `gateway.py` 是 sidecar 路线的种子。下一步若走 sidecar，优先补 streaming + 模型元数据注册 + 错误处理。
+
+## `proxy.py` —— 平台 credit 代理（M-A2，独立组件）
+
+与 `gateway.py` **不同职责、不同协议**。见 [`.specs/002-accounts-credits/`](../.specs/002-accounts-credits/)。
+
+- `gateway.py`：本地翻译层，说 **Responses**（codex 专用），跑在用户机器上。
+- `proxy.py`：平台 credit 代理，说 **Chat Completions**（OpenAI 兼容），跑在**服务端常驻主机**，持平台 DeepSeek key、按 usage 扣 credit。
+
+**为什么分开**：翻译只留 `gateway.py` 一份（铁律 2）；代理说 Chat Completions 才能与未来 new-api 同形态、零改动顶替。代理**不做翻译**。
+
+### credit 模式数据流
+
+```
+内核(Responses) → 本地 gateway.py(翻译成 Chat, base_url=代理, Bearer=用户 Supabase JWT)
+    → proxy.py(校验 JWT + 查余额 + 注平台 key + 转发 + 计量扣 credit) → DeepSeek
+```
+
+BYOK 模式则不经代理：`gateway.py` 直连 `api.deepseek.com`、用用户自己的 key。
+
+### 运行（本地调试）
+
+```bash
+# 从仓库根 .env 载入 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY / DEEPSEEK_API_KEY
+set -a; source .env; set +a
+PROXY_PORT=8800 python3 gateway/proxy.py        # 监听 127.0.0.1:8800
+#   PROXY_LOG=/tmp/proxy.log  DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+```
+
+接口：`POST /v1/chat/completions`（Bearer=用户 JWT）、`GET /v1/models`（带倍率）、`GET /health`。
+
+### 已验证（2026-06-25，真实 DeepSeek + 真实 Supabase）
+
+- 转发：用户对话经代理 → DeepSeek，SSE 流式透传成功。
+- 计量：flash 0.5x，33 token → 扣 0.00165 credit，与 `credit_math` 锚定分毫不差；`credit_ledger` 落账含 token 明细。
+- 门禁：余额耗尽 → 402 `insufficient_credits`；无效 JWT → 401；未知模型 → 400。
+- 脱敏：日志无平台 key / JWT / 用户内容 / 完整 user_id。
+
+单测：`cd gateway && python3 -m unittest test_proxy test_credit_math -v`（纯逻辑，不连网）。
+
+### 计量口径
+
+`credit_math.py`：`credits = (input+output) × 模型倍率 / 10000`（混合单价占位）。倍率 flash 0.5x / pro 1.5x，比值钉死 DeepSeek 真实价 3:1，与前端 `creditPricing.ts` 一致。正式定价改 `TOKENS_PER_CREDIT_AT_1X` 一处。
+
+### 部署（待办，需用户定主机）
+
+常驻服务（Fly.io / Railway / 小 VPS）。环境变量同上；平台 DeepSeek key **只在服务端**，绝不打包进桌面。new-api 搭好后按 `base_url + Bearer <jwt>` 接缝顶替本代理。

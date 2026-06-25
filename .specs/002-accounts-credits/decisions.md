@@ -54,15 +54,17 @@
 - 影响范围：代理费率配置、profiles 默认 credits。
 - 后续复查条件：定价定稿后更新本条并回填数值。
 
-## 2026-06-25：最小代理复用 gateway.py、部署成常驻服务
+## 2026-06-25：最小代理 = 独立 Chat Completions 转发器，部署成常驻服务（修正 gateway.py 复用表述）
 
-- 决策：MVP 最小代理 = 现有 `gateway.py` + 一层「鉴权 + 计量」，部署到轻量常驻主机（Fly.io / Railway / 小 VPS）；不重写为 Supabase Edge Function。同一份 `gateway.py` 两处部署：本地（BYOK、不计量）+ 远端（credit、持平台 key + 计量）。
-- 原因：① 铁律 2——responses⇄chat 翻译是最难最易碎的部分，已实测验证（多轮工具、tool_call_id 配对、SSE 顺序、reasoning 分片），只此一份不重写；② 计量须看完整流（usage 在流末尾），agent 任务长，Edge Function 有执行时限会掐断长流，LLM 这一跳需常驻进程；③ 常驻代理与未来 new-api 同形态，迁移接缝一致。
-- 替代方案：Supabase Edge Function（TS）重写翻译 + 计量。
-- 为什么不用替代方案：重写最危险代码、违反铁律 2、需重跑全部协议验证；且 edge 时限扛不住长 agent 流。
-- 影响范围：最小代理实现与部署、本地网关 credit 模式配置、迁移接缝。
-- 备注：Supabase 仍管账号/DB/扣款 RPC；仅 LLM 转发这一跳放常驻代理。多运维一个小容器（Fly/Railway 起步基本免费）是可接受代价。
-- 后续复查条件：new-api 搭好后按固定接缝顶替，清理临时代理。
+- 决策：MVP 最小代理是一个**独立的 OpenAI Chat Completions 转发器**（`gateway/proxy.py`），职责 = 校验 JWT + 查/扣 credit + 注入平台 DeepSeek key + usage 计量；部署到轻量常驻主机（Fly.io / Railway / 小 VPS），不重写为 Supabase Edge Function。
+- 协议边界（关键）：**代理入站/出站都说 Chat Completions**。`responses⇄chat` 翻译**只留在本地网关 `gateway.py` 一份**（铁律 2）。credit 模式下数据流为：内核(Responses) → 本地网关(翻译成 Chat) → 平台代理(Chat：鉴权+计量+注平台 key) → DeepSeek。代理**不做翻译**，故无「最危险代码」需要重写——铁律 2 天然满足。
+- 修正：早前表述「最小代理 = 复用 gateway.py / 同一份两处部署」**不准确**。本地网关说 Responses（codex 专用），若代理也说 Responses，则 new-api（只懂 Chat Completions）无法顶替，迁移接缝作废。故代理改为独立 Chat 转发器；与 gateway.py 仅共享小工具（日志脱敏、流式读取惯例），不共享翻译。
+- 原因：① 翻译留一份，最易碎代码零改动；② 计量须看完整流（usage 在流末尾 `chunk.usage`），agent 任务长，Edge Function 执行时限会掐断长流，LLM 这一跳需常驻进程；③ 代理入站/出站皆 Chat Completions，与 new-api **同形态**，以后零改动顶替。
+- 替代方案：(a) 代理说 Responses（复用整份 gateway.py）；(b) Supabase Edge Function 重写。
+- 为什么不用替代方案：(a) 破坏 new-api 迁移接缝；(b) edge 时限扛不住长 agent 流、且无必要重写。
+- 影响范围：`gateway/proxy.py` 实现与部署、本地网关 credit 模式 provider 配置（base_url=代理、key=JWT）、迁移接缝。
+- 备注：Supabase 仍管账号/DB/扣款 RPC（`spend_credits`）；仅 LLM 转发+计量这一跳放常驻代理。
+- 后续复查条件：new-api 搭好后按 `base_url + Bearer <jwt>` 接缝顶替 `proxy.py`，清理临时代理。
 
 ## 2026-06-25：credit 强一致实时扣减，接受并发小幅超卖
 

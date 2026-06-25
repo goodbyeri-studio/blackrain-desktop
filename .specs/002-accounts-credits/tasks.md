@@ -21,14 +21,14 @@
 
 ## 阶段 2（M-A2）：最小代理 + credit 计量
 
-- [ ] 最小平台代理：`POST /v1/chat/completions` OpenAI 兼容转发，持平台 DeepSeek key。
-- [ ] 代理校验 Supabase JWT（service-role），认出用户。
-- [ ] 代理查余额：≤0 返回结构化 `insufficient_credits`（402）。
-- [ ] usage 计量：收尾读 input/output token，按倍率算 credit 消耗。
-- [ ] 原子扣 `profiles.credits` + 写 `credit_ledger`。
-- [ ] 本地网关 credit 模式：base_url 指向代理、Authorization 带 JWT。
-- [ ] 余额耗尽 → 网关转 `response.failed` → 前端提示升级/充值。
-- [ ] 代理日志脱敏（平台 key、JWT、用户内容）。
+- [x] 最小平台代理：`POST /v1/chat/completions` OpenAI 兼容转发，持平台 DeepSeek key。（`gateway/proxy.py`）
+- [x] 代理校验 Supabase JWT（service-role），认出用户。（`/auth/v1/user` 校验，无效→401）
+- [x] 代理查余额：≤0 返回结构化 `insufficient_credits`（402）。（转发前门禁，真实云端验证）
+- [x] usage 计量：收尾读 input/output token，按倍率算 credit 消耗。（`credit_math`，混合单价 × 倍率 / 10000）
+- [x] 原子扣 `profiles.credits` + 写 `credit_ledger`。（`spend_credits` RPC，单事务，真实云端验证）
+- [ ] 本地网关 credit 模式：base_url 指向代理、Authorization 带 JWT。（待桌面接线 + JWT 刷新设计）
+- [ ] 余额耗尽 → 网关转 `response.failed` → 前端提示升级/充值。（待桌面接线）
+- [x] 代理日志脱敏（平台 key、JWT、用户内容）。（`redact()`，真实日志扫描无泄漏）
 
 ## 阶段 3：BYOK 锁 Plus
 

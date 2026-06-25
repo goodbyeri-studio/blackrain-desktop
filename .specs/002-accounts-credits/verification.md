@@ -21,10 +21,16 @@
 | 2026-06-25 | RLS 前端只读自己 | REST：用户 JWT 查 profiles | 通过 | 仅返回本人 1 行 |
 | 2026-06-25 | RLS 前端改不动 credits | REST：用户 JWT PATCH credits → service_role 复查 | 通过 | PATCH 影响 0 行，余额仍 100 未篡改 |
 | YYYY-MM-DD | 会话态持久 | 桌面重开 App（连云端） | 未跑 | 需起桌面：钥匙串落盘、自动恢复、过期刷新 |
-| YYYY-MM-DD | 模式切换 → provider 配置 | shared core 单测 | 未跑 | credit/BYOK base_url+Authorization（M-A2/3） |
-| YYYY-MM-DD | 代理 JWT 校验 + 扣余额原子性 | 代理集成测试 | 未跑 | 并发扣减不超卖（M-A2） |
-| YYYY-MM-DD | 余额耗尽拦截 | 手动置 0 余额对话 | 未跑 | 返回 insufficient_credits → response.failed（M-A2） |
-| YYYY-MM-DD | 真实 DeepSeek 经代理计量 | 起代理 + 真实 key 跑一轮 | 未跑 | usage 正确、credit 下降合理（M-A2） |
+| 2026-06-25 | spend_credits RPC（真实云端） | REST：service_role 调 + 用户 JWT 调 | 通过 | 原子扣减+流水；用户调被拒(42501)；负 cost 被拒(P0001) |
+| 2026-06-25 | credit 倍率换算单测 | `cd gateway && python3 -m unittest test_credit_math` | 通过 | 9 用例：3:1 比值、pro 6667/flash 20000 锚定 |
+| 2026-06-25 | 代理纯逻辑单测 | `cd gateway && python3 -m unittest test_proxy` | 通过 | 8 用例：allowed_model/redact/models payload |
+| 2026-06-25 | 代理 JWT 校验 + 扣余额原子性 | 代理端到端（真实 DeepSeek+Supabase） | 通过 | 无效 JWT→401；扣减经 spend_credits 单事务 |
+| 2026-06-25 | 余额耗尽拦截 | 代理端到端：置 0 余额再请求 | 通过 | 返回 402 insufficient_credits |
+| 2026-06-25 | 真实 DeepSeek 经代理计量 | 起代理 + 真实 key 跑一轮 | 通过 | flash 33 token→扣 0.00165 credit；ledger 落账含 token 明细 |
+| 2026-06-25 | 代理日志脱敏 | 扫描 /tmp/proxy.log | 通过 | 无平台 key/JWT/用户内容/完整 user_id |
+| YYYY-MM-DD | 会话态持久 | 桌面重开 App（连云端） | 未跑 | 需起桌面：钥匙串落盘、自动恢复、过期刷新 |
+| YYYY-MM-DD | 本地网关 credit 模式接线 | 桌面手动 | 未跑 | base_url 指代理、Bearer 带 JWT、JWT 过期刷新 |
+| YYYY-MM-DD | 余额耗尽 → 前端提示 | 桌面手动 | 未跑 | 代理 402 → 网关 response.failed → 前端提示升级/充值 |
 | YYYY-MM-DD | Plus BYOK 不计 credit | 手动 | 未跑 | BYOK 对话余额不变（M-A3） |
 
 ## 已验证
@@ -40,7 +46,13 @@
   - Supabase CLI 建项目 + `db push` 应用两 migration，Local/Remote 对齐。
   - trigger 端到端坐实：admin 建用户 → 自动建 free profile + 赠送 100 credit + 写 signup_grant 流水。
   - RLS 端到端坐实：用户 JWT 只读到本人 1 行；PATCH credits 影响 0 行、余额未篡改。
-- 仍需起桌面 App 才能验的项（会话钥匙串持久/自动恢复/过期刷新）已在矩阵标注。
+- M-A2 代理服务端（2026-06-25，真实 DeepSeek + 真实 Supabase）：
+  - `spend_credits` RPC 坐实：单事务原子扣减+流水；用户无权调(42501)；负 cost 被拒(P0001)。
+  - `gateway/proxy.py` 端到端坐实：用户对话经代理→DeepSeek 流式透传；flash 33 token→扣 0.00165 credit（与 credit_math 锚定分毫不差）；ledger 落账含 token 明细。
+  - 门禁坐实：余额耗尽→402 insufficient_credits；无效 JWT→401；未知模型→400。
+  - 日志脱敏坐实：扫描无平台 key/JWT/用户内容/完整 user_id。
+  - 纯逻辑单测：credit_math 9 + proxy 8 用例通过。
+- 仍需起桌面 App 才能验的项（会话钥匙串持久、本地网关 credit 模式接线、JWT 过期刷新、余额耗尽→前端提示）已在矩阵标注。
 
 ## 未验证风险
 
