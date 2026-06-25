@@ -1,5 +1,4 @@
 import { useCallback, useId, useState } from "react";
-import { ModalShell } from "@/features/design-system/components/modal/ModalShell";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -8,7 +7,7 @@ export interface AccountAuthCardProps {
   configured: boolean;
   onSignIn(email: string, password: string): Promise<void>;
   onSignUp(email: string, password: string): Promise<void>;
-  // 可选关闭（门禁场景下可不传，强制先登录）。
+  // 可选关闭（门禁场景不传，强制先登录）。
   onClose?: () => void;
 }
 
@@ -16,7 +15,7 @@ function isValidEmail(value: string): boolean {
   return /.+@.+\..+/.test(value.trim());
 }
 
-// 登录/注册卡片。M-A1.5：复用 design-system ModalShell + settings 输入样式。
+// 登录/注册卡片。开屏专用的独立设计（不再复用弹窗 ModalShell）。
 export function AccountAuthCard({
   configured,
   onSignIn,
@@ -65,84 +64,83 @@ export function AccountAuthCard({
   }, [configured, email, password, isSignUp, onSignIn, onSignUp]);
 
   return (
-    <ModalShell
-      ariaLabel={isSignUp ? "注册账号" : "登录账号"}
-      onBackdropClick={onClose}
-    >
-      <div className="settings-section-title">
-        {isSignUp ? "注册 BlackRain 账号" : "登录 BlackRain"}
-      </div>
-      <div className="settings-section-subtitle">
-        {isSignUp
-          ? "注册即获赠 100 credits，可直接对话。"
-          : "登录后即可使用赠送额度对话。"}
+    <div className="auth-card">
+      <div className="auth-card-head">
+        <h2 className="auth-card-title">
+          {isSignUp ? "注册 BlackRain 账号" : "登录 BlackRain"}
+        </h2>
+        <p className="auth-card-subtitle">
+          {isSignUp
+            ? "注册即获赠 100 credits，可直接对话。"
+            : "登录后即可使用赠送额度对话。"}
+        </p>
       </div>
 
       {!configured ? (
-        <div className="settings-gateway-provider-status settings-gateway-provider-status--error">
+        <div className="auth-card-banner auth-card-banner--error">
           账号后端未配置：缺 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY。
         </div>
       ) : null}
 
       <form
+        className="auth-card-form"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
         }}
       >
-        <div className="settings-field">
-          <label className="settings-field-label" htmlFor={emailId}>
+        <div className="auth-field">
+          <label className="auth-field-label" htmlFor={emailId}>
             邮箱
           </label>
-          <div className="settings-field-row">
-            <input
-              id={emailId}
-              className="settings-input"
-              type="email"
-              autoComplete="email"
-              value={email}
-              disabled={busy}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
+          <input
+            id={emailId}
+            className="auth-input"
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            disabled={busy}
+            onChange={(event) => setEmail(event.target.value)}
+          />
         </div>
 
-        <div className="settings-field">
-          <label className="settings-field-label" htmlFor={passwordId}>
+        <div className="auth-field">
+          <label className="auth-field-label" htmlFor={passwordId}>
             密码
           </label>
-          <div className="settings-field-row">
-            <input
-              id={passwordId}
-              className="settings-input"
-              type="password"
-              autoComplete={isSignUp ? "new-password" : "current-password"}
-              value={password}
-              disabled={busy}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </div>
+          <input
+            id={passwordId}
+            className="auth-input"
+            type="password"
+            autoComplete={isSignUp ? "new-password" : "current-password"}
+            placeholder="至少 6 位"
+            value={password}
+            disabled={busy}
+            onChange={(event) => setPassword(event.target.value)}
+          />
         </div>
 
         {error ? (
-          <div className="settings-gateway-provider-status settings-gateway-provider-status--error">
-            {error}
-          </div>
+          <div className="auth-card-banner auth-card-banner--error">{error}</div>
         ) : null}
-        {notice ? <div className="settings-help">{notice}</div> : null}
+        {notice ? (
+          <div className="auth-card-banner auth-card-banner--notice">{notice}</div>
+        ) : null}
 
-        <div className="settings-gateway-provider-actions">
-          <button
-            type="submit"
-            className="ghost settings-button-compact"
-            disabled={busy || !configured}
-          >
-            {busy ? "处理中…" : isSignUp ? "注册" : "登录"}
-          </button>
+        <button
+          type="submit"
+          className="auth-submit"
+          disabled={busy || !configured}
+        >
+          {busy ? "处理中…" : isSignUp ? "注册" : "登录"}
+        </button>
+
+        <div className="auth-card-foot">
           <button
             type="button"
-            className="ghost settings-button-compact"
+            className="auth-link"
             disabled={busy}
             onClick={() => {
               setMode(isSignUp ? "sign-in" : "sign-up");
@@ -155,7 +153,7 @@ export function AccountAuthCard({
           {onClose ? (
             <button
               type="button"
-              className="ghost settings-button-compact"
+              className="auth-link"
               disabled={busy}
               onClick={onClose}
             >
@@ -164,6 +162,6 @@ export function AccountAuthCard({
           ) : null}
         </div>
       </form>
-    </ModalShell>
+    </div>
   );
 }
