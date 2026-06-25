@@ -2,7 +2,39 @@
 
 ## 总体方案
 
-一个监工壳（Tauri，fork 自 CodexMonitor）指挥**两个引擎黑盒**——Hermes 管 WORK、codex 管 CODE——记忆/skills/computer-use 全部**外置共享**，所有模型调用汇入 new-api 计量形成 token 差价闭环。架构与 Hermes 自身「壳+引擎分离」同形，但 codex 深集成与专属 `CODEX_HOME` 是我方已领先 Hermes 的资产。
+一个监工壳（Tauri，fork 自 CodexMonitor）指挥**两个引擎黑盒**——Hermes 管 WORK、codex 管 CODE——所有模型调用汇入 new-api 计量形成 token 差价闭环。**全部纯本地交付**（工作台/公司本地下载 + 热拔插，云端已推翻）；唯一的服务器件是 new-api 中转。codex 深集成与专属 `CODEX_HOME` 是我方已领先 Hermes 的资产。
+
+## 产品形态全景（一壳·两引擎·一闭环·四层·三档）
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ 监工壳 (Tauri, 纯本地)                                       │
+│   coding surface (=codex app)      working surface          │
+│   会写代码的人、重开发              非开发者、对话即完成        │
+│                                    ├ ① 对话模式 (类 codex)    │
+│                                    ├ ② 工作台模式 (挂1个)     │
+│                                    └ ③ 公司模式 (挂多个/Pro)  │
+└──────┬──────────────────────────────────┬──────────────────┘
+   codex app-server JSON-RPC          Hermes HTTP /v1
+   (+ 专属 CODEX_HOME)                (+ 独立 HERMES_HOME)
+       │                                  │
+       ▼ Responses→gateway→Chat           ▼ Chat (零翻译)
+       └──────────────► new-api 中转(计量/差价) ◄──┘
+                              ▼
+                       国产模型 (DeepSeek/GLM…)
+
+四层能力(粒度递增):
+  skill / mcp / acp  = 两引擎共用的原子积木(非面向用户的产品包)
+        ↓ 拼装
+  插件   = 当前对话 @xxx,复用当前引擎,资产即装(轻)
+  工作台 = 预打包本地环境(便携包),挂到对话热拔插(重,自带环境)
+  公司   = 同时挂多个工作台,Pro 专属,一人公司
+```
+
+- **引擎路由**:coding→codex(无工作台/公司概念);working→Hermes(三档模式)。称呼:对话的 AI=专家,多 agent=专家团。
+- **插件 vs 工作台铁规则**:要整套预装环境/隔离→工作台;只给当前对话加能力→插件。
+- **工作台 = 可挂载的 MCP 环境**:挂载=起便携包进程 + 给活会话动态注册 skill/MCP;拔掉=注销+杀进程;数据在用户项目文件夹(运行时无状态,拔掉不丢)。v1 官方工作台可信、**不用容器**。
+- **公司 v1**:多工作台并存 + 手动指派 + 闲时挂起(本地多容器吃内存,故 Pro);**不做**多 agent 自动协同(留后期)。
 
 ## 三层纪律（防两种反向误读）
 
@@ -114,9 +146,14 @@ Hermes Desktop(`hermes-upstream/apps/desktop/`,Electron+React+Vite,MIT)与引擎
 
 铁律:**整个 Hermes Desktop app 我方永不运行、永不分发——它只是「组件捐献者」**。绝不把它当壳跑起来(GUI 底座是 CodexMonitor/Tauri,见 decisions)。
 
-### 交付模型(形态已定=隔离镜像,落点待决)
+### 交付模型(纯本地胖安装包)
 
-codex 是单二进制;Hermes 是 git checkout + Python 3.11 + uv + Node 22 + ripgrep + ffmpeg 一整套,官方无 pip/Docker/单二进制现成产物。**长期形态已定:Hermes 当『钉死版本的隔离镜像』交付**(不可变/自包含/与主机隔离/原子升级回滚/监工掌控)。唯一开放项=镜像跑**本地 microVM vs 云沙箱**,与插件沙箱决策绑定、一起拍,倾向本地优先。完整推理与被否的打包战术(A 联网/B 胖包/D 冻结)见 `decisions.md`。不阻塞 spike(开发机裸跑即可)。
+codex 是单二进制;Hermes 是 Python 3.11 + uv + (可选 Node/ffmpeg)。产品转向**纯本地**后(云端工作台已推翻,见 decisions),交付 = **胖安装包:Tauri 壳 + codex 单二进制 + 内嵌 Python + 预构建 Hermes venv,不冻结**。Tauri 像纳管 codex 一样 spawn `hermes gateway` 子进程。
+
+- **实测体量(见 verification)**:venv 104MB + CPython ~55MB,无重物。**v1 基础包 ≈ 230-250MB**(砍 Node/ffmpeg),全功能 ~350-380MB;工作台独立下载不进主包。属轻量。
+- **不冻结**(PyInstaller/Nuitka 会破坏 Hermes 的动态 import / 插件热加载)、**不用容器**(Docker on Windows 对小白是天堑)。
+- **CI 多平台各构建一份 venv**(原生 wheel 平台相关);uvloop 在 Windows 不可用,自动降级 asyncio。
+- API server 依赖 **aiohttp**(单装,Apache-2.0),非 fastapi。
 
 ## 测试策略
 
