@@ -83,12 +83,16 @@ Codex-facing（本地网关在 credit 模式转发到这里）：
 
 ## 代理部署形态（定案）
 
-最小代理 = 现有 `gateway.py` + 一层鉴权计量，部署成**常驻服务**（Fly.io / Railway / 小 VPS）。同一份 `gateway.py` 两处部署：
+最小代理 = 独立的 **OpenAI Chat Completions 转发器**（`gateway/proxy.py`），部署成**常驻服务**（Fly.io / Railway / 小 VPS）。职责单一：校验 JWT + 查/扣 credit + 注入平台 DeepSeek key + usage 计量。
 
-- 本地（BYOK 模式）：翻译 + 用户 key，不计量。
-- 远端（credit 模式）：翻译 + 平台 key + 校验 JWT + 计量扣 credit。
+**协议边界（关键）：代理入站/出站都说 Chat Completions，不做 responses⇄chat 翻译。** 翻译只留本地网关 `gateway.py` 一份（铁律 2）。两种模式的数据流：
 
-不重写为 Supabase Edge Function：翻译层是最易碎、已验证的部分（铁律 2，不重写）；计量须看完整流，agent 长任务会撞 edge 执行时限。详见 decisions。
+- BYOK 模式：内核(Responses) → 本地网关(翻译成 Chat，用**用户 key**) → DeepSeek。不经代理、不计量。
+- credit 模式：内核(Responses) → 本地网关(翻译成 Chat，base_url 指代理、Authorization 带**用户 JWT**) → 平台代理(校验 JWT + 查余额 + 注**平台 key** + 计量扣 credit) → DeepSeek。
+
+代理与 gateway.py 仅共享小工具（日志脱敏、流式读取惯例），**不共享翻译**。这样代理与 new-api 同形态（皆 Chat Completions），以后按 `base_url + Bearer <jwt>` 接缝零改动顶替。
+
+不重写为 Supabase Edge Function：计量须看完整流（usage 在 `chunk.usage`），agent 长任务会撞 edge 执行时限。详见 decisions。
 
 ## Credit 强一致扣减（定案）
 
