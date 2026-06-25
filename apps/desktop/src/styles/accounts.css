@@ -17,7 +17,7 @@
   --br-violet: #5a4a86; /* 雾里的暗李子 */
   --br-fog: rgba(24, 16, 40, 0.26); /* 靛紫雾纱：更透 → 桌面更明显透出 */
   --br-fog-floor: rgba(12, 8, 24, 0.4);
-  --br-glass: rgba(26, 18, 44, 0.26); /* 磨砂玻璃面（更透，靠 blur 立体而非压暗） */
+  --br-glass: rgba(26, 18, 44, 0.2); /* 磨砂玻璃面（再降一档，靠 blur 立体而非压暗） */
   --br-glass-border: rgba(217, 163, 194, 0.18); /* 接光 hairline（灰玫） */
   --br-text: #ece4ee;
   --br-text-muted: #9c8aac;
@@ -129,19 +129,46 @@
   gap: 18px;
   padding: 34px 44px;
   border-radius: 18px;
+  overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 36%),
+    /* 斜向虹彩反光：一束霓虹掠过玻璃 */
+    linear-gradient(125deg, transparent 0%, rgba(240, 106, 168, 0.07) 32%, transparent 46%, rgba(147, 167, 204, 0.06) 64%, transparent 80%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 34%),
     var(--br-glass);
   border: 1px solid var(--br-glass-border);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
     0 -1px 0 rgba(0, 0, 0, 0.25) inset,
     0 40px 90px -32px rgba(0, 0, 0, 0.85),
     0 0 80px -34px var(--br-magenta-glow);
-  backdrop-filter: blur(32px) saturate(1.35);
-  -webkit-backdrop-filter: blur(32px) saturate(1.35);
+  backdrop-filter: blur(32px) saturate(1.4);
+  -webkit-backdrop-filter: blur(32px) saturate(1.4);
   /* 入场：淡入 + 轻微上浮 */
   animation: auth-card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 卡面全息质感：颗粒 + LED 网点 + 扫描线（与开屏背景同语言，弱一档） */
+.auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+  border-radius: inherit;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='nc'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23nc)' opacity='0.5'/%3E%3C/svg%3E"),
+    radial-gradient(rgba(255, 255, 255, 0.12) 0.6px, transparent 0.7px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.12) 0 1px, transparent 1px 3px);
+  background-size: 160px 160px, 3px 3px, 100% 3px;
+  mix-blend-mode: soft-light;
+}
+
+/* 表单与提示位于全息层之上 */
+.auth-card-form,
+.auth-card > .auth-card-banner {
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes auth-card-in {
@@ -208,8 +235,14 @@
   height: 46px;
   padding: 0 14px;
   border-radius: 11px;
-  border: 1px solid rgba(180, 160, 220, 0.16);
-  background: rgba(12, 8, 24, 0.45);
+  border: 1px solid rgba(180, 160, 220, 0.18);
+  /* 真半透磨砂：自带 blur，雨/全息从输入框里也透出来 */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 60%),
+    rgba(10, 6, 20, 0.28);
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
   color: var(--br-text);
   font-size: 14px;
   outline: none;
@@ -229,13 +262,18 @@
 }
 
 .auth-input:hover:not(:focus):not(:disabled) {
-  border-color: rgba(180, 160, 220, 0.28);
+  border-color: rgba(180, 160, 220, 0.32);
 }
 
 .auth-input:focus {
   border-color: var(--br-magenta);
-  background: rgba(16, 10, 30, 0.55);
-  box-shadow: 0 0 0 3px rgba(217, 106, 158, 0.2), 0 0 18px -4px var(--br-magenta-glow);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 60%),
+    rgba(16, 10, 30, 0.34);
+  box-shadow:
+    0 0 0 3px rgba(217, 106, 158, 0.2),
+    0 0 18px -4px var(--br-magenta-glow),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 
 /* 聚焦时前置图标点亮 */
