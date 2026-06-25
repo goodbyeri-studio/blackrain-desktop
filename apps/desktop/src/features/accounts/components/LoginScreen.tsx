@@ -8,11 +8,13 @@ import { useAccount } from "../context/AccountProvider";
 export function LoginScreen() {
   const account = useAccount();
   return (
-    <div className="account-login-screen" data-tauri-drag-region>
+    <div className="account-login-screen">
+      {/* 仅顶部一条拖动条生效（对齐 macOS Overlay 标题栏），其余区域不可拖 */}
+      <div className="account-login-dragbar" data-tauri-drag-region />
       <RainBackground />
       <div className="account-login-glow" aria-hidden="true" />
-      <div className="account-login-inner" data-tauri-drag-region>
-        <div className="account-login-brand" data-tauri-drag-region>
+      <div className="account-login-inner">
+        <div className="account-login-brand">
           <h1 className="account-login-title">BlackRain</h1>
           <p className="account-login-subtitle">新一代 working Agent，氛围十足</p>
         </div>

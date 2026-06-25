@@ -45,6 +45,16 @@
   --br-ice-glow: rgba(147, 167, 204, 0.34);
 }
 
+/* 仅顶部拖动条：对齐 macOS Overlay 标题栏高度，置于最上层、不挡内容点击区 */
+.account-login-dragbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  z-index: 5;
+}
+
 /* canvas 雨幕：铺满，置于雾纱之上、内容之下 */
 .account-rain {
   position: absolute;
@@ -137,11 +147,11 @@
 .account-login-subtitle {
   margin: 0;
   font-family: "Chakra Petch", var(--ui-font-family);
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   color: var(--br-magenta-soft);
-  opacity: 0.78;
+  opacity: 0.8;
 }
 
 /* —— 登录/注册卡片：半透明磨砂玻璃（透出雨与桌面） —— */
