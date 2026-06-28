@@ -16,3 +16,10 @@
 
 - 决策：先只实现 thread/delete(参数最简、clone archive),跑通 cargo check + typecheck,确认 5 层 pattern 在 bdd282f 上成立,再批量推其余。
 - 原因：先证 pattern 再放量,避免 24 个方法一次性接完才发现链路有问题要全返工。
+
+## 2026-06-28：复杂/变形参数方法用 `params: Value` 透传,简单的仍 typed
+
+- 决策:参数为「多字段 / 嵌套对象 / 双重 Option(absent vs null 有别) / 原始 JSON event」的方法(batch-3a 的 `thread/goal/set`、`thread/settings/update`、`thread/metadata/update`、`thread/approveGuardianDeniedAction`),core/命令/IPC 收一个 `params: Value`,前端构造完整 kernel params 对象、壳原样转发;参数为简单标量/字符串/bool/字符串数组(enum 在 wire 层即字符串)的方法仍逐字段 typed(同 batch-1/2)。
+- 原因:① `token_budget: Option<Option<i64>>` 用 typed `Option<i64>` 无法表达「不改(absent)vs 清空(null)」语义,naive 拼 json 会每次误清空;② `settings/update` 11 个 typed 字段含 ReasoningEffort/CollaborationMode/MultiAgentMode/Personality 等 exotic enum,5 层逐一 typed 极大且易错;③ `approveGuardianDeniedAction.event` 本就是 `JsonValue`,kernel 自己就是透传设计。
+- 这不算「发明新结构」:`send_user_message_core` 已有 `collaboration_mode: Option<Value>` / `app_mentions: Option<Vec<Value>>` 的 Value 透传先例,只是把它从「子字段」扩到「整个 params」。前端负责构造正确的部分对象(含字段是否出现)。
+- 验证手段:协议 shape 探针(`.scratch/m0_capability_probe.py`)对每个方法发真实 params,确认 kernel 不报 deny_unknown_fields,替代无头环境做不了的 GUI 冒烟。

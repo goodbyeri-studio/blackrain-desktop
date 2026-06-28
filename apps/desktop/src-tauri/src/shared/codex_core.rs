@@ -624,6 +624,178 @@ pub(crate) async fn marketplace_upgrade_core(
         .await
 }
 
+// ── Thread 高级(第 3 批 a)──
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn thread_search_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    search_term: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    archived: Option<bool>,
+    sort_key: Option<String>,
+    sort_direction: Option<String>,
+    source_kinds: Option<Vec<String>>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "searchTerm": search_term,
+        "cursor": cursor,
+        "limit": limit,
+        "archived": archived,
+        "sortKey": sort_key,
+        "sortDirection": sort_direction,
+        "sourceKinds": source_kinds,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "thread/search", params)
+        .await
+}
+
+pub(crate) async fn thread_goal_get_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "thread/goal/get", json!({ "threadId": thread_id }))
+        .await
+}
+
+pub(crate) async fn thread_goal_clear_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "thread/goal/clear", json!({ "threadId": thread_id }))
+        .await
+}
+
+pub(crate) async fn thread_memory_mode_set_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+    mode: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "threadId": thread_id, "mode": mode });
+    session
+        .send_request_for_workspace(&workspace_id, "thread/memoryMode/set", params)
+        .await
+}
+
+pub(crate) async fn memory_reset_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "memory/reset", Value::Null)
+        .await
+}
+
+pub(crate) async fn thread_unarchive_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "thread/unarchive", json!({ "threadId": thread_id }))
+        .await
+}
+
+pub(crate) async fn thread_loaded_list_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "cursor": cursor, "limit": limit });
+    session
+        .send_request_for_workspace(&workspace_id, "thread/loaded/list", params)
+        .await
+}
+
+pub(crate) async fn thread_shell_command_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+    command: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "threadId": thread_id, "command": command });
+    session
+        .send_request_for_workspace(&workspace_id, "thread/shellCommand", params)
+        .await
+}
+
+pub(crate) async fn thread_background_terminals_clean_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(
+            &workspace_id,
+            "thread/backgroundTerminals/clean",
+            json!({ "threadId": thread_id }),
+        )
+        .await
+}
+
+// 复杂/变形参数:前端构造完整 kernel params,壳原样透传(见 spec 006 decisions)
+
+pub(crate) async fn thread_goal_set_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    params: Value,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "thread/goal/set", params)
+        .await
+}
+
+pub(crate) async fn thread_settings_update_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    params: Value,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "thread/settings/update", params)
+        .await
+}
+
+pub(crate) async fn thread_metadata_update_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    params: Value,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "thread/metadata/update", params)
+        .await
+}
+
+pub(crate) async fn thread_approve_guardian_denied_action_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    params: Value,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "thread/approveGuardianDeniedAction", params)
+        .await
+}
+
 pub(crate) async fn rollback_thread_core(
     sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
     workspace_id: String,

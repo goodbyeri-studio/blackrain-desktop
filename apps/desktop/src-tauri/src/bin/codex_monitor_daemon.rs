@@ -996,6 +996,129 @@ impl DaemonState {
         codex_core::marketplace_upgrade_core(&self.sessions, workspace_id, marketplace_name).await
     }
 
+    #[allow(clippy::too_many_arguments)]
+    async fn thread_search(
+        &self,
+        workspace_id: String,
+        search_term: String,
+        cursor: Option<String>,
+        limit: Option<u32>,
+        archived: Option<bool>,
+        sort_key: Option<String>,
+        sort_direction: Option<String>,
+        source_kinds: Option<Vec<String>>,
+    ) -> Result<Value, String> {
+        codex_core::thread_search_core(
+            &self.sessions,
+            workspace_id,
+            search_term,
+            cursor,
+            limit,
+            archived,
+            sort_key,
+            sort_direction,
+            source_kinds,
+        )
+        .await
+    }
+
+    async fn thread_goal_get(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+    ) -> Result<Value, String> {
+        codex_core::thread_goal_get_core(&self.sessions, workspace_id, thread_id).await
+    }
+
+    async fn thread_goal_clear(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+    ) -> Result<Value, String> {
+        codex_core::thread_goal_clear_core(&self.sessions, workspace_id, thread_id).await
+    }
+
+    async fn thread_memory_mode_set(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        mode: String,
+    ) -> Result<Value, String> {
+        codex_core::thread_memory_mode_set_core(&self.sessions, workspace_id, thread_id, mode).await
+    }
+
+    async fn memory_reset(&self, workspace_id: String) -> Result<Value, String> {
+        codex_core::memory_reset_core(&self.sessions, workspace_id).await
+    }
+
+    async fn thread_unarchive(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+    ) -> Result<Value, String> {
+        codex_core::thread_unarchive_core(&self.sessions, workspace_id, thread_id).await
+    }
+
+    async fn thread_loaded_list(
+        &self,
+        workspace_id: String,
+        cursor: Option<String>,
+        limit: Option<u32>,
+    ) -> Result<Value, String> {
+        codex_core::thread_loaded_list_core(&self.sessions, workspace_id, cursor, limit).await
+    }
+
+    async fn thread_shell_command(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        command: String,
+    ) -> Result<Value, String> {
+        codex_core::thread_shell_command_core(&self.sessions, workspace_id, thread_id, command).await
+    }
+
+    async fn thread_background_terminals_clean(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+    ) -> Result<Value, String> {
+        codex_core::thread_background_terminals_clean_core(&self.sessions, workspace_id, thread_id)
+            .await
+    }
+
+    async fn thread_goal_set(
+        &self,
+        workspace_id: String,
+        params: Value,
+    ) -> Result<Value, String> {
+        codex_core::thread_goal_set_core(&self.sessions, workspace_id, params).await
+    }
+
+    async fn thread_settings_update(
+        &self,
+        workspace_id: String,
+        params: Value,
+    ) -> Result<Value, String> {
+        codex_core::thread_settings_update_core(&self.sessions, workspace_id, params).await
+    }
+
+    async fn thread_metadata_update(
+        &self,
+        workspace_id: String,
+        params: Value,
+    ) -> Result<Value, String> {
+        codex_core::thread_metadata_update_core(&self.sessions, workspace_id, params).await
+    }
+
+    async fn thread_approve_guardian_denied_action(
+        &self,
+        workspace_id: String,
+        params: Value,
+    ) -> Result<Value, String> {
+        codex_core::thread_approve_guardian_denied_action_core(&self.sessions, workspace_id, params)
+            .await
+    }
+
     async fn rollback_thread(
         &self,
         workspace_id: String,

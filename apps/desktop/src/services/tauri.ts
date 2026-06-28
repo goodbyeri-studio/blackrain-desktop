@@ -1433,6 +1433,120 @@ export async function marketplaceUpgrade(
   });
 }
 
+export async function threadSearch(
+  workspaceId: string,
+  searchTerm: string,
+  opts?: {
+    cursor?: string;
+    limit?: number;
+    archived?: boolean;
+    sortKey?: string;
+    sortDirection?: string;
+    sourceKinds?: string[];
+  },
+) {
+  return invoke<unknown>("thread_search", {
+    workspaceId,
+    searchTerm,
+    cursor: opts?.cursor,
+    limit: opts?.limit,
+    archived: opts?.archived,
+    sortKey: opts?.sortKey,
+    sortDirection: opts?.sortDirection,
+    sourceKinds: opts?.sourceKinds,
+  });
+}
+
+export async function threadGoalGet(workspaceId: string, threadId: string) {
+  return invoke<unknown>("thread_goal_get", { workspaceId, threadId });
+}
+
+export async function threadGoalClear(workspaceId: string, threadId: string) {
+  return invoke<unknown>("thread_goal_clear", { workspaceId, threadId });
+}
+
+export async function threadMemoryModeSet(
+  workspaceId: string,
+  threadId: string,
+  mode: string,
+) {
+  return invoke<unknown>("thread_memory_mode_set", {
+    workspaceId,
+    threadId,
+    mode,
+  });
+}
+
+export async function memoryReset(workspaceId: string) {
+  return invoke<unknown>("memory_reset", { workspaceId });
+}
+
+export async function threadUnarchive(workspaceId: string, threadId: string) {
+  return invoke<unknown>("thread_unarchive", { workspaceId, threadId });
+}
+
+export async function threadLoadedList(
+  workspaceId: string,
+  cursor?: string,
+  limit?: number,
+) {
+  return invoke<unknown>("thread_loaded_list", { workspaceId, cursor, limit });
+}
+
+export async function threadShellCommand(
+  workspaceId: string,
+  threadId: string,
+  command: string,
+) {
+  return invoke<unknown>("thread_shell_command", {
+    workspaceId,
+    threadId,
+    command,
+  });
+}
+
+export async function threadBackgroundTerminalsClean(
+  workspaceId: string,
+  threadId: string,
+) {
+  return invoke<unknown>("thread_background_terminals_clean", {
+    workspaceId,
+    threadId,
+  });
+}
+
+// 复杂/变形参数:调用方构造完整 kernel params 对象(含 threadId)
+export async function threadGoalSet(
+  workspaceId: string,
+  params: Record<string, unknown>,
+) {
+  return invoke<unknown>("thread_goal_set", { workspaceId, params });
+}
+
+export async function threadSettingsUpdate(
+  workspaceId: string,
+  params: Record<string, unknown>,
+) {
+  return invoke<unknown>("thread_settings_update", { workspaceId, params });
+}
+
+export async function threadMetadataUpdate(
+  workspaceId: string,
+  params: Record<string, unknown>,
+) {
+  return invoke<unknown>("thread_metadata_update", { workspaceId, params });
+}
+
+export async function threadApproveGuardianDeniedAction(
+  workspaceId: string,
+  params: Record<string, unknown>,
+) {
+  return invoke<unknown>("thread_approve_guardian_denied_action", {
+    workspaceId,
+    params,
+  });
+}
+
 export async function rollbackThread(
   workspaceId: string,
   threadId: string,

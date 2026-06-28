@@ -689,6 +689,190 @@ pub(crate) async fn marketplace_upgrade(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn thread_search(
+    workspace_id: String,
+    search_term: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    archived: Option<bool>,
+    sort_key: Option<String>,
+    sort_direction: Option<String>,
+    source_kinds: Option<Vec<String>>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "thread_search",
+            json!({ "workspaceId": workspace_id, "searchTerm": search_term, "cursor": cursor, "limit": limit, "archived": archived, "sortKey": sort_key, "sortDirection": sort_direction, "sourceKinds": source_kinds }),
+        )
+        .await;
+    }
+    codex_core::thread_search_core(&state.sessions, workspace_id, search_term, cursor, limit, archived, sort_key, sort_direction, source_kinds).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_goal_get(
+    workspace_id: String,
+    thread_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_goal_get", json!({ "workspaceId": workspace_id, "threadId": thread_id })).await;
+    }
+    codex_core::thread_goal_get_core(&state.sessions, workspace_id, thread_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_goal_clear(
+    workspace_id: String,
+    thread_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_goal_clear", json!({ "workspaceId": workspace_id, "threadId": thread_id })).await;
+    }
+    codex_core::thread_goal_clear_core(&state.sessions, workspace_id, thread_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_memory_mode_set(
+    workspace_id: String,
+    thread_id: String,
+    mode: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_memory_mode_set", json!({ "workspaceId": workspace_id, "threadId": thread_id, "mode": mode })).await;
+    }
+    codex_core::thread_memory_mode_set_core(&state.sessions, workspace_id, thread_id, mode).await
+}
+
+#[tauri::command]
+pub(crate) async fn memory_reset(
+    workspace_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "memory_reset", json!({ "workspaceId": workspace_id })).await;
+    }
+    codex_core::memory_reset_core(&state.sessions, workspace_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_unarchive(
+    workspace_id: String,
+    thread_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_unarchive", json!({ "workspaceId": workspace_id, "threadId": thread_id })).await;
+    }
+    codex_core::thread_unarchive_core(&state.sessions, workspace_id, thread_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_loaded_list(
+    workspace_id: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_loaded_list", json!({ "workspaceId": workspace_id, "cursor": cursor, "limit": limit })).await;
+    }
+    codex_core::thread_loaded_list_core(&state.sessions, workspace_id, cursor, limit).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_shell_command(
+    workspace_id: String,
+    thread_id: String,
+    command: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_shell_command", json!({ "workspaceId": workspace_id, "threadId": thread_id, "command": command })).await;
+    }
+    codex_core::thread_shell_command_core(&state.sessions, workspace_id, thread_id, command).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_background_terminals_clean(
+    workspace_id: String,
+    thread_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_background_terminals_clean", json!({ "workspaceId": workspace_id, "threadId": thread_id })).await;
+    }
+    codex_core::thread_background_terminals_clean_core(&state.sessions, workspace_id, thread_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_goal_set(
+    workspace_id: String,
+    params: Value,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_goal_set", json!({ "workspaceId": workspace_id, "params": params })).await;
+    }
+    codex_core::thread_goal_set_core(&state.sessions, workspace_id, params).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_settings_update(
+    workspace_id: String,
+    params: Value,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_settings_update", json!({ "workspaceId": workspace_id, "params": params })).await;
+    }
+    codex_core::thread_settings_update_core(&state.sessions, workspace_id, params).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_metadata_update(
+    workspace_id: String,
+    params: Value,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_metadata_update", json!({ "workspaceId": workspace_id, "params": params })).await;
+    }
+    codex_core::thread_metadata_update_core(&state.sessions, workspace_id, params).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_approve_guardian_denied_action(
+    workspace_id: String,
+    params: Value,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "thread_approve_guardian_denied_action", json!({ "workspaceId": workspace_id, "params": params })).await;
+    }
+    codex_core::thread_approve_guardian_denied_action_core(&state.sessions, workspace_id, params).await
+}
+
+#[tauri::command]
 pub(crate) async fn rollback_thread(
     workspace_id: String,
     thread_id: String,

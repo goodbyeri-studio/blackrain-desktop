@@ -41,6 +41,12 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 
 **剩余只待 GUI 冒烟**:协议 shape 已自证;`tauri dev` 只需验 IPC→command→daemon 粘合层 + 前端接得上(无头环境做不了的那半)。
 
+## 第 3 批 a(Thread 高级,13 方法)2026-06-28
+
+- 接入:9 typed + 4 Value-透传(thread/goal/set、settings/update、metadata/update、approveGuardianDeniedAction;见 decisions 透传决策)。
+- `cargo check` → `Finished dev in 6.93s`,零错误、13 方法零 unused 警告(全链路接通);`npm run typecheck` → 通过。
+- 协议 shape 探针:**13/13 shape OK**。12 个直接 PASS/SEMANTIC;`thread/approveGuardianDeniedAction` 初判 SHAPE-DRIFT 经复测确认为**假阳性**——探针发的占位 `event:{}` 缺内部字段(`id`/`status`),补 `id` 后报错下移到 `status`,证明 kernel 已过 `threadId`+`event` 信封层,缺的是 event **内容**(真前端回传 guardianWarning 的真实事件即有),非 wiring 漂移。
+
 > 第 1 批实测:`cd apps/desktop/src-tauri && cargo check` → `Finished dev in 5.72s`,零编译错误、新方法零 unused 警告(全链路接通);`cd apps/desktop && npm run typecheck` → 通过。新方法全部走 5 层 archive_thread pattern,协议方法名零改写。
 
 ## 内核 bump 验证(已完成)
