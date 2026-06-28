@@ -179,7 +179,7 @@ export type Translate = (key: TranslationKey, values?: TranslationValues) => str
 export type TranslateText = (source: string, values?: TranslationValues) => string;
 
 const zhCNTextTranslations: Record<string, string> = {
-  "BlackRain2049": "BlackRain2049",
+  "BlackRain": "BlackRain",
   "New conversation": "新对话",
   "Search": "搜索",
   "Plugins": "插件",
@@ -208,7 +208,7 @@ const zhCNTextTranslations: Record<string, string> = {
   "Use existing folder": "使用现有文件夹",
   "Background info window:": "背景信息窗口:",
   "{used}% used (remaining {free}%)": "{used}% 已用(剩余 {free}%)",
-  "Made with ♥ by Codex & Dimillian": "由 Codex 与 Dimillian 制作",
+  "BlackRain · based on CodexMonitor (MIT)": "BlackRain · 基于 CodexMonitor(MIT)构建",
   Debug: "调试",
   "No debug events yet.": "暂无调试事件。",
   "Resize debug panel": "调整调试面板大小",
@@ -545,7 +545,7 @@ const zhCNAdditionalTextTranslations: Record<string, string> = {
   "Codex args profile": "BlackRain 参数配置",
   "Codex issue detected": "检测到 BlackRain 问题",
   "Codex looks good": "BlackRain 状态正常",
-  "BlackRain2049 icon": "BlackRain2049 图标",
+  "BlackRain icon": "BlackRain 图标",
   "Codex update failed": "BlackRain 更新失败",
   "Codex updated": "BlackRain 已更新",
   "Collaboration mode": "协作模式",
@@ -814,7 +814,7 @@ const zhCNAdditionalTextTranslations: Record<string, string> = {
   "Model not downloaded yet.": "模型尚未下载。",
   "Model status ({model})": "模型状态（{model}）",
   "model:": "模型：",
-  "Monitor the situation of your Codex agents": "监控你的 BlackRain 智能体状态",
+  "Your AI agent for getting real work done": "替你把活干完的 AI 智能体",
   "More actions": "更多操作",
   "More...": "更多...",
   "Move {name} down": "下移 {name}",

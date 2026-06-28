@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "BlackRain2049",
+  "productName": "BlackRain",
   "version": "0.7.68",
   "identifier": "com.dimillian.codexmonitor",
   "build": {
@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "BlackRain2049",
+        "title": "BlackRain",
         "width": 1200,
         "height": 700,
         "minWidth": 360,
