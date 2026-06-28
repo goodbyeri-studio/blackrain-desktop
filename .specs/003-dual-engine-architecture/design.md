@@ -2,7 +2,11 @@
 
 ## 总体方案
 
-一个监工壳（Tauri，fork 自 CodexMonitor）指挥**两个引擎黑盒**——Hermes 管 WORK、codex 管 CODE——所有模型调用汇入 new-api 计量形成 token 差价闭环。**全部纯本地交付**（工作台/公司本地下载 + 热拔插，云端已推翻）；唯一的服务器件是 new-api 中转。codex 深集成与专属 `CODEX_HOME` 是我方已领先 Hermes 的资产。
+一个监工壳（Tauri，fork 自 CodexMonitor）指挥**两个引擎黑盒**——Hermes 管 WORK、codex 管 CODE——所有模型调用汇入 new-api 计量形成 token 差价闭环。**工作台/工作室本地交付**（本地下载 + 热拔插，云端托管方案已推翻）；但模型推理（LLM/生图/生视频）走云 API（口径=「本地=数据+编排+文件，推理走你选的云模型」）。唯一的服务器件是 new-api 中转。codex 深集成与专属 `CODEX_HOME` 是我方已领先 Hermes 的资产。
+
+> WORK 引擎(Hermes)的完整功能事实底账见 [hermes-capability-ledger.md](hermes-capability-ledger.md)(源码逐文件核查,钉 commit `a6a28ce`)。
+> CODE 引擎(codex-rs)的完整功能事实底账见 [codex-capability-ledger.md](codex-capability-ledger.md)(源码逐文件核查,钉 commit `51b3cd5`)。
+> CODE 模式的边界、复刻 codex-app 的上限、当前 BlackRain 复刻进度见 [code-mode-boundary.md](code-mode-boundary.md)(当前 `apps/desktop` 真实代码 + 官方 codex-app 调研)。
 
 ## 产品形态全景（一壳·两引擎·一闭环·四层·三档）
 
@@ -13,7 +17,7 @@
 │   会写代码的人、重开发              非开发者、对话即完成        │
 │                                    ├ ① 对话模式 (类 codex)    │
 │                                    ├ ② 工作台模式 (挂1个)     │
-│                                    └ ③ 公司模式 (挂多个/Pro)  │
+│                                    └ ③ 工作室模式 (挂多个/Pro·v1不做)│
 └──────┬──────────────────────────────────┬──────────────────┘
    codex app-server JSON-RPC          Hermes HTTP /v1
    (+ 专属 CODEX_HOME)                (+ 独立 HERMES_HOME)
@@ -23,18 +27,17 @@
                               ▼
                        国产模型 (DeepSeek/GLM…)
 
-四层能力(粒度递增):
-  skill / mcp / acp  = 两引擎共用的原子积木(非面向用户的产品包)
+能力台阶(术语定义见 docs/04-产品形态):
+  技能 / 插件 = 原子积木(技能=知识/配方,插件=一个 @ 能力)
         ↓ 拼装
-  插件   = 当前对话 @xxx,复用当前引擎,资产即装(轻)
   工作台 = 预打包本地环境(便携包),挂到对话热拔插(重,自带环境)
-  公司   = 同时挂多个工作台,Pro 专属,一人公司
+  工作室 = 同时挂多个工作台,Pro 专属,一人公司(OPC),**v1 不做实体**
 ```
 
-- **引擎路由**:coding→codex(无工作台/公司概念);working→Hermes(三档模式)。称呼:对话的 AI=专家,多 agent=专家团。
+- **引擎路由**:coding→codex(无工作台/工作室概念);working→Hermes(三档模式)。**产品形态术语(技能/插件/工作台/工作室)以 [docs/04-产品形态](../../docs/04-产品形态.md) 为唯一真源;本 spec 只讲引擎机制。**
 - **插件 vs 工作台铁规则**:要整套预装环境/隔离→工作台;只给当前对话加能力→插件。
 - **工作台 = 可挂载的 MCP 环境**:挂载=起便携包进程 + 给活会话动态注册 skill/MCP;拔掉=注销+杀进程;数据在用户项目文件夹(运行时无状态,拔掉不丢)。v1 官方工作台可信、**不用容器**。
-- **公司 v1**:多工作台并存 + 手动指派 + 闲时挂起(本地多容器吃内存,故 Pro);**不做**多 agent 自动协同(留后期)。
+- **工作室(v1 不做实体)**:多工作台并存 + 手动指派 + 闲时挂起(本地多容器吃内存,故 Pro);**不做**多 agent 自动协同(留后期)。v1 仅作 Pro 上限/定价线。
 
 ## 三层纪律（防两种反向误读）
 

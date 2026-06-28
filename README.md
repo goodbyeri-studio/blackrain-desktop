@@ -58,8 +58,8 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 | [快捷命令行](docs/commands.md) | 启动客户端、构建内核、网关、探针、GitHub Flow |
 | [01 产品愿景](docs/01-产品愿景.md) | 我们要做什么、为谁做、为什么是现在 |
 | [02 市场与竞品](docs/02-市场与竞品.md) | 竞争格局、字节 Coze 的威胁、我们的差异化 |
-| [03 系统架构](docs/03-系统架构.md) | 六层架构（含验证层）、OS 心智模型、粒度铁律、复用 Codex 哪些、自建哪些 |
-| [04 工作台与插件](docs/04-工作台与插件.md) | 核心产品概念:工作台、插件、技能的设计;粒度三层铁律、工作台成熟度路径 |
+| [03 系统架构](docs/03-系统架构.md) | 六层架构（含验证层）、复用 Codex 哪些、自建哪些 |
+| [04 产品形态](docs/04-产品形态.md) | **产品形态唯一真源**:双入口(WORK/CODE)、技能/插件/工作台/工作室四词定义及 v1 状态、带护栏的发挥、成熟度路径 |
 | [05 模型路由](docs/05-模型路由.md) | 国产模型按任务分流的策略与选型 |
 | [06 市场与创作者经济](docs/06-市场与创作者经济.md) | 应用市场、冷启动、分成、GPT Store 教训 |
 | [07 护城河与风险](docs/07-护城河与风险.md) | 四处护城河（含验证层）、三大硬风险、诚实的边界 |
@@ -71,12 +71,13 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 
 ## 当前状态
 
-- **战略与蓝图**：已完成并沉淀为文档（01-09）。架构为**六层**（内核/模型路由/能力封装/**验证层**/体验/市场），其中验证层是护城河 D（给非专家证明输出对），详见 [03 系统架构](docs/03-系统架构.md)。
-- **插件目录**：已沉淀为 [.specs/004-plugin-catalog](.specs/004-plugin-catalog/)。两层模型 = 7 浏览类 × ~34 打包单元（~28 无头开源 `[铺]` + ~6 宿主门控 `[控]`）× 数百 skill 配方；插件按「引擎/格式适配器」切、不按任务切。
-- **仓库骨架**：已就位。`apps/desktop/` 用 git subtree 导入 CodexMonitor 壳；`gateway/` `plugins/` 为待落地槽位。
-- **M0（壳↔内核打通）**：✅ 已验证。壳前端可编译、内核可编译、协议四探针（initialize / model·list / thread·start / turn·start）全绿。
-- **M1 可行性（接国产模型）**：✅ 已实测。`wire_api="chat"` 已被上游删除，必须走翻译网关；自写最小 responses⇄chat 网关已让 **DeepSeek 真正驱动内核跑通多轮工具调用**（含上游会崩的工具历史配对点）。详见 [09 运行时架构](docs/09-运行时架构与里程碑.md)。
-- **下一步**：将网关原型固化为 `gateway/` 正式组件，并推进“钉死+自带黑盒”的产品交付形态：内核、网关、默认插件与专属 `CODEX_HOME` 随 app 打包。
+- **产品形态**:已定型(2026-06-28)。双引擎 = 两个平级入口:**WORK(Hermes,办公小白)+ CODE(codex,开发者,复刻 codex-app)**。术语台阶 = 技能 → 插件 → 工作台 → 工作室。唯一真源见 [04 产品形态](docs/04-产品形态.md)。
+- **MVP 范围**:WORK 侧**只做 office 工作台**(通用办公:文档/表格/PPT/PDF);CODE 侧**复刻 codex-app**(GUI + 功能,基于 codex-rs)。漫剧及其他垂类、创作者市场(06)、插件目录全量(.specs/004,~34 单元属终局参考)均**往后放**。
+- **能力底账**:两个引擎的功能已源码逐文件核查并沉淀——[Hermes 能力底账](.specs/003-dual-engine-architecture/hermes-capability-ledger.md)、[codex 能力底账](.specs/003-dual-engine-architecture/codex-capability-ledger.md)。
+- **仓库骨架**:`apps/desktop/` 用 git subtree 导入 CodexMonitor 壳(BlackRain GUI 正在复刻 codex-app);`gateway/` `plugins/` 为待落地槽位。
+- **M0(壳↔内核打通)**:✅ 已验证。协议四探针(initialize / model·list / thread·start / turn·start)全绿。
+- **M1 可行性(接国产模型)**:✅ 已实测。`wire_api="chat"` 已被上游删除,必须走翻译网关;自写最小 responses⇄chat 网关已让 **DeepSeek 真正驱动内核跑通多轮工具调用**。详见 [09 运行时架构](docs/09-运行时架构与里程碑.md)。
+- **当前优先级**:① 治理文档(减重、明确产品形态/架构)→ ② 深度调研 codex-rs 内核 + 当前 GUI 暴露的全部功能,定 CODE 模式边界与复刻上限 → ③ 据最终产品形态给出 CODE 改法。
 
 ## 参与开发
 

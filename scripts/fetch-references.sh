@@ -8,7 +8,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 # ── openai/codex ── 我们计划 Fork 的上游内核（许可证 Apache-2.0）
-# 参考时锁定的 commit：51b3cd5（2026-06-09）。如需对齐请在克隆后自行 checkout。
+# 参考时锁定的 commit：bdd282f（2026-06-27；原 51b3cd5/2026-06-09，06-28 跟进上游）。如需对齐请在克隆后自行 checkout。
 if [ ! -d codex-upstream ]; then
   echo "→ 克隆 openai/codex 到 codex-upstream/ ..."
   git clone --depth 1 https://github.com/openai/codex.git codex-upstream

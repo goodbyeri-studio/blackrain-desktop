@@ -4,7 +4,7 @@
 
 - 这个功能为什么现在要做：选型关键期。codex-rs 内核编码强但只发 Responses 协议、且 OpenAI 不开源 app 层的 computer-use；调研发现 NousResearch 的 Hermes Agent(MIT)在「通用任务 / 记忆 / skills / 多渠道」上正是我们产品形态需要、而 codex 没有的能力。需要一次性定清「用哪个引擎、怎么接、GUI 用谁」,避免在错误底座上投入。
 - 相关上游/文档/现有实现：
-  - codex-upstream（内核黑盒，app-server JSON-RPC，钉 `51b3cd5`）
+  - codex-upstream（内核黑盒，app-server JSON-RPC，钉 `bdd282f`；原 `51b3cd5`，06-28 跟进）
   - Hermes Agent: <https://github.com/NousResearch/hermes-agent>（MIT，Python agent loop）
   - Hermes API server（OpenAI 兼容 `:8642/v1`）: <https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server>
   - Hermes Desktop（Electron+React，MIT，`apps/desktop/`）: <https://hermes-agent.nousresearch.com/docs/user-guide/desktop>
@@ -15,12 +15,12 @@
 ## 用户目标
 
 - 作为谁：①「业务专家」——不写代码、跑日常自动化任务的中国用户(working);②「插件/工作台创作者」——懂业务、要造/卖能力的人。
-- 想完成什么：业务专家在 working 三档模式(对话/工作台/公司)用国产模型办事;创作者(v1 先官方、v2 放开)造插件/工作台。coding 模式给会写代码的人,完全 codex app 一致。
+- 想完成什么：业务专家在 working 三档模式(对话/工作台/工作室)用国产模型办事;创作者(v1 先官方、v2 放开)造插件/工作台。coding 模式给会写代码的人,完全 codex app 一致。
 - 成功后看到/得到什么：同一个壳里 working/coding 双引擎各取所长,工作台本地下载热拔插即用,所有模型调用经 new-api 计量形成 token 差价闭环。
 
 ## 非目标
 
-- 本阶段明确不做：**云端工作台/容器编排(已推翻,纯本地)**;v2 才做的「市集 + 创作者上传 + 审核沙箱」;公司模式的多 agent 自动协同;远程后端(daemon)双引擎化。
+- 本阶段明确不做：**云端工作台/容器编排(已推翻,纯本地)**;v2 才做的「市集 + 创作者上传 + 审核沙箱」;工作室模式的多 agent 自动协同;远程后端(daemon)双引擎化。
 - 不改变的架构边界：codex 内核永远原装黑盒（第一铁律）；App 是唯一写配置的人、用专属 `CODEX_HOME`（第三铁律）；网关是可替换 sidecar、仅 CODE 路径（第二铁律）。
 - 不 fork Hermes 仓库进我们的构建——只把它当 `/v1` 黑盒子进程 + 借其 MIT React 组件。
 

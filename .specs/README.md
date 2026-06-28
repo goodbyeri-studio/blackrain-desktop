@@ -28,6 +28,7 @@
   002-accounts-credits/
   003-dual-engine-architecture/
   004-plugin-catalog/
+  005-gui-redesign/
 ```
 
 编号三位递增，slug 用英文小写短横线。创建时复制 `_template/`。
