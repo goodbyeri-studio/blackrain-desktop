@@ -2,7 +2,7 @@
 
 > 本文回答:CODE 模式的边界在哪、复刻 codex-app(GUI + 功能)的上限到哪、当前 BlackRain 已复刻到哪。
 > 与 [hermes-capability-ledger](hermes-capability-ledger.md)、[codex-capability-ledger](codex-capability-ledger.md) 并列,构成 CODE 侧第三份底账。
-> 依据:2026-06-28 三路源码+官方调研(当前 `apps/desktop` 真实代码 + 官方 codex-app 调研)。钉内核 `51b3cd5`。
+> 依据:2026-06-28 三路源码+官方调研(当前 `apps/desktop` 真实代码 + 官方 codex-app 调研)。分析基线内核 `51b3cd5`;**内核已于 2026-06-28 跟进到 `bdd282f`**(四探针复测全绿,新增 13 方法见 [codex-capability-ledger](codex-capability-ledger.md) 头部 bump 注记)。
 
 ## 一句话结论
 

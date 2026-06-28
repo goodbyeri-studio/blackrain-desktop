@@ -1,7 +1,8 @@
 # codex 能力底账(CODE 引擎)
 
 > 本文是 CODE 模式引擎(openai/codex 的 Rust 内核 codex-rs)的**功能事实底账**,与 [hermes-capability-ledger.md](hermes-capability-ledger.md) 并列,供双引擎能力 diff 与「CODE 模式照抄 codex 到什么颗粒度」决策用。
-> 全部结论基于**本地源码逐文件核查**,钉死上游 commit `51b3cd5`(`codex-upstream/codex-rs/`,Apache-2.0,105 crate)。升级须重核。
+> 全部结论基于**本地源码逐文件核查**,分析基线为 commit `51b3cd5`(`codex-upstream/codex-rs/`,Apache-2.0,105 crate)。
+> ⚠️ **2026-06-28 内核已跟进到 `bdd282f`**(协议四探针复测全绿)。相对分析基线**新增 13 个 ClientRequest/通知方法**(thread/delete、thread/items/list、thread/backgroundTerminals/{list,terminate}、currentTime/read、environment/info、externalAgentConfig/import/{progress,readHistories}、account/{workspaceMessages/read,rateLimitResetCredit/consume}、model/safetyBuffering/updated、thread/deleted、thread/realtime/appendSpeech),**删除/改名 1 个**(thread/turns/items/list → thread/items/list)。本底账正文仍按基线描述,新增能力见 [code-mode-boundary.md](code-mode-boundary.md) 接入缺口表;下次全量复核时并入正文。
 > 标记:✅ 默认启用 · ○ 需 opt-in / feature flag · ⚠️ 接国产模型时的坑 · 🔒 强绑 OpenAI 后端(国产化须替换/砍掉)。
 
 ## 范围与口径

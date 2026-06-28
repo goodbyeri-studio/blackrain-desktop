@@ -4,7 +4,7 @@
 
 - 这个功能为什么现在要做：选型关键期。codex-rs 内核编码强但只发 Responses 协议、且 OpenAI 不开源 app 层的 computer-use；调研发现 NousResearch 的 Hermes Agent(MIT)在「通用任务 / 记忆 / skills / 多渠道」上正是我们产品形态需要、而 codex 没有的能力。需要一次性定清「用哪个引擎、怎么接、GUI 用谁」,避免在错误底座上投入。
 - 相关上游/文档/现有实现：
-  - codex-upstream（内核黑盒，app-server JSON-RPC，钉 `51b3cd5`）
+  - codex-upstream（内核黑盒，app-server JSON-RPC，钉 `bdd282f`；原 `51b3cd5`，06-28 跟进）
   - Hermes Agent: <https://github.com/NousResearch/hermes-agent>（MIT，Python agent loop）
   - Hermes API server（OpenAI 兼容 `:8642/v1`）: <https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server>
   - Hermes Desktop（Electron+React，MIT，`apps/desktop/`）: <https://hermes-agent.nousresearch.com/docs/user-guide/desktop>

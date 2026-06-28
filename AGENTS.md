@@ -33,7 +33,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 |---|---|---|
 | `apps/desktop/` | 桌面壳，**git subtree** 自 CodexMonitor（MIT）。**住在里面、持续魔改的底盘**。 | 日常直接改 + 普通 commit。魔改只砸壳外围（Providers 面板、工作台 UI），**不动保真核心**。`git subtree pull` 是维护者动作，别随手做。 |
 | `gateway/` | responses⇄chat 翻译网关（`gateway.py`，纯 stdlib 零依赖）。**可行性验证原型，非生产代码**。 | 可替换的 sidecar 槽位。 |
-| `codex-upstream/` | codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 当黑盒用，钉死 commit `51b3cd5`。只读、不改循环。用 `scripts/fetch-references.sh` 克隆。 |
+| `codex-upstream/` | codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 当黑盒用，钉死 commit `bdd282f`（2026-06-27；2026-06-28 从 `51b3cd5` 跟进，协议四探针复测全绿）。只读、不改循环。用 `scripts/fetch-references.sh` 克隆。 |
 | `plugins/` `workbenches/` | 能力封装：放进 `CODEX_HOME` 的文件（skills/AGENTS.md/模板，纯 Markdown）。 | 还是待落地槽位。 |
 | `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。 | 只给大功能/架构功能建，随实现同步更新。 |
 
