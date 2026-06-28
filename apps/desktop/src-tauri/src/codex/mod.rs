@@ -307,6 +307,388 @@ pub(crate) async fn archive_thread(
 }
 
 #[tauri::command]
+pub(crate) async fn delete_thread(
+    workspace_id: String,
+    thread_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "delete_thread",
+            json!({ "workspaceId": workspace_id, "threadId": thread_id }),
+        )
+        .await;
+    }
+
+    codex_core::delete_thread_core(&state.sessions, workspace_id, thread_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_items_list(
+    workspace_id: String,
+    thread_id: String,
+    turn_id: Option<String>,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "thread_items_list",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "turnId": turn_id,
+                "cursor": cursor,
+                "limit": limit,
+            }),
+        )
+        .await;
+    }
+
+    codex_core::thread_items_list_core(
+        &state.sessions,
+        workspace_id,
+        thread_id,
+        turn_id,
+        cursor,
+        limit,
+    )
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_background_terminals_list(
+    workspace_id: String,
+    thread_id: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "thread_background_terminals_list",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "cursor": cursor,
+                "limit": limit,
+            }),
+        )
+        .await;
+    }
+
+    codex_core::thread_background_terminals_list_core(
+        &state.sessions,
+        workspace_id,
+        thread_id,
+        cursor,
+        limit,
+    )
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_background_terminals_terminate(
+    workspace_id: String,
+    thread_id: String,
+    process_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "thread_background_terminals_terminate",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "processId": process_id,
+            }),
+        )
+        .await;
+    }
+
+    codex_core::thread_background_terminals_terminate_core(
+        &state.sessions,
+        workspace_id,
+        thread_id,
+        process_id,
+    )
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn environment_info(
+    workspace_id: String,
+    environment_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "environment_info",
+            json!({ "workspaceId": workspace_id, "environmentId": environment_id }),
+        )
+        .await;
+    }
+
+    codex_core::environment_info_core(&state.sessions, workspace_id, environment_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn skills_config_write(
+    workspace_id: String,
+    path: Option<String>,
+    name: Option<String>,
+    enabled: bool,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "skills_config_write",
+            json!({ "workspaceId": workspace_id, "path": path, "name": name, "enabled": enabled }),
+        )
+        .await;
+    }
+    codex_core::skills_config_write_core(&state.sessions, workspace_id, path, name, enabled).await
+}
+
+#[tauri::command]
+pub(crate) async fn skills_extra_roots_set(
+    workspace_id: String,
+    extra_roots: Vec<String>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "skills_extra_roots_set",
+            json!({ "workspaceId": workspace_id, "extraRoots": extra_roots }),
+        )
+        .await;
+    }
+    codex_core::skills_extra_roots_set_core(&state.sessions, workspace_id, extra_roots).await
+}
+
+#[tauri::command]
+pub(crate) async fn hooks_list(
+    workspace_id: String,
+    cwds: Vec<String>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "hooks_list",
+            json!({ "workspaceId": workspace_id, "cwds": cwds }),
+        )
+        .await;
+    }
+    codex_core::hooks_list_core(&state.sessions, workspace_id, cwds).await
+}
+
+#[tauri::command]
+pub(crate) async fn plugin_list(
+    workspace_id: String,
+    cwds: Option<Vec<String>>,
+    marketplace_kinds: Option<Vec<String>>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "plugin_list",
+            json!({ "workspaceId": workspace_id, "cwds": cwds, "marketplaceKinds": marketplace_kinds }),
+        )
+        .await;
+    }
+    codex_core::plugin_list_core(&state.sessions, workspace_id, cwds, marketplace_kinds).await
+}
+
+#[tauri::command]
+pub(crate) async fn plugin_installed(
+    workspace_id: String,
+    cwds: Option<Vec<String>>,
+    install_suggestion_plugin_names: Option<Vec<String>>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "plugin_installed",
+            json!({ "workspaceId": workspace_id, "cwds": cwds, "installSuggestionPluginNames": install_suggestion_plugin_names }),
+        )
+        .await;
+    }
+    codex_core::plugin_installed_core(&state.sessions, workspace_id, cwds, install_suggestion_plugin_names).await
+}
+
+#[tauri::command]
+pub(crate) async fn plugin_read(
+    workspace_id: String,
+    plugin_name: String,
+    marketplace_path: Option<String>,
+    remote_marketplace_name: Option<String>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "plugin_read",
+            json!({ "workspaceId": workspace_id, "pluginName": plugin_name, "marketplacePath": marketplace_path, "remoteMarketplaceName": remote_marketplace_name }),
+        )
+        .await;
+    }
+    codex_core::plugin_read_core(&state.sessions, workspace_id, plugin_name, marketplace_path, remote_marketplace_name).await
+}
+
+#[tauri::command]
+pub(crate) async fn plugin_install(
+    workspace_id: String,
+    plugin_name: String,
+    marketplace_path: Option<String>,
+    remote_marketplace_name: Option<String>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "plugin_install",
+            json!({ "workspaceId": workspace_id, "pluginName": plugin_name, "marketplacePath": marketplace_path, "remoteMarketplaceName": remote_marketplace_name }),
+        )
+        .await;
+    }
+    codex_core::plugin_install_core(&state.sessions, workspace_id, plugin_name, marketplace_path, remote_marketplace_name).await
+}
+
+#[tauri::command]
+pub(crate) async fn plugin_uninstall(
+    workspace_id: String,
+    plugin_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "plugin_uninstall",
+            json!({ "workspaceId": workspace_id, "pluginId": plugin_id }),
+        )
+        .await;
+    }
+    codex_core::plugin_uninstall_core(&state.sessions, workspace_id, plugin_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn plugin_skill_read(
+    workspace_id: String,
+    remote_marketplace_name: String,
+    remote_plugin_id: String,
+    skill_name: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "plugin_skill_read",
+            json!({ "workspaceId": workspace_id, "remoteMarketplaceName": remote_marketplace_name, "remotePluginId": remote_plugin_id, "skillName": skill_name }),
+        )
+        .await;
+    }
+    codex_core::plugin_skill_read_core(&state.sessions, workspace_id, remote_marketplace_name, remote_plugin_id, skill_name).await
+}
+
+#[tauri::command]
+pub(crate) async fn marketplace_add(
+    workspace_id: String,
+    source: String,
+    ref_name: Option<String>,
+    sparse_paths: Option<Vec<String>>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "marketplace_add",
+            json!({ "workspaceId": workspace_id, "source": source, "refName": ref_name, "sparsePaths": sparse_paths }),
+        )
+        .await;
+    }
+    codex_core::marketplace_add_core(&state.sessions, workspace_id, source, ref_name, sparse_paths).await
+}
+
+#[tauri::command]
+pub(crate) async fn marketplace_remove(
+    workspace_id: String,
+    marketplace_name: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "marketplace_remove",
+            json!({ "workspaceId": workspace_id, "marketplaceName": marketplace_name }),
+        )
+        .await;
+    }
+    codex_core::marketplace_remove_core(&state.sessions, workspace_id, marketplace_name).await
+}
+
+#[tauri::command]
+pub(crate) async fn marketplace_upgrade(
+    workspace_id: String,
+    marketplace_name: Option<String>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "marketplace_upgrade",
+            json!({ "workspaceId": workspace_id, "marketplaceName": marketplace_name }),
+        )
+        .await;
+    }
+    codex_core::marketplace_upgrade_core(&state.sessions, workspace_id, marketplace_name).await
+}
+
+#[tauri::command]
 pub(crate) async fn rollback_thread(
     workspace_id: String,
     thread_id: String,

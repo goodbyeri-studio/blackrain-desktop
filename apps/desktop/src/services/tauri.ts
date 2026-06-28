@@ -1262,6 +1262,177 @@ export async function archiveThread(workspaceId: string, threadId: string) {
   return invoke<void>("archive_thread", { workspaceId, threadId });
 }
 
+export async function deleteThread(workspaceId: string, threadId: string) {
+  return invoke<void>("delete_thread", { workspaceId, threadId });
+}
+
+export async function threadItemsList(
+  workspaceId: string,
+  threadId: string,
+  turnId?: string,
+  cursor?: string,
+  limit?: number,
+) {
+  return invoke<unknown>("thread_items_list", {
+    workspaceId,
+    threadId,
+    turnId,
+    cursor,
+    limit,
+  });
+}
+
+export async function threadBackgroundTerminalsList(
+  workspaceId: string,
+  threadId: string,
+  cursor?: string,
+  limit?: number,
+) {
+  return invoke<unknown>("thread_background_terminals_list", {
+    workspaceId,
+    threadId,
+    cursor,
+    limit,
+  });
+}
+
+export async function threadBackgroundTerminalsTerminate(
+  workspaceId: string,
+  threadId: string,
+  processId: string,
+) {
+  return invoke<unknown>("thread_background_terminals_terminate", {
+    workspaceId,
+    threadId,
+    processId,
+  });
+}
+
+export async function environmentInfo(
+  workspaceId: string,
+  environmentId: string,
+) {
+  return invoke<unknown>("environment_info", { workspaceId, environmentId });
+}
+
+export async function skillsConfigWrite(
+  workspaceId: string,
+  enabled: boolean,
+  opts?: { path?: string; name?: string },
+) {
+  return invoke<unknown>("skills_config_write", {
+    workspaceId,
+    path: opts?.path,
+    name: opts?.name,
+    enabled,
+  });
+}
+
+export async function skillsExtraRootsSet(
+  workspaceId: string,
+  extraRoots: string[],
+) {
+  return invoke<unknown>("skills_extra_roots_set", { workspaceId, extraRoots });
+}
+
+export async function hooksList(workspaceId: string, cwds: string[]) {
+  return invoke<unknown>("hooks_list", { workspaceId, cwds });
+}
+
+export async function pluginList(
+  workspaceId: string,
+  cwds?: string[],
+  marketplaceKinds?: string[],
+) {
+  return invoke<unknown>("plugin_list", { workspaceId, cwds, marketplaceKinds });
+}
+
+export async function pluginInstalled(
+  workspaceId: string,
+  cwds?: string[],
+  installSuggestionPluginNames?: string[],
+) {
+  return invoke<unknown>("plugin_installed", {
+    workspaceId,
+    cwds,
+    installSuggestionPluginNames,
+  });
+}
+
+export async function pluginRead(
+  workspaceId: string,
+  pluginName: string,
+  opts?: { marketplacePath?: string; remoteMarketplaceName?: string },
+) {
+  return invoke<unknown>("plugin_read", {
+    workspaceId,
+    pluginName,
+    marketplacePath: opts?.marketplacePath,
+    remoteMarketplaceName: opts?.remoteMarketplaceName,
+  });
+}
+
+export async function pluginInstall(
+  workspaceId: string,
+  pluginName: string,
+  opts?: { marketplacePath?: string; remoteMarketplaceName?: string },
+) {
+  return invoke<unknown>("plugin_install", {
+    workspaceId,
+    pluginName,
+    marketplacePath: opts?.marketplacePath,
+    remoteMarketplaceName: opts?.remoteMarketplaceName,
+  });
+}
+
+export async function pluginUninstall(workspaceId: string, pluginId: string) {
+  return invoke<unknown>("plugin_uninstall", { workspaceId, pluginId });
+}
+
+export async function pluginSkillRead(
+  workspaceId: string,
+  remoteMarketplaceName: string,
+  remotePluginId: string,
+  skillName: string,
+) {
+  return invoke<unknown>("plugin_skill_read", {
+    workspaceId,
+    remoteMarketplaceName,
+    remotePluginId,
+    skillName,
+  });
+}
+
+export async function marketplaceAdd(
+  workspaceId: string,
+  source: string,
+  opts?: { refName?: string; sparsePaths?: string[] },
+) {
+  return invoke<unknown>("marketplace_add", {
+    workspaceId,
+    source,
+    refName: opts?.refName,
+    sparsePaths: opts?.sparsePaths,
+  });
+}
+
+export async function marketplaceRemove(
+  workspaceId: string,
+  marketplaceName: string,
+) {
+  return invoke<unknown>("marketplace_remove", { workspaceId, marketplaceName });
+}
+
+export async function marketplaceUpgrade(
+  workspaceId: string,
+  marketplaceName?: string,
+) {
+  return invoke<unknown>("marketplace_upgrade", {
+    workspaceId,
+    marketplaceName,
+  });
+}
+
 export async function rollbackThread(
   workspaceId: string,
   threadId: string,

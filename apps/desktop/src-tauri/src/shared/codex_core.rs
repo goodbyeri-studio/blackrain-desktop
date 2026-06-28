@@ -372,6 +372,258 @@ pub(crate) async fn archive_thread_core(
         .await
 }
 
+pub(crate) async fn delete_thread_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "threadId": thread_id });
+    session
+        .send_request_for_workspace(&workspace_id, "thread/delete", params)
+        .await
+}
+
+pub(crate) async fn thread_items_list_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+    turn_id: Option<String>,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "threadId": thread_id,
+        "turnId": turn_id,
+        "cursor": cursor,
+        "limit": limit,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "thread/items/list", params)
+        .await
+}
+
+pub(crate) async fn thread_background_terminals_list_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "threadId": thread_id,
+        "cursor": cursor,
+        "limit": limit,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "thread/backgroundTerminals/list", params)
+        .await
+}
+
+pub(crate) async fn thread_background_terminals_terminate_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+    process_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "threadId": thread_id, "processId": process_id });
+    session
+        .send_request_for_workspace(&workspace_id, "thread/backgroundTerminals/terminate", params)
+        .await
+}
+
+pub(crate) async fn environment_info_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    environment_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "environmentId": environment_id });
+    session
+        .send_request_for_workspace(&workspace_id, "environment/info", params)
+        .await
+}
+
+// ── Skills / Plugin / Marketplace 管理(第 2 批)──
+
+pub(crate) async fn skills_config_write_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    path: Option<String>,
+    name: Option<String>,
+    enabled: bool,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "path": path, "name": name, "enabled": enabled });
+    session
+        .send_request_for_workspace(&workspace_id, "skills/config/write", params)
+        .await
+}
+
+pub(crate) async fn skills_extra_roots_set_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    extra_roots: Vec<String>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "extraRoots": extra_roots });
+    session
+        .send_request_for_workspace(&workspace_id, "skills/extraRoots/set", params)
+        .await
+}
+
+pub(crate) async fn hooks_list_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    cwds: Vec<String>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "cwds": cwds });
+    session
+        .send_request_for_workspace(&workspace_id, "hooks/list", params)
+        .await
+}
+
+pub(crate) async fn plugin_list_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    cwds: Option<Vec<String>>,
+    marketplace_kinds: Option<Vec<String>>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "cwds": cwds, "marketplaceKinds": marketplace_kinds });
+    session
+        .send_request_for_workspace(&workspace_id, "plugin/list", params)
+        .await
+}
+
+pub(crate) async fn plugin_installed_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    cwds: Option<Vec<String>>,
+    install_suggestion_plugin_names: Option<Vec<String>>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "cwds": cwds,
+        "installSuggestionPluginNames": install_suggestion_plugin_names,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "plugin/installed", params)
+        .await
+}
+
+pub(crate) async fn plugin_read_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    plugin_name: String,
+    marketplace_path: Option<String>,
+    remote_marketplace_name: Option<String>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "pluginName": plugin_name,
+        "marketplacePath": marketplace_path,
+        "remoteMarketplaceName": remote_marketplace_name,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "plugin/read", params)
+        .await
+}
+
+pub(crate) async fn plugin_install_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    plugin_name: String,
+    marketplace_path: Option<String>,
+    remote_marketplace_name: Option<String>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "pluginName": plugin_name,
+        "marketplacePath": marketplace_path,
+        "remoteMarketplaceName": remote_marketplace_name,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "plugin/install", params)
+        .await
+}
+
+pub(crate) async fn plugin_uninstall_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    plugin_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "pluginId": plugin_id });
+    session
+        .send_request_for_workspace(&workspace_id, "plugin/uninstall", params)
+        .await
+}
+
+pub(crate) async fn plugin_skill_read_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    remote_marketplace_name: String,
+    remote_plugin_id: String,
+    skill_name: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "remoteMarketplaceName": remote_marketplace_name,
+        "remotePluginId": remote_plugin_id,
+        "skillName": skill_name,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "plugin/skill/read", params)
+        .await
+}
+
+pub(crate) async fn marketplace_add_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    source: String,
+    ref_name: Option<String>,
+    sparse_paths: Option<Vec<String>>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "source": source,
+        "refName": ref_name,
+        "sparsePaths": sparse_paths,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "marketplace/add", params)
+        .await
+}
+
+pub(crate) async fn marketplace_remove_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    marketplace_name: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "marketplaceName": marketplace_name });
+    session
+        .send_request_for_workspace(&workspace_id, "marketplace/remove", params)
+        .await
+}
+
+pub(crate) async fn marketplace_upgrade_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    marketplace_name: Option<String>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "marketplaceName": marketplace_name });
+    session
+        .send_request_for_workspace(&workspace_id, "marketplace/upgrade", params)
+        .await
+}
+
 pub(crate) async fn rollback_thread_core(
     sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
     workspace_id: String,

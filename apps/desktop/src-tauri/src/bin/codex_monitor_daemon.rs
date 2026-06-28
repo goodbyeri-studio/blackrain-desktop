@@ -787,6 +787,215 @@ impl DaemonState {
         codex_core::archive_thread_core(&self.sessions, workspace_id, thread_id).await
     }
 
+    async fn delete_thread(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+    ) -> Result<Value, String> {
+        codex_core::delete_thread_core(&self.sessions, workspace_id, thread_id).await
+    }
+
+    async fn thread_items_list(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        turn_id: Option<String>,
+        cursor: Option<String>,
+        limit: Option<u32>,
+    ) -> Result<Value, String> {
+        codex_core::thread_items_list_core(
+            &self.sessions,
+            workspace_id,
+            thread_id,
+            turn_id,
+            cursor,
+            limit,
+        )
+        .await
+    }
+
+    async fn thread_background_terminals_list(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        cursor: Option<String>,
+        limit: Option<u32>,
+    ) -> Result<Value, String> {
+        codex_core::thread_background_terminals_list_core(
+            &self.sessions,
+            workspace_id,
+            thread_id,
+            cursor,
+            limit,
+        )
+        .await
+    }
+
+    async fn thread_background_terminals_terminate(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        process_id: String,
+    ) -> Result<Value, String> {
+        codex_core::thread_background_terminals_terminate_core(
+            &self.sessions,
+            workspace_id,
+            thread_id,
+            process_id,
+        )
+        .await
+    }
+
+    async fn environment_info(
+        &self,
+        workspace_id: String,
+        environment_id: String,
+    ) -> Result<Value, String> {
+        codex_core::environment_info_core(&self.sessions, workspace_id, environment_id).await
+    }
+
+    async fn skills_config_write(
+        &self,
+        workspace_id: String,
+        path: Option<String>,
+        name: Option<String>,
+        enabled: bool,
+    ) -> Result<Value, String> {
+        codex_core::skills_config_write_core(&self.sessions, workspace_id, path, name, enabled).await
+    }
+
+    async fn skills_extra_roots_set(
+        &self,
+        workspace_id: String,
+        extra_roots: Vec<String>,
+    ) -> Result<Value, String> {
+        codex_core::skills_extra_roots_set_core(&self.sessions, workspace_id, extra_roots).await
+    }
+
+    async fn hooks_list(
+        &self,
+        workspace_id: String,
+        cwds: Vec<String>,
+    ) -> Result<Value, String> {
+        codex_core::hooks_list_core(&self.sessions, workspace_id, cwds).await
+    }
+
+    async fn plugin_list(
+        &self,
+        workspace_id: String,
+        cwds: Option<Vec<String>>,
+        marketplace_kinds: Option<Vec<String>>,
+    ) -> Result<Value, String> {
+        codex_core::plugin_list_core(&self.sessions, workspace_id, cwds, marketplace_kinds).await
+    }
+
+    async fn plugin_installed(
+        &self,
+        workspace_id: String,
+        cwds: Option<Vec<String>>,
+        install_suggestion_plugin_names: Option<Vec<String>>,
+    ) -> Result<Value, String> {
+        codex_core::plugin_installed_core(
+            &self.sessions,
+            workspace_id,
+            cwds,
+            install_suggestion_plugin_names,
+        )
+        .await
+    }
+
+    async fn plugin_read(
+        &self,
+        workspace_id: String,
+        plugin_name: String,
+        marketplace_path: Option<String>,
+        remote_marketplace_name: Option<String>,
+    ) -> Result<Value, String> {
+        codex_core::plugin_read_core(
+            &self.sessions,
+            workspace_id,
+            plugin_name,
+            marketplace_path,
+            remote_marketplace_name,
+        )
+        .await
+    }
+
+    async fn plugin_install(
+        &self,
+        workspace_id: String,
+        plugin_name: String,
+        marketplace_path: Option<String>,
+        remote_marketplace_name: Option<String>,
+    ) -> Result<Value, String> {
+        codex_core::plugin_install_core(
+            &self.sessions,
+            workspace_id,
+            plugin_name,
+            marketplace_path,
+            remote_marketplace_name,
+        )
+        .await
+    }
+
+    async fn plugin_uninstall(
+        &self,
+        workspace_id: String,
+        plugin_id: String,
+    ) -> Result<Value, String> {
+        codex_core::plugin_uninstall_core(&self.sessions, workspace_id, plugin_id).await
+    }
+
+    async fn plugin_skill_read(
+        &self,
+        workspace_id: String,
+        remote_marketplace_name: String,
+        remote_plugin_id: String,
+        skill_name: String,
+    ) -> Result<Value, String> {
+        codex_core::plugin_skill_read_core(
+            &self.sessions,
+            workspace_id,
+            remote_marketplace_name,
+            remote_plugin_id,
+            skill_name,
+        )
+        .await
+    }
+
+    async fn marketplace_add(
+        &self,
+        workspace_id: String,
+        source: String,
+        ref_name: Option<String>,
+        sparse_paths: Option<Vec<String>>,
+    ) -> Result<Value, String> {
+        codex_core::marketplace_add_core(
+            &self.sessions,
+            workspace_id,
+            source,
+            ref_name,
+            sparse_paths,
+        )
+        .await
+    }
+
+    async fn marketplace_remove(
+        &self,
+        workspace_id: String,
+        marketplace_name: String,
+    ) -> Result<Value, String> {
+        codex_core::marketplace_remove_core(&self.sessions, workspace_id, marketplace_name).await
+    }
+
+    async fn marketplace_upgrade(
+        &self,
+        workspace_id: String,
+        marketplace_name: Option<String>,
+    ) -> Result<Value, String> {
+        codex_core::marketplace_upgrade_core(&self.sessions, workspace_id, marketplace_name).await
+    }
+
     async fn rollback_thread(
         &self,
         workspace_id: String,
