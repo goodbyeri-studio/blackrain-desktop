@@ -873,6 +873,172 @@ pub(crate) async fn thread_approve_guardian_denied_action(
 }
 
 #[tauri::command]
+pub(crate) async fn model_provider_capabilities_read(
+    workspace_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "model_provider_capabilities_read", json!({ "workspaceId": workspace_id })).await;
+    }
+    codex_core::model_provider_capabilities_read_core(&state.sessions, workspace_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn experimental_feature_enablement_set(
+    workspace_id: String,
+    enablement: Value,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "experimental_feature_enablement_set", json!({ "workspaceId": workspace_id, "enablement": enablement })).await;
+    }
+    codex_core::experimental_feature_enablement_set_core(&state.sessions, workspace_id, enablement).await
+}
+
+#[tauri::command]
+pub(crate) async fn permission_profile_list(
+    workspace_id: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    cwd: Option<String>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "permission_profile_list", json!({ "workspaceId": workspace_id, "cursor": cursor, "limit": limit, "cwd": cwd })).await;
+    }
+    codex_core::permission_profile_list_core(&state.sessions, workspace_id, cursor, limit, cwd).await
+}
+
+#[tauri::command]
+pub(crate) async fn account_logout(
+    workspace_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "account_logout", json!({ "workspaceId": workspace_id })).await;
+    }
+    codex_core::account_logout_core(&state.sessions, workspace_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn mcp_server_oauth_login(
+    workspace_id: String,
+    name: String,
+    thread_id: Option<String>,
+    scopes: Option<Vec<String>>,
+    timeout_secs: Option<i64>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "mcp_server_oauth_login", json!({ "workspaceId": workspace_id, "name": name, "threadId": thread_id, "scopes": scopes, "timeoutSecs": timeout_secs })).await;
+    }
+    codex_core::mcp_server_oauth_login_core(&state.sessions, workspace_id, name, thread_id, scopes, timeout_secs).await
+}
+
+#[tauri::command]
+pub(crate) async fn mcp_resource_read(
+    workspace_id: String,
+    server: String,
+    uri: String,
+    thread_id: Option<String>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "mcp_resource_read", json!({ "workspaceId": workspace_id, "server": server, "uri": uri, "threadId": thread_id })).await;
+    }
+    codex_core::mcp_resource_read_core(&state.sessions, workspace_id, server, uri, thread_id).await
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn mcp_server_tool_call(
+    workspace_id: String,
+    thread_id: String,
+    server: String,
+    tool: String,
+    arguments: Option<Value>,
+    meta: Option<Value>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "mcp_server_tool_call", json!({ "workspaceId": workspace_id, "threadId": thread_id, "server": server, "tool": tool, "arguments": arguments, "meta": meta })).await;
+    }
+    codex_core::mcp_server_tool_call_core(&state.sessions, workspace_id, thread_id, server, tool, arguments, meta).await
+}
+
+#[tauri::command]
+pub(crate) async fn windows_sandbox_setup_start(
+    workspace_id: String,
+    mode: String,
+    cwd: Option<String>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "windows_sandbox_setup_start", json!({ "workspaceId": workspace_id, "mode": mode, "cwd": cwd })).await;
+    }
+    codex_core::windows_sandbox_setup_start_core(&state.sessions, workspace_id, mode, cwd).await
+}
+
+#[tauri::command]
+pub(crate) async fn windows_sandbox_readiness(
+    workspace_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "windows_sandbox_readiness", json!({ "workspaceId": workspace_id })).await;
+    }
+    codex_core::windows_sandbox_readiness_core(&state.sessions, workspace_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn external_agent_config_detect(
+    workspace_id: String,
+    include_home: bool,
+    cwds: Option<Vec<String>>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "external_agent_config_detect", json!({ "workspaceId": workspace_id, "includeHome": include_home, "cwds": cwds })).await;
+    }
+    codex_core::external_agent_config_detect_core(&state.sessions, workspace_id, include_home, cwds).await
+}
+
+#[tauri::command]
+pub(crate) async fn external_agent_config_import(
+    workspace_id: String,
+    params: Value,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "external_agent_config_import", json!({ "workspaceId": workspace_id, "params": params })).await;
+    }
+    codex_core::external_agent_config_import_core(&state.sessions, workspace_id, params).await
+}
+
+#[tauri::command]
+pub(crate) async fn external_agent_config_import_histories_read(
+    workspace_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(&*state, app, "external_agent_config_import_histories_read", json!({ "workspaceId": workspace_id })).await;
+    }
+    codex_core::external_agent_config_import_histories_read_core(&state.sessions, workspace_id).await
+}
+
+#[tauri::command]
 pub(crate) async fn rollback_thread(
     workspace_id: String,
     thread_id: String,

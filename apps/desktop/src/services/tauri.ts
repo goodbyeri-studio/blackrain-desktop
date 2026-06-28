@@ -1547,6 +1547,127 @@ export async function threadApproveGuardianDeniedAction(
   });
 }
 
+export async function modelProviderCapabilitiesRead(workspaceId: string) {
+  return invoke<unknown>("model_provider_capabilities_read", { workspaceId });
+}
+
+export async function experimentalFeatureEnablementSet(
+  workspaceId: string,
+  enablement: Record<string, boolean>,
+) {
+  return invoke<unknown>("experimental_feature_enablement_set", {
+    workspaceId,
+    enablement,
+  });
+}
+
+export async function permissionProfileList(
+  workspaceId: string,
+  opts?: { cursor?: string; limit?: number; cwd?: string },
+) {
+  return invoke<unknown>("permission_profile_list", {
+    workspaceId,
+    cursor: opts?.cursor,
+    limit: opts?.limit,
+    cwd: opts?.cwd,
+  });
+}
+
+export async function accountLogout(workspaceId: string) {
+  return invoke<unknown>("account_logout", { workspaceId });
+}
+
+export async function mcpServerOauthLogin(
+  workspaceId: string,
+  name: string,
+  opts?: { threadId?: string; scopes?: string[]; timeoutSecs?: number },
+) {
+  return invoke<unknown>("mcp_server_oauth_login", {
+    workspaceId,
+    name,
+    threadId: opts?.threadId,
+    scopes: opts?.scopes,
+    timeoutSecs: opts?.timeoutSecs,
+  });
+}
+
+export async function mcpResourceRead(
+  workspaceId: string,
+  server: string,
+  uri: string,
+  threadId?: string,
+) {
+  return invoke<unknown>("mcp_resource_read", {
+    workspaceId,
+    server,
+    uri,
+    threadId,
+  });
+}
+
+export async function mcpServerToolCall(
+  workspaceId: string,
+  threadId: string,
+  server: string,
+  tool: string,
+  opts?: { arguments?: unknown; meta?: unknown },
+) {
+  return invoke<unknown>("mcp_server_tool_call", {
+    workspaceId,
+    threadId,
+    server,
+    tool,
+    arguments: opts?.arguments,
+    meta: opts?.meta,
+  });
+}
+
+export async function windowsSandboxSetupStart(
+  workspaceId: string,
+  mode: string,
+  cwd?: string,
+) {
+  return invoke<unknown>("windows_sandbox_setup_start", {
+    workspaceId,
+    mode,
+    cwd,
+  });
+}
+
+export async function windowsSandboxReadiness(workspaceId: string) {
+  return invoke<unknown>("windows_sandbox_readiness", { workspaceId });
+}
+
+export async function externalAgentConfigDetect(
+  workspaceId: string,
+  includeHome: boolean,
+  cwds?: string[],
+) {
+  return invoke<unknown>("external_agent_config_detect", {
+    workspaceId,
+    includeHome,
+    cwds,
+  });
+}
+
+export async function externalAgentConfigImport(
+  workspaceId: string,
+  params: Record<string, unknown>,
+) {
+  return invoke<unknown>("external_agent_config_import", {
+    workspaceId,
+    params,
+  });
+}
+
+export async function externalAgentConfigImportHistoriesRead(
+  workspaceId: string,
+) {
+  return invoke<unknown>("external_agent_config_import_histories_read", {
+    workspaceId,
+  });
+}
+
 export async function rollbackThread(
   workspaceId: string,
   threadId: string,

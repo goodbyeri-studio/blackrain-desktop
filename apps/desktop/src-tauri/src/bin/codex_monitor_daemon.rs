@@ -1119,6 +1119,133 @@ impl DaemonState {
             .await
     }
 
+    async fn model_provider_capabilities_read(
+        &self,
+        workspace_id: String,
+    ) -> Result<Value, String> {
+        codex_core::model_provider_capabilities_read_core(&self.sessions, workspace_id).await
+    }
+
+    async fn experimental_feature_enablement_set(
+        &self,
+        workspace_id: String,
+        enablement: Value,
+    ) -> Result<Value, String> {
+        codex_core::experimental_feature_enablement_set_core(&self.sessions, workspace_id, enablement)
+            .await
+    }
+
+    async fn permission_profile_list(
+        &self,
+        workspace_id: String,
+        cursor: Option<String>,
+        limit: Option<u32>,
+        cwd: Option<String>,
+    ) -> Result<Value, String> {
+        codex_core::permission_profile_list_core(&self.sessions, workspace_id, cursor, limit, cwd)
+            .await
+    }
+
+    async fn account_logout(&self, workspace_id: String) -> Result<Value, String> {
+        codex_core::account_logout_core(&self.sessions, workspace_id).await
+    }
+
+    async fn mcp_server_oauth_login(
+        &self,
+        workspace_id: String,
+        name: String,
+        thread_id: Option<String>,
+        scopes: Option<Vec<String>>,
+        timeout_secs: Option<i64>,
+    ) -> Result<Value, String> {
+        codex_core::mcp_server_oauth_login_core(
+            &self.sessions,
+            workspace_id,
+            name,
+            thread_id,
+            scopes,
+            timeout_secs,
+        )
+        .await
+    }
+
+    async fn mcp_resource_read(
+        &self,
+        workspace_id: String,
+        server: String,
+        uri: String,
+        thread_id: Option<String>,
+    ) -> Result<Value, String> {
+        codex_core::mcp_resource_read_core(&self.sessions, workspace_id, server, uri, thread_id)
+            .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn mcp_server_tool_call(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        server: String,
+        tool: String,
+        arguments: Option<Value>,
+        meta: Option<Value>,
+    ) -> Result<Value, String> {
+        codex_core::mcp_server_tool_call_core(
+            &self.sessions,
+            workspace_id,
+            thread_id,
+            server,
+            tool,
+            arguments,
+            meta,
+        )
+        .await
+    }
+
+    async fn windows_sandbox_setup_start(
+        &self,
+        workspace_id: String,
+        mode: String,
+        cwd: Option<String>,
+    ) -> Result<Value, String> {
+        codex_core::windows_sandbox_setup_start_core(&self.sessions, workspace_id, mode, cwd).await
+    }
+
+    async fn windows_sandbox_readiness(&self, workspace_id: String) -> Result<Value, String> {
+        codex_core::windows_sandbox_readiness_core(&self.sessions, workspace_id).await
+    }
+
+    async fn external_agent_config_detect(
+        &self,
+        workspace_id: String,
+        include_home: bool,
+        cwds: Option<Vec<String>>,
+    ) -> Result<Value, String> {
+        codex_core::external_agent_config_detect_core(
+            &self.sessions,
+            workspace_id,
+            include_home,
+            cwds,
+        )
+        .await
+    }
+
+    async fn external_agent_config_import(
+        &self,
+        workspace_id: String,
+        params: Value,
+    ) -> Result<Value, String> {
+        codex_core::external_agent_config_import_core(&self.sessions, workspace_id, params).await
+    }
+
+    async fn external_agent_config_import_histories_read(
+        &self,
+        workspace_id: String,
+    ) -> Result<Value, String> {
+        codex_core::external_agent_config_import_histories_read_core(&self.sessions, workspace_id)
+            .await
+    }
+
     async fn rollback_thread(
         &self,
         workspace_id: String,

@@ -796,6 +796,172 @@ pub(crate) async fn thread_approve_guardian_denied_action_core(
         .await
 }
 
+// ── 模型/实验/权限/MCP深度/Windows沙箱/外部迁移(第 3 批 b)──
+
+pub(crate) async fn model_provider_capabilities_read_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "modelProvider/capabilities/read", json!({}))
+        .await
+}
+
+pub(crate) async fn experimental_feature_enablement_set_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    enablement: Value,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "enablement": enablement });
+    session
+        .send_request_for_workspace(&workspace_id, "experimentalFeature/enablement/set", params)
+        .await
+}
+
+pub(crate) async fn permission_profile_list_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    cwd: Option<String>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "cursor": cursor, "limit": limit, "cwd": cwd });
+    session
+        .send_request_for_workspace(&workspace_id, "permissionProfile/list", params)
+        .await
+}
+
+pub(crate) async fn account_logout_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "account/logout", Value::Null)
+        .await
+}
+
+pub(crate) async fn mcp_server_oauth_login_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    name: String,
+    thread_id: Option<String>,
+    scopes: Option<Vec<String>>,
+    timeout_secs: Option<i64>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "name": name,
+        "threadId": thread_id,
+        "scopes": scopes,
+        "timeoutSecs": timeout_secs,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "mcpServer/oauth/login", params)
+        .await
+}
+
+pub(crate) async fn mcp_resource_read_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    server: String,
+    uri: String,
+    thread_id: Option<String>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "threadId": thread_id, "server": server, "uri": uri });
+    session
+        .send_request_for_workspace(&workspace_id, "mcpServer/resource/read", params)
+        .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn mcp_server_tool_call_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+    server: String,
+    tool: String,
+    arguments: Option<Value>,
+    meta: Option<Value>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({
+        "threadId": thread_id,
+        "server": server,
+        "tool": tool,
+        "arguments": arguments,
+        "meta": meta,
+    });
+    session
+        .send_request_for_workspace(&workspace_id, "mcpServer/tool/call", params)
+        .await
+}
+
+pub(crate) async fn windows_sandbox_setup_start_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    mode: String,
+    cwd: Option<String>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "mode": mode, "cwd": cwd });
+    session
+        .send_request_for_workspace(&workspace_id, "windowsSandbox/setupStart", params)
+        .await
+}
+
+pub(crate) async fn windows_sandbox_readiness_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "windowsSandbox/readiness", Value::Null)
+        .await
+}
+
+pub(crate) async fn external_agent_config_detect_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    include_home: bool,
+    cwds: Option<Vec<String>>,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "includeHome": include_home, "cwds": cwds });
+    session
+        .send_request_for_workspace(&workspace_id, "externalAgentConfig/detect", params)
+        .await
+}
+
+pub(crate) async fn external_agent_config_import_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    params: Value,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(&workspace_id, "externalAgentConfig/import", params)
+        .await
+}
+
+pub(crate) async fn external_agent_config_import_histories_read_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    session
+        .send_request_for_workspace(
+            &workspace_id,
+            "externalAgentConfig/import/readHistories",
+            Value::Null,
+        )
+        .await
+}
+
 pub(crate) async fn rollback_thread_core(
     sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
     workspace_id: String,

@@ -21,11 +21,12 @@
 - [x] `thread/search`、`goal/{set,get,clear}`、`memoryMode/set`+`memory/reset`、`metadata/update`、`settings/update`、`unarchive`、`loaded/list`、`shellCommand`、`backgroundTerminals/clean`、`approveGuardianDeniedAction`
 - 13 方法全 5 层;9 typed + 4 Value-透传;cargo check 6.93s 零错误;shape 探针 13/13 OK(guardian 假阳性已复测排除)
 
-### 3b 其余(待做)
-- [ ] `modelProvider/capabilities/read`、`experimentalFeature/enablement/set`、`permissionProfile/list`、`account/logout`
-- [ ] MCP 深度:`mcpServer/oauth/login`、`mcpServer/resource/read`、`mcpServer/tool/call`
-- [ ] Windows 沙箱:`windowsSandbox/setupStart`、`windowsSandbox/readiness`
-- [ ] 外部迁移:`externalAgentConfig/detect`、`import`、`import/readHistories`、`import/progress`
+### 3b 其余 ✅ 完成 2026-06-28
+- [x] `modelProvider/capabilities/read`、`experimentalFeature/enablement/set`、`permissionProfile/list`、`account/logout`
+- [x] MCP 深度:`mcpServer/oauth/login`、`mcpServer/resource/read`、`mcpServer/tool/call`
+- [x] Windows 沙箱:`windowsSandbox/setupStart`、`windowsSandbox/readiness`
+- [x] 外部迁移:`externalAgentConfig/detect`、`import`、`import/readHistories`
+- 12 方法全 5 层(10 typed + 2 Value);cargo check 6.37s 零错误;shape 探针 12/12 OK
 
 ## 收尾
 - [ ] 用户 `tauri dev` 冒烟测试(字段级兼容 + GUI 接得上)
