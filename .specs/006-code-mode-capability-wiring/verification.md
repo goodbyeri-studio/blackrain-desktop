@@ -23,6 +23,11 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 | 1 | thread/backgroundTerminals/terminate | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
 | 1 | environment/info | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
 | 1 | thread/deleted(通知) | 免代码(泛化转发) | — | 待用户 | 2026-06-28 |
+| 2 | skills/config/write · extraRoots/set · hooks/list | ✅ 6.28s 零错误 | ✅ 通过 | 待用户 | 2026-06-28 |
+| 2 | plugin/{list,installed,read,install,uninstall,skill/read} | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
+| 2 | marketplace/{add,remove,upgrade} | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
+
+> 第 2 批实测:`cargo check` → `Finished dev in 6.28s`,零编译错误、12 方法零 unused 警告(全链路接通);`npm run typecheck` → 通过。复杂参数(Vec/Option<Vec>/bool)走现成 helper(parse_string_array / parse_optional_string_array / parse_optional_bool),AbsolutePathBuf/enum 在 wire 层降为 string,不引入 typed Rust 结构。
 
 > 第 1 批实测:`cd apps/desktop/src-tauri && cargo check` → `Finished dev in 5.72s`,零编译错误、新方法零 unused 警告(全链路接通);`cd apps/desktop && npm run typecheck` → 通过。新方法全部走 5 层 archive_thread pattern,协议方法名零改写。
 

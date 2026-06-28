@@ -206,6 +206,188 @@ pub(super) async fn try_handle(
             };
             Some(state.environment_info(workspace_id, environment_id).await)
         }
+        "skills_config_write" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let path = parse_optional_string(params, "path");
+            let name = parse_optional_string(params, "name");
+            let enabled = parse_optional_bool(params, "enabled").unwrap_or(false);
+            Some(
+                state
+                    .skills_config_write(workspace_id, path, name, enabled)
+                    .await,
+            )
+        }
+        "skills_extra_roots_set" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let extra_roots = match parse_string_array(params, "extraRoots") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.skills_extra_roots_set(workspace_id, extra_roots).await)
+        }
+        "hooks_list" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let cwds = match parse_string_array(params, "cwds") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.hooks_list(workspace_id, cwds).await)
+        }
+        "plugin_list" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let cwds = parse_optional_string_array(params, "cwds");
+            let marketplace_kinds = parse_optional_string_array(params, "marketplaceKinds");
+            Some(
+                state
+                    .plugin_list(workspace_id, cwds, marketplace_kinds)
+                    .await,
+            )
+        }
+        "plugin_installed" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let cwds = parse_optional_string_array(params, "cwds");
+            let install_suggestion_plugin_names =
+                parse_optional_string_array(params, "installSuggestionPluginNames");
+            Some(
+                state
+                    .plugin_installed(workspace_id, cwds, install_suggestion_plugin_names)
+                    .await,
+            )
+        }
+        "plugin_read" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let plugin_name = match parse_string(params, "pluginName") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let marketplace_path = parse_optional_string(params, "marketplacePath");
+            let remote_marketplace_name = parse_optional_string(params, "remoteMarketplaceName");
+            Some(
+                state
+                    .plugin_read(
+                        workspace_id,
+                        plugin_name,
+                        marketplace_path,
+                        remote_marketplace_name,
+                    )
+                    .await,
+            )
+        }
+        "plugin_install" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let plugin_name = match parse_string(params, "pluginName") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let marketplace_path = parse_optional_string(params, "marketplacePath");
+            let remote_marketplace_name = parse_optional_string(params, "remoteMarketplaceName");
+            Some(
+                state
+                    .plugin_install(
+                        workspace_id,
+                        plugin_name,
+                        marketplace_path,
+                        remote_marketplace_name,
+                    )
+                    .await,
+            )
+        }
+        "plugin_uninstall" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let plugin_id = match parse_string(params, "pluginId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.plugin_uninstall(workspace_id, plugin_id).await)
+        }
+        "plugin_skill_read" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let remote_marketplace_name = match parse_string(params, "remoteMarketplaceName") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let remote_plugin_id = match parse_string(params, "remotePluginId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let skill_name = match parse_string(params, "skillName") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(
+                state
+                    .plugin_skill_read(
+                        workspace_id,
+                        remote_marketplace_name,
+                        remote_plugin_id,
+                        skill_name,
+                    )
+                    .await,
+            )
+        }
+        "marketplace_add" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let source = match parse_string(params, "source") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let ref_name = parse_optional_string(params, "refName");
+            let sparse_paths = parse_optional_string_array(params, "sparsePaths");
+            Some(
+                state
+                    .marketplace_add(workspace_id, source, ref_name, sparse_paths)
+                    .await,
+            )
+        }
+        "marketplace_remove" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let marketplace_name = match parse_string(params, "marketplaceName") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.marketplace_remove(workspace_id, marketplace_name).await)
+        }
+        "marketplace_upgrade" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let marketplace_name = parse_optional_string(params, "marketplaceName");
+            Some(state.marketplace_upgrade(workspace_id, marketplace_name).await)
+        }
         "rollback_thread" => {
             let workspace_id = match parse_string(params, "workspaceId") {
                 Ok(value) => value,

@@ -10,10 +10,11 @@
 - [x] `thread/backgroundTerminals/terminate`(experimentalApi;带 processId)
 - [x] `environment/info`(带 environmentId)
 
-## 第 2 批:Skills/Plugin/Marketplace 管理(决策 #3 头号目标)
-- [ ] `skills/config/write`、`skills/extraRoots/set`、`hooks/list`
-- [ ] `plugin/list`、`plugin/installed`、`plugin/read`、`plugin/install`、`plugin/uninstall`、`plugin/skill/read`
-- [ ] `marketplace/add`、`marketplace/remove`、`marketplace/upgrade`
+## 第 2 批:Skills/Plugin/Marketplace 管理(决策 #3 头号目标)✅ 完成 2026-06-28
+- [x] `skills/config/write`、`skills/extraRoots/set`、`hooks/list`
+- [x] `plugin/list`、`plugin/installed`、`plugin/read`、`plugin/install`、`plugin/uninstall`、`plugin/skill/read`
+- [x] `marketplace/add`、`marketplace/remove`、`marketplace/upgrade`
+- 全 5 层接通,cargo check 6.28s 零错误、12 方法零 unused 警告;typecheck 通过
 
 ## 第 3 批:B 类其余
 - [ ] Thread 高级:`thread/search`、`goal/{set,get,clear}`、`memoryMode/set`+`memory/reset`、`metadata/update`、`settings/update`、`unarchive`、`loaded/list`、`shellCommand`、`backgroundTerminals/clean`、`approveGuardianDeniedAction`
