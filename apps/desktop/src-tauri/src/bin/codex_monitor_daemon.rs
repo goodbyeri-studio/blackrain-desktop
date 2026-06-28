@@ -787,6 +787,73 @@ impl DaemonState {
         codex_core::archive_thread_core(&self.sessions, workspace_id, thread_id).await
     }
 
+    async fn delete_thread(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+    ) -> Result<Value, String> {
+        codex_core::delete_thread_core(&self.sessions, workspace_id, thread_id).await
+    }
+
+    async fn thread_items_list(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        turn_id: Option<String>,
+        cursor: Option<String>,
+        limit: Option<u32>,
+    ) -> Result<Value, String> {
+        codex_core::thread_items_list_core(
+            &self.sessions,
+            workspace_id,
+            thread_id,
+            turn_id,
+            cursor,
+            limit,
+        )
+        .await
+    }
+
+    async fn thread_background_terminals_list(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        cursor: Option<String>,
+        limit: Option<u32>,
+    ) -> Result<Value, String> {
+        codex_core::thread_background_terminals_list_core(
+            &self.sessions,
+            workspace_id,
+            thread_id,
+            cursor,
+            limit,
+        )
+        .await
+    }
+
+    async fn thread_background_terminals_terminate(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        process_id: String,
+    ) -> Result<Value, String> {
+        codex_core::thread_background_terminals_terminate_core(
+            &self.sessions,
+            workspace_id,
+            thread_id,
+            process_id,
+        )
+        .await
+    }
+
+    async fn environment_info(
+        &self,
+        workspace_id: String,
+        environment_id: String,
+    ) -> Result<Value, String> {
+        codex_core::environment_info_core(&self.sessions, workspace_id, environment_id).await
+    }
+
     async fn rollback_thread(
         &self,
         workspace_id: String,

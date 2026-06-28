@@ -1262,6 +1262,59 @@ export async function archiveThread(workspaceId: string, threadId: string) {
   return invoke<void>("archive_thread", { workspaceId, threadId });
 }
 
+export async function deleteThread(workspaceId: string, threadId: string) {
+  return invoke<void>("delete_thread", { workspaceId, threadId });
+}
+
+export async function threadItemsList(
+  workspaceId: string,
+  threadId: string,
+  turnId?: string,
+  cursor?: string,
+  limit?: number,
+) {
+  return invoke<unknown>("thread_items_list", {
+    workspaceId,
+    threadId,
+    turnId,
+    cursor,
+    limit,
+  });
+}
+
+export async function threadBackgroundTerminalsList(
+  workspaceId: string,
+  threadId: string,
+  cursor?: string,
+  limit?: number,
+) {
+  return invoke<unknown>("thread_background_terminals_list", {
+    workspaceId,
+    threadId,
+    cursor,
+    limit,
+  });
+}
+
+export async function threadBackgroundTerminalsTerminate(
+  workspaceId: string,
+  threadId: string,
+  processId: string,
+) {
+  return invoke<unknown>("thread_background_terminals_terminate", {
+    workspaceId,
+    threadId,
+    processId,
+  });
+}
+
+export async function environmentInfo(
+  workspaceId: string,
+  environmentId: string,
+) {
+  return invoke<unknown>("environment_info", { workspaceId, environmentId });
+}
+
 export async function rollbackThread(
   workspaceId: string,
   threadId: string,

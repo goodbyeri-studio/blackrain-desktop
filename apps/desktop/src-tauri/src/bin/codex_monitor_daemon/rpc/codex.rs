@@ -130,6 +130,82 @@ pub(super) async fn try_handle(
             };
             Some(state.archive_thread(workspace_id, thread_id).await)
         }
+        "delete_thread" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.delete_thread(workspace_id, thread_id).await)
+        }
+        "thread_items_list" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let turn_id = parse_optional_string(params, "turnId");
+            let cursor = parse_optional_string(params, "cursor");
+            let limit = parse_optional_u32(params, "limit");
+            Some(
+                state
+                    .thread_items_list(workspace_id, thread_id, turn_id, cursor, limit)
+                    .await,
+            )
+        }
+        "thread_background_terminals_list" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let cursor = parse_optional_string(params, "cursor");
+            let limit = parse_optional_u32(params, "limit");
+            Some(
+                state
+                    .thread_background_terminals_list(workspace_id, thread_id, cursor, limit)
+                    .await,
+            )
+        }
+        "thread_background_terminals_terminate" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let process_id = match parse_string(params, "processId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(
+                state
+                    .thread_background_terminals_terminate(workspace_id, thread_id, process_id)
+                    .await,
+            )
+        }
+        "environment_info" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let environment_id = match parse_string(params, "environmentId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.environment_info(workspace_id, environment_id).await)
+        }
         "rollback_thread" => {
             let workspace_id = match parse_string(params, "workspaceId") {
                 Ok(value) => value,

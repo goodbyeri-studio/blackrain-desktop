@@ -307,6 +307,148 @@ pub(crate) async fn archive_thread(
 }
 
 #[tauri::command]
+pub(crate) async fn delete_thread(
+    workspace_id: String,
+    thread_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "delete_thread",
+            json!({ "workspaceId": workspace_id, "threadId": thread_id }),
+        )
+        .await;
+    }
+
+    codex_core::delete_thread_core(&state.sessions, workspace_id, thread_id).await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_items_list(
+    workspace_id: String,
+    thread_id: String,
+    turn_id: Option<String>,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "thread_items_list",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "turnId": turn_id,
+                "cursor": cursor,
+                "limit": limit,
+            }),
+        )
+        .await;
+    }
+
+    codex_core::thread_items_list_core(
+        &state.sessions,
+        workspace_id,
+        thread_id,
+        turn_id,
+        cursor,
+        limit,
+    )
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_background_terminals_list(
+    workspace_id: String,
+    thread_id: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "thread_background_terminals_list",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "cursor": cursor,
+                "limit": limit,
+            }),
+        )
+        .await;
+    }
+
+    codex_core::thread_background_terminals_list_core(
+        &state.sessions,
+        workspace_id,
+        thread_id,
+        cursor,
+        limit,
+    )
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn thread_background_terminals_terminate(
+    workspace_id: String,
+    thread_id: String,
+    process_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "thread_background_terminals_terminate",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "processId": process_id,
+            }),
+        )
+        .await;
+    }
+
+    codex_core::thread_background_terminals_terminate_core(
+        &state.sessions,
+        workspace_id,
+        thread_id,
+        process_id,
+    )
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn environment_info(
+    workspace_id: String,
+    environment_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "environment_info",
+            json!({ "workspaceId": workspace_id, "environmentId": environment_id }),
+        )
+        .await;
+    }
+
+    codex_core::environment_info_core(&state.sessions, workspace_id, environment_id).await
+}
+
+#[tauri::command]
 pub(crate) async fn rollback_thread(
     workspace_id: String,
     thread_id: String,
