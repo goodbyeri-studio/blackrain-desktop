@@ -388,6 +388,332 @@ pub(super) async fn try_handle(
             let marketplace_name = parse_optional_string(params, "marketplaceName");
             Some(state.marketplace_upgrade(workspace_id, marketplace_name).await)
         }
+        "thread_search" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let search_term = match parse_string(params, "searchTerm") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let cursor = parse_optional_string(params, "cursor");
+            let limit = parse_optional_u32(params, "limit");
+            let archived = parse_optional_bool(params, "archived");
+            let sort_key = parse_optional_string(params, "sortKey");
+            let sort_direction = parse_optional_string(params, "sortDirection");
+            let source_kinds = parse_optional_string_array(params, "sourceKinds");
+            Some(
+                state
+                    .thread_search(
+                        workspace_id,
+                        search_term,
+                        cursor,
+                        limit,
+                        archived,
+                        sort_key,
+                        sort_direction,
+                        source_kinds,
+                    )
+                    .await,
+            )
+        }
+        "thread_goal_get" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.thread_goal_get(workspace_id, thread_id).await)
+        }
+        "thread_goal_clear" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.thread_goal_clear(workspace_id, thread_id).await)
+        }
+        "thread_memory_mode_set" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let mode = match parse_string(params, "mode") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.thread_memory_mode_set(workspace_id, thread_id, mode).await)
+        }
+        "memory_reset" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.memory_reset(workspace_id).await)
+        }
+        "thread_unarchive" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.thread_unarchive(workspace_id, thread_id).await)
+        }
+        "thread_loaded_list" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let cursor = parse_optional_string(params, "cursor");
+            let limit = parse_optional_u32(params, "limit");
+            Some(state.thread_loaded_list(workspace_id, cursor, limit).await)
+        }
+        "thread_shell_command" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let command = match parse_string(params, "command") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(
+                state
+                    .thread_shell_command(workspace_id, thread_id, command)
+                    .await,
+            )
+        }
+        "thread_background_terminals_clean" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(
+                state
+                    .thread_background_terminals_clean(workspace_id, thread_id)
+                    .await,
+            )
+        }
+        "thread_goal_set" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let inner = parse_optional_value(params, "params").unwrap_or(Value::Null);
+            Some(state.thread_goal_set(workspace_id, inner).await)
+        }
+        "thread_settings_update" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let inner = parse_optional_value(params, "params").unwrap_or(Value::Null);
+            Some(state.thread_settings_update(workspace_id, inner).await)
+        }
+        "thread_metadata_update" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let inner = parse_optional_value(params, "params").unwrap_or(Value::Null);
+            Some(state.thread_metadata_update(workspace_id, inner).await)
+        }
+        "thread_approve_guardian_denied_action" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let inner = parse_optional_value(params, "params").unwrap_or(Value::Null);
+            Some(
+                state
+                    .thread_approve_guardian_denied_action(workspace_id, inner)
+                    .await,
+            )
+        }
+        "model_provider_capabilities_read" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.model_provider_capabilities_read(workspace_id).await)
+        }
+        "experimental_feature_enablement_set" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let enablement = parse_optional_value(params, "enablement").unwrap_or(Value::Null);
+            Some(
+                state
+                    .experimental_feature_enablement_set(workspace_id, enablement)
+                    .await,
+            )
+        }
+        "permission_profile_list" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let cursor = parse_optional_string(params, "cursor");
+            let limit = parse_optional_u32(params, "limit");
+            let cwd = parse_optional_string(params, "cwd");
+            Some(
+                state
+                    .permission_profile_list(workspace_id, cursor, limit, cwd)
+                    .await,
+            )
+        }
+        "account_logout" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.account_logout(workspace_id).await)
+        }
+        "mcp_server_oauth_login" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let name = match parse_string(params, "name") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = parse_optional_string(params, "threadId");
+            let scopes = parse_optional_string_array(params, "scopes");
+            let timeout_secs = params.get("timeoutSecs").and_then(Value::as_i64);
+            Some(
+                state
+                    .mcp_server_oauth_login(workspace_id, name, thread_id, scopes, timeout_secs)
+                    .await,
+            )
+        }
+        "mcp_resource_read" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let server = match parse_string(params, "server") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let uri = match parse_string(params, "uri") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = parse_optional_string(params, "threadId");
+            Some(
+                state
+                    .mcp_resource_read(workspace_id, server, uri, thread_id)
+                    .await,
+            )
+        }
+        "mcp_server_tool_call" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let server = match parse_string(params, "server") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let tool = match parse_string(params, "tool") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let arguments = parse_optional_value(params, "arguments");
+            let meta = parse_optional_value(params, "meta");
+            Some(
+                state
+                    .mcp_server_tool_call(workspace_id, thread_id, server, tool, arguments, meta)
+                    .await,
+            )
+        }
+        "windows_sandbox_setup_start" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let mode = match parse_string(params, "mode") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let cwd = parse_optional_string(params, "cwd");
+            Some(
+                state
+                    .windows_sandbox_setup_start(workspace_id, mode, cwd)
+                    .await,
+            )
+        }
+        "windows_sandbox_readiness" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(state.windows_sandbox_readiness(workspace_id).await)
+        }
+        "external_agent_config_detect" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let include_home = parse_optional_bool(params, "includeHome").unwrap_or(false);
+            let cwds = parse_optional_string_array(params, "cwds");
+            Some(
+                state
+                    .external_agent_config_detect(workspace_id, include_home, cwds)
+                    .await,
+            )
+        }
+        "external_agent_config_import" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let inner = parse_optional_value(params, "params").unwrap_or(Value::Null);
+            Some(
+                state
+                    .external_agent_config_import(workspace_id, inner)
+                    .await,
+            )
+        }
+        "external_agent_config_import_histories_read" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(
+                state
+                    .external_agent_config_import_histories_read(workspace_id)
+                    .await,
+            )
+        }
         "rollback_thread" => {
             let workspace_id = match parse_string(params, "workspaceId") {
                 Ok(value) => value,

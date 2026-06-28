@@ -41,6 +41,24 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 
 **剩余只待 GUI 冒烟**:协议 shape 已自证;`tauri dev` 只需验 IPC→command→daemon 粘合层 + 前端接得上(无头环境做不了的那半)。
 
+## 第 3 批 a(Thread 高级,13 方法)2026-06-28
+
+- 接入:9 typed + 4 Value-透传(thread/goal/set、settings/update、metadata/update、approveGuardianDeniedAction;见 decisions 透传决策)。
+- `cargo check` → `Finished dev in 6.93s`,零错误、13 方法零 unused 警告(全链路接通);`npm run typecheck` → 通过。
+- 协议 shape 探针:**13/13 shape OK**。12 个直接 PASS/SEMANTIC;`thread/approveGuardianDeniedAction` 初判 SHAPE-DRIFT 经复测确认为**假阳性**——探针发的占位 `event:{}` 缺内部字段(`id`/`status`),补 `id` 后报错下移到 `status`,证明 kernel 已过 `threadId`+`event` 信封层,缺的是 event **内容**(真前端回传 guardianWarning 的真实事件即有),非 wiring 漂移。
+
+## 第 3 批 b(模型/实验/权限/MCP深度/Windows沙箱/外部迁移,12 方法)2026-06-28
+
+- 接入:10 typed + 2 Value(`experimentalFeature/enablement/set` 的 enablement map、`externalAgentConfig/import` 的 migrationItems 嵌套)。
+- `cargo check` → `Finished dev in 6.37s`,零错误、12 方法零 unused 警告(全链路接通);`npm run typecheck` → 通过。
+- 协议 shape 探针:**12/12 shape OK,SHAPE-DRIFT = 0**。9 PASS;`mcpServer/{oauth/login,resource/read,tool/call}` 3 个 SEMANTIC("unknown MCP server 'fake'" = 过了反序列化、是语义错)。
+
+## #3 总计(batch-1 + 2 + 3a + 3b)
+
+**42 个方法全 5 层接入**,全部 `cargo check` + `npm run typecheck` 双绿、协议 shape 探针 0 真漂移。明细:batch-1=5、batch-2=12、batch-3a=13、batch-3b=12。
+- 已知非缺陷:`thread/items/list` 内核 stub("not supported yet",待 bump 点亮);`plugin/uninstall`+`skill/read`、`mcp/*` 远程目录需 OpenAI auth(本地可用)。
+- **唯一剩余 = GUI 冒烟**:协议 shape 全自证;`tauri dev` 只需验 IPC→command→daemon 粘合 + 前端接得上(无头做不了的那半)。
+
 > 第 1 批实测:`cd apps/desktop/src-tauri && cargo check` → `Finished dev in 5.72s`,零编译错误、新方法零 unused 警告(全链路接通);`cd apps/desktop && npm run typecheck` → 通过。新方法全部走 5 层 archive_thread pattern,协议方法名零改写。
 
 ## 内核 bump 验证(已完成)
