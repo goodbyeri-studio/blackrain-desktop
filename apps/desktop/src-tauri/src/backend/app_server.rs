@@ -421,8 +421,8 @@ pub(crate) struct RequestContext {
 fn build_initialize_params(client_version: &str) -> Value {
     json!({
         "clientInfo": {
-            "name": "codex_monitor",
-            "title": "Codex Monitor",
+            "name": "blackrain",
+            "title": "BlackRain",
             "version": client_version
         },
         "capabilities": {
