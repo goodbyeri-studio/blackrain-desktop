@@ -22,7 +22,7 @@
 | YYYY-MM-DD | 两引擎共读外置记忆 | spike | 未跑 | S3 |
 | YYYY-MM-DD | 跨模式端到端 | 人工 | 未跑 | S4 过关判据 |
 | YYYY-MM-DD | MCP 热拔插(中途新挂/拔整个 server) | spike | 未跑 | S5,热拔插模型承重假设 |
-| YYYY-MM-DD | Windows 全栈打包/运行 | spike | 未跑 | 受众大头,Mac 已验、Win 未验 |
+| 2026-06-30 | Windows 全栈打包/运行 | 已收敛到 [.specs/007](../007-windows-client/) | **收敛**(MVP 仅 Windows,macOS 推迟 post-MVP) | 详细 Windows 验证矩阵移到 `.specs/007`;本 spec 不再追踪 |
 | 2026-06-25 | Hermes 遥测/数据飞轮 | 读 `agent/trajectory.py` + 仓库搜遥测关键词 | 通过 | trajectory 纯本地落盘无外传;无内建遥测框架;cua 遥测默认关 |
 | 2026-06-25 | Hermes 依赖许可证 | 读 `pyproject.toml` + PyPI license 字段 | 通过 | 核心全宽松系;LGPL 仅在可选 extra(不装即规避) |
 | 2026-06-25 | Hermes 进程/纳管模型 | 读官方 docs(api-server/profiles/installation) | 通过 | `hermes gateway`+`API_SERVER_ENABLED`;`HERMES_HOME`=CODEX_HOME 孪生;8642/Bearer/`/health` |
@@ -45,7 +45,7 @@
 - `hindsight-client` 包 PyPI **无 license 声明**——纳入闭源分发前必须人工核实,或排除该 extra。
 - Nous Portal ToS 训练/留存条款——默认不接 Portal、只用客户自己 key 则消失。
 - **MCP 热拔插**:对话中途**新挂/拔掉整个 MCP server** 仍需 spike 实测(S5)——工具级动态发现已确认,整 server 增删未测。这是工作台热拔插模型的承重假设。
-- **Windows 全栈**:Mac 已验,Windows(受众大头)的打包/运行未验;uvloop 在 Win 不可用(自动降级,需确认无副作用)。
+- **Windows 全栈**:已收敛(2026-06-30 决策:MVP 仅 Windows,macOS 推迟 post-MVP),详细验证矩阵见 [.specs/007 verification](../007-windows-client/verification.md);本 spec 不再单独追踪 Windows 风险。uvloop 在 Win 不可用的降级行为待 Hermes 集成阶段实测。
 - **CODE 引擎(S2)**:codex app-server + 专属 CODEX_HOME 本轮未跑(沿用既有链路,待 spike 复验)。
 - **new-api 单点**:本轮 MVP **不在架构考虑范围**(2026-06-29:信任自家 new-api 稳定性)。HA/容灾待真实流量规模后评估,非 MVP 阻塞。
 - 危险工具(execute_code 等)需走 `/v1/runs` 审批通道,无状态 `/v1/chat/completions` 会被审批门拦——这是 S4 跨模式真干活要解决的。

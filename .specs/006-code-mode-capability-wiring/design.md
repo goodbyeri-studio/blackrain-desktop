@@ -33,7 +33,7 @@
 - Thread 高级:`thread/search`、`thread/goal/{set,get,clear}`、`thread/memoryMode/set`+`memory/reset`、`thread/metadata/update`、`thread/settings/update`、`thread/unarchive`、`thread/loaded/list`、`thread/shellCommand`、`thread/backgroundTerminals/clean`、`thread/approveGuardianDeniedAction`
 - `modelProvider/capabilities/read`、`experimentalFeature/enablement/set`、`permissionProfile/list`、`account/logout`
 - MCP 深度:`mcpServer/{oauth/login,resource/read,tool/call}`
-- Windows 沙箱:`windowsSandbox/{setupStart,readiness}`(首发 Windows 必接)
+- Windows 沙箱:`windowsSandbox/{setupStart,readiness}`(MVP 仅 Windows,必接)
 - 外部迁移:`externalAgentConfig/{detect,import,import/readHistories,import/progress}`
 
 ## 架构边界

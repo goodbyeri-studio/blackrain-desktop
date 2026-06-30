@@ -56,7 +56,8 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 | [003 dual-engine-architecture](.specs/003-dual-engine-architecture/) | 定稿双引擎（WORK/CODE）选型与接法；**CODE 模式边界的真源** | [code-mode-boundary.md](.specs/003-dual-engine-architecture/code-mode-boundary.md)、[codex-capability-ledger.md](.specs/003-dual-engine-architecture/codex-capability-ledger.md)、[hermes-capability-ledger.md](.specs/003-dual-engine-architecture/hermes-capability-ledger.md) |
 | [004 plugin-catalog](.specs/004-plugin-catalog/) | 插件目录两层模型、~34 打包单元（终局参考，MVP 不全做） | — |
 | [005 gui-redesign](.specs/005-gui-redesign/) | 以 Codex app 为视觉范本，把 BlackRain GUI 对齐到商业级（token 表 + 逐界面清单） | — |
-| [006 code-mode-capability-wiring](.specs/006-code-mode-capability-wiring/) | **当前优先级**：把 codex-rs「可用」能力全量接入并暴露到壳，为 GUI 像素级复刻铺路 | [capability-gui-mapping.md](.specs/006-code-mode-capability-wiring/capability-gui-mapping.md) |
+| [006 code-mode-capability-wiring](.specs/006-code-mode-capability-wiring/) | 把 codex-rs「可用」能力全量接入并暴露到壳，为 GUI 像素级复刻铺路 | [capability-gui-mapping.md](.specs/006-code-mode-capability-wiring/capability-gui-mapping.md) |
+| [007 windows-client](.specs/007-windows-client/) | **当前优先级**:MVP 仅 Windows(macOS 推迟 post-MVP),dev-client.ps1 + NSIS 打包 + Windows 验证矩阵 | — |
 
 ## 文档治理
 
@@ -92,34 +93,63 @@ AGPL/GPL 有传染性，进了产品会要求整个 SaaS 开源，摧毁商业�
 
 ## 常用命令
 
-### 启动本地客户端（最常用）
-```bash
-./scripts/dev-client.sh                          # 一键：加载 .env → 内核入 PATH → 准备 CODEX_HOME → 起网关 → tauri dev
-DEV_MODEL=deepseek-v4-pro ./scripts/dev-client.sh # 指定模型（默认 deepseek-v4-flash）
-```
-前提：① `cp .env.example .env` 填 `DEEPSEEK_API_KEY`；② 内核已编译；③ `cd apps/desktop && npm install`。
-⚠️ `tauri dev` 会开 GUI 窗口，须在有显示器的本机跑（非 SSH/无头）。Ctrl-C 退出会自动停网关。
+> **平台(2026-06-30 决策)**:MVP 仅发行 Windows;macOS 推迟 post-MVP(代码保留作历史资产,不在 CI 跑、不在用户文档列、不主动验证)。下方命令以 Windows 为主;macOS 段标 post-MVP 参考,知道当前不交付。
 
-### 内核构建（首次约 12 分钟，之后增量很快）
+### 启动本地客户端(最常用,Windows)
+
+```powershell
+pwsh scripts/dev-client.ps1                       # 一键:加载 .env → 内核入 PATH → 准备 CODEX_HOME → 起网关 → tauri dev:win
+$env:DEV_MODEL = "deepseek-v4-pro"; pwsh scripts/dev-client.ps1  # 指定模型(默认 deepseek-v4-flash)
+```
+前提:① `cp .env.example .env` 并填 `DEEPSEEK_API_KEY`;② 内核已编译(见下方「内核构建」Windows 段);③ `cd apps\desktop ; npm install`;④ 装好 cmake + LLVM(`winget install Kitware.CMake LLVM.LLVM` 或 `choco install cmake llvm`)。
+⚠️ `tauri dev:win` 会开 GUI 窗口,须在有显示器的本机跑(非 SSH/无头)。Ctrl-C 退出会自动停网关。
+
+### 启动本地客户端(macOS / Linux,post-MVP 参考,当前不交付)
+
+```bash
+./scripts/dev-client.sh                           # 一键:加载 .env → 内核入 PATH → 准备 CODEX_HOME → 起网关 → tauri dev
+DEV_MODEL=deepseek-v4-pro ./scripts/dev-client.sh # 指定模型(默认 deepseek-v4-flash)
+```
+保留作历史资产;MVP 不主动验证;post-MVP 决定复活时再激活。
+
+### 内核构建(首次约 12 分钟,之后增量很快,Windows)
+
+```powershell
+cd codex-upstream\codex-rs
+$env:CARGO_NET_GIT_FETCH_WITH_CLI = "true"        # libgit2 SSL 握手必踩
+cargo build -p codex-cli --bin codex             # → target\debug\codex.exe
+cargo build -p codex-app-server
+```
+常见坑:① `winget install Kitware.CMake LLVM.LLVM`(whisper-rs 同时需 cmake 和 clang/LLVM,doctor.mjs 会预检);② 缺 `LIBCLANG_PATH` 时手动 `$env:LIBCLANG_PATH = "C:\Program Files\LLVM\bin"`;③ **whisper-rs 0.12 + LLVM 22 已绕过**(Cargo.toml 把它守卫成「非 Windows」,Windows dictation 走 stub),详见 [.specs/007 verification](.specs/007-windows-client/verification.md)。
+
+### 内核构建(macOS / Linux,post-MVP 参考)
+
 ```bash
 cd codex-upstream/codex-rs
 cargo build -p codex-cli --bin codex             # 壳需要的二进制 → target/debug/codex
 cargo build -p codex-app-server                  # 仅协议调试用的精简二进制
 ```
-两个常见坑：`export CARGO_NET_GIT_FETCH_WITH_CLI=true`（内置 libgit2 拉依赖会 SSL 握手失败，dev-client.sh 已内置）；`brew install cmake`（whisper-rs 语音输入构建需要）。
+常见坑:① `export CARGO_NET_GIT_FETCH_WITH_CLI=true`(dev-client.sh 已内置);② `brew install cmake`(whisper-rs 语音输入构建需要)。
 
-### 前端壳开发与验证（在 `apps/desktop/`）
+### 前端壳开发与验证(在 `apps/desktop/`,跨平台共享)
 ```bash
-npm run typecheck                                # 始终先跑（= tsc --noEmit）
-npm run test                                     # vitest，改前端行为/状态/hooks/组件后跑
+npm run typecheck                                # 始终先跑(= tsc --noEmit),跨平台
+npm run test                                     # vitest,改前端行为/状态/hooks/组件后跑
 npm run test -- <path-to-test-file>              # 单测试文件
 npm run lint                                     # eslint . --ext .ts,.tsx
-npm run lint:ds                                  # 同 lint（DS 守卫规则在 eslint 配置里）；碰共享 chrome/弹层后跑
-npm run codemod:ds:dry                            # 干跑预览 DS 收敛改写（modal/panel/toast → 共享 shell）；去掉 :dry 实跑
-npm run doctor:strict                            # 单独跑环境自检（macOS/Linux），不起 GUI
-cd src-tauri && cargo check                      # 改 Rust 后端后跑
-npm run tauri:dev                                # 含 doctor:strict 环境自检的完整启动
-npm run tauri:dev:win                            # Windows 变体（用 doctor:win + windows.conf.json）
+npm run lint:ds                                  # 同 lint(DS 守卫规则在 eslint 配置里);碰共享 chrome/弹层后跑
+npm run codemod:ds:dry                            # 干跑预览 DS 收敛改写(modal/panel/toast → 共享 shell);去掉 :dry 实跑
+cd src-tauri && cargo check                      # 改 Rust 后端后跑,跨平台
+
+# Windows(MVP 主线)
+npm run doctor:win                               # Windows 环境自检(Node + choco/winget)
+npm run tauri:dev:win                            # Windows 完整启动(含 doctor:win + windows.conf.json)
+npm run tauri:build:win                          # Windows 打包(NSIS .exe,见 .specs/007)
+
+# macOS / Linux(post-MVP 参考,当前不交付)
+npm run doctor:strict                            # macOS/Linux 环境自检(bash + brew/apt)
+npm run tauri:dev                                # macOS/Linux 完整启动(含 doctor:strict)
+npm run tauri:build                              # macOS/Linux 打包(dmg/app/AppImage)
 ```
 
 ### 模型网关（单独起，调试用）
