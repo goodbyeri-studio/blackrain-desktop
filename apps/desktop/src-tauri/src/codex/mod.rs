@@ -2,7 +2,7 @@ use serde_json::{json, Map, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 pub(crate) mod args;
 pub(crate) mod config;
@@ -17,6 +17,34 @@ use crate::shared::agents_config_core;
 use crate::shared::codex_core::{self, insert_optional_nullable_string};
 use crate::state::AppState;
 use crate::types::WorkspaceEntry;
+
+const WINDOWS_CODEX_RESOURCE: &str = "codex/windows-x64/codex.exe";
+
+fn bundled_codex_bin(app: &AppHandle) -> Option<PathBuf> {
+    if !cfg!(target_os = "windows") {
+        return None;
+    }
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let candidate = resource_dir.join(WINDOWS_CODEX_RESOURCE);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("resources")
+        .join(WINDOWS_CODEX_RESOURCE);
+    candidate.is_file().then_some(candidate)
+}
+
+fn resolve_default_codex_bin(codex_bin: Option<String>, app: &AppHandle) -> Option<String> {
+    if codex_bin
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        return codex_bin;
+    }
+    bundled_codex_bin(app).map(|path| path.to_string_lossy().to_string())
+}
 
 fn emit_thread_live_event(app: &AppHandle, workspace_id: &str, method: &str, params: Value) {
     let _ = app.emit(
@@ -41,6 +69,7 @@ pub(crate) async fn spawn_workspace_session(
     let office_runtime = crate::office::configure_runtime_environment(&app_handle)
         .await
         .ok();
+    let default_codex_bin = resolve_default_codex_bin(default_codex_bin, &app_handle);
     crate::office::sync_builtin_assets_to_codex_home(&app_handle, codex_home.as_deref())?;
     let officecli_dir = office_runtime
         .as_ref()
@@ -67,8 +96,10 @@ pub(crate) async fn spawn_workspace_session(
 pub(crate) async fn codex_doctor(
     codex_bin: Option<String>,
     codex_args: Option<String>,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Value, String> {
+    let codex_bin = resolve_default_codex_bin(codex_bin, &app);
     crate::shared::codex_aux_core::codex_doctor_core(&state.app_settings, codex_bin, codex_args)
         .await
 }

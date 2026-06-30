@@ -12,6 +12,7 @@ dist/
 
 # 密钥（绝不入库）
 .env
+.env.*.local
 *.key
 **/secrets.*
 

@@ -26,6 +26,7 @@ use crate::types::{
 const DEFAULT_GATEWAY_TOKEN: &str = "local-app-gateway";
 const GATEWAY_SCRIPT_ENV: &str = "BLACKRAIN_GATEWAY_SCRIPT";
 const GATEWAY_PYTHON_ENV: &str = "BLACKRAIN_GATEWAY_PYTHON";
+const WINDOWS_PYTHON_RESOURCE: &str = "python/windows-x64/python.exe";
 
 // credit 模式平台代理地址（M-A2 已部署）。可用 env 覆盖（迁 new-api 时改一处）。
 const DEFAULT_CREDIT_PROXY_URL: &str = "https://proxy.goodbyeri.cc/v1";
@@ -223,11 +224,28 @@ fn resolve_gateway_script(app: &AppHandle) -> Result<PathBuf, String> {
     ))
 }
 
-fn gateway_python() -> String {
+fn bundled_gateway_python(app: &AppHandle) -> Option<PathBuf> {
+    if !cfg!(target_os = "windows") {
+        return None;
+    }
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let candidate = resource_dir.join(WINDOWS_PYTHON_RESOURCE);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("resources")
+        .join(WINDOWS_PYTHON_RESOURCE);
+    candidate.is_file().then_some(candidate)
+}
+
+fn gateway_python(app: &AppHandle) -> String {
     std::env::var(GATEWAY_PYTHON_ENV)
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
+        .or_else(|| bundled_gateway_python(app).map(|path| path.to_string_lossy().to_string()))
         .unwrap_or_else(|| {
             if cfg!(target_os = "windows") {
                 "python".to_string()
@@ -401,13 +419,15 @@ async fn start_model_gateway_runtime(
         stop_runtime_child(&mut runtime).await;
     }
 
-    let mut command = tokio_command(gateway_python());
+    let mut command = tokio_command(gateway_python(app));
     command
         .arg(&script)
         .env("GW_PORT", settings.port.to_string())
         .env("GW_LOG", &log_path)
         .env("BLACKRAIN_MODEL_GATEWAY_PROVIDERS", registry_json)
         .env("BLACKRAIN_GATEWAY_API_KEY", &gateway_token)
+        .env("PYTHONDONTWRITEBYTECODE", "1")
+        .env("PYTHONUTF8", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
