@@ -1,6 +1,6 @@
 # gateway —— 模型路由 / Responses⇄Chat 翻译层
 
-架构文档 [03](../docs/03-系统架构.md) 第 ② 层、[05 模型路由](../docs/05-模型路由.md)。把国产模型统一抽象成 OpenAI 兼容客户端，按任务路由；并解决 codex 默认走 Responses、而国产模型多是 Chat Completions 的协议落差。
+架构文档 [03](../docs/03-系统架构.md) 第 ② 层、[05 模型路由](../docs/05-模型路由.md)。把国产模型统一抽象成 OpenAI 兼容客户端,**用户在模型广场手动选 provider**;并解决 codex 默认走 Responses、而国产模型多是 Chat Completions 的协议落差。
 
 ## 关键约束（接国产模型的命门）
 
