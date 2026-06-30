@@ -32,10 +32,10 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 | 目录 | 是什么 | 纪律 |
 |---|---|---|
 | `apps/desktop/` | 桌面壳，**git subtree** 自 CodexMonitor（MIT）。**住在里面、持续魔改的底盘**。 | 日常直接改 + 普通 commit。魔改只砸壳外围（Providers 面板、工作台 UI），**不动保真核心**。`git subtree pull` 是维护者动作，别随手做。 |
-| `gateway/` | responses⇄chat 翻译网关（`gateway.py`，纯 stdlib 零依赖）。**可行性验证原型，非生产代码**。 | 可替换的 sidecar 槽位。 |
-| `codex-upstream/` | codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 当黑盒用，钉死 commit `bdd282f`（2026-06-27；2026-06-28 从 `51b3cd5` 跟进，协议四探针复测全绿）。只读、不改循环。用 `scripts/fetch-references.sh` 克隆。 |
-| `plugins/` `workbenches/` | 能力封装：放进 `CODEX_HOME` 的文件（skills/AGENTS.md/模板，纯 Markdown）。 | 还是待落地槽位。 |
-| `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。 | 只给大功能/架构功能建，随实现同步更新。 |
+| `gateway/` | responses⇄chat 翻译网关（`gateway.py`，纯 stdlib 零依赖）。**可行性验证原型，非生产代码**；边界与命门约束见 [gateway/README.md](gateway/README.md)。 | 可替换的 sidecar 槽位。 |
+| `codex-upstream/` | codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 当黑盒用，钉死 commit `cfead68`（2026-06-29；历经 `51b3cd5` → `bdd282f` → `cfead68`，2026-06-30 跟进上游，协议四探针 + 17 方法能力探针复测全绿）。只读、不改循环。用 `scripts/fetch-references.sh` 克隆。 |
+| `plugins/` `workbenches/` | 能力封装：放进 `CODEX_HOME` 的文件（skills/AGENTS.md/模板/工作台内容，纯 Markdown 零编译）。各自的产品概念→技术落地映射见 [plugins/README.md](plugins/README.md)、[workbenches/README.md](workbenches/README.md)。 | 还是待落地槽位（README 已定边界，内容待填）。 |
+| `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–006（见下「Living Spec 纪律」索引）。 | 只给大功能/架构功能建，随实现同步更新。 |
 
 仓库托管在 `goodbyeri-studio/BlackRain`（私有）。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
 
@@ -46,6 +46,17 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 - 更新规则：代码、配置、脚本或 UI 改变了功能行为，就在同一个 PR 更新对应 spec；验证命令和真实结果写进 `verification.md`，关键取舍写进 `decisions.md`。
 - 不滥用：文案、样式、小 bug、局部重构、只补测试，可以不建 spec；已有 spec 覆盖时只更新对应任务和验证。
 - 冲突处理：总体战略以 `README.md` 与 `docs/01`~`docs/09` 为准；单功能执行以对应 spec 为准。若冲突，不要静默选择一边，必须修正文档或在 `decisions.md` 标明待决。
+
+**现有 spec 索引（动 `apps/desktop/**` 或运行时边界前，先查相关 spec）：**
+
+| spec | 覆盖 | 关键附加文档 |
+|---|---|---|
+| [001 providers-model-gateway](.specs/001-providers-model-gateway/) | M1 主线：模型网关设置页、专属 `CODEX_HOME` 写入、Gateway sidecar、对话模型选择器 | — |
+| [002 accounts-credits](.specs/002-accounts-credits/) | M-A 主线：账号体系、Free/Plus/Pro 三档、credit 计量、服务端代理、BYOK 锁 Plus | — |
+| [003 dual-engine-architecture](.specs/003-dual-engine-architecture/) | 定稿双引擎（WORK/CODE）选型与接法；**CODE 模式边界的真源** | [code-mode-boundary.md](.specs/003-dual-engine-architecture/code-mode-boundary.md)、[codex-capability-ledger.md](.specs/003-dual-engine-architecture/codex-capability-ledger.md)、[hermes-capability-ledger.md](.specs/003-dual-engine-architecture/hermes-capability-ledger.md) |
+| [004 plugin-catalog](.specs/004-plugin-catalog/) | 插件目录两层模型、~34 打包单元（终局参考，MVP 不全做） | — |
+| [005 gui-redesign](.specs/005-gui-redesign/) | 以 Codex app 为视觉范本，把 BlackRain GUI 对齐到商业级（token 表 + 逐界面清单） | — |
+| [006 code-mode-capability-wiring](.specs/006-code-mode-capability-wiring/) | **当前优先级**：把 codex-rs「可用」能力全量接入并暴露到壳，为 GUI 像素级复刻铺路 | [capability-gui-mapping.md](.specs/006-code-mode-capability-wiring/capability-gui-mapping.md) |
 
 ## 文档治理
 
@@ -67,6 +78,8 @@ src-tauri/
 ```
 
 **铁律：领域逻辑先落 `src/shared/*`，App 与 Daemon 都只做薄适配器，禁止两边复制。** 加一个后端命令要按链路全改：`shared/*`（跨运行时核心）→ `lib.rs`（App 命令面）→ `src/services/tauri.ts`（前端 IPC 包装）→ `daemon .../rpc.rs`（Daemon RPC 面），并补测试。前端则 `App.tsx` 只做装配，状态编排进 `src/features/app/{hooks,bootstrap,orchestration}/*`，Tauri 调用只走 `src/services/tauri.ts`，事件扇出只走 `src/services/events.ts`；import 一律用别名（`@/* @app/* @settings/* @threads/* @services/* @utils/*`）。
+
+**接一个 codex-rs 内核能力（CODE 模式主线，spec 006）走专用 5 层链路**，以 `archive_thread` 为已读真实范例：`shared/codex_core.rs`（核心 RPC 发起）→ `src/codex/mod.rs`（App 命令，带 `remote_backend` 分支）→ `lib.rs`（`invoke_handler` 注册）→ `src/services/tauri.ts`（前端 IPC 包装）→ daemon 两处（`codex_monitor_daemon.rs` state 方法 + `rpc/codex.rs` 分发）。任务导向的「要改 X 就动 Y」全量映射见 [apps/desktop/docs/codebase-map.md](apps/desktop/docs/codebase-map.md)。
 
 **共享外壳 chrome 必须复用 design-system 原语/token**，别在 feature CSS 里重造 modal/toast/panel/popover——有 `npm run lint:ds` 与 `codemod:ds` 守这条线。`App.tsx`、`SettingsView.tsx`、`useThreadsReducer.ts`、`git_ui_core.rs`、`workspaces_core.rs`、`rpc.rs` 是高频高复杂度热点，改动加倍小心。
 
@@ -101,7 +114,8 @@ npm run typecheck                                # 始终先跑（= tsc --noEmit
 npm run test                                     # vitest，改前端行为/状态/hooks/组件后跑
 npm run test -- <path-to-test-file>              # 单测试文件
 npm run lint                                     # eslint . --ext .ts,.tsx
-npm run lint:ds                                  # design-system 守卫（碰共享 chrome/弹层后跑）
+npm run lint:ds                                  # 同 lint（DS 守卫规则在 eslint 配置里）；碰共享 chrome/弹层后跑
+npm run codemod:ds:dry                            # 干跑预览 DS 收敛改写（modal/panel/toast → 共享 shell）；去掉 :dry 实跑
 npm run doctor:strict                            # 单独跑环境自检（macOS/Linux），不起 GUI
 cd src-tauri && cargo check                      # 改 Rust 后端后跑
 npm run tauri:dev                                # 含 doctor:strict 环境自检的完整启动

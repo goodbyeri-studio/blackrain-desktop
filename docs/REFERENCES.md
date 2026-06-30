@@ -10,7 +10,7 @@
 
 | 项目 | 用途 | 许可证 | 本地路径 | 锁定版本 |
 |---|---|---|---|---|
-| [openai/codex](https://github.com/openai/codex) | **CODE 引擎**(强编码);参考其 `codex-rs` 的 skills / AGENTS.md / app-server-protocol / 沙箱 | Apache-2.0 | `codex-upstream/` | `bdd282f`(2026-06-27;原钉 `51b3cd5`,06-28 跟进) |
+| [openai/codex](https://github.com/openai/codex) | **CODE 引擎**(强编码);参考其 `codex-rs` 的 skills / AGENTS.md / app-server-protocol / 沙箱 | Apache-2.0 | `codex-upstream/` | `cfead68`(2026-06-29;历经 `51b3cd5` → `bdd282f` → `cfead68`,2026-06-30 跟进上游,协议四探针 + 17 方法能力探针复测全绿) |
 | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | **WORK 引擎**(通用/记忆/skills,见 [.specs/003](../.specs/003-dual-engine-architecture/));经 `/v1` 接缝当黑盒纳管;另可借其 Desktop 的 MIT React 组件 | MIT | `hermes-upstream/` | **HEAD(spike 探路,待钉死)** |
 
 > ⚠️ codex Apache-2.0 义务:Fork 时保留 `LICENSE`/`NOTICE`、声明修改、不得用 OpenAI 商标背书。详见 [docs/07](07-护城河与风险.md)。
