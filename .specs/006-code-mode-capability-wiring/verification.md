@@ -65,3 +65,13 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 
 - 2026-06-28:`codex-upstream` checkout `bdd282f` → `cargo build -p codex-app-server` 成功(1m44s)→ M0 四探针(initialize/model.list/thread.start/turn.start)复跑全绿。
 - 遗留:探针只覆盖 4 方法 happy path;壳完整参数用法对新内核的字段级兼容待 `tauri dev` 冒烟。
+
+### 2026-06-30:bump `bdd282f` → `cfead68`(上游 main 最新)
+
+- 上游区间 `bdd282f...cfead68` = 9 提交;唯一碰协议契约的是 `protocol/src/openai_models.rs`,且**纯增量向后兼容**:`ReasoningEffort` 加 `Max` 变体(未知值本就 fall through 到 `Custom`)、`ModelInfo` 加 `include_skills_usage_instructions: bool`(带 `#[serde(default)]`)。其余 8 提交不碰 app-server JSON-RPC 契约。
+- 行为默认值变化(不影响协议,记录备查):`#30297` 远程插件改默认开、`#30467` `max` 推理档升为一等公民。
+- 重建:`cargo build -p codex-app-server`(50s)+ `codex-cli --bin codex`(1m11s)成功;二进制时间戳 2026-06-30 16:48 / 16:46。
+- **协议四探针**(initialize/model.list/thread.start/turn.start)→ 全 PASS。
+- **能力 shape 探针 17 方法** → SHAPE-DRIFT = **0**;所有 SEMANTIC 均为预期语义错(fake id/未认证),shape 全被接受。`thread/items/list` 在 `cfead68` 仍回「not supported yet」(-32601)——与 `bdd282f` 同状态,未点亮也未退化,「接入超前于内核」记录依然成立。
+- 钉定真源已同步:`scripts/fetch-references.sh`、`CLAUDE.md`、`AGENTS.md`。
+- 遗留:同上,字段级完整参数兼容 + GUI 待 `tauri dev` 冒烟(无头环境做不了的那半)。
