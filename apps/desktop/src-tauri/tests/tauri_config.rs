@@ -70,3 +70,42 @@ fn bundle_resources_include_model_gateway_sidecar() {
         );
     }
 }
+
+#[test]
+fn windows_bundle_resources_include_runtime_sidecars() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let config_path = manifest_dir.join("tauri.windows.conf.json");
+    let config_contents = fs::read_to_string(&config_path)
+        .unwrap_or_else(|error| panic!("Failed to read {config_path:?}: {error}"));
+    let config: Value = serde_json::from_str(&config_contents)
+        .unwrap_or_else(|error| panic!("Failed to parse tauri.windows.conf.json: {error}"));
+    let bundle = config
+        .get("bundle")
+        .and_then(Value::as_object)
+        .unwrap_or_else(|| panic!("tauri.windows.conf.json must define bundle"));
+    let resources = bundle
+        .get("resources")
+        .and_then(Value::as_object)
+        .unwrap_or_else(|| panic!("tauri.windows.conf.json must define bundle.resources"));
+
+    assert_eq!(
+        resources
+            .get("resources/codex/windows-x64")
+            .and_then(Value::as_str),
+        Some("codex/windows-x64")
+    );
+    assert_eq!(
+        resources
+            .get("resources/python/windows-x64")
+            .and_then(Value::as_str),
+        Some("python/windows-x64")
+    );
+    assert_eq!(
+        bundle
+            .get("targets")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(1),
+        "Windows MVP should only build one installer target"
+    );
+}

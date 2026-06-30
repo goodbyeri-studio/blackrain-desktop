@@ -7,6 +7,7 @@
 
 - [日常 GitHub Flow](#日常-github-flow)（最常用）
 - [启动本地客户端](#启动本地客户端)
+- [Windows 本机发布](#windows-本机发布)
 - [内核构建](#内核构建)
 - [模型网关](#模型网关)
 - [协议探针 / 测试](#协议探针--测试)
@@ -37,6 +38,21 @@ gh pr merge <num> --squash --delete-branch
 # 合并后回 main 同步 + 清理本地过期分支引用
 git switch main && git pull --prune
 ```
+
+---
+
+## Windows 本机发布
+
+> MVP 只交付 Windows；当前只有 dev / prod 双环境，staging 暂缓。GitHub Actions 只跑检查，不打安装包，正式安装包在本机生成。
+
+```powershell
+Copy-Item .env.production.example .env.production.local
+# 编辑 .env.production.local，填 VITE_SUPABASE_ANON_KEY
+
+pwsh scripts/release-client-win.ps1
+```
+
+脚本会加载生产 Supabase 前端配置，依次跑 `typecheck`、`test`、`cargo check`、`tauri:build:win`。产物在 `apps/desktop/src-tauri/target/release/bundle/`。
 
 ---
 

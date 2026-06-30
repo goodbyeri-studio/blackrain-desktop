@@ -326,6 +326,7 @@ mod tests {
                 kind: ModelGatewayProviderKind::Deepseek,
                 base_url: "https://api.deepseek.com/v1".to_string(),
                 api_key_env: "DEEPSEEK_API_KEY".to_string(),
+                api_key_file: String::new(),
                 enabled: true,
                 models: vec![ModelGatewayModelConfig {
                     id: "deepseek-v4-flash".to_string(),

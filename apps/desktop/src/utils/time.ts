@@ -29,7 +29,7 @@ export function formatRelativeTime(timestamp: number) {
     return "now";
   }
   const value = Math.round(diffSeconds / range.seconds);
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const formatter = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
   return formatter.format(value, range.unit);
 }
 
