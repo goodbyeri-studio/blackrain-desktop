@@ -99,11 +99,9 @@
 - [ ] **拔掉** → 确认对话继续、工具消失
 - [ ] 过关 = 全程不重启对话(=工作台「挂载/取消」可热拔插)
 
-### S6. Windows 全栈(受众大头,Mac 已验)
+### S6. Windows 全栈(已收敛到 [.specs/007](../007-windows-client/))
 
-- [ ] 胖包(内嵌 Python + venv)在 Windows 构建并跑起 `hermes gateway`
-- [ ] 确认 uvloop 不可用时自动降级 asyncio、无副作用
-- [ ] codex 二进制 + 工作台便携包在 Windows 跑通
+> 2026-06-30 决策:MVP 仅发行 Windows 客户端,macOS 推迟 post-MVP。Windows 全栈验证矩阵(胖包构建/hermes gateway 起动/uvloop 降级/codex 二进制/工作台便携包)整体迁到 [.specs/007 windows-client](../007-windows-client/) 追踪,本 spec 不再列具体子项。
 
 ## 阶段 2：产品化
 

@@ -60,7 +60,7 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 | [02 市场与竞品](docs/02-市场与竞品.md) | 竞争格局、字节 Coze 的威胁、我们的差异化 |
 | [03 系统架构](docs/03-系统架构.md) | 六层架构（含验证层）、复用 Codex 哪些、自建哪些 |
 | [04 产品形态](docs/04-产品形态.md) | **产品形态唯一真源**:双入口(WORK/CODE)、技能/插件/工作台/工作室四词定义及 v1 状态、带护栏的发挥、成熟度路径 |
-| [05 模型路由](docs/05-模型路由.md) | 国产模型按任务分流的策略与选型 |
+| [05 模型路由](docs/05-模型路由.md) | v1 用户在模型广场手动选;Auto-Mode 大后期;网关翻译为硬依赖 |
 | [06 市场与创作者经济](docs/06-市场与创作者经济.md) | 应用市场、冷启动、分成、GPT Store 教训 |
 | [07 护城河与风险](docs/07-护城河与风险.md) | 四处护城河（含验证层）、三大硬风险、诚实的边界 |
 | [08 仓库结构与上游策略](docs/08-仓库结构与上游策略.md) | 内核黑盒 vs 壳底盘、CodexMonitor 用 subtree 导入 |
@@ -68,16 +68,18 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 | [REFERENCES](docs/REFERENCES.md) | 参考项目登记（怎么拿源码、锁哪个版本）|
 | [.specs](.specs/README.md) | 跨层功能的轻量 living spec 规则与模板 |
 | [.specs/004 插件目录](.specs/004-plugin-catalog/) | 两层模型、~34 打包单元、粒度与切分规则、验证脚手架 |
+| [.specs/007 Windows 客户端](.specs/007-windows-client/) | **MVP 仅 Windows**:dev-client.ps1 + NSIS + Windows 验证矩阵 |
 
 ## 当前状态
 
 - **产品形态**:已定型(2026-06-28)。双引擎 = 两个平级入口:**WORK(Hermes,办公小白)+ CODE(codex,开发者,复刻 codex-app)**。术语台阶 = 技能 → 插件 → 工作台 → 工作室。唯一真源见 [04 产品形态](docs/04-产品形态.md)。
 - **MVP 范围**:WORK 侧**只做 office 工作台**(通用办公:文档/表格/PPT/PDF);CODE 侧**复刻 codex-app**(GUI + 功能,基于 codex-rs)。漫剧及其他垂类、创作者市场(06)、插件目录全量(.specs/004,~34 单元属终局参考)均**往后放**。
+- **首发平台**:**MVP 仅发行 Windows 客户端**(2026-06-30 决策);macOS 推迟到 post-MVP。受众大头在 Windows,4 人团队不同时维护两个平台。详见 [.specs/007 windows-client](.specs/007-windows-client/)。
 - **能力底账**:两个引擎的功能已源码逐文件核查并沉淀——[Hermes 能力底账](.specs/003-dual-engine-architecture/hermes-capability-ledger.md)、[codex 能力底账](.specs/003-dual-engine-architecture/codex-capability-ledger.md)。
 - **仓库骨架**:`apps/desktop/` 用 git subtree 导入 CodexMonitor 壳(BlackRain GUI 正在复刻 codex-app);`gateway/` `plugins/` 为待落地槽位。
-- **M0(壳↔内核打通)**:✅ 已验证。协议四探针(initialize / model·list / thread·start / turn·start)全绿。
-- **M1 可行性(接国产模型)**:✅ 已实测。`wire_api="chat"` 已被上游删除,必须走翻译网关;自写最小 responses⇄chat 网关已让 **DeepSeek 真正驱动内核跑通多轮工具调用**。详见 [09 运行时架构](docs/09-运行时架构与里程碑.md)。
-- **当前优先级**:① 治理文档(减重、明确产品形态/架构)→ ② 深度调研 codex-rs 内核 + 当前 GUI 暴露的全部功能,定 CODE 模式边界与复刻上限 → ③ 据最终产品形态给出 CODE 改法。
+- **M0(壳↔内核打通)**:✅ 已验证(macOS)。协议四探针(initialize / model·list / thread·start / turn·start)全绿;Windows 实测待跑。
+- **M1 可行性(接国产模型)**:✅ 已实测(macOS)。`wire_api="chat"` 已被上游删除,必须走翻译网关;自写最小 responses⇄chat 网关已让 **DeepSeek 真正驱动内核跑通多轮工具调用**;Windows 上同套验证矩阵待跑(见 [.specs/007 verification](.specs/007-windows-client/verification.md))。详见 [09 运行时架构](docs/09-运行时架构与里程碑.md)。
+- **当前优先级**:① **Windows 客户端落地**(dev-client.ps1 + NSIS 打包 + Windows 验证矩阵,见 [.specs/007](.specs/007-windows-client/)) → ② 深度调研 codex-rs 内核 + 当前 GUI 暴露的全部功能,定 CODE 模式边界与复刻上限 → ③ 据最终产品形态给出 CODE 改法。
 
 ## 参与开发
 

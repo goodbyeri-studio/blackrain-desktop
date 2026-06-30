@@ -67,7 +67,7 @@
 | 读 MCP 资源 | `mcpResourceRead` | MCP server 详情里浏览其 resources(server + uri) |
 | 调 MCP 工具 | `mcpServerToolCall` | 进阶:直接调某 MCP server 的工具(threadId + server + tool + arguments)。⚠️ server 名错会语义报错 |
 
-## 五、Windows 沙箱(首发 Windows 必接)→ 模块 `settings` 或首启向导
+## 五、Windows 沙箱(MVP 仅 Windows,必接)→ 模块 `settings` 或首启向导
 
 | 能力 | fn | 落点 / 交互 |
 |---|---|---|
@@ -95,7 +95,7 @@
 1. **会话管理(一)** 最高频、最贴 codex-app 原貌,优先复刻(删除/搜索/目标/设置)。
 2. **技能/插件/市场(二)** 是决策 #3 的头号目标(补 codex-app 的扩展管理界面),第二优先。
 3. **MCP 深度(四)、外部迁移(六)** 是进阶/获客,可后置。
-4. **Windows 沙箱(五)** 跟着首发 Windows 节奏做。
+4. **Windows 沙箱(五)** 跟 MVP 仅 Windows 节奏做。
 5. ⚠️ 三处「已知非缺陷」务必在 UI 上体现:`threadItemsList` 内核 stub 要捕获报错给占位;远程插件/MCP 需 OpenAI auth 的,本地可用、远程要提示登录。
 
 ## 关联

@@ -97,7 +97,7 @@ initialize · thread/{start,resume,read,fork,list,archive,rollback,compact/start
 | **权限档** | permissionProfile/list | codex 沙箱权限档列表 |
 | **账号** | account/logout、account/usage/read | logout 缺失值得注意 |
 | **MCP 深度** | mcpServer/{oauth/login,resource/read,tool/call} | 只接了 status/list;OAuth 登录 + 资源读 + 工具调用未接 |
-| **Windows 沙箱**(★命中 Windows 优先决策) | windowsSandbox/{setupStart,readiness} | 首发 Windows,沙箱 setup 流程必接 |
+| **Windows 沙箱**(★命中 MVP 仅 Windows 决策) | windowsSandbox/{setupStart,readiness} | MVP 仅 Windows,沙箱 setup 流程必接 |
 | **外部迁移**(获客钩子) | externalAgentConfig/{detect,import} | 从 Claude/其他 agent 导入配置——拉新利器 |
 
 ## C. 壳已自实现(非缺口,但像素级复刻要决定走哪条)
