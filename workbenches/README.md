@@ -17,4 +17,4 @@ workbenches/
 
 设计理念见 [docs/04-产品形态](../docs/04-产品形态.md),尤其是「带护栏的发挥」这一核心产品手艺。
 
-> 目前为空。第一个计划落地的样例是「番茄小说工作台」。
+> 当前已落地 `office-agent` 工作台骨架,与 `plugins/office-cli/`、OfficeCLI 资源注入链路配套。MVP 只做 office 工作台;番茄小说等垂类工作台已后移。

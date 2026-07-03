@@ -7,6 +7,7 @@
 | 2026-06-30 | spec 创建 | 文档落地 | 通过 | 五件套就位,尚未改实现代码 |
 | 2026-06-30 | Codex 内核 Windows 构建 | `cd codex-upstream\codex-rs; $env:CARGO_NET_GIT_FETCH_WITH_CLI="true"; cargo build -p codex-cli --bin codex` | 通过 | 8 分 40 秒首次完成,产物 `target\debug\codex.exe`;LLVM 22.1.8 + CMake 4.3.3 + Rust(scoop) 工具链通过 |
 | 2026-06-30 | dictation/whisper-rs Windows 兼容 | `cargo build` 试编 | **失败 → 已绕过** | whisper-rs 0.12 的 bindgen 与 LLVM 22 不兼容(`whisper_full_params` 全字段被打成 `_address`,72 errors)。绕法:Cargo.toml 把 whisper-rs 守卫成「非 Windows」+ `dictation/mod.rs` Windows 走 `stub.rs`。dictation 在 Windows 上暂不可用,不阻塞 dev。详见「失败记录 2026-06-30」 |
+| 2026-07-03 | Codex 版本锁定更新 | `codex-upstream` checkout `da4c8ca`;`codex.exe --version` | 部分通过 | CLI 编译与 quick-xml 安全修复已确认;app-server 编译、协议四探针、Windows 客户端 E2E 仍未跑,下方矩阵继续追 |
 | YYYY-MM-DD | doctor.mjs 实跑 | `cd apps\desktop; npm run doctor:win` | 未跑 | 缺 cmake / clang 时应给出 choco 提示 |
 | YYYY-MM-DD | dev-client.ps1 启动 | `pwsh scripts/dev-client.ps1` | 未跑 | 期望 90 秒内 GUI 首帧 + 能选模型 |
 | YYYY-MM-DD | dev 模式真实对话 | dev-client.ps1 起后 GUI 内手发一条对话 | 未跑 | DeepSeek flash 走 BlackRain Gateway 返回真实回复 |
@@ -14,7 +15,7 @@
 | YYYY-MM-DD | 前端 test (Windows) | `cd apps\desktop; npm run test` | 未跑 | 期望 1032 tests 全绿 |
 | YYYY-MM-DD | Rust 后端 cargo check (Windows) | `cd apps\desktop\src-tauri; cargo check` | 未跑 | 期望只有仓库既有 dead_code warnings |
 | YYYY-MM-DD | model_gateway cargo test (Windows) | `cd apps\desktop\src-tauri; cargo test model_gateway` | 未跑 | 6+1 tests,与 macOS 同 |
-| YYYY-MM-DD | 协议四探针 (Windows) | `python3 .scratch/m0_protocol_probe.py "<CODEX_HOME>" "<工作区>"` | 未跑 | initialize / model-list / thread-start / turn-start 全绿 |
+| YYYY-MM-DD | 协议四探针 (Windows) | `python3 .scratch/m0_protocol_probe.py "<CODEX_HOME>" "<工作区>"` | 未跑 | 对当前锁定 `da4c8ca` 验 initialize / model-list / thread-start / turn-start 全绿 |
 | YYYY-MM-DD | 真实 DeepSeek 工具调用 (Windows) | `BLACKRAIN_GATEWAY_API_KEY=local-test-gateway python3 .scratch/m0_tool_driver.py ...` + `STRIP_TOOLS=0` Gateway | 未跑 | 期望生成 hello.txt 内容 `2049`,对等 macOS 2026-06-24 |
 | YYYY-MM-DD | Windows Credential Manager smoke | `cd apps\desktop\src-tauri; $env:BLACKRAIN_KEYCHAIN_SMOKE="1"; cargo test real_system_credential_store_smoke_when_enabled -- --nocapture` | 未跑 | lib + daemon 目标真实写读清理 |
 | YYYY-MM-DD | NSIS 打包 | `cd apps\desktop; npm run tauri:build:win` | 未跑 | 期望产出 `BlackRain2049_<ver>_x64-setup.exe` |

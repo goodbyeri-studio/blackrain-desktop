@@ -34,7 +34,7 @@
 ## 阶段 3:Windows 专属能力实测
 
 - [ ] **Windows Credential Manager smoke**:写 / 读 / 状态 / 清理 API key 全跑(`keyring` crate 已支持,只需实测)。
-- [ ] **协议四探针 Windows 实测**:`python3 .scratch/m0_protocol_probe.py` 对 `cfead68` 全绿。
+- [ ] **协议四探针 Windows 实测**:`python3 .scratch/m0_protocol_probe.py` 对当前锁定 `da4c8ca` 全绿。
 - [ ] **真实 DeepSeek 工具调用 Windows 实测**:`m0_tool_driver.py` 生成 hello.txt 内容为 2049。
 - [ ] **`windowsSandbox/{setupStart,readiness}` 探针**(`.specs/006` 链路在 Windows 上首次实跑):验证内核能正确回应 setup 流程,UI 复刻不在本 spec。
 - [ ] **doctor.mjs 提示文案完善**:LLVM/clang 缺失 / `LIBCLANG_PATH` 未设 / cmake 旧版本等场景的明确指引。
@@ -59,4 +59,3 @@
 - [ ] 把 verification.md 的真实命令 / 实测日期 / 结果填齐(不写「应该可以」)。
 - [ ] 列未解决风险(签名、CI、`windowsSandbox` UI、whisper-rs 升级等)。
 - [ ] 清掉所有「macOS 已验、Windows 未验」类历史悬挂状态;改为「macOS 验证 = post-MVP」明确结论。
-

@@ -2,6 +2,8 @@
 **日期**：2026-07-03  
 **更新**：cfead68 → da4c8ca
 
+> 范围说明：本文记录的是版本锁定、安全修复与基础编译验证，不等于完整客户端集成验证。`codex-app-server` 编译、协议四探针、`dev-client.ps1`、Windows GUI/NSIS/E2E 仍以 `.specs/007-windows-client/verification.md` 的实时矩阵为准。
+
 ## ✅ 编译验证
 
 ### 1. codex CLI 二进制
@@ -149,8 +151,8 @@ quick-xml 0.39.4
 
 ### 2. 协议向后兼容
 **验证状态**：未测试（app-server 编译中）
-**预期**：✅ 兼容（无 breaking changes）
-**建议**：启动客户端后测试基本对话流程
+**预期**：兼容（本轮未发现显式 breaking changes）
+**建议**：启动客户端后测试基本对话流程；结论落到 `.specs/007-windows-client/verification.md`
 
 ## 🎯 下一步行动
 
@@ -201,10 +203,10 @@ quick-xml 0.39.4
 
 ## ✅ 结论
 
-**Codex 内核已成功更新到 da4c8ca**
+**Codex 内核版本锁定已更新到 da4c8ca**
 - ✅ 编译成功
 - ✅ 安全漏洞已修复
-- ✅ 无 breaking changes
+- ⚠️ 未完成 app-server / 协议探针 / Windows 客户端 E2E
 - ✅ 新增多项性能优化与遥测功能
 
 **建议**：立即进入集成验证阶段，确保客户端与新内核兼容。
