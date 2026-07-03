@@ -7,24 +7,33 @@ on:
       - main
 
 jobs:
-  desktop-windows:
-    name: Desktop Windows checks
-    runs-on: windows-latest
-    env:
-      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  js-checks:
+    name: JS checks (typecheck + test)
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/desktop
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
+
+  rust-check:
+    name: Rust check (Windows)
+    runs-on: windows-latest
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
       - run: cargo check
         working-directory: apps/desktop/src-tauri
