@@ -10,8 +10,8 @@
 
 | 项目 | 用途 | 许可证 | 本地路径 | 锁定版本 |
 |---|---|---|---|---|
-| [openai/codex](https://github.com/openai/codex) | **CODE 引擎**(强编码);参考其 `codex-rs` 的 skills / AGENTS.md / app-server-protocol / 沙箱 | Apache-2.0 | `codex-upstream/` | `cfead68`(2026-06-29;历经 `51b3cd5` → `bdd282f` → `cfead68`,2026-06-30 跟进上游,协议四探针 + 17 方法能力探针复测全绿) |
-| [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | **WORK 引擎**(通用/记忆/skills,见 [.specs/003](../.specs/003-dual-engine-architecture/));经 `/v1` 接缝当黑盒纳管;另可借其 Desktop 的 MIT React 组件 | MIT | `hermes-upstream/` | **HEAD(spike 探路,待钉死)** |
+| [openai/codex](https://github.com/openai/codex) | **CODE 引擎**(强编码);参考其 `codex-rs` 的 skills / AGENTS.md / app-server-protocol / 沙箱 | Apache-2.0 | `codex-upstream/` | `da4c8ca`(2026-07-02;cfead68 → da4c8ca 安全修复 quick-xml DoS + multi-agent v2 改进 + TTFT 遥测) |
+| [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | **WORK 引擎**(通用/记忆/skills,见 [.specs/003](../.specs/003-dual-engine-architecture/));经 `/v1` 接缝当黑盒纳管;另可借其 Desktop 的 MIT React 组件 | MIT | `hermes-upstream/` | `7c1a029` / **v2026.7.1**(v0.18.0, 2026-07-01, "The Judgment Release" — MOA 成一等公民、agent self-verification、/learn+/journey、scale-to-zero gateway) |
 
 > ⚠️ codex Apache-2.0 义务:Fork 时保留 `LICENSE`/`NOTICE`、声明修改、不得用 OpenAI 商标背书。详见 [docs/07](07-护城河与风险.md)。
 > ⚠️ Hermes MIT:可闭源商用,但**真闸口在 Python 依赖树**(发行前逐包体检拦 GPL/AGPL/BSL/无协议);**钉 commit 存证**(MIT 对快照不可撤销,防未来转 BSL);不用其商标;关数据飞轮外传。发行配方见 [.specs/003 design](../.specs/003-dual-engine-architecture/design.md)。
