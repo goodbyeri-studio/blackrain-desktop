@@ -14,12 +14,12 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 
 ## 交付形态（一句话先讲清）
 
-本项目的**目标产品形态**是：**一个桌面安装包，内置 Codex 内核、模型网关和默认运行时资源，用户安装后直接可用；但运行时内部仍是「桌面 App + 内核子进程 + 网关子进程」的多进程结构。**
+本项目的**目标产品形态**是：**一个桌面安装包，内置 CODE(codex) / WORK(Hermes) 双引擎、模型网关和默认运行时资源，用户安装后直接可用；但运行时内部仍是「桌面 App + 引擎子进程 + 网关子进程」的多进程结构。**
 
 换句话说：
 
 - **对用户**：应当像普通 Windows / macOS 软件一样，安装完即可用，不要求用户另装 `codex`、Node、Python 或手动配 `~/.codex`。
-- **对工程实现**：不追求“单进程单二进制”，而是坚持 **子进程 + 协议** 的运行时拓扑，把复杂度锁在 app 内部，不暴露给用户。
+- **对工程实现**：不追求“单进程单二进制”，而是坚持 **子进程 + 协议** 的运行时拓扑，把 CODE 引擎、WORK 引擎和 CODE 专用网关都锁在 app 内部，不暴露给用户。
 - **对当前仓库状态**：开发态仍需本地编译内核、启动网关；这不代表产品态也必须如此。v1 的目标是从“开发态外置依赖”升级到“产品态随 app 打包”。详见 [09 运行时架构与里程碑](docs/09-运行时架构与里程碑.md)。
 
 一句话类比:
@@ -45,10 +45,11 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 ├── scripts/               工具脚本
 │
 │   —— 约定位置，动工时创建 ——
-└── codex-upstream/        Codex 内核本地克隆（.gitignore，不入库，黑盒子进程）
+├── codex-upstream/        CODE 引擎：Codex 内核本地克隆（.gitignore，不入库，黑盒子进程）
+└── hermes-upstream/       WORK 引擎：Hermes Agent 本地克隆（.gitignore，不入库，黑盒子进程）
 ```
 
-> 内核 = vendor 式黑盒（`codex-upstream/`，只读、不入库）;壳 = fork 式底盘（`apps/desktop/`，subtree 入库、持续魔改）。这个区分及上游同步策略详见 [docs/08](docs/08-仓库结构与上游策略.md)。
+> 引擎 = vendor 式黑盒（`codex-upstream/` / `hermes-upstream/`，只读、不入库）;壳 = fork 式底盘（`apps/desktop/`，subtree 入库、持续魔改）。这个区分及上游同步策略详见 [docs/08](docs/08-仓库结构与上游策略.md) 与 [docs/REFERENCES](docs/REFERENCES.md)。
 
 ## 文档索引
 
@@ -64,7 +65,7 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 | [06 市场与创作者经济](docs/06-市场与创作者经济.md) | 应用市场、冷启动、分成、GPT Store 教训 |
 | [07 护城河与风险](docs/07-护城河与风险.md) | 四处护城河（含验证层）、三大硬风险、诚实的边界 |
 | [08 仓库结构与上游策略](docs/08-仓库结构与上游策略.md) | 内核黑盒 vs 壳底盘、CodexMonitor 用 subtree 导入 |
-| [09 运行时架构与里程碑](docs/09-运行时架构与里程碑.md) | 监工模型、三条铁律、内核形态、M0-M3 里程碑 |
+| [09 运行时架构与里程碑](docs/09-运行时架构与里程碑.md) | 双引擎监工模型、三条铁律、引擎形态、M0-M3 里程碑 |
 | [REFERENCES](docs/REFERENCES.md) | 参考项目登记（怎么拿源码、锁哪个版本）|
 | [.specs](.specs/README.md) | 跨层功能的轻量 living spec 规则与模板 |
 | [.specs/004 插件目录](.specs/004-plugin-catalog/) | 两层模型、~34 打包单元、粒度与切分规则、验证脚手架 |
@@ -76,10 +77,10 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 - **MVP 范围**:WORK 侧**只做 office 工作台**(通用办公:文档/表格/PPT/PDF);CODE 侧**复刻 codex-app**(GUI + 功能,基于 codex-rs)。漫剧及其他垂类、创作者市场(06)、插件目录全量(.specs/004,~34 单元属终局参考)均**往后放**。
 - **首发平台**:**MVP 仅发行 Windows 客户端**(2026-06-30 决策);macOS 推迟到 post-MVP。受众大头在 Windows,4 人团队不同时维护两个平台。详见 [.specs/007 windows-client](.specs/007-windows-client/)。
 - **能力底账**:两个引擎的功能已源码逐文件核查并沉淀——[Hermes 能力底账](.specs/003-dual-engine-architecture/hermes-capability-ledger.md)、[codex 能力底账](.specs/003-dual-engine-architecture/codex-capability-ledger.md)。
-- **仓库骨架**:`apps/desktop/` 用 git subtree 导入 CodexMonitor 壳(BlackRain GUI 正在复刻 codex-app);`gateway/` `plugins/` 为待落地槽位。
-- **M0(壳↔内核打通)**:✅ 已验证(macOS)。协议四探针(initialize / model·list / thread·start / turn·start)全绿;Windows 实测待跑。
+- **仓库骨架**:`apps/desktop/` 用 git subtree 导入 CodexMonitor 壳(BlackRain GUI 正在复刻 codex-app);`gateway/` 已作为 CODE 路径 responses⇄chat sidecar 原型;`plugins/`、`workbenches/office-agent/` 已有 office 工作台/OfficeCLI 资源骨架,市场化内容仍后置。
+- **CODE M0(壳↔codex 打通)**:✅ 已验证(macOS)。协议四探针(initialize / model·list / thread·start / turn·start)全绿;Windows 实测待跑。
 - **M1 可行性(接国产模型)**:✅ 已实测(macOS)。`wire_api="chat"` 已被上游删除,必须走翻译网关;自写最小 responses⇄chat 网关已让 **DeepSeek 真正驱动内核跑通多轮工具调用**;Windows 上同套验证矩阵待跑(见 [.specs/007 verification](.specs/007-windows-client/verification.md))。详见 [09 运行时架构](docs/09-运行时架构与里程碑.md)。
-- **当前优先级**:① **Windows 客户端落地**(dev-client.ps1 + NSIS 打包 + Windows 验证矩阵,见 [.specs/007](.specs/007-windows-client/)) → ② 深度调研 codex-rs 内核 + 当前 GUI 暴露的全部功能,定 CODE 模式边界与复刻上限 → ③ 据最终产品形态给出 CODE 改法。
+- **当前优先级**:① **Windows 客户端落地**(dev-client.ps1 + NSIS 打包 + Windows 验证矩阵,见 [.specs/007](.specs/007-windows-client/)) → ② 同步刷新双引擎能力底账/探针版本到当前锁定版本 → ③ CODE 复刻收尾(品牌切割、Skills/MCP 管理 UI、真实国产模型端到端烟测)。
 
 ## 参与开发
 

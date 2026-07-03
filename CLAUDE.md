@@ -28,7 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **三条铁律（违反即破坏架构）：**
 1. **两个引擎永远原装黑盒**——codex/Hermes 都只读、只调用、白嫖上游日更。分叉=日更能力归零。改了就丢掉「白嫖上游日更」的能力。
 2. **最难的活（responses⇄chat 翻译）锁在可替换的网关进程里**——它崩不拖垮界面，它常改不碰别人。**只挂在 CODE 路径**（codex→gateway→new-api），WORK 路径（Hermes→new-api）零翻译。
-3. **App 是唯一写配置的人**：codex 用专属 `CODEX_HOME`（藏在 app 数据目录），绝不碰用户机器原有的 `~/.codex`；Hermes 用独立 `~/.hermes/config.yaml`。
+3. **App 是唯一写配置的人**：codex 用专属 `CODEX_HOME`（藏在 app 数据目录），绝不碰用户机器原有的 `~/.codex`；Hermes 用独立 `HERMES_HOME` / `config.yaml`。
 
 **网关是 CODE 路径硬依赖，不是可选件。** 上游已删除 `wire_api="chat"`（内核硬拒该值），codex 内核只发 Responses 协议而国产模型只懂 Chat Completions，中间**必须**有翻译。详见 [docs/09](docs/09-运行时架构与里程碑.md)、[gateway/README.md](gateway/README.md)、[.specs/003 双引擎架构](.specs/003-dual-engine-architecture/)。
 
@@ -40,10 +40,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `gateway/` | responses⇄chat 翻译网关（`gateway.py`，纯 stdlib 零依赖）。**可行性验证原型，非生产代码**；边界与命门约束见 [gateway/README.md](gateway/README.md)。 | 可替换的 sidecar 槽位。**只挂在 CODE 路径**（codex→gateway→new-api）。 |
 | `codex-upstream/` | **CODE 引擎**：codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 当黑盒用，锁定 `da4c8ca`（2026-07-02；含安全修复 quick-xml DoS + multi-agent v2 改进）。只读、不改循环。用 `scripts/fetch-references.sh` 克隆。 |
 | `hermes-upstream/` | **WORK 引擎**：Hermes Agent 本地克隆（**gitignored，不入库**），HTTP `/v1` 接缝黑盒纳管。 | 当黑盒用，锁定 v2026.7.1 (`7c1a029`，2026-07-01，MOA+self-verification+Windows原生支持)。可借其 Desktop MIT React 组件（摘零件抄进来，不 fork 整个 Desktop）。零翻译直入 new-api（Chat Completions）。 |
-| `plugins/` `workbenches/` | 能力封装：放进 `CODEX_HOME` 的文件（skills/AGENTS.md/模板/工作台内容，纯 Markdown 零编译）。各自的产品概念→技术落地映射见 [plugins/README.md](plugins/README.md)、[workbenches/README.md](workbenches/README.md)。 | 还是待落地槽位（README 已定边界，内容待填）。 |
+| `plugins/` `workbenches/` | 能力封装：skills/AGENTS.md/模板/工作台内容，纯 Markdown 零编译。各自的产品概念→技术落地映射见 [plugins/README.md](plugins/README.md)、[workbenches/README.md](workbenches/README.md)。 | MVP `office-agent` / OfficeCLI 已有骨架；市场化插件/更多垂类待落地。 |
 | `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–007（见下「Living Spec 纪律」索引）。 | 只给大功能/架构功能建，随实现同步更新。 |
 
-仓库托管在 `goodbyeri-studio/BlackRain`（私有）。**双引擎架构**：codex（CODE，开发者）+ Hermes（WORK，办公非开发者），详见 [.specs/003](. specs/003-dual-engine-architecture/)。
+仓库托管在 `goodbyeri-studio/BlackRain`（私有）。**双引擎架构**：codex（CODE，开发者）+ Hermes（WORK，办公非开发者），详见 [.specs/003](.specs/003-dual-engine-architecture/)。
 
 ## 文档导航（改代码前先查）
 
@@ -64,6 +64,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 前端状态编排、IPC 包装、事件扇出的约束
 - Thread 层级不变量、follow-up 行为映射、设计系统规则
 - 热点文件清单与验证矩阵
+
+## 跨 Agent 协作
+
+Claude Code 可以调用本机 `codex` / 其他本地 CLI 作为协作开发/审查助手；反向地，Codex 也可以调用本机 `claude` CLI 做文档核查、代码审查、迁移方案对照、测试失败归因。调用前必须先明确任务边界，不把密钥、未脱敏日志或不该出仓库的私有上下文交给子进程。
+
+硬约束：Codex 调用 Claude CLI 时必须显式指定 **Sonnet 5 1M** 模型与 `--effort max`，不得省略 effort 或降级。默认使用非交互 `-p/--print` 形式，例如：
+
+```bash
+claude -p --model sonnet5-1m --effort max "<具体任务>"
+```
+
+若本机 CLI 的模型别名不同，先用 `claude --help` 或团队已确认的别名校正，但仍必须满足「Sonnet 5 1M + max effort」。外部 agent 输出只能作为辅助意见；最终改动、验证和风险判断由当前 agent 负责。
 
 ## Living Spec 纪律
 

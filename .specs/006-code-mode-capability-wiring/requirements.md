@@ -3,7 +3,7 @@
 ## 背景
 
 - 这个功能为什么现在要做：第四轮决策 #5 定下「把 codex-rs 提供的、我们能用的全部能力接入并暴露到 BlackRain 壳,然后做 GUI 像素级复刻」。当前壳只接了 ~24 个 app-server ClientRequest(对话核心已满覆盖),但 codex-rs 还有一批方法壳没接(见 [.specs/003 code-mode-boundary.md](../003-dual-engine-architecture/code-mode-boundary.md) 附录 B 类缺口),复刻 codex-app 前必须先把这些「能用的」内核能力接全、暴露出来。
-- 相关上游/文档：内核钉 `bdd282f`(2026-06-28 跟进);[code-mode-boundary.md](../003-dual-engine-architecture/code-mode-boundary.md) 接入缺口表;[codex-capability-ledger.md](../003-dual-engine-architecture/codex-capability-ledger.md)。
+- 相关上游/文档：本 spec 实装/shape 探针基线为 `bdd282f`→`cfead68`;当前仓库锁定已更新到 `da4c8ca`(2026-07-03),下一轮 CODE 能力开发前需重跑探针并刷新缺口表;[code-mode-boundary.md](../003-dual-engine-architecture/code-mode-boundary.md) 接入缺口表;[codex-capability-ledger.md](../003-dual-engine-architecture/codex-capability-ledger.md)。
 - 既有 5 层接线 pattern(以 `archive_thread` 为范例,已读真实代码):`shared/codex_core.rs`(核心 RPC 发起)→ `codex/mod.rs`(App 命令,带 remote_backend 分支)→ `lib.rs`(`invoke_handler` 注册)→ `services/tauri.ts`(前端 IPC 包装)→ daemon 两处(`codex_monitor_daemon.rs` state 方法 + `rpc/codex.rs` 分发)。
 
 ## 目标(做什么)
@@ -23,4 +23,4 @@
 ## 验收
 
 - 每簇接入后 `cd apps/desktop/src-tauri && cargo check` 通过、`cd apps/desktop && npm run typecheck` 通过。
-- 壳完整参数用法对 `bdd282f` 的字段级兼容,需用户跑一次 `tauri dev` 冒烟测试确认(无头环境无法验)。
+- 壳完整参数用法至少对 `cfead68` 的字段级兼容;当前锁定 `da4c8ca` 仍需用户跑一次 `tauri dev` 冒烟测试和能力 shape 探针确认(无头环境无法验)。

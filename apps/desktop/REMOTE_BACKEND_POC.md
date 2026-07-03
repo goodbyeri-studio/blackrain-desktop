@@ -1,8 +1,10 @@
 # Remote Backend POC (daemon)
 
+> 状态说明(2026-07):本文是早期 POC 记录,用于保留 daemon 的手动启动与线分隔 JSON-RPC 协议样例。当前 daemon 方法面和桌面壳接线已明显扩展,不要把本文的 "initial" 方法清单当成功能完整度真源。改远程后端前优先看 `apps/desktop/AGENTS.md`、`apps/desktop/docs/codebase-map.md` 和实际 `src-tauri/src/bin/codex_monitor_daemon.rs` / `src-tauri/src/daemon/rpc.rs`。
+
 This fork includes a **proof-of-concept** daemon that runs CodexMonitor's backend logic in a separate process (intended for WSL2/Linux), exposing a simple **line-delimited JSON-RPC** protocol over TCP.
 
-This is **not** wired into the desktop app yet (no UI toggle / remote proxy), but it is useful to validate the architecture and iterate on the protocol.
+This document is useful to validate the protocol manually, but it may lag behind current desktop UI and service wiring.
 
 ## Run
 

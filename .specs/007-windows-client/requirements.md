@@ -35,7 +35,7 @@
 - 功能行为:
   - `pwsh scripts/dev-client.ps1` 在 Windows 主机一条命令把 dev 客户端起到「窗口可见、能登录、能选模型、能发一条对话拿到 DeepSeek 真实回复」状态。
   - `npm run tauri:build:win` 产出 NSIS `.exe` 安装包,资源(office-cli/windows-x64、gateway.py、plugins、workbenches)正确打入。
-  - 协议四探针在 Windows 上对 `cfead68` 内核全绿。
+  - 协议四探针在 Windows 上对当前锁定 `da4c8ca` 内核全绿。
   - 真实 DeepSeek 单工具多轮调用在 Windows 上跑通。
 - 用户体验:NSIS 安装包双击装完→开始菜单图标点开→首次启动正常显示登录/首页,无需任何额外终端命令。
 - 安全/合规:Windows Credential Manager 实测 API key 写入 / 读取 / 清理 / 状态查询通过(`keyring` 已支持);网关只监听 127.0.0.1,Mica 半透明不影响 bearer 校验。
@@ -55,4 +55,3 @@
 - [ ] **CI 触发时机**:GitHub Actions Windows build 是本 spec 范围内必做,还是单开 `.specs/008-ci-build-matrix`?(本 spec 列为「需要,且只建 windows-latest 单 runner——macOS post-MVP 才考虑」,实际拆分见 tasks。)
 - [ ] **Windows 沙箱(`windowsSandbox/*`)接入位置**:5 层链路属 `.specs/006`,本 spec 只承担「Windows 上探针能跑通」环境验证;UI 复刻仍归 GUI 重做 spec。
 - [ ] **whisper-rs 升级或换 STT 后端**:0.12 + LLVM 22 不兼容已绕过(Windows dictation 走 stub),真实评估升级到 0.13+ 或换 sherpa-onnx/vosk 留作独立工作项,不阻塞 v1。
-

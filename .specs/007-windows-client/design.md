@@ -78,5 +78,5 @@ dev 链路(本仓维护者):
 
 - 单元测试:无新增逻辑,沿用现有 `npm run test` 1032 tests。
 - 集成测试:Windows 主机跑 `cargo check` + `cargo test model_gateway` + `npm run test` 全套——这套在 macOS 已通过,Windows 是首次实测。
-- 协议探针:`python3 .scratch/m0_protocol_probe.py` + `m0_tool_driver.py` 在 Windows 主机上对 `cfead68` 内核跑全绿。
+- 协议探针:`python3 .scratch/m0_protocol_probe.py` + `m0_tool_driver.py` 在 Windows 主机上对当前锁定 `da4c8ca` 内核跑全绿。
 - 人工验证:① `pwsh scripts/dev-client.ps1` 起到 GUI 可见、能发对话;② `npm run tauri:build:win` 产出 NSIS .exe;③ 双击安装包装到默认位置,开始菜单图标点开能起 App;④ Windows Credential Manager 写 / 读 / 清测 API key;⑤ 卸载干净不留垃圾。

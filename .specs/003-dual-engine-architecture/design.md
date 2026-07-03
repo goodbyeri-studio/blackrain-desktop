@@ -4,8 +4,8 @@
 
 一个监工壳（Tauri，fork 自 CodexMonitor）指挥**两个引擎黑盒**——Hermes 管 WORK、codex 管 CODE——所有模型调用汇入 new-api 计量形成 token 差价闭环。**工作台/工作室本地交付**（本地下载 + 热拔插，云端托管方案已推翻）；但模型推理（LLM/生图/生视频）走云 API（口径=「本地=数据+编排+文件，推理走你选的云模型」）。唯一的服务器件是 new-api 中转。codex 深集成与专属 `CODEX_HOME` 是我方已领先 Hermes 的资产。
 
-> WORK 引擎(Hermes)的完整功能事实底账见 [hermes-capability-ledger.md](hermes-capability-ledger.md)(源码逐文件核查,钉 commit `a6a28ce`)。
-> CODE 引擎(codex-rs)的完整功能事实底账见 [codex-capability-ledger.md](codex-capability-ledger.md)(源码逐文件核查,钉 commit `51b3cd5`)。
+> WORK 引擎(Hermes)的完整功能事实底账见 [hermes-capability-ledger.md](hermes-capability-ledger.md)(旧分析基线 `a6a28ce`;当前锁定 v2026.7.1 / `7c1a029`,待重核)。
+> CODE 引擎(codex-rs)的完整功能事实底账见 [codex-capability-ledger.md](codex-capability-ledger.md)(旧分析基线 `51b3cd5`;当前锁定 `da4c8ca`,待重核)。
 > CODE 模式的边界、复刻 codex-app 的上限、当前 BlackRain 复刻进度见 [code-mode-boundary.md](code-mode-boundary.md)(当前 `apps/desktop` 真实代码 + 官方 codex-app 调研)。
 
 ## 产品形态全景（一壳·两引擎·一闭环·四层·三档）

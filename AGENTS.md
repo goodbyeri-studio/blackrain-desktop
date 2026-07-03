@@ -10,34 +10,52 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## 运行时拓扑（理解一切的前提）
 
-桌面 App 是一个**监工**，看管两个长期运行的子进程：
+桌面 App 是一个**监工**，看管**双引擎黑盒**（Hermes 管 WORK、codex 管 CODE）+ 翻译网关：
 
 ```
-2049 App（Tauri，fork 自 CodexMonitor）= 监工 + 唯一写配置的人
-  ├─ 子进程：codex 内核（原装黑盒，走 app-server JSON-RPC 协议驱动）
-  │     └─ 读 config.toml → 按 base_url 决定连官方 or 连网关
-  └─ 子进程：模型网关（responses⇄chat 翻译，仅接国产模型时启动）
-        └─ 翻译后 HTTP → DeepSeek / GLM / Qwen / Kimi ...
+2049 App（Tauri，fork 自 CodexMonitor）= 监工 + 双 surface + 唯一写配置的人
+  ├─ CODE surface（开发者/插件创作）
+  │   ├─ 子进程：codex 内核（原装黑盒，app-server JSON-RPC）
+  │   │     └─ 读专属 CODEX_HOME/config.toml → base_url 连网关
+  │   └─ 子进程：模型网关（responses⇄chat 翻译，CODE 专用）
+  │         └─ 翻译后 Chat Completions → new-api 计量 → DeepSeek / GLM ...
+  │
+  └─ WORK surface（办公非开发者/业务专家）
+      └─ 子进程：Hermes Agent（HTTP /v1 黑盒，零翻译）
+            └─ Chat Completions → new-api 计量 → 国产模型
 ```
 
 **三条铁律（违反即破坏架构）：**
-1. **内核永远原装**——接国产、防协议废弃、品牌化，没有一件需要改 agent 循环。改了就丢掉「白嫖上游日更」的能力。
-2. **最难的活（responses⇄chat 翻译）锁在可替换的网关进程里**——它崩不拖垮界面，它常改不碰别人。
-3. **App 是唯一写配置的人，且用专属 `CODEX_HOME`**（藏在 app 数据目录），绝不碰用户机器原有的 `~/.codex`。
+1. **两个引擎永远原装黑盒**——codex/Hermes 都只读、只调用、白嫖上游日更。分叉=日更能力归零。
+2. **最难的活（responses⇄chat 翻译）锁在可替换的网关进程里**——它崩不拖垮界面，它常改不碰别人。**只挂在 CODE 路径**（codex→gateway→new-api），WORK 路径（Hermes→new-api）零翻译。
+3. **App 是唯一写配置的人**：codex 用专属 `CODEX_HOME`（藏在 app 数据目录），绝不碰用户机器原有的 `~/.codex`；Hermes 用独立 `HERMES_HOME` / `config.yaml`。
 
-**网关是硬依赖，不是可选件。** 上游已删除 `wire_api="chat"`（内核硬拒该值），内核只发 Responses 协议而国产模型只懂 Chat Completions，中间**必须**有翻译。详见 [docs/09](docs/09-运行时架构与里程碑.md)、[gateway/README.md](gateway/README.md)。
+**网关是 CODE 路径硬依赖，不是可选件。** 上游已删除 `wire_api="chat"`（内核硬拒该值），codex 内核只发 Responses 协议而国产模型只懂 Chat Completions，中间**必须**有翻译。详见 [docs/09](docs/09-运行时架构与里程碑.md)、[gateway/README.md](gateway/README.md)、[.specs/003 双引擎架构](.specs/003-dual-engine-architecture/)。
 
 ## 仓库布局：三种代码，三种纪律
 
 | 目录 | 是什么 | 纪律 |
 |---|---|---|
 | `apps/desktop/` | 桌面壳，**git subtree** 自 CodexMonitor（MIT）。**住在里面、持续魔改的底盘**。 | 日常直接改 + 普通 commit。魔改只砸壳外围（Providers 面板、工作台 UI），**不动保真核心**。`git subtree pull` 是维护者动作，别随手做。 |
-| `gateway/` | responses⇄chat 翻译网关（`gateway.py`，纯 stdlib 零依赖）。**可行性验证原型，非生产代码**；边界与命门约束见 [gateway/README.md](gateway/README.md)。 | 可替换的 sidecar 槽位。 |
-| `codex-upstream/` | codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 当黑盒用，钉死 commit `cfead68`（2026-06-29；历经 `51b3cd5` → `bdd282f` → `cfead68`，2026-06-30 跟进上游，协议四探针 + 17 方法能力探针复测全绿）。只读、不改循环。用 `scripts/fetch-references.sh` 克隆。 |
-| `plugins/` `workbenches/` | 能力封装：放进 `CODEX_HOME` 的文件（skills/AGENTS.md/模板/工作台内容，纯 Markdown 零编译）。各自的产品概念→技术落地映射见 [plugins/README.md](plugins/README.md)、[workbenches/README.md](workbenches/README.md)。 | 还是待落地槽位（README 已定边界，内容待填）。 |
-| `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–006（见下「Living Spec 纪律」索引）。 | 只给大功能/架构功能建，随实现同步更新。 |
+| `gateway/` | responses⇄chat 翻译网关（`gateway.py`，纯 stdlib 零依赖）。**可行性验证原型，非生产代码**；边界与命门约束见 [gateway/README.md](gateway/README.md)。 | 可替换的 sidecar 槽位。**只挂在 CODE 路径**（codex→gateway→new-api）。 |
+| `codex-upstream/` | **CODE 引擎**：codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 当黑盒用，锁定 `da4c8ca`（2026-07-02；含安全修复 quick-xml DoS + multi-agent v2 改进）。只读、不改循环。用 `scripts/fetch-references.sh` 克隆。 |
+| `hermes-upstream/` | **WORK 引擎**：Hermes Agent 本地克隆（**gitignored，不入库**），HTTP `/v1` 接缝黑盒纳管。 | 当黑盒用，锁定 v2026.7.1 (`7c1a029`，2026-07-01，MOA+self-verification+Windows 原生支持)。可借其 Desktop MIT React 组件（摘零件抄进来，不 fork 整个 Desktop）。零翻译直入 new-api（Chat Completions）。 |
+| `plugins/` `workbenches/` | 能力封装：skills/AGENTS.md/模板/工作台内容，纯 Markdown 零编译。各自的产品概念→技术落地映射见 [plugins/README.md](plugins/README.md)、[workbenches/README.md](workbenches/README.md)。 | MVP `office-agent` / OfficeCLI 已有骨架；市场化插件/更多垂类待落地。 |
+| `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–007（见下「Living Spec 纪律」索引）。 | 只给大功能/架构功能建，随实现同步更新。 |
 
 仓库托管在 `goodbyeri-studio/BlackRain`（私有）。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
+
+## 跨 Agent 协作
+
+Codex 可以调用本机 `claude` CLI 作为协作开发/审查助手，尤其适合并行做文档核查、代码审查、迁移方案对照、测试失败归因。调用前必须先明确任务边界，不把密钥、未脱敏日志或不该出仓库的私有上下文交给子进程。
+
+硬约束：调用 Claude CLI 时必须显式指定 **Sonnet 5 1M** 模型与 `--effort max`，不得省略 effort 或降级。默认使用非交互 `-p/--print` 形式，例如：
+
+```bash
+claude -p --model sonnet5-1m --effort max "<具体任务>"
+```
+
+若本机 CLI 的模型别名不同，先用 `claude --help` 或团队已确认的别名校正，但仍必须满足「Sonnet 5 1M + max effort」。Claude 输出只能作为辅助意见；最终改动、验证和风险判断由当前 agent 负责。
 
 ## Living Spec 纪律
 
