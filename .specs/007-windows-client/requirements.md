@@ -2,7 +2,7 @@
 
 ## 背景
 
-- 这个功能为什么现在要做:此前开发全在 macOS 主机上,Windows 自检脚本 / 配置 override / 平台分叉点已落了一批(`tauri.windows.conf.json`、`doctor.mjs`、`useLiquidGlassEffect` 的 Acrylic 分支、`WindowCaptionControls`、`office.rs platform_resource_hints`、`vendor-officecli.ps1`),但**真实环境里 Windows 客户端从未跑通过**:dev 启动脚本只有 bash 版、NSIS 打包未跑、Windows Credential Manager smoke 未做、Codex 内核 Windows 构建未验。开发主机切到 Windows 后,这条主线必须补齐。
+- 这个功能为什么现在要做:此前开发全在 macOS 主机上,Windows 自检脚本 / 配置 override / 平台分叉点已落了一批(`tauri.windows.conf.json`、`doctor.mjs`、`useLiquidGlassEffect` 的 Mica 分支、`WindowCaptionControls`、`office.rs platform_resource_hints`、`vendor-officecli.ps1`),但**真实环境里 Windows 客户端从未跑通过**:dev 启动脚本只有 bash 版、NSIS 打包未跑、Windows Credential Manager smoke 未做、Codex 内核 Windows 构建未验。开发主机切到 Windows 后,这条主线必须补齐。
 - 2026-06-30 决策:**MVP 只发行 Windows 客户端;macOS 整体推迟到 post-MVP**(见 `decisions.md` 第一条)。理由:国内用户大头在 Windows;双平台同时维护对 4 人团队是隐性税;同代码库 ≠ 同时交付——macOS 相关代码保留为历史资产,日常开发/CI/打包/发布全部按 Windows-only 推进。
 - 相关上游/文档/现有实现:
   - `apps/desktop/src-tauri/tauri.windows.conf.json`(已落:`titleBarStyle: Visible`、关 windowEffects、productName=BlackRain2049、Windows-only office-cli 资源)
@@ -38,7 +38,7 @@
   - 协议四探针在 Windows 上对 `cfead68` 内核全绿。
   - 真实 DeepSeek 单工具多轮调用在 Windows 上跑通。
 - 用户体验:NSIS 安装包双击装完→开始菜单图标点开→首次启动正常显示登录/首页,无需任何额外终端命令。
-- 安全/合规:Windows Credential Manager 实测 API key 写入 / 读取 / 清理 / 状态查询通过(`keyring` 已支持);网关只监听 127.0.0.1,Acrylic 半透明不影响 bearer 校验。
+- 安全/合规:Windows Credential Manager 实测 API key 写入 / 读取 / 清理 / 状态查询通过(`keyring` 已支持);网关只监听 127.0.0.1,Mica 半透明不影响 bearer 校验。
 - 性能/稳定性:dev 启动从 `pwsh scripts/dev-client.ps1` 跑起到 GUI 首帧 ≤ 120 秒(首次冷启动 Tauri 后端编译会久,后续增量秒级);冷启动后 App + codex + gateway 三进程占用合理。
 
 ## 约束
@@ -46,7 +46,7 @@
 - Codex 内核边界:内核当黑盒用;只验证它在 Windows 上能编译并被壳子进程拉起,**不**因 Windows 适配改任何 codex-upstream 代码。
 - `CODEX_HOME` / 配置边界:Windows 上专属 `CODEX_HOME` 落在 `%APPDATA%\cc.goodbyeri.blackrain\codex-home`(Tauri `app_data_dir()` 自动解析),不污染用户 `%USERPROFILE%\.codex`。
 - License / 第三方依赖:NSIS 模板沿用 Tauri 内置版本(MIT);Windows Credential Manager 走 `keyring` crate(已在依赖里,跨平台 backend)。
-- 平台差异(本 spec 仅认 Windows 一条线):窗口装饰(自绘 caption controls)、毛玻璃效果(Acrylic)、外部 App 启动方式(command)、文件路径分隔符、可执行后缀、OfficeCLI 二进制目录命名——已在 `WindowCaptionControls.tsx` / `useLiquidGlassEffect.ts` / `constants.ts` / `office.rs` 分别落了分叉,本 spec 不重做,只补缺口。macOS 分叉点保留,不验证。
+- 平台差异(本 spec 仅认 Windows 一条线):窗口装饰(自绘 caption controls)、毛玻璃效果(Mica)、外部 App 启动方式(command)、文件路径分隔符、可执行后缀、OfficeCLI 二进制目录命名——已在 `WindowCaptionControls.tsx` / `useLiquidGlassEffect.ts` / `constants.ts` / `office.rs` 分别落了分叉,本 spec 不重做,只补缺口。macOS 分叉点保留,不验证。
 
 ## 开放问题
 

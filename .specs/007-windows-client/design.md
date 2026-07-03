@@ -29,7 +29,7 @@
        ├─ spawn 内嵌 codex.exe 子进程(从 resources/ 拉)
        └─ spawn 内嵌 gateway/gateway.py 子进程(用系统 Python 或内嵌 Python)
              └─ bearer 校验 → 转发到 DeepSeek
-  -> 首次启动:Acrylic 半透明窗口 + 自绘 caption controls
+  -> 首次启动:Mica 半透明窗口 + 自绘 caption controls
   -> 登录 Supabase → 进首页
 
 dev 链路(本仓维护者):
@@ -66,7 +66,7 @@ dev 链路(本仓维护者):
 - 模型/网关失败:bearer 校验 / SSE 流式 / 工具调用历史转译——逻辑跨平台相同,Windows 上首次跑通仍可能撞 Python `aiohttp` / Path 分隔符问题,由 verification 跑出来。
 - 配置损坏:专属 `CODEX_HOME` 路径用 Tauri `app_data_dir()` 解析,跨平台正确;不存在「macOS 写对 Windows 写错」的硬编码风险。
 - 权限/沙箱失败:Windows 沙箱(`windowsSandbox/*`)5 层接线 `.specs/006` 已立项,首次在 Windows 主机跑探针时若内核报「沙箱未就绪」需走 setup 流程——本 spec 把它列为已知风险、不阻塞 v1。
-- 用户可见降级:Acrylic 不可用(Win 10 < 1809 或被关闭透明效果)→ `useLiquidGlassEffect` 现有 fallback(纯背景色)生效,功能不挂。
+- 用户可见降级:Mica 不可用(非 Windows 11 或被关闭透明效果)→ `useLiquidGlassEffect` 现有 fallback(纯背景色)生效,功能不挂。
 
 ## 安装包形态
 

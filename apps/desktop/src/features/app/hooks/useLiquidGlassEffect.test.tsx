@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { useLiquidGlassEffect } from "./useLiquidGlassEffect";
 import { isGlassSupported, setLiquidGlassEffect } from "tauri-plugin-liquid-glass-api";
-import { Effect, EffectState, getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 vi.mock("tauri-plugin-liquid-glass-api", () => ({
   isGlassSupported: vi.fn(),
@@ -16,6 +16,7 @@ vi.mock("tauri-plugin-liquid-glass-api", () => ({
 vi.mock("@tauri-apps/api/window", () => ({
   Effect: {
     Acrylic: "acrylic",
+    Mica: "mica",
     HudWindow: "hud-window",
   },
   EffectState: {
@@ -74,7 +75,7 @@ describe("useLiquidGlassEffect", () => {
     });
   });
 
-  it("applies Acrylic effect on Windows when liquid glass is unsupported", async () => {
+  it("applies Mica effect on Windows when liquid glass is unsupported", async () => {
     vi.mocked(isGlassSupported).mockResolvedValue(false);
     setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
 
@@ -82,8 +83,7 @@ describe("useLiquidGlassEffect", () => {
 
     await waitFor(() => {
       expect(mockSetEffects).toHaveBeenCalledWith({
-        effects: [Effect.Acrylic],
-        state: EffectState.Active,
+        effects: ["mica"],
       });
       expect(setLiquidGlassEffect).not.toHaveBeenCalled();
     });
@@ -98,7 +98,7 @@ describe("useLiquidGlassEffect", () => {
     await waitFor(() => {
       expect(mockSetEffects).toHaveBeenCalledWith(
         expect.objectContaining({
-          effects: [Effect.HudWindow],
+          effects: ["hud-window"],
         })
       );
     });
@@ -113,7 +113,7 @@ describe("useLiquidGlassEffect", () => {
     await waitFor(() => {
       expect(mockSetEffects).toHaveBeenCalledWith(
         expect.objectContaining({
-          effects: [Effect.HudWindow],
+          effects: ["hud-window"],
         })
       );
     });
