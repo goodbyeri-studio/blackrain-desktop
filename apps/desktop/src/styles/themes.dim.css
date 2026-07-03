@@ -52,6 +52,7 @@
 }
 
 :root[data-theme="dim"] .app.is-windows:not(.reduced-transparency) {
+  --surface-app: rgb(31, 34, 40);
   --surface-sidebar: rgba(41, 44, 51, 0.15);
   --surface-right-panel: rgba(36, 39, 46, 0.1);
   --surface-topbar: rgba(35, 38, 45, 0.15);

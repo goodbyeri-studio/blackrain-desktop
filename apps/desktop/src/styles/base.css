@@ -84,9 +84,56 @@ body {
   font-family: var(--ui-font-family);
 }
 
+.app.is-windows:not(.reduced-transparency) {
+  background: var(--surface-app, var(--surface-messages));
+}
+
+.app.is-windows:not(.reduced-transparency)::before,
+.app.is-windows:not(.reduced-transparency)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.app.is-windows:not(.reduced-transparency)::before {
+  z-index: 0;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(116, 145, 170, 0.18), transparent 30%),
+    radial-gradient(circle at 82% 26%, rgba(180, 190, 205, 0.12), transparent 32%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(0, 0, 0, 0.2)),
+    var(--surface-app, var(--surface-messages));
+  opacity: var(--material-wallpaper-opacity, 1);
+  animation: material-wallpaper-drift 18s ease-in-out infinite alternate;
+}
+
+.app.is-windows:not(.reduced-transparency)::after {
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045), transparent 22%, transparent 72%, rgba(255, 255, 255, 0.03)),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 6px);
+  mix-blend-mode: screen;
+  opacity: var(--material-grain-opacity, 0.34);
+}
+
+.app.is-windows:not(.reduced-transparency) > * {
+  position: relative;
+  z-index: 2;
+}
+
 .app.is-resizing,
 .app.is-resizing .main {
   transition: none;
+}
+
+@keyframes material-wallpaper-drift {
+  from {
+    transform: scale(1.02) translate3d(-0.6%, -0.4%, 0);
+  }
+  to {
+    transform: scale(1.04) translate3d(0.6%, 0.4%, 0);
+  }
 }
 
 .drag-strip {

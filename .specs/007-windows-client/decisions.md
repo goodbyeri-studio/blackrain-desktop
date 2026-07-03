@@ -48,6 +48,18 @@
 - 影响范围:NSIS 元数据预埋 publisher 字段,等将来加签名时只补 `signingIdentity` 不动其他结构。
 - 后续复查条件:① 真实下载量上来后,因 SmartScreen 流失明显;② 拿到外部投资 / 商业化收入;③ 出现 B 端客户硬性要求签名。
 
+## 2026-07-03:窗口毛玻璃材质用 Mica,不做 Win10 Acrylic 兼容分支
+
+- 决策:`useLiquidGlassEffect.ts` 的 Windows 分支固定用 `Effect.Mica`,不判断系统 build number、不为 Win10 保留 `Effect.Acrylic` 分支。配套在 `base.css` / `themes.*.css` 新增装饰性背景层(径向渐变 + 噪点纹理 + 呼吸动画)补偿 Mica 材质本身比 Acrylic 更「实」的视觉落差。
+- 原因:
+  1. **Mica 是 Win11 Fluent Design 规范的主窗口材质**,Acrylic 在 Win11 设计语言里已降级为仅用于临时性 UI(右键菜单/flyout/tooltip)。BlackRain 定位「复刻 codex-app 视觉水准」,主窗口该用 Win11 当前"对"的材质。
+  2. **Win10 完全不在当前开发精力范围内**——目标版本是 Win10+Win11,但当前 MVP 阶段开发机是 Win11,精力优先 Win11,Win10 兼容明确往后放,不在这批改动引入版本判断分支增加复杂度。
+  3. **Mica 是 Win11 专属 DWM 能力**,Win10 系统层面不存在,无法在不分支的情况下"两边一样都用 Mica";已确认按版本分支(Win11 用 Mica / Win10 用 Acrylic)技术可行(`windows-version` crate 读 build number,≥22000 为 Win11),但本次不做,留给 Win10 兼容阶段一起处理。
+- 替代方案:① 两边统一用 Acrylic(不分支,但 Win11 拿不到原生 Mica 质感,与"Win11 优先"目标不符);② 按 build number 分支(Win11 Mica / Win10 Acrylic,技术可行但增加一个 Rust command + 前端异步判断的复杂度,不匹配当前"减少复杂度"的开发节奏)。
+- 为什么不用替代方案:当前阶段目标明确是"只对 Win11 开发,Win10/macOS 都不在 MVP 范围",引入版本分支属于为不在 MVP 范围内的平台预先花精力,与团队开发精力有限的现实不匹配。
+- 影响范围:Win10 用户在这批改动后运行 BlackRain,`window.setEffects({ effects: [Effect.Mica] })` 调用在 Win10 上会静默失败或无效(取决于 `tauri-plugin-liquid-glass-api` 底层行为,未实测),窗口退化为纯色背景,不再有毛玻璃效果——这是已知且接受的降级,不是 bug。
+- 后续复查条件:进入 Win10 兼容阶段时,按已验证可行的方案(`windows_version::OsVersion::current().build >= 22000` 判断)补 Win11/Win10 双材质分支,同步恢复 `useLiquidGlassEffect.test.tsx` 里对应的 Acrylic 测试用例。
+
 ## 被推翻的方案
 
 ### 2026-06-30:首发 Windows + macOS 跟随支持

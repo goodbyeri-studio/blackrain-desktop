@@ -43,7 +43,7 @@
 - **dictation(语音输入)在 Windows 上不可用**(2026-06-30 决策):whisper-rs 0.12 + LLVM 22 bindgen 不兼容,临时让 Windows 走 stub.rs。等价 macOS/Linux 仍走 real.rs,功能不受影响。
 - **Codex 内核 Windows 构建**:已通过(2026-06-30,8m40s)。
 - **NSIS 打包默认 targets**:`tauri.windows.conf.json` 当前 `bundle` 段未显式锁 targets,继承上层 `tauri.conf.json` 的 `"all"` 可能触发 MSI 工具链。本 spec 要先显式锁 NSIS。
-- **Acrylic + bearer 校验交互**:网关 bearer 校验逻辑跨平台相同,但 Acrylic 窗口 + Webview2 fetch 跨 origin 行为未实测。
+- **Mica + bearer 校验交互**:网关 bearer 校验逻辑跨平台相同,但 Mica 窗口 + Webview2 fetch 跨 origin 行为未实测。
 - **whisper-rs 在 Windows ARM64**:doctor.mjs 检 LLVM 但 ARM64 wheel/clang-cl 是否全可用未实测。
 - **SmartScreen 实际通过率**:未签名 NSIS 在 Win11 SmartScreen 的真实用户体验未做。
 - **uvloop 在 Windows 不可用**(`.specs/003` 已知问题):本仓 gateway.py 是纯 stdlib 不依赖 uvloop,但若将来切 Hermes Python 引擎要重检。

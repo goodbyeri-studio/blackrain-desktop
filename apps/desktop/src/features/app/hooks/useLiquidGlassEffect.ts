@@ -70,10 +70,7 @@ export function useLiquidGlassEffect({ reduceTransparency, onDebug }: Params) {
         const isWindows = userAgent.includes("Windows");
 
         if (isWindows) {
-          await window.setEffects({
-            effects: [Effect.Acrylic],
-            state: EffectState.Active,
-          });
+          await window.setEffects({ effects: [Effect.Mica] });
           return;
         }
 
