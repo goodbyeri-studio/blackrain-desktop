@@ -21,6 +21,7 @@
 | agent 契约 | `AGENTS.md`、`CLAUDE.md`、`apps/desktop/AGENTS.md` | 给 coding agent 的硬规则和热点路径 | 工作规则或热点变化 |
 | 协作流程 | `CONTRIBUTING.md`、`.github/pull_request_template.md` | 分支、PR、license、密钥、review 纪律 | 团队流程变化 |
 | 命令速查 | `docs/commands.md` | 可复制命令和验证入口 | 命令变化或新增验证入口 |
+| 工程运行手册 | `docs/upstream-update-checklist.md`、`docs/cross-platform-dev.md` | 上游引擎跟进节奏、跨平台开发边界与烟测 | 流程或平台策略变化 |
 
 ## 专题文档索引
 
@@ -36,11 +37,14 @@
 | [08 仓库结构与上游策略](08-仓库结构与上游策略.md) | 内核黑盒 vs 壳底盘、CodexMonitor subtree |
 | [09 运行时架构与里程碑](09-运行时架构与里程碑.md) | 监工模型、三条铁律、内核形态、M0-M3 |
 | [REFERENCES](REFERENCES.md) | 参考项目登记、锁定版本、许可证 |
+| [上游更新检查清单](upstream-update-checklist.md) | 每 2 周跟进双引擎上游、历史更新记录、quick-xml 专项 |
+| [跨平台开发指南](cross-platform-dev.md) | macOS 开发 → Windows 交付的边界、平台分叉点、UI 自动切换机制、烟测清单 |
 
 ## 去哪里写
 
 - 新的跨层功能：建 `.specs/<NNN-slug>/`，不要先写长篇散文。
 - 新的长期战略/架构判断：更新 `docs/01`~`docs/09` 中最接近的一篇。
+- **做某个任务时的实现计划/检查清单/技术评估：放对应 `.specs/<功能>/`（无对应 spec 就先建，或放 `.scratch/`），不要新增 `docs/` 顶层文件**——`docs/` 只收战略/架构专题与长期运行手册（2026-07-06 治理定）。
 - 新的可复制命令：更新 `docs/commands.md`。
 - 某个目录自己的运行方式：更新该目录 `README.md`。
 - agent 必须遵守的规则：更新对应 `AGENTS.md`，根规则同步到 `CLAUDE.md`。

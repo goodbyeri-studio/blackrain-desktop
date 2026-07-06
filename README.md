@@ -63,10 +63,12 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 | [04 产品形态](docs/04-产品形态.md) | **产品形态唯一真源**:双入口(WORK/CODE)、技能/插件/工作台/工作室四词定义及 v1 状态、带护栏的发挥、成熟度路径 |
 | [05 模型路由](docs/05-模型路由.md) | v1 用户在模型广场手动选;Auto-Mode 大后期;网关翻译为硬依赖 |
 | [06 市场与创作者经济](docs/06-市场与创作者经济.md) | 应用市场、冷启动、分成、GPT Store 教训 |
-| [07 护城河与风险](docs/07-护城河与风险.md) | 四处护城河（含验证层）、三大硬风险、诚实的边界 |
+| [07 护城河与风险](docs/07-护城河与风险.md) | 四处护城河（含验证层）、四大硬风险、诚实的边界 |
 | [08 仓库结构与上游策略](docs/08-仓库结构与上游策略.md) | 内核黑盒 vs 壳底盘、CodexMonitor 用 subtree 导入 |
 | [09 运行时架构与里程碑](docs/09-运行时架构与里程碑.md) | 双引擎监工模型、三条铁律、引擎形态、M0-M3 里程碑 |
 | [REFERENCES](docs/REFERENCES.md) | 参考项目登记（怎么拿源码、锁哪个版本）|
+| [上游更新检查清单](docs/upstream-update-checklist.md) | 每 2 周跟进双引擎上游的例行清单、历史更新记录 |
+| [跨平台开发指南](docs/cross-platform-dev.md) | macOS 开发 → Windows 交付的边界、平台分叉点、烟测清单 |
 | [.specs](.specs/README.md) | 跨层功能的轻量 living spec 规则与模板 |
 | [.specs/004 插件目录](.specs/004-plugin-catalog/) | 两层模型、~34 打包单元、粒度与切分规则、验证脚手架 |
 | [.specs/007 Windows 客户端](.specs/007-windows-client/) | **MVP 仅 Windows**:dev-client.ps1 + NSIS + Windows 验证矩阵 |
@@ -80,7 +82,7 @@ Codex 这类 AI agent 真正难造、值钱的部分,是一套**能安全地在�
 - **仓库骨架**:`apps/desktop/` 用 git subtree 导入 CodexMonitor 壳(BlackRain GUI 正在复刻 codex-app);`gateway/` 已作为 CODE 路径 responses⇄chat sidecar 原型;`plugins/`、`workbenches/office-agent/` 已有 office 工作台/OfficeCLI 资源骨架,市场化内容仍后置。
 - **CODE M0(壳↔codex 打通)**:✅ 已验证(macOS)。协议四探针(initialize / model·list / thread·start / turn·start)全绿;Windows 实测待跑。
 - **M1 可行性(接国产模型)**:✅ 已实测(macOS)。`wire_api="chat"` 已被上游删除,必须走翻译网关;自写最小 responses⇄chat 网关已让 **DeepSeek 真正驱动内核跑通多轮工具调用**;Windows 上同套验证矩阵待跑(见 [.specs/007 verification](.specs/007-windows-client/verification.md))。详见 [09 运行时架构](docs/09-运行时架构与里程碑.md)。
-- **当前优先级**:① **Windows 客户端落地**(dev-client.ps1 + NSIS 打包 + Windows 验证矩阵,见 [.specs/007](.specs/007-windows-client/)) → ② 同步刷新双引擎能力底账/探针版本到当前锁定版本 → ③ CODE 复刻收尾(品牌切割、Skills/MCP 管理 UI、真实国产模型端到端烟测)。
+- **当前优先级(2026-07-06 重排,依据 [.specs/003 decisions](.specs/003-dual-engine-architecture/decisions.md) 同日条)**:① **Windows 客户端落地**(dev-client.ps1 + NSIS 打包 + Windows 验证矩阵,见 [.specs/007](.specs/007-windows-client/)) → ② **WORK 侧承重验证**(S4 跨模式端到端 + S5 工作台热拔插 + office 场景端到端质量基线,见 [.specs/003 tasks](.specs/003-dual-engine-architecture/tasks.md))——这是全项目最大的未验证产品假设 → ③ CODE 复刻**冻结在当前 ~90% 水位**,只做品牌切割等最小收尾(Skills/MCP 管理 UI、像素级打磨、底账全量重核后置到解冻)。
 
 ## 参与开发
 

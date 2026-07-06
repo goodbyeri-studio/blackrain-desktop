@@ -54,6 +54,8 @@ grep "quick-xml.*0.39" Cargo.lock
 # https://github.com/Smithay/wayland-rs/pull/938
 ```
 
+**为什么 0.39.4 残留可接受**（2026-07-03 评估，原 `docs/updates/` 验证报告已并入此处）：quick-xml 0.39.4 仅经两条路径引入——`plist`（经 syntect 做 TUI 语法高亮，不解析用户可控 XML）与 `wayland-scanner`（仅 Linux、仅构建期、解析可信 XML），均不处理攻击者输入；OpenAI 已在 codex-rs `deny.toml` 对 RUSTSEC-2026-0194/0195 豁免并注明理由；BlackRain MVP 仅 Windows，wayland 路径根本不参与。接受该风险，每次更新 Codex 时按下方步骤复查上游修复。
+
 **如果两个 PR 都已合并**：
 ```bash
 # 更新依赖

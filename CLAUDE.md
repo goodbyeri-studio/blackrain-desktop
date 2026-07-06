@@ -77,12 +77,19 @@ claude -p --model sonnet5-1m --effort max "<具体任务>"
 
 若本机 CLI 的模型别名不同，先用 `claude --help` 或团队已确认的别名校正，但仍必须满足「Sonnet 5 1M + max effort」。外部 agent 输出只能作为辅助意见；最终改动、验证和风险判断由当前 agent 负责。
 
+**协作场景示例**：
+- 文档一致性核查：让另一个 agent 交叉验证文档间的矛盾
+- 代码审查第二意见：对关键架构变更获取独立视角
+- 大规模重构方案对照：并行探索不同技术路线
+- 测试失败根因分析：多角度诊断复杂问题
+
 ## Living Spec 纪律
 
 - 触发条件：跨两层以上、改变运行时边界、形成用户可感知新流程、需要多 PR/多人接手、或依赖易漂移假设（上游协议/模型能力/合规/安全）的功能，必须在 `.specs/<NNN-slug>/` 建 spec。
 - 模板：复制 `.specs/_template/`，保留 `requirements.md`、`design.md`、`tasks.md`、`decisions.md`、`verification.md` 五个文件。
 - 更新规则：代码、配置、脚本或 UI 改变了功能行为，就在同一个 PR 更新对应 spec；验证命令和真实结果写进 `verification.md`，关键取舍写进 `decisions.md`。
 - 不滥用：文案、样式、小 bug、局部重构、只补测试，可以不建 spec；已有 spec 覆盖时只更新对应任务和验证。
+- 文档位置纪律：做某个任务时的实现计划/检查清单/技术评估，放对应 `.specs/<功能>/` 或 `.scratch/`，**不要新增 `docs/` 顶层文件**——`docs/` 只收战略/架构专题与长期运行手册（详见 [docs/README.md](docs/README.md)「去哪里写」）。
 - 冲突处理：总体战略以 `README.md` 与 `docs/01`~`docs/09` 为准；单功能执行以对应 spec 为准。若冲突，不要静默选择一边，必须修正文档或在 `decisions.md` 标明待决。
 
 **现有 spec 索引（动 `apps/desktop/**` 或运行时边界前，先查相关 spec）：**
@@ -93,13 +100,39 @@ claude -p --model sonnet5-1m --effort max "<具体任务>"
 | [002 accounts-credits](.specs/002-accounts-credits/) | M-A 主线：账号体系、Free/Plus/Pro 三档、credit 计量、服务端代理、BYOK 锁 Plus | — |
 | [003 dual-engine-architecture](.specs/003-dual-engine-architecture/) | 定稿双引擎（WORK/CODE）选型与接法；**CODE 模式边界的真源** | [code-mode-boundary.md](.specs/003-dual-engine-architecture/code-mode-boundary.md)、[codex-capability-ledger.md](.specs/003-dual-engine-architecture/codex-capability-ledger.md)、[hermes-capability-ledger.md](.specs/003-dual-engine-architecture/hermes-capability-ledger.md) |
 | [004 plugin-catalog](.specs/004-plugin-catalog/) | 插件目录两层模型、~34 打包单元（终局参考，MVP 不全做） | — |
-| [005 gui-redesign](.specs/005-gui-redesign/) | 以 Codex app 为视觉范本，把 BlackRain GUI 对齐到商业级（token 表 + 逐界面清单） | — |
+| [005 gui-redesign](.specs/005-gui-redesign/) | 以 Codex app 为视觉范本，把 BlackRain GUI 对齐到商业级（token 表 + 逐界面清单） | [codex-ui-copy-checklist.md](.specs/005-gui-redesign/codex-ui-copy-checklist.md) |
 | [006 code-mode-capability-wiring](.specs/006-code-mode-capability-wiring/) | 把 codex-rs「可用」能力全量接入并暴露到壳，为 GUI 像素级复刻铺路 | [capability-gui-mapping.md](.specs/006-code-mode-capability-wiring/capability-gui-mapping.md) |
 | [007 windows-client](.specs/007-windows-client/) | **当前优先级**:MVP 仅 Windows(macOS 推迟 post-MVP),dev-client.ps1 + NSIS 打包 + Windows 验证矩阵 | — |
 
 ## 常用命令
 
 > **平台(2026-06-30 决策)**:MVP 仅发行 Windows;macOS 推迟 post-MVP(代码保留作历史资产,不在 CI 跑、不在用户文档列、不主动验证)。下方命令以 Windows 为主;macOS 段标 post-MVP 参考,知道当前不交付。
+
+### 核心开发工作流（最常见操作）
+
+```powershell
+# 1. 克隆双引擎（首次设置）
+./scripts/fetch-references.sh   # 克隆 codex-upstream + hermes-upstream
+
+# 2. 编译内核（首次约 12 分钟，之后增量 1-3 分钟）
+cd codex-upstream\codex-rs
+$env:CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+cargo build -p codex-cli --bin codex
+cd ..\..
+
+# 3. 安装壳依赖（首次）
+cd apps\desktop
+npm install
+cd ..\..
+
+# 4. 启动开发环境
+pwsh scripts/dev-client.ps1
+
+# 5. 提交前验证
+cd apps\desktop
+npm run typecheck && npm run test && npm run lint
+cd src-tauri && cargo check
+```
 
 ### 首次设置（Windows）
 
@@ -145,6 +178,16 @@ $env:DEV_MODEL = "deepseek-v4-pro"; pwsh scripts/dev-client.ps1
 
 ⚠️ `tauri dev:win` 会开 GUI 窗口,须在有显示器的本机跑(非 SSH/无头)。
 
+### 日常开发（macOS/Linux，post-MVP 参考）
+
+```bash
+# 一键启动客户端
+./scripts/dev-client.sh
+
+# 指定模型
+DEV_MODEL=deepseek-v4-pro ./scripts/dev-client.sh
+```
+
 ### 提交前验证（改什么跑什么）
 
 ```powershell
@@ -164,14 +207,14 @@ npm run codemod:ds:dry                   # 预览 DS 收敛改写（去掉 :dry 
 # 改 Rust 后端后跑
 cd src-tauri
 cargo check
-cd ..\..
+cd ..
 ```
 
 **通用验证顺序**（推荐流程）：
-1. `npm run typecheck` — 所有改动必过
-2. `npm run test` — 前端行为改动时
-3. `cd src-tauri && cargo check` — Rust 改动时
-4. `npm run lint` — 共享 UI 改动时
+1. `npm run typecheck` — 所有改动必过（TypeScript 类型检查）
+2. `npm run test` — 前端行为改动时（Vitest 单元测试）
+3. `cd src-tauri && cargo check` — Rust 改动时（Rust 编译检查）
+4. `npm run lint` — 共享 UI 改动时（设计系统规则守卫）
 
 ### 内核增量重构建（内核代码更新后，约 1-3 分钟）
 
