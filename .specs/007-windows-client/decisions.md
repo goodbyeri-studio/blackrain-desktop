@@ -47,6 +47,7 @@
 - 为什么不用替代方案:① 现金流不优先;② 没收益;③ 上架周期与 v1 节奏不匹配。
 - 影响范围:NSIS 元数据预埋 publisher 字段,等将来加签名时只补 `signingIdentity` 不动其他结构。
 - 后续复查条件:① 真实下载量上来后,因 SmartScreen 流失明显;② 拿到外部投资 / 商业化收入;③ 出现 B 端客户硬性要求签名。
+- **2026-07-06 复查建议(待决,不必等条件①的流失数据)**:建议把「购入 OV 代码签名证书」提前到 v1——目标人群是小白,遇 SmartScreen「仍要运行」警告即流失,这是首装转化断崖(呼应 [docs/07 风险 4](../../docs/07-护城河与风险.md));且胖包内嵌 Python、起子进程跑 shell 的行为模式,易触发杀毒软件启发式误报,小白无力自行放行。OV 证书无需 EV 硬件 key、成本低一档,「签名 + 微软信誉累积」是这两个问题最便宜的缓解。
 
 ## 2026-07-03:窗口毛玻璃材质用 Mica,不做 Win10 Acrylic 兼容分支
 
@@ -58,6 +59,7 @@
 - 替代方案:① 两边统一用 Acrylic(不分支,但 Win11 拿不到原生 Mica 质感,与"Win11 优先"目标不符);② 按 build number 分支(Win11 Mica / Win10 Acrylic,技术可行但增加一个 Rust command + 前端异步判断的复杂度,不匹配当前"减少复杂度"的开发节奏)。
 - 为什么不用替代方案:当前阶段目标明确是"只对 Win11 开发,Win10/macOS 都不在 MVP 范围",引入版本分支属于为不在 MVP 范围内的平台预先花精力,与团队开发精力有限的现实不匹配。
 - 影响范围:Win10 用户在这批改动后运行 BlackRain,`window.setEffects({ effects: [Effect.Mica] })` 调用在 Win10 上会静默失败或无效(取决于 `tauri-plugin-liquid-glass-api` 底层行为,未实测),窗口退化为纯色背景,不再有毛玻璃效果——这是已知且接受的降级,不是 bug。
+- 性能注记(2026-07-04 评估,原 `docs/windows-mica-evaluation.md` 已并入本条):Mica 由 Windows DWM 合成器层完成、GPU 加速,应用仅启动时调一次 `setEffects()`,CPU 开销≈0。三条不要:不要用 CSS `backdrop-filter` 模拟(性能与质感都差)、不要运行时频繁切换效果(触发 DWM 重组合)、视觉增强只调 CSS 装饰层不动 Mica 本身。
 - 后续复查条件:进入 Win10 兼容阶段时,按已验证可行的方案(`windows_version::OsVersion::current().build >= 22000` 判断)补 Win11/Win10 双材质分支,同步恢复 `useLiquidGlassEffect.test.tsx` 里对应的 Acrylic 测试用例。
 
 ## 被推翻的方案

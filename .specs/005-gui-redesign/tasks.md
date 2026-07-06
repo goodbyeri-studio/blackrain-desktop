@@ -17,6 +17,8 @@
 
 ## 阶段 2：产品化（逐界面对齐，建议顺序）
 
+> 功能级照抄清单（P0/P1/P2 分级 + 照抄决策矩阵 + 依赖的内核接口）见 [codex-ui-copy-checklist.md](codex-ui-copy-checklist.md)（2026-07-06 自 `docs/` 迁入）；本节是视觉/形态级任务，两者互补。
+
 ### 2a. 首页静态对齐（低风险，纯 CSS，可先做）
 - [ ] 标题字号 ~40→~30px、色 `#fff`→略灰白；标题↔composer 间距收窄。
 - [ ] composer：两段分离 → **一体化**（输入+控件+项目入口同框，圆角 ~16→~12px）。⚠️ 改结构非纯 CSS，碰 [composer](../../apps/desktop/src/features/composer)。

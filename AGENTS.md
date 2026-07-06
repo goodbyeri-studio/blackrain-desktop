@@ -73,7 +73,7 @@ claude -p --model sonnet5-1m --effort max "<具体任务>"
 | [002 accounts-credits](.specs/002-accounts-credits/) | M-A 主线：账号体系、Free/Plus/Pro 三档、credit 计量、服务端代理、BYOK 锁 Plus | — |
 | [003 dual-engine-architecture](.specs/003-dual-engine-architecture/) | 定稿双引擎（WORK/CODE）选型与接法；**CODE 模式边界的真源** | [code-mode-boundary.md](.specs/003-dual-engine-architecture/code-mode-boundary.md)、[codex-capability-ledger.md](.specs/003-dual-engine-architecture/codex-capability-ledger.md)、[hermes-capability-ledger.md](.specs/003-dual-engine-architecture/hermes-capability-ledger.md) |
 | [004 plugin-catalog](.specs/004-plugin-catalog/) | 插件目录两层模型、~34 打包单元（终局参考，MVP 不全做） | — |
-| [005 gui-redesign](.specs/005-gui-redesign/) | 以 Codex app 为视觉范本，把 BlackRain GUI 对齐到商业级（token 表 + 逐界面清单） | — |
+| [005 gui-redesign](.specs/005-gui-redesign/) | 以 Codex app 为视觉范本，把 BlackRain GUI 对齐到商业级（token 表 + 逐界面清单） | [codex-ui-copy-checklist.md](.specs/005-gui-redesign/codex-ui-copy-checklist.md) |
 | [006 code-mode-capability-wiring](.specs/006-code-mode-capability-wiring/) | 把 codex-rs「可用」能力全量接入并暴露到壳，为 GUI 像素级复刻铺路 | [capability-gui-mapping.md](.specs/006-code-mode-capability-wiring/capability-gui-mapping.md) |
 | [007 windows-client](.specs/007-windows-client/) | **当前优先级**:MVP 仅 Windows(macOS 推迟 post-MVP),dev-client.ps1 + NSIS 打包 + Windows 验证矩阵 | — |
 
@@ -81,6 +81,7 @@ claude -p --model sonnet5-1m --effort max "<具体任务>"
 
 - 文档地图看 `docs/README.md`；可复制命令只维护在 `docs/commands.md`。
 - 新文档默认放 `docs/`、`.specs/` 或对应模块目录，不要随手新增根目录 Markdown。
+- **做某个任务时的实现计划/检查清单/技术评估：放对应 `.specs/<功能>/` 或 `.scratch/`，不要新增 `docs/` 顶层文件**——`docs/` 只收战略/架构专题与长期运行手册（2026-07-06 治理定）。
 - 同一事实只维护一处：状态写 `README.md`，战略/架构写 `docs/01`~`docs/09`，功能活文档写 `.specs/`，模块细节写模块 `README.md`。
 - 文档默认记录当前真实状态；过期方案不要留在正文，确需保留时放到 spec 的 `decisions.md`。
 - 根规则同步维护 `AGENTS.md` 与 `CLAUDE.md`，避免不同 agent 读到不同纪律。

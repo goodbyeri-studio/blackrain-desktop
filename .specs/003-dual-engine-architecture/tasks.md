@@ -12,6 +12,8 @@
 ## 阶段 1：最小可用（1 周 Spike，验承重假设）
 
 > 目标:在**开发机**上跑通双引擎最小闭环,验四个承重假设(WORK 无网关接国产 / CODE 沿用 / 共读记忆 / 跨模式不丢上下文)。**不碰交付打包**(开发机裸跑即可)。
+>
+> ★ **2026-07-06 重排(见 decisions 同日条)**:S4、S5 与「office 场景端到端质量基线」(5 个核心场景 × 10 次运行,≥8/10 无人工干预完成)列为当前 **P0**,排在 CODE 侧一切非必须收尾之前——这是全项目最大的未验证产品假设。
 
 > **两段式(关键)**:new-api 只是「计量这一跳」,不是承重假设。承重假设(Hermes 接国产 Chat 零翻译/流式/工具调用)用**厂商官方端点**就能验。
 > - **第一段(现在跑,无需 new-api)**:`base_url` 填 DeepSeek 官方 `https://api.deepseek.com/v1`,用官方 key → 验 S1–S4 全部承重假设。
@@ -106,7 +108,9 @@
 ## 阶段 2：产品化
 
 - [ ] WORK / CODE 两个 surface 成形（面向两拨人）
+  - [ ] EngineSwitcher：侧栏 WORK/CODE 引擎切换器 + `engineMode` 状态与持久化（早期原型计划文档已清理，以代码为准；背景克制化部分已并入 `base.css`）
 - [ ] 从 Hermes Desktop 借 MIT React 组件（skills/memory/provider 面板）进 Tauri 壳
+- [ ] 评估 Hermes v2026.7.1 新增能力的集成价值：MOA（多模型协同）、agent self-verification（与护城河 D 验证层天然对齐）
 - [ ] new-api 差价计费跑通一个真实垂类（番茄小说例，见 memory `2049-first-loop-design`）
 - [ ] 编排器：跨模式子任务切分/回传逻辑 + 测试
 
