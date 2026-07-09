@@ -92,9 +92,9 @@ describe("useResizablePanels", () => {
   });
 
   it("reads stored sizes and clamps to bounds", () => {
-    window.localStorage.setItem("codexmonitor.sidebarWidth", "999");
-    window.localStorage.setItem("codexmonitor.rightPanelWidth", "100");
-    window.localStorage.setItem("codexmonitor.planPanelHeight", "not-a-number");
+    window.localStorage.setItem("blackrain.sidebarWidth", "999");
+    window.localStorage.setItem("blackrain.rightPanelWidth", "100");
+    window.localStorage.setItem("blackrain.planPanelHeight", "not-a-number");
 
     const hook = renderResizablePanels();
 
@@ -130,7 +130,7 @@ describe("useResizablePanels", () => {
     });
 
     expect(hook.result.sidebarWidth).toBe(420);
-    expect(window.localStorage.getItem("codexmonitor.sidebarWidth")).toBe(
+    expect(window.localStorage.getItem("blackrain.sidebarWidth")).toBe(
       "420",
     );
 
