@@ -22,6 +22,8 @@
    codex 首页 1:1 复刻:空画布 + 居中「我们该做什么?」+ prompt 卡片
    ============================================================ */
 .home.home-codex {
+  position: relative;
+  isolation: isolate;
   align-items: center;
   justify-content: center;
   gap: 0;
@@ -31,6 +33,15 @@
   overflow: visible;
 }
 
+.home.home-codex::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: #151515;
+}
+
 /* 覆盖 .home > * 的 720px 拉伸,首页内容自行控宽 */
 .app.layout-desktop .home.home-codex > * {
   width: 100%;
@@ -38,21 +49,23 @@
 }
 
 .home-codex-inner {
-  width: min(100%, 720px);
+  position: relative;
+  z-index: 1;
+  width: min(calc(100% - 64px), 730px);
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 26px;
+  gap: 48px;
   /* 视觉重心略高于几何中心,贴合 codex */
-  transform: translateY(-8%);
+  transform: translateY(-4%);
 }
 
 .home-codex-greeting {
   margin: 0;
-  font-size: 30px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--text-stronger);
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: rgba(235, 235, 235, 0.9);
   text-align: center;
 }
 
@@ -69,10 +82,10 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
-  border: 1px solid var(--cm-border-default);
-  background: var(--cm-surface-panel-elevated);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
+  border: none;
+  background: transparent;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.18);
   /* visible：菜单弹层（权限/模型上弹、项目下弹）需越出卡片显示。
      圆角由 border-radius 裁背景，不依赖 overflow；底部项目行只有 border-top
      无独立背景，故放开 overflow 不会露出方角。 */
@@ -82,8 +95,13 @@
 .home-prompt-main {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px 16px 12px;
+  gap: 18px;
+  min-height: 82px;
+  padding: 13px 14px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  background: #262626;
 }
 
 .home-prompt-input-row {
@@ -109,13 +127,13 @@
 }
 
 .home-prompt-textarea::placeholder {
-  color: var(--text-faint);
+  color: rgba(235, 235, 235, 0.28);
 }
 
 .home-prompt-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .home-prompt-meta {
@@ -142,7 +160,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
   padding: 0;
@@ -162,13 +180,14 @@
 .home-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
-  padding: 4px 6px;
-  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 7px;
+  border-radius: 14px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -179,8 +198,8 @@
 }
 
 .home-pill .home-pill-chevron {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
   opacity: 0.75;
 }
 
@@ -231,8 +250,13 @@
 
 /* 模型药丸文字 */
 .home-model-label {
-  color: var(--text-strong);
-  font-size: 13px;
+  color: rgba(245, 245, 245, 0.86);
+  font-size: 14px;
+  font-weight: 400;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 发送键:浅灰实心圆 + 深色上箭头 */
@@ -241,8 +265,8 @@
   height: 30px;
   border-radius: 999px;
   border: none;
-  background: var(--cm-surface-panel-solid, rgba(255, 255, 255, 0.16));
-  color: var(--text-stronger);
+  background: rgba(255, 255, 255, 0.54);
+  color: rgba(14, 14, 14, 0.9);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -253,16 +277,18 @@
 }
 
 .home-prompt-send svg {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
 }
 
 .home-prompt-send:hover:not(:disabled) {
-  background: var(--text-faint);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .home-prompt-send:disabled {
-  opacity: 0.4;
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.5);
+  color: rgba(14, 14, 14, 0.82);
   cursor: default;
 }
 
@@ -270,28 +296,28 @@
 .home-project-row {
   display: flex;
   align-items: center;
-  padding: 6px 12px;
-  border-top: 1px solid var(--cm-border-subtle, rgba(255, 255, 255, 0.06));
+  min-height: 36px;
+  padding: 6px 18px 9px;
+  border-radius: 0 0 20px 20px;
+  background: rgba(24, 24, 24, 0.9);
 }
 
 .home-project-trigger {
-  font-size: 13px;
-  /* Codex 风格:带描边的圆角胶囊 + 轻微背景(区别于 model/access 的纯文字 pill) */
-  padding: 5px 11px;
-  border: 1px solid var(--cm-border-subtle, rgba(255, 255, 255, 0.12));
-  border-radius: 999px;
-  background: var(--cm-surface-panel, rgba(255, 255, 255, 0.04));
-  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 400;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(245, 245, 245, 0.86);
 }
 
 .home-project-trigger:hover {
-  background: var(--surface-hover);
-  border-color: var(--cm-border-default, rgba(255, 255, 255, 0.18));
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .home-project-trigger[aria-expanded="true"] {
-  background: var(--surface-hover);
-  border-color: var(--cm-border-default, rgba(255, 255, 255, 0.18));
+  background: transparent;
 }
 
 .home-project-trigger .home-pill-icon svg {
@@ -308,37 +334,161 @@
   position: absolute;
   z-index: 60;
   min-width: 240px;
-  padding: 6px;
+  padding: 10px;
+  background: #252525;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.3);
 }
 
-/* 完全访问菜单:上方弹出,左对齐 */
+/* 权限菜单:Codex 首页从 trigger 下方弹出 */
 .home-menu-popover--access {
-  bottom: calc(100% + 8px);
+  top: calc(100% + 10px);
   left: 0;
-  min-width: 320px;
+  min-width: 380px;
+  padding: 12px 16px;
 }
 
-/* 模型菜单:上方弹出,右对齐 */
+.home-menu-popover--access .home-menu-rich-item {
+  padding: 7px 0;
+}
+
+/* 模型菜单:Codex 首页从 trigger 下方弹出 */
 .home-menu-popover--model {
-  bottom: calc(100% + 8px);
+  top: calc(100% + 8px);
+  bottom: auto;
   right: 0;
   min-width: 260px;
 }
 
-/* 模型菜单:单行模型项(名称不换行、整行垂直居中),与 Codex 一致 */
-.home-menu-popover--model .home-menu-rich-item {
+/* 两面板模型选择器容器：向下弹出，右对齐 */
+.home-model-popover-wrap {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+}
+
+.home-menu-popover--left {
+  position: relative;
+  bottom: auto;
+  right: auto;
+  min-width: 208px;
+  padding: 8px 14px 10px;
+}
+
+/* 右面板：向左飞出（右对齐到左面板左边），避免超出屏幕右边缘 */
+.home-menu-popover--right {
+  position: absolute;
+  right: calc(100% + 8px);
+  left: auto;
+  bottom: auto;
+  min-width: 201px;
+  padding: 8px 14px 10px;
+}
+
+/* 模型族行（hover 触发右面板） */
+.home-menu-model-row {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border-radius: 10px;
+  margin-top: 5px;
 }
 
-.home-menu-popover--model .home-menu-rich-label {
+.home-menu-model-row.is-active {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.home-menu-model-row-chevron {
+  color: rgba(245, 245, 245, 0.48);
+  flex-shrink: 0;
+}
+
+/* 模型菜单:单行模型项（名称不换行、整行垂直居中）与 Codex 对齐 */
+.home-menu-popover--left .home-menu-rich-item,
+.home-menu-popover--model .home-menu-rich-item,
+.home-menu-popover--right .home-menu-rich-item {
+  align-items: center;
+  min-height: 31px;
+  padding: 4px 8px;
+  margin-inline: -6px;
+  color: rgba(245, 245, 245, 0.84);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.25;
+  border-radius: 10px;
+}
+
+.home-menu-popover--left .home-menu-rich-label,
+.home-menu-popover--model .home-menu-rich-label,
+.home-menu-popover--right .home-menu-rich-label {
   white-space: nowrap;
+  font-size: 15px;
+  font-weight: 400;
+  color: inherit;
 }
 
-/* 进入项目工作菜单:下方弹出,左对齐 */
+/* 模型族行内字号与 effort 行一致 */
+.home-menu-model-row .home-menu-rich-label {
+  font-size: 15px;
+}
+
+.home-menu-popover--left .home-menu-rich-item:hover,
+.home-menu-popover--model .home-menu-rich-item:hover,
+.home-menu-popover--right .home-menu-rich-item:hover,
+.home-menu-popover--left .home-menu-rich-item:focus-visible,
+.home-menu-popover--model .home-menu-rich-item:focus-visible,
+.home-menu-popover--right .home-menu-rich-item:focus-visible,
+.home-menu-popover--left .home-menu-rich-item.is-active,
+.home-menu-popover--model .home-menu-rich-item.is-active,
+.home-menu-popover--right .home-menu-rich-item.is-active {
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(245, 245, 245, 0.9);
+}
+
+/* 项目菜单:Codex 首页从 trigger 上方弹出 */
 .home-menu-popover--project {
-  top: calc(100% + 6px);
+  bottom: calc(100% + 6px);
+  top: auto;
   left: 0;
-  min-width: 256px;
+  min-width: 260px;
+  padding: 10px 14px;
+}
+
+.home-menu-popover--project .home-menu-rich-item,
+.home-submenu-popover .home-menu-rich-item {
+  align-items: center;
+  gap: 8px;
+  min-height: 31px;
+  padding: 4px 6px;
+  border-radius: 10px;
+}
+
+.home-menu-popover--project .home-menu-rich-label,
+.home-submenu-popover .home-menu-rich-label {
+  color: rgba(238, 238, 238, 0.84);
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.home-menu-popover--project .home-menu-rich-item:hover,
+.home-submenu-popover .home-menu-rich-item:hover,
+.home-submenu-anchor:has([aria-expanded="true"]) > .home-menu-rich-item {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.home-menu-popover--project .home-menu-rich-icon,
+.home-submenu-popover .home-menu-rich-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.home-menu-popover--project .home-menu-rich-check {
+  width: 14px;
 }
 
 /* 富菜单:带标题+描述的项 */
@@ -347,17 +497,17 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 8px 8px;
+  padding: 0 0 6px;
 }
 
 .home-menu-title {
-  font-size: 13px;
-  color: var(--text-stronger);
-  font-weight: 500;
+  font-size: 15px;
+  color: rgba(245, 245, 245, 0.42);
+  font-weight: 600;
 }
 
 .home-menu-learn {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   text-decoration: underline;
   cursor: pointer;
@@ -371,16 +521,23 @@
   align-items: flex-start;
   gap: 10px;
   width: 100%;
-  padding: 8px 8px;
+  padding: 8px 0;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   text-align: left;
 }
 
 .home-menu-rich-item:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.home-menu-rich-item:focus-visible,
+.home-menu-rich-item.is-active {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(245, 245, 245, 0.92);
+  outline: none;
 }
 
 .home-menu-rich-icon {
@@ -408,50 +565,40 @@
 }
 
 .home-menu-rich-label {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--text-stronger);
+  font-weight: 600;
 }
 
 .home-menu-rich-desc {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
-  line-height: 1.35;
+  line-height: 1.25;
+  font-weight: 600;
 }
 
 .home-menu-rich-check {
-  width: 16px;
+  width: 20px;
   flex-shrink: 0;
-  color: var(--text-stronger);
+  color: rgba(245, 245, 245, 0.78);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   align-self: center;
 }
 
-/* credit 倍率徽标（模型菜单项） */
-.home-model-multiplier {
-  flex-shrink: 0;
-  align-self: center;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  padding: 1px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle, rgba(127, 127, 127, 0.25));
-}
-
 /* 项目菜单:搜索框 + 列表 */
 .home-menu-search {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 7px;
+  padding: 5px 6px 8px;
   margin-bottom: 4px;
 }
 
 .home-menu-search-icon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   color: var(--text-faint);
   flex-shrink: 0;
 }
@@ -461,7 +608,8 @@
   border: none;
   background: transparent;
   color: var(--text-strong);
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 400;
   outline: none;
   min-width: 0;
 }
@@ -471,15 +619,15 @@
 }
 
 .home-menu-empty {
-  padding: 8px;
-  font-size: 12px;
+  padding: 9px 6px 17px;
+  font-size: 14px;
   color: var(--text-faint);
 }
 
 .home-menu-divider {
   height: 1px;
-  margin: 4px 0;
-  background: var(--cm-border-subtle, rgba(255, 255, 255, 0.06));
+  margin: 7px 0 7px;
+  background: rgba(255, 255, 255, 0.07);
 }
 
 /* 子菜单(添加新项目 → 右侧展开) */
@@ -489,11 +637,15 @@
 
 .home-submenu-popover {
   position: absolute;
-  left: calc(100% + 4px);
+  left: calc(100% + 8px);
   top: -6px;
   z-index: 70;
-  min-width: 200px;
-  padding: 6px;
+  min-width: 190px;
+  padding: 12px 14px;
+  background: #252525;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.3);
 }
 
 .app.layout-desktop .home {

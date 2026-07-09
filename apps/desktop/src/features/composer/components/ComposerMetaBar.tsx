@@ -1,8 +1,11 @@
 import type { CSSProperties } from "react";
-import { BrainCog, SlidersHorizontal, Zap } from "lucide-react";
+import { useRef, useState } from "react";
+import { Check, ChevronRight, SlidersHorizontal, Zap } from "lucide-react";
 import type { AccessMode, ServiceTier, ThreadTokenUsage } from "../../../types";
 import type { CodexArgsOption } from "../../threads/utils/codexArgsProfiles";
 import { useI18n } from "@/i18n";
+import { useMenuController } from "../../app/hooks/useMenuController";
+import { PopoverMenuItem } from "../../design-system/components/popover/PopoverPrimitives";
 
 type ComposerMetaBarProps = {
   disabled: boolean;
@@ -37,7 +40,6 @@ export function ComposerMetaBar({
   selectedEffort,
   onSelectEffort,
   selectedServiceTier,
-  reasoningSupported,
   accessMode,
   onSelectAccessMode,
   codexArgsOptions = [],
@@ -48,11 +50,6 @@ export function ComposerMetaBar({
   const { tx } = useI18n();
   const selectedModel =
     models.find((model) => model.id === selectedModelId) ?? null;
-  const selectedModelLabel =
-    selectedModel?.displayName || selectedModel?.model || tx("No models");
-  const modelSelectStyle = {
-    "--composer-model-select-width": `${Math.max(selectedModelLabel.length + 2, 8)}ch`,
-  } as CSSProperties;
   const contextWindow = contextUsage?.modelContextWindow ?? null;
   const lastTokens = contextUsage?.last.totalTokens ?? 0;
   const totalTokens = contextUsage?.total.totalTokens ?? 0;
@@ -65,6 +62,13 @@ export function ComposerMetaBar({
             Math.min(Math.max((usedTokens / contextWindow) * 100, 0), 100),
         )
       : null;
+  const accessModeClass =
+    accessMode === "full-access"
+      ? "approval-danger"
+      : accessMode === "current"
+        ? "approval-warning"
+        : "";
+
   const planMode =
     collaborationModes.find((mode) => mode.id === "plan") ?? null;
   const defaultMode =
@@ -75,6 +79,33 @@ export function ComposerMetaBar({
       (mode) => mode.id === "default" || mode.id === "plan",
     );
   const planSelected = selectedCollaborationModeId === (planMode?.id ?? "");
+
+  // 两级模型选择器状态
+  const modelMenu = useMenuController({});
+  const [showModelPanel, setShowModelPanel] = useState(false);
+  const [modelRowOffset, setModelRowOffset] = useState(0);
+  const modelRowRef = useRef<HTMLDivElement>(null);
+  const closePanelTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const handleModelRowEnter = () => {
+    clearTimeout(closePanelTimer.current);
+    if (modelRowRef.current) {
+      setModelRowOffset(modelRowRef.current.offsetTop);
+    }
+    setShowModelPanel(true);
+  };
+
+  const scheduleClosePanel = () => {
+    closePanelTimer.current = setTimeout(() => setShowModelPanel(false), 120);
+  };
+
+  const cancelClosePanel = () => {
+    clearTimeout(closePanelTimer.current);
+  };
+
+  // 触发按钮展示文本：完整模型名（保留品牌前缀）+ 推理档位
+  const currentDisplayName = selectedModel?.displayName ?? selectedModel?.model ?? tx("No models");
+  const effortLabel = selectedEffort ?? "";
 
   return (
     <div className="composer-bar">
@@ -143,81 +174,79 @@ export function ComposerMetaBar({
             </div>
           )
         )}
-        <div className="composer-select-wrap composer-select-wrap--model">
-          <span className="composer-icon composer-icon--model" aria-hidden>
-            <svg viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 4v2"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-              <path
-                d="M8 7.5h8a2.5 2.5 0 0 1 2.5 2.5v5a2.5 2.5 0 0 1-2.5 2.5H8A2.5 2.5 0 0 1 5.5 15v-5A2.5 2.5 0 0 1 8 7.5Z"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinejoin="round"
-              />
-              <circle cx="9.5" cy="12.5" r="1" fill="currentColor" />
-              <circle cx="14.5" cy="12.5" r="1" fill="currentColor" />
-              <path
-                d="M9.5 15.5h5"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-              <path
-                d="M5.5 11H4M20 11h-1.5"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-          </span>
-          <select
-            className="composer-select composer-select--model"
-            aria-label={tx("Model")}
-            value={selectedModelId ?? ""}
-            onChange={(event) => onSelectModel(event.target.value)}
+        {/* 两级模型+推理选择器 */}
+        <div className="model-selector-popover-wrap" ref={modelMenu.containerRef}>
+          <button
+            type="button"
+            className="model-selector-trigger"
             disabled={disabled}
-            style={modelSelectStyle}
+            onClick={modelMenu.toggle}
+            aria-haspopup="menu"
+            aria-expanded={modelMenu.isOpen}
+            aria-label={tx("Model and effort selector")}
           >
-            {models.length === 0 && <option value="">{tx("No models")}</option>}
-            {models.map((model) => (
-              <option key={model.id} value={model.id}>
-                {model.displayName || model.model}
-              </option>
-            ))}
-          </select>
-          {selectedServiceTier === "fast" && (
-            <span
-              className="composer-fast-indicator"
-              role="status"
-              aria-label={tx("Fast mode enabled")}
-              title={tx("Fast mode enabled")}
+            {currentDisplayName}{effortLabel ? ` ${effortLabel}` : ""} ∨
+            {selectedServiceTier === "fast" && (
+              <Zap size={12} strokeWidth={1.8} aria-label={tx("Fast mode enabled")} />
+            )}
+          </button>
+          {modelMenu.isOpen && (
+            <div
+              className="model-selector-popover"
+              onMouseLeave={scheduleClosePanel}
             >
-              <Zap size={12} strokeWidth={1.8} />
-            </span>
+              {/* 左面板：推理档位 + 模型族行 */}
+              <div className="model-selector-left">
+                {reasoningOptions.length > 0 && (
+                  <>
+                    <div className="model-selector-section-label">{tx("推理")}</div>
+                    {reasoningOptions.map((option) => (
+                      <PopoverMenuItem
+                        key={option}
+                        active={option === selectedEffort}
+                        onClick={() => { onSelectEffort(option); }}
+                      >
+                        <span className="model-selector-option-label">{option}</span>
+                        {option === selectedEffort && <Check size={13} className="model-selector-check" />}
+                      </PopoverMenuItem>
+                    ))}
+                    <div className="model-selector-divider" />
+                  </>
+                )}
+                {/* 模型族行：hover 从该行位置飞出右面板 */}
+                <div
+                  ref={modelRowRef}
+                  className={`model-selector-model-row${showModelPanel ? " model-selector-model-row--active" : ""}`}
+                  onMouseEnter={handleModelRowEnter}
+                  onMouseLeave={scheduleClosePanel}
+                >
+                  <span>{currentDisplayName}</span>
+                  <ChevronRight size={13} />
+                </div>
+              </div>
+              {/* 右面板：绝对定位，top 对齐模型族行 */}
+              {showModelPanel && (
+                <div
+                  className="model-selector-right"
+                  style={{ top: modelRowOffset }}
+                  onMouseEnter={cancelClosePanel}
+                  onMouseLeave={scheduleClosePanel}
+                >
+                  <div className="model-selector-section-label">{tx("模型")}</div>
+                  {models.map((m) => (
+                    <PopoverMenuItem
+                      key={m.id}
+                      active={m.id === selectedModelId}
+                      onClick={() => { onSelectModel(m.id); modelMenu.close(); setShowModelPanel(false); }}
+                    >
+                      <span className="model-selector-option-label">{m.displayName || m.model}</span>
+                      {m.id === selectedModelId && <Check size={13} className="model-selector-check" />}
+                    </PopoverMenuItem>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
-        </div>
-        <div className="composer-select-wrap composer-select-wrap--effort">
-          <span className="composer-icon composer-icon--effort" aria-hidden>
-            <BrainCog size={14} strokeWidth={1.8} />
-          </span>
-          <select
-            className="composer-select composer-select--effort"
-            aria-label={tx("Thinking mode")}
-            value={selectedEffort ?? ""}
-            onChange={(event) => onSelectEffort(event.target.value)}
-            disabled={disabled || !reasoningSupported}
-          >
-            {reasoningOptions.length === 0 && <option value="">{tx("Default")}</option>}
-            {reasoningOptions.map((effort) => (
-              <option key={effort} value={effort}>
-                {effort}
-              </option>
-            ))}
-          </select>
         </div>
         {codexArgsOptions.length > 1 && onSelectCodexArgsOverride && (
           <div className="composer-select-wrap">
@@ -241,7 +270,7 @@ export function ComposerMetaBar({
             </select>
           </div>
         )}
-        <div className="composer-select-wrap">
+        <div className={`composer-select-wrap${accessModeClass ? ` ${accessModeClass}` : ""}`}>
           <span className="composer-icon" aria-hidden>
             <svg viewBox="0 0 24 24" fill="none">
               <path

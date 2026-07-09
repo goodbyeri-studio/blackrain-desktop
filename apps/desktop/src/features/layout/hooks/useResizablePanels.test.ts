@@ -66,6 +66,25 @@ function buildSplitDom(): SplitDom {
   return { split, resizer };
 }
 
+function mockRect(
+  element: HTMLElement,
+  rect: Partial<DOMRect> & Pick<DOMRect, "left" | "width">,
+) {
+  Object.defineProperty(element, "getBoundingClientRect", {
+    configurable: true,
+    value: () => ({
+      bottom: 0,
+      height: 0,
+      right: rect.left + rect.width,
+      top: 0,
+      x: rect.left,
+      y: 0,
+      toJSON() {},
+      ...rect,
+    }),
+  });
+}
+
 describe("useResizablePanels", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -117,6 +136,80 @@ describe("useResizablePanels", () => {
 
     hook.unmount();
     appEl.remove();
+  });
+
+  it("uses the rendered sidebar resizer position as the resize start width", () => {
+    const hook = renderResizablePanels();
+    const appEl = document.createElement("div");
+    const resizer = document.createElement("div");
+    document.body.append(appEl, resizer);
+    hook.result.appRef.current = appEl;
+    mockRect(appEl, { left: 10, width: 700 });
+    mockRect(resizer, { left: 246, width: 8 });
+
+    act(() => {
+      hook.result.onSidebarResizeStart({
+        clientX: 250,
+        clientY: 0,
+        currentTarget: resizer,
+        preventDefault() {},
+      } as unknown as React.MouseEvent);
+    });
+
+    act(() => {
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: 260, clientY: 0 }),
+      );
+    });
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent("mouseup"));
+    });
+
+    expect(hook.result.sidebarWidth).toBe(250);
+
+    hook.unmount();
+    appEl.remove();
+    resizer.remove();
+  });
+
+  it("uses the rendered right panel resizer position as the resize start width", () => {
+    const hook = renderResizablePanels();
+    const appEl = document.createElement("div");
+    const mainEl = document.createElement("div");
+    const resizer = document.createElement("div");
+    mainEl.className = "main";
+    mainEl.appendChild(resizer);
+    document.body.append(appEl, mainEl);
+    hook.result.appRef.current = appEl;
+    mockRect(appEl, { left: 0, width: 1000, right: 1000 });
+    mockRect(mainEl, { left: 220, width: 680, right: 900 });
+    mockRect(resizer, { left: 566, width: 8 });
+
+    act(() => {
+      hook.result.onRightPanelResizeStart({
+        clientX: 570,
+        clientY: 0,
+        currentTarget: resizer,
+        preventDefault() {},
+      } as unknown as React.MouseEvent);
+    });
+
+    act(() => {
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: 600, clientY: 0 }),
+      );
+    });
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent("mouseup"));
+    });
+
+    expect(hook.result.rightPanelWidth).toBe(300);
+
+    hook.unmount();
+    appEl.remove();
+    mainEl.remove();
   });
 
   it("moves split position right when dragging the splitter right", () => {

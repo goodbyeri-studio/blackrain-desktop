@@ -1,5 +1,7 @@
 import type { MouseEvent } from "react";
 import Folder from "lucide-react/dist/esm/icons/folder";
+import MoreHorizontal from "lucide-react/dist/esm/icons/more-horizontal";
+import SquarePen from "lucide-react/dist/esm/icons/square-pen";
 import { useI18n } from "@/i18n";
 
 import type { WorkspaceInfo } from "../../../types";
@@ -13,7 +15,7 @@ type WorkspaceCardProps = {
   addMenuOpen: boolean;
   addMenuWidth: number;
   onSelectWorkspace: (id: string) => void;
-  onShowWorkspaceMenu: (event: MouseEvent, workspaceId: string) => void;
+  onShowWorkspaceMenu: (event: MouseEvent, workspace: WorkspaceInfo) => void;
   onToggleWorkspaceCollapse: (workspaceId: string, collapsed: boolean) => void;
   onConnectWorkspace: (workspace: WorkspaceInfo) => void;
   onToggleAddMenu: (anchor: {
@@ -50,7 +52,7 @@ export function WorkspaceCard({
         role="button"
         tabIndex={0}
         onClick={() => onSelectWorkspace(workspace.id)}
-        onContextMenu={(event) => onShowWorkspaceMenu(event, workspace.id)}
+        onContextMenu={(event) => onShowWorkspaceMenu(event, workspace)}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
@@ -82,6 +84,19 @@ export function WorkspaceCard({
           {summary && <div className="workspace-summary">{summary}</div>}
         </div>
         <div className="workspace-actions">
+          <div className="workspace-card-hover-actions">
+            <button
+              className="workspace-card-action-btn"
+              data-tauri-drag-region="false"
+              aria-label={tx("More options")}
+              onClick={(event) => {
+                event.stopPropagation();
+                onShowWorkspaceMenu(event, workspace);
+              }}
+            >
+              <MoreHorizontal size={14} />
+            </button>
+          </div>
           <button
             className="ghost workspace-add"
             onClick={(event) => {
@@ -104,10 +119,10 @@ export function WorkspaceCard({
               );
             }}
             data-tauri-drag-region="false"
-            aria-label={tx("Add agent options")}
+            aria-label={tx("New thread in project")}
             aria-expanded={addMenuOpen}
           >
-            +
+            <SquarePen size={14} strokeWidth={1.8} aria-hidden />
           </button>
           {!workspace.connected && (
             <span

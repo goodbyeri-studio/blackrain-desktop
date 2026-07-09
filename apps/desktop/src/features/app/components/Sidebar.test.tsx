@@ -71,10 +71,9 @@ const baseProps = {
 
 describe("Sidebar", () => {
   it("renders the search bar when opened and accepts a query", () => {
-    // 搜索 UI 入口已移除,功能保留休眠;经 initialSearchOpen 驱动验证过滤栏。
     render(<Sidebar {...baseProps} initialSearchOpen />);
 
-    const input = screen.getByLabelText("Search conversations") as HTMLInputElement;
+    const input = screen.getByPlaceholderText("Search conversations") as HTMLInputElement;
     expect(input).toBeTruthy();
 
     fireEvent.change(input, { target: { value: "alpha" } });
@@ -83,10 +82,11 @@ describe("Sidebar", () => {
 
   it("hides the search bar when not opened", () => {
     render(<Sidebar {...baseProps} />);
-    expect(screen.queryByLabelText("Search conversations")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Search conversations" })).toBeNull();
+    expect(screen.queryByPlaceholderText("Search conversations")).toBeNull();
   });
 
-  it("opens thread sort menu from the header filter button", () => {
+  it("opens thread sort menu from the project actions button", () => {
     const onSetThreadListSortKey = vi.fn();
     render(
       <Sidebar
@@ -96,18 +96,19 @@ describe("Sidebar", () => {
       />,
     );
 
-    const button = screen.getByRole("button", { name: "Organize and sort threads" });
+    const button = screen.getByRole("button", { name: "Project actions" });
     expect(screen.queryByRole("menu")).toBeNull();
 
     fireEvent.click(button);
-    const option = screen.getByRole("menuitemradio", { name: "Created" });
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "Sort conditions" }));
+    const option = screen.getByRole("menuitemradio", { name: "Created time" });
     fireEvent.click(option);
 
     expect(onSetThreadListSortKey).toHaveBeenCalledWith("created_at");
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
-  it("changes organize mode from the header filter menu", () => {
+  it("changes organize mode from the project actions menu", () => {
     const onSetThreadListOrganizeMode = vi.fn();
     render(
       <Sidebar
@@ -117,16 +118,19 @@ describe("Sidebar", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Organize and sort threads" }));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "Thread list" }));
+    fireEvent.click(screen.getByRole("button", { name: "Project actions" }));
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "Organize sidebar" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Chronological" }));
 
     expect(onSetThreadListOrganizeMode).toHaveBeenCalledWith("threads_only");
   });
 
-  it("opens the account menu from the bottom rail", () => {
+  it("opens settings from the Codex-style bottom rail", () => {
+    const onOpenSettings = vi.fn();
     render(
       <Sidebar
         {...baseProps}
+        onOpenSettings={onOpenSettings}
         activeWorkspaceId="ws-1"
         accountInfo={{
           email: "dimillian@example.com",
@@ -137,10 +141,17 @@ describe("Sidebar", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Account" }));
-
+    expect(screen.getByText("Settings")).toBeTruthy();
     expect(screen.getByText("dimillian@example.com")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Switch account" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows not signed in in the Codex-style bottom rail without an account", () => {
+    render(<Sidebar {...baseProps} />);
+
+    expect(screen.getByText("Not signed in")).toBeTruthy();
   });
 
   it("renders threads-only mode as a global chronological list", () => {
@@ -255,7 +266,7 @@ describe("Sidebar", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Search conversations"), {
+    fireEvent.change(screen.getByPlaceholderText("Search conversations"), {
       target: { value: "restore" },
     });
 
@@ -307,7 +318,7 @@ describe("Sidebar", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Search conversations"), {
+    fireEvent.change(screen.getByPlaceholderText("Search conversations"), {
       target: { value: "delta" },
     });
 
@@ -355,7 +366,7 @@ describe("Sidebar", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Search conversations"), {
+    fireEvent.change(screen.getByPlaceholderText("Search conversations"), {
       target: { value: "historical" },
     });
 
@@ -412,7 +423,7 @@ describe("Sidebar", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Search conversations"), {
+    fireEvent.change(screen.getByPlaceholderText("Search conversations"), {
       target: { value: "routing fix" },
     });
 
@@ -481,7 +492,7 @@ describe("Sidebar", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Search conversations"), {
+    fireEvent.change(screen.getByPlaceholderText("Search conversations"), {
       target: { value: "clone search bug" },
     });
 
@@ -548,8 +559,7 @@ describe("Sidebar", () => {
     expect(onAddAgent).toHaveBeenCalledWith(expect.objectContaining({ id: "ws-1" }));
   });
 
-  it("refreshes all workspace threads from the header button", () => {
-    const onRefreshAllThreads = vi.fn();
+  it("shows Codex-style project header actions", () => {
     render(
       <Sidebar
         {...baseProps}
@@ -577,50 +587,11 @@ describe("Sidebar", () => {
             ],
           },
         ]}
-        onRefreshAllThreads={onRefreshAllThreads}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh all workspace threads" }));
-    expect(onRefreshAllThreads).toHaveBeenCalledTimes(1);
-  });
-
-  it("spins the refresh icon while workspace threads are refreshing", () => {
-    render(
-      <Sidebar
-        {...baseProps}
-        workspaces={[
-          {
-            id: "ws-1",
-            name: "Workspace",
-            path: "/tmp/workspace",
-            connected: true,
-            settings: { sidebarCollapsed: false },
-          },
-        ]}
-        groupedWorkspaces={[
-          {
-            id: null,
-            name: "Workspaces",
-            workspaces: [
-              {
-                id: "ws-1",
-                name: "Workspace",
-                path: "/tmp/workspace",
-                connected: true,
-                settings: { sidebarCollapsed: false },
-              },
-            ],
-          },
-        ]}
-        threadListLoadingByWorkspace={{ "ws-1": true }}
-      />,
-    );
-
-    const refreshButton = screen.getByRole("button", { name: "Refresh all workspace threads" });
-    expect(refreshButton.getAttribute("aria-busy")).toBe("true");
-    const icon = refreshButton.querySelector("svg");
-    expect(icon?.getAttribute("class") ?? "").toContain("spinning");
+    expect(screen.getByRole("button", { name: "Project actions" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add workspaces" })).toBeTruthy();
   });
 
   it("shows a top New Agent draft row and selects workspace when clicked", () => {

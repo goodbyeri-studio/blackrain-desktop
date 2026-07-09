@@ -161,6 +161,67 @@ describe("useModels", () => {
     expect(result.current.selectedModelId).toBe("qwen/qwen3-coder-plus");
   });
 
+  it("uses DeepSeek official high/max reasoning efforts from the gateway registry", async () => {
+    vi.mocked(getModelList).mockResolvedValueOnce({ data: [] });
+    vi.mocked(getConfigModel).mockResolvedValueOnce("deepseek-v4-flash");
+
+    const { result } = renderHook(() =>
+      useModels({
+        activeWorkspace: workspace,
+        modelGateway: {
+          enabled: true,
+          port: 8899,
+          defaultModel: "deepseek-v4-flash",
+          providers: [
+            {
+              id: "deepseek",
+              name: "DeepSeek",
+              kind: "openai-compatible",
+              baseUrl: "https://api.deepseek.com/v1",
+              apiKeyEnv: "DEEPSEEK_API_KEY",
+              enabled: true,
+              models: [
+                {
+                  id: "deepseek-v4-flash",
+                  displayName: "DeepSeek V4 Flash",
+                  description: "flash model",
+                  isDefault: true,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.models.length).toBe(1));
+
+    expect(result.current.reasoningOptions).toEqual(["high", "max"]);
+    expect(result.current.selectedEffort).toBe("high");
+  });
+
+  it("adds DeepSeek reasoning efforts to config models", async () => {
+    vi.mocked(getModelList).mockResolvedValueOnce({ data: [] });
+    vi.mocked(getConfigModel).mockResolvedValueOnce("deepseek-v4-flash");
+
+    const { result } = renderHook(() =>
+      useModels({
+        activeWorkspace: workspace,
+        modelGateway: {
+          enabled: true,
+          port: 8899,
+          defaultModel: "qwen/qwen3-coder-plus",
+          providers: [],
+        },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.selectedModelId).toBe("deepseek-v4-flash"));
+
+    expect(result.current.reasoningOptions).toEqual(["high", "max"]);
+    expect(result.current.selectedEffort).toBe("high");
+  });
+
   it("keeps the selected reasoning effort when switching models", async () => {
     vi.mocked(getModelList).mockResolvedValueOnce({
       result: {

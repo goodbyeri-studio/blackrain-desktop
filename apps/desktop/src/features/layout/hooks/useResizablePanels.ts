@@ -20,7 +20,7 @@ const MIN_TERMINAL_PANEL_HEIGHT = 140;
 const MAX_TERMINAL_PANEL_HEIGHT = 480;
 const MIN_DEBUG_PANEL_HEIGHT = 120;
 const MAX_DEBUG_PANEL_HEIGHT = 420;
-const DEFAULT_SIDEBAR_WIDTH = 280;
+const DEFAULT_SIDEBAR_WIDTH = 220;
 const DEFAULT_CHAT_DIFF_SPLIT_POSITION_PERCENT = 50;
 const DEFAULT_RIGHT_PANEL_WIDTH = 230;
 const DEFAULT_PLAN_PANEL_HEIGHT = 220;
@@ -81,6 +81,44 @@ function getContainerPointerPercent(event: MouseEvent, resize: ResizeState) {
   const containerWidth = resize.startContainerWidth ?? 1;
   const containerLeft = resize.startContainerLeft ?? 0;
   return ((event.clientX - containerLeft) / containerWidth) * 100;
+}
+
+function getMeasuredWidth(value: number, fallback: number) {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function getResizerCenterX(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  return rect.left + rect.width / 2;
+}
+
+function getSidebarStartWidth(
+  event: ReactMouseEvent,
+  fallback: number,
+  appEl: HTMLElement | null,
+) {
+  const resizer = event.currentTarget as HTMLElement | undefined;
+  if (!resizer || !appEl) {
+    return fallback;
+  }
+
+  const appRect = appEl.getBoundingClientRect();
+  return getMeasuredWidth(getResizerCenterX(resizer) - appRect.left, fallback);
+}
+
+function getRightPanelStartWidth(
+  event: ReactMouseEvent,
+  fallback: number,
+  appEl: HTMLElement | null,
+) {
+  const resizer = event.currentTarget as HTMLElement | undefined;
+  if (!resizer || !appEl) {
+    return fallback;
+  }
+
+  const mainEl = resizer.closest(".main") as HTMLElement | null;
+  const containerRect = (mainEl ?? appEl).getBoundingClientRect();
+  return getMeasuredWidth(containerRect.right - getResizerCenterX(resizer), fallback);
 }
 
 export function useResizablePanels() {
@@ -282,11 +320,12 @@ export function useResizablePanels() {
   const onSidebarResizeStart = useCallback(
     (event: ReactMouseEvent) => {
       event.preventDefault();
+      const el = appRef.current;
       resizeRef.current = {
         type: "sidebar",
         startX: event.clientX,
         startY: event.clientY,
-        startWidth: sidebarWidth,
+        startWidth: getSidebarStartWidth(event, sidebarWidth, el),
         startHeight: planPanelHeight,
       };
       document.body.style.cursor = "col-resize";
@@ -322,12 +361,13 @@ export function useResizablePanels() {
   const onRightPanelResizeStart = useCallback(
     (event: ReactMouseEvent) => {
       event.preventDefault();
+      const el = appRef.current;
 
       resizeRef.current = {
         type: "right-panel",
         startX: event.clientX,
         startY: event.clientY,
-        startWidth: rightPanelWidth,
+        startWidth: getRightPanelStartWidth(event, rightPanelWidth, el),
         startHeight: planPanelHeight,
       };
       document.body.style.cursor = "col-resize";

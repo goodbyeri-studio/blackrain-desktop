@@ -19,12 +19,14 @@ export const PopoverSurface = forwardRef<HTMLDivElement, PopoverSurfaceProps>(
 type PopoverMenuItemProps = Omit<ComponentPropsWithoutRef<"button">, "children"> & {
   children: ReactNode;
   icon?: ReactNode;
+  trailing?: ReactNode;
   active?: boolean;
 };
 
 export function PopoverMenuItem({
   className,
   icon,
+  trailing,
   active = false,
   children,
   ...props
@@ -41,6 +43,7 @@ export function PopoverMenuItem({
         </span>
       ) : null}
       <span className="ds-popover-item-label">{children}</span>
+      {trailing}
     </button>
   );
 }
