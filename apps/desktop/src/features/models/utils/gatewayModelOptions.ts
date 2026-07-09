@@ -3,11 +3,48 @@ import type { AppSettings, ModelOption } from "@/types";
 type ModelGatewaySettings = AppSettings["modelGateway"];
 type ModelGatewayProvider = ModelGatewaySettings["providers"][number];
 
+const DEEPSEEK_REASONING_EFFORTS = [
+  { reasoningEffort: "high", description: "DeepSeek thinking mode" },
+  { reasoningEffort: "max", description: "DeepSeek max thinking mode" },
+];
+
+function reasoningEffortsForProvider(providerId: string) {
+  return providerId === "deepseek" ? DEEPSEEK_REASONING_EFFORTS : [];
+}
+
+function defaultReasoningEffortForProvider(providerId: string) {
+  return providerId === "deepseek" ? "high" : null;
+}
+
+function isDeepSeekModel(model: Pick<ModelOption, "id" | "model" | "providerId">) {
+  return (
+    model.providerId === "deepseek" ||
+    model.id.startsWith("deepseek-") ||
+    model.model.startsWith("deepseek-")
+  );
+}
+
+export function withModelCapabilities(model: ModelOption): ModelOption {
+  if (!isDeepSeekModel(model)) {
+    return model;
+  }
+  return {
+    ...model,
+    providerId: model.providerId ?? "deepseek",
+    providerName: model.providerName ?? "DeepSeek",
+    supportedReasoningEfforts:
+      model.supportedReasoningEfforts.length > 0
+        ? model.supportedReasoningEfforts
+        : DEEPSEEK_REASONING_EFFORTS,
+    defaultReasoningEffort: model.defaultReasoningEffort ?? "high",
+  };
+}
+
 // 2049 自有模型清单（网关未配置/禁用时的兜底）。我们走自己的 DeepSeek 网关，
 // 不用内核自带的 OpenAI 目录（那些 GPT-5.x 选了会把无效 model 名发给 DeepSeek 而失败）。
 // 旧名 deepseek-chat / deepseek-reasoner 将于 2026-07-24 弃用，故只列 v4 新名。
 export const OWN_MODELS: ModelOption[] = [
-  {
+  withModelCapabilities({
     id: "deepseek-v4-flash",
     model: "deepseek-v4-flash",
     displayName: "DeepSeek V4 Flash",
@@ -17,8 +54,8 @@ export const OWN_MODELS: ModelOption[] = [
     supportedReasoningEfforts: [],
     defaultReasoningEffort: null,
     isDefault: true,
-  },
-  {
+  }),
+  withModelCapabilities({
     id: "deepseek-v4-pro",
     model: "deepseek-v4-pro",
     displayName: "DeepSeek V4 Pro",
@@ -28,7 +65,7 @@ export const OWN_MODELS: ModelOption[] = [
     supportedReasoningEfforts: [],
     defaultReasoningEffort: null,
     isDefault: false,
-  },
+  }),
 ];
 
 // 网关对外模型 id：DeepSeek 保留裸名（兼容早期默认值），其余加 provider 前缀。
@@ -56,7 +93,7 @@ export function modelGatewayToOptions(
     .flatMap((provider) =>
       provider.models.map((model) => {
         const id = publicGatewayModelId(provider, model.id);
-        return {
+        return withModelCapabilities({
           id,
           model: id,
           displayName:
@@ -66,10 +103,10 @@ export function modelGatewayToOptions(
           description: model.description,
           providerId: provider.id,
           providerName: provider.name,
-          supportedReasoningEfforts: [],
-          defaultReasoningEffort: null,
+          supportedReasoningEfforts: reasoningEffortsForProvider(provider.id),
+          defaultReasoningEffort: defaultReasoningEffortForProvider(provider.id),
           isDefault: id === gateway.defaultModel || model.isDefault,
-        } satisfies ModelOption;
+        } satisfies ModelOption);
       }),
     );
 }

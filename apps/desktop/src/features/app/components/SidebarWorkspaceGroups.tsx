@@ -77,7 +77,7 @@ type SidebarWorkspaceGroupsProps = {
     threadId: string,
     canPin: boolean,
   ) => void;
-  onShowWorkspaceMenu: (event: MouseEvent, workspaceId: string) => void;
+  onShowWorkspaceMenu: (event: MouseEvent, workspace: WorkspaceInfo) => void;
   onShowWorktreeMenu: (event: MouseEvent, worktree: WorkspaceInfo) => void;
   onShowCloneMenu: (event: MouseEvent, worktree: WorkspaceInfo) => void;
   onToggleExpanded: (workspaceId: string) => void;
@@ -176,6 +176,8 @@ function SidebarWorkspaceEntry({
   const showThreadList = filteredThreadRows.length > 0 || Boolean(nextCursor);
   const isLoadingThreads = threadListLoadingByWorkspace[workspace.id] ?? false;
   const showThreadLoader = isLoadingThreads && threads.length === 0;
+  const showEmptyThreads =
+    !showThreadList && !showThreadLoader && !isSearchActive && threads.length === 0;
   const isPaging = threadListPagingByWorkspace[workspace.id] ?? false;
   const clones = clonesBySource.get(workspace.id) ?? [];
   const visibleClones =
@@ -385,6 +387,9 @@ function SidebarWorkspaceEntry({
         />
       )}
       {showThreadLoader && <ThreadLoading />}
+      {showEmptyThreads && (
+        <div className="workspace-empty-thread">{tx("No conversations yet")}</div>
+      )}
     </WorkspaceCard>
   );
 }

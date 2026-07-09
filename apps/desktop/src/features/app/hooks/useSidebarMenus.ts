@@ -17,6 +17,8 @@ type SidebarMenuHandlers = {
   onReloadWorkspaceThreads: (workspaceId: string) => void;
   onDeleteWorkspace: (workspaceId: string) => void;
   onDeleteWorktree: (workspaceId: string) => void;
+  onRenameWorkspace?: (workspaceId: string) => void;
+  onAddWorktreeAgentForMenu?: (workspace: WorkspaceInfo) => void;
 };
 
 export function useSidebarMenus({
@@ -29,6 +31,8 @@ export function useSidebarMenus({
   onReloadWorkspaceThreads,
   onDeleteWorkspace,
   onDeleteWorktree,
+  onRenameWorkspace,
+  onAddWorktreeAgentForMenu,
 }: SidebarMenuHandlers) {
   const showThreadMenu = useCallback(
     async (
@@ -94,23 +98,82 @@ export function useSidebarMenus({
   );
 
   const showWorkspaceMenu = useCallback(
-    async (event: MouseEvent, workspaceId: string) => {
+    async (event: MouseEvent, workspace: WorkspaceInfo) => {
       event.preventDefault();
       event.stopPropagation();
-      const reloadItem = await MenuItem.new({
-        text: "Reload threads",
-        action: () => onReloadWorkspaceThreads(workspaceId),
-      });
-      const deleteItem = await MenuItem.new({
-        text: "Delete",
-        action: () => onDeleteWorkspace(workspaceId),
-      });
-      const menu = await Menu.new({ items: [reloadItem, deleteItem] });
+      const fileManagerLabel = fileManagerName();
+      const items = [];
+
+      if (onRenameWorkspace) {
+        items.push(
+          await MenuItem.new({
+            text: "Rename",
+            action: () => onRenameWorkspace(workspace.id),
+          }),
+        );
+      }
+
+      if (workspace.path) {
+        items.push(
+          await MenuItem.new({
+            text: `Show in ${fileManagerLabel}`,
+            action: async () => {
+              try {
+                const { revealItemInDir } = await import(
+                  "@tauri-apps/plugin-opener"
+                );
+                await revealItemInDir(workspace.path!);
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                pushErrorToast({
+                  title: `Couldn't show project in ${fileManagerLabel}`,
+                  message,
+                });
+                console.warn("Failed to reveal workspace", {
+                  message,
+                  workspaceId: workspace.id,
+                  path: workspace.path,
+                });
+              }
+            },
+          }),
+        );
+      }
+
+      if (onAddWorktreeAgentForMenu) {
+        items.push(
+          await MenuItem.new({
+            text: "Create permanent worktree",
+            action: () => onAddWorktreeAgentForMenu(workspace),
+          }),
+        );
+      }
+
+      items.push(
+        await MenuItem.new({
+          text: "Reload threads",
+          action: () => onReloadWorkspaceThreads(workspace.id),
+        }),
+      );
+
+      items.push(
+        await MenuItem.new({
+          text: "Remove",
+          action: () => onDeleteWorkspace(workspace.id),
+        }),
+      );
+
+      const menu = await Menu.new({ items });
       const window = getCurrentWindow();
       const position = new LogicalPosition(event.clientX, event.clientY);
       await menu.popup(position, window);
     },
-    [onReloadWorkspaceThreads, onDeleteWorkspace],
+    [
+      onReloadWorkspaceThreads,
+      onDeleteWorkspace,
+      onRenameWorkspace,
+      onAddWorktreeAgentForMenu,
+    ],
   );
 
   const showWorktreeMenu = useCallback(

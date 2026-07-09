@@ -93,9 +93,47 @@ describe("Home (codex 1:1 replica)", () => {
     render(<Home {...baseProps} onSelectModel={onSelectModel} />);
     fireEvent.click(screen.getByLabelText("Model"));
     fireEvent.click(
-      screen.getByRole("menuitemradio", { name: /DeepSeek V4 Flash/ }),
+      screen.getByRole("menuitemradio", { name: /deepseek-v4-flash/ }),
     );
     expect(onSelectModel).toHaveBeenCalledWith("deepseek-v4-flash");
+  });
+
+  it("opens reasoning efforts first, then the model submenu", () => {
+    const onSelectEffort = vi.fn();
+    render(
+      <Home
+        {...baseProps}
+        models={[
+          {
+            ...model,
+            supportedReasoningEfforts: [
+              { reasoningEffort: "high", description: "" },
+              { reasoningEffort: "max", description: "" },
+            ],
+            defaultReasoningEffort: "high",
+          },
+          {
+            ...model,
+            id: "deepseek-v4-pro",
+            model: "deepseek-v4-pro",
+            displayName: "DeepSeek V4 Pro",
+          },
+        ]}
+        reasoningOptions={["high", "max"]}
+        selectedEffort="high"
+        reasoningSupported
+        onSelectEffort={onSelectEffort}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Model"));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "max" }));
+    expect(onSelectEffort).toHaveBeenCalledWith("max");
+
+    const modelRowButton = screen.getByText("deepseek-v4-flash").closest("button");
+    expect(modelRowButton).toBeTruthy();
+    fireEvent.mouseEnter(modelRowButton!);
+    expect(screen.getByRole("menuitemradio", { name: /deepseek-v4-pro/ })).toBeTruthy();
   });
 
   it("enters the workspace with the typed draft on send", () => {

@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppSettings, DebugEntry, ModelOption, WorkspaceInfo } from "../../../types";
 import { getConfigModel, getModelList } from "../../../services/tauri";
 import { normalizeEffortValue } from "../utils/modelListResponse";
-import { OWN_MODELS, modelGatewayToOptions } from "../utils/gatewayModelOptions";
+import {
+  OWN_MODELS,
+  modelGatewayToOptions,
+  withModelCapabilities,
+} from "../utils/gatewayModelOptions";
 
 type UseModelsOptions = {
   activeWorkspace: WorkspaceInfo | null;
@@ -234,14 +238,15 @@ export function useModels({
         };
         return [configOption, ...fallbackModels];
       })();
-      setModels(data);
+      const modelsWithCapabilities = data.map(withModelCapabilities);
+      setModels(modelsWithCapabilities);
       lastFetchedWorkspaceId.current = workspaceId;
-      const defaultModel = pickDefaultModel(data, configModelFromConfig);
-      const existingSelection = findModelByIdOrModel(data, selectedModelId);
+      const defaultModel = pickDefaultModel(modelsWithCapabilities, configModelFromConfig);
+      const existingSelection = findModelByIdOrModel(modelsWithCapabilities, selectedModelId);
       if (selectedModelId && !existingSelection) {
         hasUserSelectedModel.current = false;
       }
-      const preferredSelection = findModelByIdOrModel(data, preferredModelId);
+      const preferredSelection = findModelByIdOrModel(modelsWithCapabilities, preferredModelId);
       const shouldKeepExisting =
         hasUserSelectedModel.current && existingSelection !== null;
       const nextSelection =
@@ -294,7 +299,9 @@ export function useModels({
     }
     const seeded =
       configuredGatewayModels.length > 0 ? configuredGatewayModels : OWN_MODELS;
-    setModels((prev) => (prev.length > 0 ? prev : seeded));
+    setModels((prev) =>
+      prev.length > 0 ? prev.map(withModelCapabilities) : seeded.map(withModelCapabilities),
+    );
   }, [workspaceId, isConnected, configuredGatewayModels]);
 
   useEffect(() => {

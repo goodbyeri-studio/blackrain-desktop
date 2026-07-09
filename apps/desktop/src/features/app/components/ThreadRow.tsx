@@ -1,4 +1,5 @@
 import type { CSSProperties, MouseEvent } from "react";
+import Archive from "lucide-react/dist/esm/icons/archive";
 import { useI18n } from "@/i18n";
 
 import type { ThreadSummary } from "../../../types";
@@ -226,6 +227,16 @@ export function ThreadRow({
         ) : (
           relativeTime && <span className="thread-time">{relativeTime}</span>
         )}
+        <div className="thread-row-hover-actions">
+          <button
+            className="thread-row-action-btn"
+            onClick={(e) => { e.stopPropagation(); onShowThreadMenu(e, workspaceId, thread.id, canPin); }}
+            title="更多操作"
+            type="button"
+          >
+            <Archive size={12} aria-hidden />
+          </button>
+        </div>
       </div>
     </div>
   );

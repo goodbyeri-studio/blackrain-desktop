@@ -93,29 +93,31 @@ export function TitlebarExpandControls({
   isCompact,
   sidebarCollapsed,
   onExpandSidebar,
+  onCollapseSidebar,
 }: SidebarToggleProps) {
   const { tx } = useI18n();
-  if (isCompact || !sidebarCollapsed) {
+  if (isCompact) {
     return null;
   }
+  const label = sidebarCollapsed ? tx("Show threads sidebar") : tx("Hide threads sidebar");
   return (
     <div className="titlebar-controls">
-      {sidebarCollapsed && (
-        <div className="titlebar-toggle titlebar-toggle-left">
-          <button
-            type="button"
-            className="ghost main-header-action ds-tooltip-trigger"
-            onClick={onExpandSidebar}
-            data-tauri-drag-region="false"
-            aria-label={tx("Show threads sidebar")}
-            title={tx("Show threads sidebar")}
-            data-tooltip={tx("Show threads sidebar")}
-            data-tooltip-placement="bottom"
-          >
-            <PanelLeftOpen size={14} aria-hidden />
-          </button>
-        </div>
-      )}
+      <div className="titlebar-toggle titlebar-toggle-left">
+        <button
+          type="button"
+          className="ghost main-header-action ds-tooltip-trigger"
+          onClick={sidebarCollapsed ? onExpandSidebar : onCollapseSidebar}
+          data-tauri-drag-region="false"
+          aria-label={label}
+          title={label}
+          data-tooltip={label}
+          data-tooltip-placement="bottom"
+        >
+          {sidebarCollapsed
+            ? <PanelLeftOpen size={14} aria-hidden />
+            : <PanelLeftClose size={14} aria-hidden />}
+        </button>
+      </div>
     </div>
   );
 }

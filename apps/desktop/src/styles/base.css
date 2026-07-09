@@ -50,7 +50,21 @@ body {
   min-height: var(--app-height, 100dvh);
   width: 100vw;
   display: grid;
-  grid-template-columns: var(--sidebar-width, 280px) 1fr;
+  --center-pane-min-width: min(520px, 100vw);
+  --sidebar-track-width: clamp(
+    0px,
+    var(--sidebar-width, 280px),
+    max(0px, calc(100vw - var(--center-pane-min-width)))
+  );
+  --right-panel-track-width: clamp(
+    0px,
+    var(--right-panel-width, 230px),
+    max(
+      0px,
+      calc(100vw - var(--sidebar-track-width) - var(--center-pane-min-width))
+    )
+  );
+  grid-template-columns: minmax(0, var(--sidebar-track-width)) minmax(0, 1fr);
   background: transparent;
   border-radius: 0;
   overflow: hidden;
@@ -99,11 +113,11 @@ body {
 .app.is-windows:not(.reduced-transparency)::before {
   z-index: 0;
   background:
-    radial-gradient(circle at 18% 12%, rgba(116, 145, 170, 0.18), transparent 30%),
-    radial-gradient(circle at 82% 26%, rgba(180, 190, 205, 0.12), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(0, 0, 0, 0.2)),
-    var(--surface-app, var(--surface-messages));
+    radial-gradient(circle at 18% 12%, rgba(116, 145, 170, 0.08), transparent 30%),
+    radial-gradient(circle at 82% 26%, rgba(180, 190, 205, 0.05), transparent 32%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.3)),
+    #0a0e14;
   opacity: var(--material-wallpaper-opacity, 1);
   animation: material-wallpaper-drift 18s ease-in-out infinite alternate;
 }
@@ -111,10 +125,10 @@ body {
 .app.is-windows:not(.reduced-transparency)::after {
   z-index: 1;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045), transparent 22%, transparent 72%, rgba(255, 255, 255, 0.03)),
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 6px);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035), transparent 22%, transparent 72%, rgba(255, 255, 255, 0.02)),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 6px);
   mix-blend-mode: screen;
-  opacity: var(--material-grain-opacity, 0.34);
+  opacity: var(--material-grain-opacity, 0.28);
 }
 
 .app.is-windows:not(.reduced-transparency) > * {
@@ -257,7 +271,7 @@ button.window-caption-control:focus-visible,
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(var(--sidebar-width, 280px) - 4px);
+  left: calc(var(--sidebar-track-width, var(--sidebar-width, 280px)) - 4px);
   width: 8px;
   cursor: col-resize;
   z-index: 3;

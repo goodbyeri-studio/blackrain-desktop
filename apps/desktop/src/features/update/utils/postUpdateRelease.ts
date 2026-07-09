@@ -1,5 +1,5 @@
 export const STORAGE_KEY_PENDING_POST_UPDATE_VERSION =
-  "codexmonitor.pendingPostUpdateVersion";
+  "blackrain.pendingPostUpdateVersion";
 const GITHUB_RELEASES_API_BASE =
   "https://api.github.com/repos/Dimillian/CodexMonitor/releases";
 const GITHUB_RELEASES_WEB_BASE =

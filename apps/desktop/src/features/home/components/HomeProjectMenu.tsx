@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Search from "lucide-react/dist/esm/icons/search";
 import FolderGit2 from "lucide-react/dist/esm/icons/folder-git-2";
 import Folder from "lucide-react/dist/esm/icons/folder";
@@ -48,6 +48,13 @@ export function HomeProjectMenu({
     close();
   };
 
+  useEffect(() => {
+    if (!isOpen) {
+      setQuery("");
+      setAddOpen(false);
+    }
+  }, [isOpen]);
+
   return (
     <div className="home-menu-anchor" ref={containerRef}>
       <MenuTrigger
@@ -59,7 +66,7 @@ export function HomeProjectMenu({
         <span className="home-pill-icon" aria-hidden>
           <FolderAddIcon size={15} strokeWidth={1.7} />
         </span>
-        {tx("Enter project work")}
+        {tx("Choose project")}
         <ChevronDown className="home-pill-chevron" aria-hidden />
       </MenuTrigger>
 
