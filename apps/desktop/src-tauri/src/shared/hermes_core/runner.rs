@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures_util::StreamExt;
 use tokio::sync::Mutex;
@@ -161,6 +162,46 @@ pub(crate) async fn consume_run_events<F>(
 where
     F: Fn(WorkEvent) + Send + Sync,
 {
+    consume_run_events_with_policy(
+        store,
+        client,
+        task_id,
+        run_id,
+        cancellation,
+        &RunnerRetryPolicy::default(),
+        emit,
+    )
+    .await
+}
+
+struct RunnerRetryPolicy {
+    backoff: Vec<Duration>,
+}
+
+impl Default for RunnerRetryPolicy {
+    fn default() -> Self {
+        Self {
+            backoff: vec![
+                Duration::from_millis(250),
+                Duration::from_millis(750),
+                Duration::from_millis(1_500),
+            ],
+        }
+    }
+}
+
+async fn consume_run_events_with_policy<F>(
+    store: &Arc<Mutex<HermesTaskStore>>,
+    client: &HermesApiClient,
+    task_id: &str,
+    run_id: &str,
+    cancellation: &HermesStreamCancellation,
+    retry_policy: &RunnerRetryPolicy,
+    emit: F,
+) -> Result<(), WorkError>
+where
+    F: Fn(WorkEvent) + Send + Sync,
+{
     let task = store.lock().await.load_task(task_id)?;
     if task.active_run_id.as_deref() != Some(run_id) {
         return Err(runner_error(
@@ -170,51 +211,133 @@ where
         ));
     }
     let mut normalizer = HermesEventNormalizer::new(task_id, run_id, task.last_event_sequence)?;
-    let mut stream = client
-        .stream_run_events_with_cancel(run_id, cancellation)
-        .await?;
-    while let Some(frame) = stream.next().await {
-        match frame {
-            Ok(HermesSseFrame::Comment(_)) => {}
-            Ok(HermesSseFrame::Event(raw)) => {
-                let normalized = normalizer.normalize(&raw)?;
-                if normalized.is_empty() {
-                    continue;
-                }
-                let result = store.lock().await.append_events(task_id, &normalized)?;
-                for event in result.appended_events {
-                    emit(event);
-                }
-            }
+    let mut reconnect_attempt = 0_usize;
+    loop {
+        let mut stream = match client
+            .stream_run_events_with_cancel(run_id, cancellation)
+            .await
+        {
+            Ok(stream) => stream,
             Err(error) if error.kind == WorkErrorKind::Cancelled => return Ok(()),
             Err(error) => {
-                let _ = store
-                    .lock()
-                    .await
-                    .reconcile_remote_error(task_id, run_id, &error);
-                return Err(error);
+                let active = prepare_reconnect(store, client, task_id, run_id, &error).await?;
+                if !active {
+                    return Ok(());
+                }
+                if !error.retryable || reconnect_attempt >= retry_policy.backoff.len() {
+                    return Err(error);
+                }
+                tokio::time::sleep(retry_policy.backoff[reconnect_attempt]).await;
+                reconnect_attempt += 1;
+                continue;
+            }
+        };
+        let mut stream_error = None;
+        let mut appended_any = false;
+        while let Some(frame) = stream.next().await {
+            match frame {
+                Ok(HermesSseFrame::Comment(_)) => {}
+                Ok(HermesSseFrame::Event(raw)) => {
+                    let normalized = normalizer.normalize(&raw)?;
+                    if normalized.is_empty() {
+                        continue;
+                    }
+                    let result = store.lock().await.append_events(task_id, &normalized)?;
+                    appended_any |= result.appended > 0;
+                    for event in result.appended_events {
+                        emit(event);
+                    }
+                }
+                Err(error) if error.kind == WorkErrorKind::Cancelled => return Ok(()),
+                Err(error) => {
+                    stream_error = Some(error);
+                    break;
+                }
             }
         }
-    }
 
-    let task = store.lock().await.load_task(task_id)?;
-    if task.active_run_id.as_deref() == Some(run_id) {
-        match client.run_status(run_id).await {
-            Ok(status) => {
-                store
-                    .lock()
-                    .await
-                    .reconcile_remote_status(task_id, run_id, &status)?;
+        let task = store.lock().await.load_task(task_id)?;
+        if task.active_run_id.as_deref() != Some(run_id) {
+            return Ok(());
+        }
+        let error = stream_error.unwrap_or_else(|| {
+            runner_error_kind(
+                WorkErrorKind::Connection,
+                "hermes_sse_ended_before_terminal",
+                "Hermes event stream ended before the run reached a terminal state.",
+                true,
+            )
+        });
+        let active = prepare_reconnect(store, client, task_id, run_id, &error).await?;
+        if !active {
+            return Ok(());
+        }
+        if appended_any {
+            reconnect_attempt = 0;
+        }
+        if !error.retryable || reconnect_attempt >= retry_policy.backoff.len() {
+            let exhausted = if error.retryable {
+                runner_error_kind(
+                    WorkErrorKind::Connection,
+                    "hermes_sse_reconnect_exhausted",
+                    "Hermes event stream reconnect attempts were exhausted.",
+                    true,
+                )
+            } else {
+                error
+            };
+            store
+                .lock()
+                .await
+                .reconcile_remote_error(task_id, run_id, &exhausted)?;
+            return Err(exhausted);
+        }
+        tokio::time::sleep(retry_policy.backoff[reconnect_attempt]).await;
+        reconnect_attempt += 1;
+    }
+}
+
+async fn prepare_reconnect(
+    store: &Arc<Mutex<HermesTaskStore>>,
+    client: &HermesApiClient,
+    task_id: &str,
+    run_id: &str,
+    stream_error: &WorkError,
+) -> Result<bool, WorkError> {
+    match client.run_status(run_id).await {
+        Ok(status) => {
+            store
+                .lock()
+                .await
+                .reconcile_remote_status(task_id, run_id, &status)?;
+            let task = store.lock().await.load_task(task_id)?;
+            Ok(task.active_run_id.as_deref() == Some(run_id)
+                && !is_terminal_status(&task.status)
+                && task.status != WorkTaskStatus::Orphaned)
+        }
+        Err(status_error) => {
+            store
+                .lock()
+                .await
+                .reconcile_remote_error(task_id, run_id, &status_error)?;
+            if !stream_error.retryable || !status_error.retryable {
+                return Err(status_error);
             }
-            Err(error) => {
-                store
-                    .lock()
-                    .await
-                    .reconcile_remote_error(task_id, run_id, &error)?;
-            }
+            Ok(true)
         }
     }
-    Ok(())
+}
+
+fn runner_error_kind(kind: WorkErrorKind, code: &str, message: &str, retryable: bool) -> WorkError {
+    WorkError {
+        kind,
+        code: code.into(),
+        message: message.into(),
+        retryable,
+        http_status: None,
+        request_id: None,
+        details: Default::default(),
+    }
 }
 
 pub(crate) fn is_terminal_status(status: &WorkTaskStatus) -> bool {
@@ -241,10 +364,13 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex as StdMutex};
+    use std::time::Duration;
 
     use tokio::sync::Mutex;
 
-    use super::{consume_run_events, start_task_run, HermesRunRegistry};
+    use super::{
+        consume_run_events_with_policy, start_task_run, HermesRunRegistry, RunnerRetryPolicy,
+    };
     use crate::shared::hermes_core::client::{
         HermesApiClient, HermesRunCreateRequest, HermesStreamCancellation,
     };
@@ -411,24 +537,22 @@ mod tests {
                 .attach_run("task-runner", "run_demo_001", "run_demo_001")
                 .unwrap();
         }
-        let status = serde_json::json!({
+        let sse = include_str!("../../../test-fixtures/hermes/v2026.7.7.2/sse-normal.txt");
+        let completed = serde_json::json!({
             "object": "hermes.run",
             "run_id": "run_demo_001",
-            "status": "running",
+            "status": "completed",
             "created_at": 1.0,
-            "updated_at": 2.0,
+            "updated_at": 3.0,
             "session_id": "run_demo_001",
             "model": "office-fast",
-            "last_event": "approval.request"
+            "last_event": "run.completed"
         })
         .to_string();
-        let sse =
-            include_str!("../../../test-fixtures/hermes/v2026.7.7.2/sse-approval-pending.txt");
         let server = FakeHermesServer::spawn(vec![
             FakeExchange::sse("/v1/runs/run_demo_001/events", sse),
-            FakeExchange::json("GET", "/v1/runs/run_demo_001", 200, &status),
             FakeExchange::sse("/v1/runs/run_demo_001/events", sse),
-            FakeExchange::json("GET", "/v1/runs/run_demo_001", 200, &status),
+            FakeExchange::json("GET", "/v1/runs/run_demo_001", 200, &completed),
         ])
         .await
         .unwrap();
@@ -439,26 +563,185 @@ mod tests {
         .unwrap();
         let emitted = Arc::new(StdMutex::new(Vec::new()));
 
-        for _ in 0..2 {
-            let emitted_for_run = Arc::clone(&emitted);
-            consume_run_events(
-                &store,
-                &client,
-                "task-runner",
-                "run_demo_001",
-                &HermesStreamCancellation::new(),
-                move |event| emitted_for_run.lock().unwrap().push(event),
-            )
+        let emitted_for_run = Arc::clone(&emitted);
+        consume_run_events_with_policy(
+            &store,
+            &client,
+            "task-runner",
+            "run_demo_001",
+            &HermesStreamCancellation::new(),
+            &RunnerRetryPolicy { backoff: vec![] },
+            move |event| emitted_for_run.lock().unwrap().push(event),
+        )
+        .await
+        .unwrap();
+        let first_emit_count = emitted.lock().unwrap().len();
+        let first_journal_count = store.lock().await.load_events("task-runner").unwrap().len();
+        assert!(first_emit_count > 0);
+        store
+            .lock()
             .await
+            .attach_run("task-runner", "run_demo_001", "run_demo_001")
             .unwrap();
-        }
 
-        assert_eq!(emitted.lock().unwrap().len(), 2);
+        let emitted_for_replay = Arc::clone(&emitted);
+        consume_run_events_with_policy(
+            &store,
+            &client,
+            "task-runner",
+            "run_demo_001",
+            &HermesStreamCancellation::new(),
+            &RunnerRetryPolicy { backoff: vec![] },
+            move |event| emitted_for_replay.lock().unwrap().push(event),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(emitted.lock().unwrap().len(), first_emit_count);
         assert_eq!(
             store.lock().await.load_events("task-runner").unwrap().len(),
-            2
+            first_journal_count
         );
-        assert_eq!(server.finish().await.unwrap().len(), 4);
+        assert_eq!(server.finish().await.unwrap().len(), 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn retryable_disconnect_queries_status_and_reconnects_without_duplicates() {
+        let root = temp_root();
+        let store = Arc::new(Mutex::new(HermesTaskStore::new(&root)));
+        {
+            let guard = store.lock().await;
+            guard.upsert_task(&task()).unwrap();
+            guard
+                .attach_run("task-runner", "run_demo_001", "run_demo_001")
+                .unwrap();
+        }
+        let sse = include_str!("../../../test-fixtures/hermes/v2026.7.7.2/sse-normal.txt");
+        let disconnect_after = sse.find("\n\n").unwrap() + 12;
+        let running = serde_json::json!({
+            "object": "hermes.run",
+            "run_id": "run_demo_001",
+            "status": "running",
+            "created_at": 1.0,
+            "updated_at": 2.0,
+            "session_id": "run_demo_001",
+            "model": "office-fast",
+            "last_event": "message.delta"
+        })
+        .to_string();
+        let server = FakeHermesServer::spawn(vec![
+            FakeExchange::sse("/v1/runs/run_demo_001/events", sse)
+                .disconnect_after(disconnect_after),
+            FakeExchange::json("GET", "/v1/runs/run_demo_001", 200, &running),
+            FakeExchange::sse("/v1/runs/run_demo_001/events", sse),
+        ])
+        .await
+        .unwrap();
+        let client = HermesApiClient::new(
+            &server.base_url,
+            "blackrain-test-bearer-runner-reconnect-123456789",
+        )
+        .unwrap();
+        let emitted = Arc::new(StdMutex::new(Vec::new()));
+        let emitted_for_run = Arc::clone(&emitted);
+
+        consume_run_events_with_policy(
+            &store,
+            &client,
+            "task-runner",
+            "run_demo_001",
+            &HermesStreamCancellation::new(),
+            &RunnerRetryPolicy {
+                backoff: vec![Duration::ZERO],
+            },
+            move |event| emitted_for_run.lock().unwrap().push(event),
+        )
+        .await
+        .unwrap();
+
+        let events = store.lock().await.load_events("task-runner").unwrap();
+        assert_eq!(emitted.lock().unwrap().len(), events.len());
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.event_id.as_str())
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
+            events.len()
+        );
+        assert_eq!(
+            store.lock().await.load_task("task-runner").unwrap().status,
+            WorkTaskStatus::Completed
+        );
+        assert_eq!(server.finish().await.unwrap().len(), 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn reconnect_attempts_are_bounded_and_leave_the_task_degraded() {
+        let root = temp_root();
+        let store = Arc::new(Mutex::new(HermesTaskStore::new(&root)));
+        {
+            let guard = store.lock().await;
+            guard.upsert_task(&task()).unwrap();
+            guard
+                .attach_run("task-runner", "run_demo_001", "run_demo_001")
+                .unwrap();
+        }
+        let sse = include_str!("../../../test-fixtures/hermes/v2026.7.7.2/sse-normal.txt");
+        let disconnect_after = sse.find("\n\n").unwrap() + 12;
+        let running = serde_json::json!({
+            "object": "hermes.run",
+            "run_id": "run_demo_001",
+            "status": "running",
+            "created_at": 1.0,
+            "updated_at": 2.0,
+            "session_id": "run_demo_001",
+            "model": "office-fast",
+            "last_event": "message.delta"
+        })
+        .to_string();
+        let mut exchanges = Vec::new();
+        for _ in 0..3 {
+            exchanges.push(
+                FakeExchange::sse("/v1/runs/run_demo_001/events", sse)
+                    .disconnect_after(disconnect_after),
+            );
+            exchanges.push(FakeExchange::json(
+                "GET",
+                "/v1/runs/run_demo_001",
+                200,
+                &running,
+            ));
+        }
+        let server = FakeHermesServer::spawn(exchanges).await.unwrap();
+        let client = HermesApiClient::new(
+            &server.base_url,
+            "blackrain-test-bearer-runner-exhausted-123456789",
+        )
+        .unwrap();
+
+        let error = consume_run_events_with_policy(
+            &store,
+            &client,
+            "task-runner",
+            "run_demo_001",
+            &HermesStreamCancellation::new(),
+            &RunnerRetryPolicy {
+                backoff: vec![Duration::ZERO, Duration::ZERO],
+            },
+            |_| {},
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(error.code, "hermes_sse_reconnect_exhausted");
+        assert_eq!(
+            store.lock().await.load_task("task-runner").unwrap().status,
+            WorkTaskStatus::Degraded
+        );
+        assert_eq!(server.finish().await.unwrap().len(), 6);
         fs::remove_dir_all(root).unwrap();
     }
 }

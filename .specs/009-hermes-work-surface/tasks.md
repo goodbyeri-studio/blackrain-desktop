@@ -106,7 +106,7 @@
 - [x] 实现 task/session/run 持久映射和 schema migration
 - [x] 实现 App 重启后的恢复审计（`AppState::load` 先做本地审计；managed runtime start/restart Ready 后查询上游 run status）
 - [x] 区分 resumable/completed/failed/orphaned 状态
-- [ ] 恢复时不重复消息、工具和审批
+- [x] 恢复时不重复消息、工具和审批
 - [ ] 高事件频率下增加批处理/节流，避免 UI 卡顿
 
 > 2026-07-12：normalizer 已覆盖锁定事件和预留扩展事件；raw 内容使用确定性 128-bit fingerprint 生成稳定 event id，sequence 从任务最后序号继续。进程内去重保留最近 20,000 个 raw fingerprint；未知/损坏事件只把 event type、字段名和原因写入最多 200 条诊断，不保存 payload 值。同名并发工具和批量 approval 使用计数生命周期，乱序 completion/responded 会发 warning 但仍保留可收敛事件。TaskStore 已实现版本化 snapshot/journal、本地审计和 runtime Ready 后的上游 status 对账；404 才标 orphaned，暂时连接失败与未知上游状态保留 active run 并降级为 resumable。远端审计不生成合成 `WorkEvent`，但真实 SSE 重连后的消息/工具/审批 replay 去重、任务编排和 UI batching 尚未实现。
@@ -131,7 +131,7 @@
 - [x] 实现 `WorkEvent` reducer 和 selectors
 - [ ] 实现 send/stop/retry/approval/user-input actions
 - [x] 防止重复发送、重复审批和 stop 竞态
-- [ ] 实现断流恢复和 App 重启恢复状态
+- [x] 实现断流恢复和 App 重启恢复状态
 - [x] 为 reducer/hooks/actions 建立完整测试
 
 > 2026-07-12：`useWorkController` 并行 bootstrap runtime/tasks/recovery，持有唯一 WORK event subscription，并通过同步 `inFlightRef` 将同一 task 的 continue/resume/approval/stop/delete 串行化，避免等待 render 才生效的双击竞态。Reducer 以 event id 幂等、按 sequence 合并；事件先于 task start 响应到达时进入有界 orphan buffer，task metadata 到达后再收敛，避免真实快响应丢事件。actions 已覆盖 start、终态 task 显式 continue/retry、resume、approval、stop、delete；locked `/v1` 没有 active run user-input response endpoint，不能伪造，因此总项保持未完成。自动断流重连也尚未实现。

@@ -210,6 +210,14 @@
 - 影响范围：shared runner、task continue command、TS IPC/controller，以及阶段 8/9 Composer 行为。
 - 后续复查条件：上游提供正式 user-input response 或幂等 retry contract 后，先更新锁定 contract/fixtures，再接 command 和 UI。
 
+## 2026-07-12：SSE 断流先查 status，再有限退避重连
+
+- 决策：live runner 遇到 retryable 连接/截断或 active run 的非终态 EOF 时，先 `GET /v1/runs/{run_id}`；若终态或 404 立即收敛，若仍活跃则按 250ms/750ms/1500ms 最多三次退避重连。收到真实新事件后可重置连续失败计数；replay 事件由进程内 raw fingerprint、TaskStore stable event id 和前端 reducer 三层幂等。非 retryable 错误不重连。
+- 原因：锁定 SSE 没有 cursor/replay，盲目无限重连会形成热循环且无法判断 run 是否已结束；完全不重连则把短暂网络抖动变成手工恢复。先查 status 能区分终态、orphaned 和仍活跃任务。
+- 替代方案：无限立即重连、固定轮询 status 不再订阅事件、任何断流直接 failed、或假设每次 SSE 都完整 replay。
+- 影响范围：shared runner、恢复状态、重复事件门禁和阶段 8/9 连接状态 UI。
+- 后续复查条件：上游提供 cursor、Last-Event-ID 或明确 stream resume contract 后，改为协议级断点恢复，并保留当前有界 fallback。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
