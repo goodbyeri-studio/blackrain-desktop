@@ -11,6 +11,7 @@ BlackRain 是**AI 驱动的垂类工作环境平台**：把领域高手电脑里
 - 产品形态（`Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室`）以 `docs/04-产品形态.md` 为唯一真源。
 - 运行时边界（双引擎、进程、配置、网关）以 `docs/09-运行时架构与里程碑.md` 为唯一真源。
 - 工作台包格式、安装、激活、升级、回滚和卸载以 `.specs/008-expert-workbench-package/` 为执行真源。
+- Hermes 进程纳管、`/v1/runs`、SSE、审批、任务恢复和 WORK surface 以 `.specs/009-hermes-work-surface/` 为执行真源。
 - 当前实现水位以对应 spec 的 `verification.md` 与实际代码/配置为准；`tasks.md`、战略蓝图和旧调研不能替代实现证据。
 - 冲突不得静默处理：修正文档；若决策尚未收敛，在对应 spec 的 `decisions.md` 明确标成待决。
 
@@ -54,7 +55,7 @@ BlackRain（Tauri，subtree 自 CodexMonitor）= 工作台 Core + 双 surface + 
 | `hermes-upstream/` | **WORK 引擎**：Hermes Agent 本地克隆（**gitignored，不入库**），HTTP `/v1` 接缝黑盒纳管。 | 目标锁定 v2026.7.7.2 (`9de9c25`，v0.18.2，2026-07-07)。可借其 Desktop MIT React 组件（摘零件抄进来，不 fork 整个 Desktop）；`fetch-references.sh` 同样强制校验并 checkout。零翻译直入 new-api（Chat Completions）；Windows 产品验收仍以 spec 007 为准。 |
 | `plugins/` | 工具/数据源/软件适配器及配套 Skills，可能包含 MCP、CLI、代码、二进制和独立进程。 | 每个第三方制品都要声明来源、License、权限和验证；不等同工作台。 |
 | `workbenches/` | 专家工作台包；目标包含 Manifest、Skills、插件依赖、环境、模板、任务和验证。 | 当前 `office-agent` 只是内容/注入骨架；完整生命周期按 008 落地，不能再写成“纯 Markdown 即完整工作台”。 |
-| `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–008。 | 只给大功能/架构功能建，随实现同步更新。 |
+| `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–009。 | 只给大功能/架构功能建，随实现同步更新。 |
 
 仓库托管在 `goodbyeri-studio/BlackRain`（私有）。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
 
@@ -90,6 +91,7 @@ claude -p --model sonnet5-1m --effort max "<具体任务>"
 | [006 code-mode-capability-wiring](.specs/006-code-mode-capability-wiring/) | 记录 42 个方法的历史壳层包装、当前锁重验与 GUI 交接边界；接线不等于可用 | [capability-gui-mapping.md](.specs/006-code-mode-capability-wiring/capability-gui-mapping.md) |
 | [007 windows-client](.specs/007-windows-client/) | **当前优先级**:MVP 仅 Windows(macOS 推迟 post-MVP),dev-client.ps1 + NSIS 打包 + Windows 验证矩阵 | — |
 | [008 expert-workbench-package](.specs/008-expert-workbench-package/) | **产品核心协议**：工作台 Manifest、依赖、权限、安装、验证、升级、回滚和卸载 | — |
+| [009 hermes-work-surface](.specs/009-hermes-work-surface/) | **当前实现 P0**：Hermes 进程纳管、隔离配置、`/v1/runs`、SSE、审批、任务恢复和 Codex 风格 WORK surface | — |
 
 ## 文档治理
 

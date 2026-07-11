@@ -107,6 +107,8 @@
 
 ## 阶段 2：产品化
 
+> Hermes 子进程、`/v1/runs`、SSE、审批、任务恢复和 Codex 风格 WORK UI 的详细长期实现已拆到 [spec 009](../009-hermes-work-surface/)。本节只保留跨引擎和总体架构任务，避免两份 checklist 重复漂移。
+
 - [ ] 工作台/项目成为第一入口，进入工作台后由 Core 选择 WORK / CODE surface
   - [ ] 不再以 EngineSwitcher 作为默认首页主导航；如保留，只放高级/开发入口
   - [ ] 软件开发工作台进入 CODE surface，普通参考工作台进入 WORK surface

@@ -12,6 +12,7 @@ Detailed navigation/runbooks live in:
 - `../../README.md` (repository status and product entry)
 - `../../docs/commands.md` (canonical setup/build/release commands)
 - `../../.specs/008-expert-workbench-package/` (workbench package and lifecycle contract)
+- `../../.specs/009-hermes-work-surface/` (Hermes runtime and WORK surface implementation contract)
 
 ## Project Snapshot
 
