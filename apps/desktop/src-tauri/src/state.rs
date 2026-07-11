@@ -8,6 +8,9 @@ use tokio::sync::Mutex;
 use crate::dictation::DictationState;
 use crate::shared::codex_core::CodexLoginCancelState;
 use crate::shared::hermes_core::process::{HermesProcessSupervisor, HermesRuntimeLayout};
+use crate::shared::hermes_core::tasks::{
+    HermesTaskRecoveryState, HermesTaskStore,
+};
 use crate::storage::{read_settings, read_workspaces};
 use crate::types::{
     AppSettings, ModelGatewayRuntimeState, ModelGatewayRuntimeStatus, TcpDaemonState,
@@ -82,6 +85,8 @@ pub(crate) struct AppState {
     pub(crate) tcp_daemon: Mutex<TcpDaemonRuntime>,
     pub(crate) model_gateway: Mutex<ModelGatewayRuntime>,
     pub(crate) hermes_runtime: Arc<HermesProcessSupervisor>,
+    pub(crate) hermes_tasks: Arc<Mutex<HermesTaskStore>>,
+    pub(crate) hermes_task_recovery: Mutex<HermesTaskRecoveryState>,
 }
 
 impl AppState {
@@ -111,6 +116,9 @@ impl AppState {
             hermes_paths.home.clone(),
             data_dir.join("hermes-runtime.log"),
         ));
+        let hermes_tasks = HermesTaskStore::new(&data_dir);
+        let hermes_task_recovery =
+            HermesTaskRecoveryState::from_result(hermes_tasks.audit_local_recovery());
         if std::env::var_os("CODEX_HOME").is_none() {
             std::env::set_var("CODEX_HOME", data_dir.join("codex-home"));
         }
@@ -131,6 +139,8 @@ impl AppState {
             tcp_daemon: Mutex::new(TcpDaemonRuntime::default()),
             model_gateway: Mutex::new(ModelGatewayRuntime::new(data_dir, gateway_port)),
             hermes_runtime,
+            hermes_tasks: Arc::new(Mutex::new(hermes_tasks)),
+            hermes_task_recovery: Mutex::new(hermes_task_recovery),
         }
     }
 }

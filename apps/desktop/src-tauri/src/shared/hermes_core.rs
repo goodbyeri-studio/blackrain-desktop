@@ -10,6 +10,7 @@ pub(crate) mod events;
 pub(crate) mod process;
 pub(crate) mod protocol;
 pub(crate) mod runtime;
+pub(crate) mod tasks;
 pub(crate) mod types;
 
 #[cfg(test)]

@@ -92,11 +92,11 @@
 
 ## 2026-07-12：任务映射使用版本化快照加事件 journal
 
-- 决策：首版在 App data 下使用 `work/tasks.v1.json` 原子快照和 `work/events/<task_id>.ndjson` 归一化事件 journal，保存 BlackRain task ↔ workbench/project ↔ Hermes session/run 映射。
-- 原因：当前仓库没有 SQLite 依赖；低频任务元数据适合原子 JSON，高频事件需只追加，不能每个 delta 重写整份文件；该结构也能支持 App 重启恢复和 schema migration。
+- 决策：首版在 App data 下使用 `work/tasks.v1.json` 原子快照和 `work/events/<task_id>.ndjson` 归一化事件 journal，保存 BlackRain task ↔ workbench/project ↔ Hermes session/run 映射。事件提交顺序固定为先 append+sync journal、后原子替换 snapshot；启动时从 journal 修复 snapshot sequence/终态。EOF 处未换行且无法解析的截断尾可丢弃，完整损坏行、倒序/重复 sequence 和 event id 冲突必须 fail closed；metadata 删除允许重试清理已脱离 snapshot 的孤立 journal。
+- 原因：当前仓库没有 SQLite 依赖；低频任务元数据适合原子 JSON，高频事件需只追加，不能每个 delta 重写整份文件。journal-first 允许 snapshot 写失败或 App 强退后恢复；对任意损坏都静默跳过则会掩盖中段数据丢失，只有可证明是最后一次未完成写入的 EOF 截断可以安全修复。
 - 替代方案：只用 localStorage、只存 Hermes session id、每事件重写单一 JSON、立即引入 SQLite。
 - 影响范围：阶段 6、恢复、诊断和卸载数据保留策略。
-- 后续复查条件：性能/一致性测试证明 journal compaction 或 SQLite 是必要条件时迁移物理后端，但保持 `WorkTask`/`WorkEvent` contract。
+- 后续复查条件：性能/一致性测试证明 journal compaction、并发 writer 或 SQLite 是必要条件时迁移物理后端，但保持 `WorkTask`/`WorkEvent` contract。
 
 ## 2026-07-12：锁定 Hermes SSE 不具备断点重放
 

@@ -8,7 +8,8 @@
 - 独立 `HERMES_HOME` 配置域：shared 实现与单元测试已存在，runtime start/repair 已从 App-owned desired state 和 keyring 读取配置；Providers/工作台激活尚未接入写入入口。
 - Windows Hermes runtime：版本/依赖策略、生成脚本、Tauri resource 和 doctor 门禁已存在；Windows venv 尚未生成和执行。
 - WORK `/v1/runs` shared client 与增量 SSE decoder：已实现并通过 fake HTTP server 测试；尚未接 Tauri event bridge/任务层。
-- WORK event normalizer：已实现确定性 event id、sequence、去重、消息/工具/审批/输出/终态映射和无值未知诊断；尚未接 task journal、SSE consumer 或前端 reducer。
+- WORK event normalizer：已实现确定性 event id、sequence、去重、消息/工具/审批/输出/终态映射和无值未知诊断；TaskStore 已消费其稳定 contract，尚未接真实 SSE consumer 或前端 reducer。
+- WORK task store：已实现版本化 snapshot + NDJSON journal、migration、journal-first 提交、稳定 ID 去重、截断尾修复和 `AppState::load` 本地恢复审计；尚未向 Hermes 查询活跃 run 状态或接命令/UI。
 - WORK 前端 feature/reducer/UI：不存在。
 - 工作台激活到 WORK 的接缝：不存在。
 - Windows NSIS 内 Hermes runtime：未验证。
@@ -36,7 +37,8 @@
 | 2026-07-12 | App 生命周期 | `AppState` 解析 bundled/dev runtime 并持有 supervisor；Windows 启动先用 keyring bearer 审计 lease；`ExitRequested` 无论 daemon 保留设置都先 stop Hermes | `cargo check` + 静态调用链核对 | 通过（macOS 编译） | Windows cfg 分支未在本机编译；受控 MCP 清理未接入 |
 | 2026-07-12 | Runtime App commands | status/start/stop/restart/repair/diagnostics、固定 loopback 端口、desired-state/config 漂移 fail-closed、缺失/损坏 desired state、remote unsupported、结构化错误序列化和日志脱敏来源 | `cargo test hermes --lib`; `cargo check`; `npm run typecheck` | `45 passed` + check/typecheck 通过（macOS） | commands 尚未接 `src/services/tauri.ts`；keyring smoke 默认跳过；Windows runtime/编译/实机未验证 |
 | 2026-07-12 | Client resilience | supervisor 共享脱敏有界 HTTP trace + diagnostics、outcome 白名单、watch-based SSE cancel、timeout/503 单次请求、retryable 语义、无隐式 POST replay、1024 帧 backpressure 上限 | `cargo test hermes --lib` | `49 passed`（macOS） | 启用 Tokio `macros` 供可唤醒 `select!`；diagnostics 尚无前端 UI；不证明真实网络或 Windows |
-| 2026-07-12 | Event normalizer | known/extension raw 映射、128-bit 稳定 ID、sequence、重复去重、乱序 warning、并发同名工具、批量 approval、terminal failure、unknown 无值诊断、跨 run 拒绝 | `cargo test hermes --lib` | `57 passed`（macOS） | normalizer 单元 + 锁定 SSE fixtures；尚无 task store/journal、真实 SSE bridge、重启恢复或 Windows 证据 |
+| 2026-07-12 | Event normalizer | known/extension raw 映射、128-bit 稳定 ID、sequence、重复去重、乱序 warning、并发同名工具、批量 approval、terminal failure、unknown 无值诊断、跨 run 拒绝 | `cargo test hermes --lib` | `57 passed`（macOS） | normalizer 单元 + 锁定 SSE fixtures；TaskStore 证据见后续行，尚无真实 SSE bridge/Windows |
+| 2026-07-12 | Task store | v1 snapshot、v0 migration、task/session/run 映射、NDJSON journal、journal-first、稳定 ID replay 去重、冲突/倒序 sequence/路径穿越拒绝、EOF 截断尾修复、本地恢复分类、可重试 metadata 清理且保留用户项目 | `cargo test hermes --lib`; `cargo check`; `npm run typecheck` | `67 passed` + check/typecheck 通过（macOS） | `AppState::load` 已执行本地审计；未查询真实 Hermes run status，未接 Tauri task commands/Windows |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |
@@ -117,7 +119,7 @@ cargo check
 - Windows 预构建 venv、PowerShell 实际执行、relocatable 搬移、包体和 asyncio 降级未验证。
 - Providers/工作台激活尚未提供 desired state 与 provider secret 的产品写入入口；runtime commands 已消费 App data/keyring，但 Windows Credential Manager 未验证。
 - Windows process tree、休眠恢复和孤儿清理尚无实机证据；lease/orphan、端口冲突和 bearer mismatch 目前只有 macOS/fake server 证据。
-- SSE 已确认无 cursor/replay；本地 journal、断流收敛和 App 重启恢复尚未实现。
+- SSE 已确认无 cursor/replay；本地 journal 与启动本地审计已实现，但断流后查询 run status、活跃任务收敛和完整 App 重启恢复尚未实现。
 - client 已有脱敏有界 trace、取消 token 和 backpressure 门禁，supervisor diagnostics 已聚合 trace；任务层幂等/安全重试、前端诊断 UI 和 Tauri event fanout 尚未实现。
 - Hermes Desktop 组件尚未逐文件做 License/依赖审计。
 - 工作台激活 contract 尚未在 008 实现。
