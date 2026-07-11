@@ -28,6 +28,7 @@ impl HermesPaths {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub(crate) struct HermesProviderDesiredState {
     pub(crate) provider_id: String,
     pub(crate) display_name: String,
@@ -76,14 +77,53 @@ impl HermesProviderDesiredState {
 /// 工作台只能声明资源引用，不能注入任意进程环境或覆盖 Hermes 全局配置。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub(crate) struct WorkbenchHermesDesiredState {
     pub(crate) workbench_id: String,
     pub(crate) workbench_version: String,
     pub(crate) skill_roots: Vec<PathBuf>,
     pub(crate) plugin_ids: Vec<String>,
     pub(crate) mcp_server_ids: Vec<String>,
-    pub(crate) provider_secret_ref: Option<String>,
+    pub(crate) provider_secret_ref: Option<HermesSecretReference>,
     pub(crate) permission_grant_id: String,
+}
+
+impl WorkbenchHermesDesiredState {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        validate_non_empty("workbench id", &self.workbench_id)?;
+        validate_non_empty("workbench version", &self.workbench_version)?;
+        validate_non_empty("permission grant id", &self.permission_grant_id)?;
+        if self.skill_roots.iter().any(|path| !path.is_absolute()) {
+            return Err("Hermes workbench skill roots must be absolute paths.".into());
+        }
+        for plugin_id in &self.plugin_ids {
+            validate_non_empty("plugin id", plugin_id)?;
+        }
+        for server_id in &self.mcp_server_ids {
+            validate_non_empty("MCP server id", server_id)?;
+        }
+        if let Some(secret_ref) = &self.provider_secret_ref {
+            secret_ref.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) enum HermesSecretReference {
+    ProviderCredential {
+        #[serde(rename = "providerId")]
+        provider_id: String,
+    },
+}
+
+impl HermesSecretReference {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::ProviderCredential { provider_id } => validate_provider_id(provider_id),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -446,7 +486,7 @@ fn tighten_file_permissions(_path: &Path) -> Result<(), String> {
 mod tests {
     use super::{
         render_config, HermesConfigInspection, HermesConfigManager, HermesLaunchEnvironment,
-        HermesPaths, HermesProviderDesiredState, PROVIDER_API_KEY_ENV,
+        HermesPaths, HermesProviderDesiredState, WorkbenchHermesDesiredState, PROVIDER_API_KEY_ENV,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -565,5 +605,41 @@ mod tests {
         let error =
             HermesLaunchEnvironment::build(&paths, 8642, "short", "provider-secret").unwrap_err();
         assert!(error.contains("too short"));
+    }
+
+    #[test]
+    fn workbench_desired_state_rejects_arbitrary_environment_fields() {
+        let payload = serde_json::json!({
+            "workbenchId": "office-agent",
+            "workbenchVersion": "0.1.0",
+            "skillRoots": ["/tmp/skills"],
+            "pluginIds": ["office-cli"],
+            "mcpServerIds": [],
+            "providerSecretRef": {
+                "kind": "providerCredential",
+                "providerId": "blackrain-new-api"
+            },
+            "permissionGrantId": "grant-1",
+            "environment": {"PATH": "/untrusted"}
+        });
+        assert!(serde_json::from_value::<WorkbenchHermesDesiredState>(payload).is_err());
+    }
+
+    #[test]
+    fn workbench_desired_state_accepts_only_structured_secret_references() {
+        let state: WorkbenchHermesDesiredState = serde_json::from_value(serde_json::json!({
+            "workbenchId": "office-agent",
+            "workbenchVersion": "0.1.0",
+            "skillRoots": ["/tmp/skills"],
+            "pluginIds": ["office-cli"],
+            "mcpServerIds": [],
+            "providerSecretRef": {
+                "kind": "providerCredential",
+                "providerId": "blackrain-new-api"
+            },
+            "permissionGrantId": "grant-1"
+        }))
+        .unwrap();
+        state.validate().unwrap();
     }
 }

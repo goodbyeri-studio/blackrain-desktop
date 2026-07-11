@@ -73,6 +73,8 @@ pub(crate) struct AppState {
     pub(crate) remote_backend: Mutex<Option<crate::remote_backend::RemoteBackend>>,
     pub(crate) storage_path: PathBuf,
     pub(crate) settings_path: PathBuf,
+    /// 唯一由 Tauri App data API 派生的隔离 Hermes 路径；不得回退到用户 `~/.hermes`。
+    pub(crate) hermes_paths: crate::shared::hermes_core::config::HermesPaths,
     pub(crate) app_settings: Mutex<AppSettings>,
     pub(crate) dictation: Mutex<DictationState>,
     pub(crate) codex_login_cancels: Mutex<HashMap<String, CodexLoginCancelState>>,
@@ -88,6 +90,8 @@ impl AppState {
             .unwrap_or_else(|_| std::env::current_dir().unwrap_or_else(|_| ".".into()));
         let storage_path = data_dir.join("workspaces.json");
         let settings_path = data_dir.join("settings.json");
+        let hermes_paths =
+            crate::shared::hermes_core::config::HermesPaths::from_app_data_dir(&data_dir);
         if std::env::var_os("CODEX_HOME").is_none() {
             std::env::set_var("CODEX_HOME", data_dir.join("codex-home"));
         }
@@ -101,6 +105,7 @@ impl AppState {
             remote_backend: Mutex::new(None),
             storage_path,
             settings_path,
+            hermes_paths,
             app_settings: Mutex::new(app_settings),
             dictation: Mutex::new(DictationState::default()),
             codex_login_cancels: Mutex::new(HashMap::new()),
