@@ -70,6 +70,15 @@ pub(crate) struct HermesTaskStartInput {
     model: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HermesTaskContinueInput {
+    task_id: String,
+    prompt: String,
+    instructions: Option<String>,
+    model: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct HermesTaskReadResult {
@@ -315,6 +324,61 @@ pub(crate) async fn hermes_task_resume(
     let cancellation = state.hermes_runs.activate(&task_id, &run_id).await?;
     spawn_run_consumer(app, &state, client, task_id, run_id, cancellation);
     Ok(task)
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_task_continue(
+    input: HermesTaskContinueInput,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<WorkTask, WorkError> {
+    require_local(&state).await?;
+    validate_bounded_text("prompt", &input.prompt, 1_048_576)?;
+    if let Some(instructions) = &input.instructions {
+        validate_bounded_text("instructions", instructions, 65_536)?;
+    }
+    if let Some(model) = &input.model {
+        validate_bounded_text("model", model, 256)?;
+    }
+    let task = state.hermes_tasks.lock().await.load_task(&input.task_id)?;
+    if task.active_run_id.is_some() || !is_terminal_status(&task.status) {
+        return Err(command_error(
+            "work_task_not_ready_for_continue",
+            "WORK task must be terminal with no active run before continuing.",
+            false,
+        ));
+    }
+    let session_id = task.hermes_session_id.ok_or_else(|| {
+        command_error(
+            "work_task_session_missing",
+            "WORK task has no Hermes session available for continuation.",
+            false,
+        )
+    })?;
+    let client = runtime_api_client(&state.hermes_runtime).await?;
+    let started = start_task_run(
+        &state.hermes_tasks,
+        &state.hermes_runs,
+        &client,
+        &input.task_id,
+        &HermesRunCreateRequest {
+            input: Value::String(input.prompt),
+            instructions: input.instructions,
+            session_id: Some(session_id),
+            model: input.model,
+            conversation_history: Vec::new(),
+        },
+    )
+    .await?;
+    spawn_run_consumer(
+        app,
+        &state,
+        client,
+        input.task_id,
+        started.run_id,
+        started.cancellation,
+    );
+    Ok(started.task)
 }
 
 #[tauri::command]

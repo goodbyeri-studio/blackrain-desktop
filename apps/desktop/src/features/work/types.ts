@@ -99,6 +99,13 @@ export type HermesTaskStartInput = {
   model?: string | null;
 };
 
+export type HermesTaskContinueInput = {
+  taskId: string;
+  prompt: string;
+  instructions?: string | null;
+  model?: string | null;
+};
+
 export type HermesTaskReadResult = {
   task: WorkTask;
   events: WorkEvent[];

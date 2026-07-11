@@ -9,6 +9,7 @@ import {
   hermesRuntimeStatus,
   hermesRuntimeStop,
   hermesTaskApproval,
+  hermesTaskContinue,
   hermesTaskDeleteLocalMetadata,
   hermesTaskList,
   hermesTaskRead,
@@ -19,6 +20,7 @@ import {
 } from "@/services/tauri";
 import type {
   HermesRuntimeDiagnostics,
+  HermesTaskContinueInput,
   HermesTaskStartInput,
   WorkError,
 } from "../types";
@@ -188,6 +190,17 @@ export function useWorkController() {
     [runExclusive],
   );
 
+  const continueTask = useCallback(
+    async (input: HermesTaskContinueInput) => {
+      const task = await runExclusive(`task:${input.taskId}:mutation`, () =>
+        hermesTaskContinue(input),
+      );
+      dispatch({ type: "taskUpserted", task });
+      return task;
+    },
+    [runExclusive],
+  );
+
   const approveTask = useCallback(
     async (
       taskId: string,
@@ -252,6 +265,7 @@ export function useWorkController() {
     refreshTasks,
     loadTask,
     startTask,
+    continueTask,
     resumeTask,
     approveTask,
     stopTask,
