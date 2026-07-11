@@ -11,8 +11,8 @@
 - WORK event normalizer：已实现确定性 event id、sequence、去重、消息/工具/审批/输出/终态映射和无值未知诊断；TaskStore 已消费其稳定 contract，尚未接真实 SSE consumer 或前端 reducer。
 - WORK task store/recovery：已实现版本化 snapshot + NDJSON journal、migration、journal-first 提交、稳定 ID 去重、截断尾修复、`AppState::load` 本地审计，以及 runtime start/restart Ready 后的活跃 run status 对账；任务命令和 replay 门禁证据见下一行，UI 尚未接入。
 - WORK task commands/event bridge：已实现本地 task list/read/start/continue/resume/approval/stop/delete metadata/recovery status，真实 run start→SSE→normalizer→TaskStore→`work-event` 纵切，以及前端唯一 IPC 包装和单 listener fanout；retryable 断流已接 status 对账和有限重连，UI 尚未接入。
-- WORK 前端状态层：已实现独立 reducer/selectors、并行 bootstrap controller、runtime/task actions、单订阅清理、event/task 响应竞态缓冲和同 task mutation 门禁；continue/显式 retry 和 App restart bootstrap 已接，active user-input 因锁定协议无 endpoint 未实现，UI 也未接。
-- WORK 前端 feature/reducer/UI：不存在。
+- WORK 前端状态层：已实现独立 reducer/selectors、并行 bootstrap controller、runtime/task actions、单订阅清理、event/task 响应竞态缓冲、同 task mutation 门禁和 status-first SSE 有限重连；continue/显式 retry 和 App restart bootstrap 已接，active user-input 因锁定协议无 endpoint 未实现。
+- WORK 前端 feature/reducer/UI：Home→Office WORK surface 已接现有主壳，真实 controller actions 已覆盖任务列表/读取/创建/继续、runtime 启动/修复、消息/工具/审批/输出、Stop/Resume 和脱敏诊断；附件/队列/任务删除 UI、008 激活上下文、真实 Tauri/Hermes/Windows 尚未完成。
 - 工作台激活到 WORK 的接缝：不存在。
 - Windows NSIS 内 Hermes runtime：未验证。
 
@@ -46,6 +46,8 @@
 | 2026-07-12 | WORK state/controller | event id 去重、sequence/hydration 合并、terminal projection、approval selector、event-before-task buffer、parallel bootstrap、single subscription cleanup、同 task mutation gate | `npm run test -- --run src/features/work/state/reducer.test.ts src/features/work/hooks/useWorkController.test.tsx src/features/work/types.test.ts`; `npm run typecheck`; `npm run lint` | `11 passed` + typecheck 通过 + lint 0 error（macOS） | lint 仍有 5 条既有 hooks warning；尚无真实 Tauri WebView、长流性能或 Windows 证据；user-input/reconnect 未实现 |
 | 2026-07-12 | Continue/retry | terminal/no-active-run 门禁、持久 session id 复用、新 run attach、runtime override 不暴露、TS wrapper/controller mutation gate | `cargo test hermes --lib`; `npm run test -- --run src/services/tauri.test.ts src/features/work/hooks/useWorkController.test.tsx src/features/work/state/reducer.test.ts`; `npm run typecheck` | `74 passed`（Rust）+ `72 passed`（TS targeted）+ typecheck 通过（macOS） | 显式用户动作，不自动 replay prompt；active user-input endpoint 不存在；真实 Hermes/Windows 未验证 |
 | 2026-07-12 | SSE reconnect | truncated stream→status running→有限退避 reconnect→完整终态；同连接 replay 与跨连接 replay 均不重复 journal/emit；重连次数有界并在耗尽后 degraded；终态/404/非 retryable 不重连 | `cargo test hermes --lib` | `76 passed`（macOS） | fake server + 零延迟测试 policy；生产 backoff 为 250/750/1500ms；真实网络、休眠恢复和 Windows 未验证 |
+| 2026-07-12 | WORK surface UI | Home 入口、MainApp 持久 controller、任务 sidebar/空状态、runtime/repair、Markdown/delta 收敛、reasoning、tool、approval、user-input 缺能力说明、output 项目路径边界、Stop/Resume、诊断 | `npm run test`; `npm run typecheck`; `npm run lint`; `npm run lint:ds`; `npm run codemod:ds:dry` | `149 files / 1085 tests`；typecheck 通过；lint/DS 0 error；panel/toast codemod 对本次文件 0 变更（macOS） | 5 条既有 hooks warning；modal codemod 仍提示既有 `SettingsView.tsx`；不等于 Windows/Tauri/Hermes 实测 |
+| 2026-07-12 | WORK surface 可见 QA | 同一 `WorkSurface` 组件的桌面/紧凑宽度、审批、Stop、诊断面板和滚动布局 | Vite 临时本地 fixture + Codex in-app browser DOM/screenshot；验证后删除 fixture | 通过并修复 approval/composer 重叠及透明诊断面板 | 视觉真源为现有 CODE/Codex App；无新概念图。纯 Web 主应用受账号门禁/Tauri window bridge 阻塞，本证据不替代 Tauri WebView 或 Windows 高 DPI |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |
@@ -119,20 +121,21 @@ cargo check
 - Hermes supervisor 已在 macOS 测试中完成 fixture 子进程从启动到 readiness 再 stop，并证明并发失败启动只 spawn 一次、stdout secret 不进入内存/磁盘日志。
 - Hermes event normalizer 已把锁定 raw SSE contract 转为独立 `WorkEvent`，重复、乱序、未知和损坏事件均有确定行为。
 
-这些均不证明当前 BlackRain 客户端存在 WORK surface。
+这些证明当前代码已存在接入真实 controller contract 的 WORK surface，但仍不证明真实 Hermes/Tauri/Windows 产品闭环。
 
 ## 未验证风险
 
 - Windows 预构建 venv、PowerShell 实际执行、relocatable 搬移、包体和 asyncio 降级未验证。
 - Providers/工作台激活尚未提供 desired state 与 provider secret 的产品写入入口；runtime commands 已消费 App data/keyring，但 Windows Credential Manager 未验证。
 - Windows process tree、休眠恢复和孤儿清理尚无实机证据；lease/orphan、端口冲突和 bearer mismatch 目前只有 macOS/fake server 证据。
-- SSE 已确认无 cursor/replay；本地 journal、启动本地审计和 runtime Ready 后的 run status 收敛已实现，但断流后的自动重连、SSE replay 去重和真实 App 重启流程尚未验证。
-- client 已有脱敏有界 trace、取消 token 和 backpressure 门禁，supervisor diagnostics 已聚合 trace；任务层幂等/安全重试、前端诊断 UI 和 Tauri event fanout 尚未实现。
+- SSE 已确认无 cursor/replay；本地 journal、启动本地审计、runtime Ready 后 run status 收敛、有限自动重连和 replay 去重已实现，但真实网络抖动、休眠恢复和真实 App 重启流程尚未验证。
+- client 已有脱敏有界 trace、取消 token 和 backpressure 门禁，supervisor diagnostics 已聚合 trace并接入前端面板；真实 Tauri WebView、长流性能和 Windows 脱敏审计尚未验证。
 - Hermes Desktop 组件尚未逐文件做 License/依赖审计。
 - 工作台激活 contract 尚未在 008 实现。
 - 生产 credit/new-api/BYOK 路由仍待 002/003 决策。
 - Office 质量基线未跑，无法证明 Hermes 能稳定完成长链任务。
 - Remote backend 首版已明确 local-only 并返回 `unsupported_in_remote_backend`；远程 WORK adapter 尚未实现。
+- 当前 Home 入口直接使用 `office-agent@0.1.0` 和已存在 workspace path，只是阶段 9 的真实 task contract 接缝；在 spec 008 激活 contract 落地前，尚不能证明正式工作台已安装、验证或隔离激活。
 
 ## 失败记录
 

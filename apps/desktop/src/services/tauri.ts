@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import type { Options as NotificationOptions } from "@tauri-apps/plugin-notification";
 import type {
@@ -382,6 +383,10 @@ export async function openWorkspaceIn(
     line: options.line ?? null,
     column: options.column ?? null,
   });
+}
+
+export async function revealPathInFileManager(path: string): Promise<void> {
+  await revealItemInDir(path);
 }
 
 export async function getOpenAppIcon(appName: string): Promise<string | null> {

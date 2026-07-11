@@ -218,6 +218,22 @@
 - 影响范围：shared runner、恢复状态、重复事件门禁和阶段 8/9 连接状态 UI。
 - 后续复查条件：上游提供 cursor、Last-Event-ID 或明确 stream resume contract 后，改为协议级断点恢复，并保留当前有界 fallback。
 
+## 2026-07-12：WORK 复用主壳 Home surface 槽位并由 MainApp 持有 controller
+
+- 决策：Office 入口先进入现有 Home surface 槽位；`MainApp` 持有唯一 `useWorkController`，WORK 组件只消费 controller，`App.tsx` 不承载 WORK 状态机。进入 CODE workspace 时现有布局自然隐藏 Home/WORK，返回后 controller 和任务状态仍在。
+- 原因：现有桌面壳已经把 Home、workspace、phone/tablet/desktop 装配集中在 `MainApp`/layout hooks；新建第二套 window chrome 或把 Hermes 状态塞进 `App.tsx` 都会破坏上游壳同步和 CODE/WORK 状态隔离。
+- 替代方案：为 WORK 新建独立 Tauri window、复用 Codex thread reducer、在 `App.tsx` 写顶层路由状态机，或先交付未接 controller 的静态页面。
+- 影响范围：`Home.tsx`、`MainApp.tsx`、`useMainAppLayoutSurfaces.ts`、`features/work/components/*` 和后续 008 激活入口。
+- 后续复查条件：spec 008 提供正式 `ActivatedWorkbenchContext` 与工作台导航后，将 Home 入口升级为通用工作台路由；controller 所有权和单壳原则保持不变。
+
+## 2026-07-12：WORK 首版 UI 全量重写并只复用 engine-neutral 展示基础
+
+- 决策：首版 WORK surface 不复制 Hermes Desktop React 文件；复用 BlackRain 的 Markdown、按钮、Panel primitives、token 和 Codex 风格密度，Hermes 事件保持独立 domain model。诊断只显示 Core 已脱敏的结构化字段，user input 缺少上游 response endpoint 时明确只读说明。
+- 原因：这能避免 Electron/preload 耦合和逐文件第三方迁移负担，同时不把不存在的上游能力伪装成可操作 UI；浏览器 QA 也证明现有 design system 足以承载消息、工具、审批和诊断状态。
+- 替代方案：直接复制 Hermes Desktop session/composer/tool 组件、建立第二套 WORK design system、或用 approval/new run 冒充 user input response。
+- 影响范围：阶段 9/10、NOTICE/THIRD-PARTY、组件测试和视觉验证。
+- 后续复查条件：仅当现有组件无法覆盖已确认的产品行为时，再逐文件评估 Hermes MIT 源码并记录来源；否则继续重写。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
