@@ -1,6 +1,6 @@
 # Verification
 
-> 记录每批接入的实测命令与结果。无头环境能验 `cargo check` + `npm run typecheck`;字段级兼容与 GUI 需用户 `tauri dev` 冒烟。
+> 记录每批接入的实测命令与结果。下文最新完整能力基线是 `cfead68`;当前锁定 rust-v0.144.1 / `44918ea` 已完成方法集合审计与 app-server macOS `cargo check`,全量 capability 重验和 Windows GUI 冒烟仍未跑。「shape 被接受」不代表方法无认证/stub/平台门控。
 
 ## 验证命令
 
@@ -17,15 +17,15 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 
 | 批次 | 方法 | cargo check | typecheck | tauri dev 冒烟 | 日期 |
 |---|---|---|---|---|---|
-| 1 | thread/delete | ✅ 5.72s 零错误 | ✅ 通过 | 待用户 | 2026-06-28 |
-| 1 | thread/items/list | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
-| 1 | thread/backgroundTerminals/list | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
-| 1 | thread/backgroundTerminals/terminate | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
-| 1 | environment/info | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
-| 1 | thread/deleted(通知) | 免代码(泛化转发) | — | 待用户 | 2026-06-28 |
-| 2 | skills/config/write · extraRoots/set · hooks/list | ✅ 6.28s 零错误 | ✅ 通过 | 待用户 | 2026-06-28 |
-| 2 | plugin/{list,installed,read,install,uninstall,skill/read} | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
-| 2 | marketplace/{add,remove,upgrade} | ✅ 同上 | ✅ | 待用户 | 2026-06-28 |
+| 1 | thread/delete | ✅ 5.72s 零错误 | ✅ 通过 | 未跑 | 2026-06-28 |
+| 1 | thread/items/list | ✅ 同上 | ✅ | 未跑 | 2026-06-28 |
+| 1 | thread/backgroundTerminals/list | ✅ 同上 | ✅ | 未跑 | 2026-06-28 |
+| 1 | thread/backgroundTerminals/terminate | ✅ 同上 | ✅ | 未跑 | 2026-06-28 |
+| 1 | environment/info | ✅ 同上 | ✅ | 未跑 | 2026-06-28 |
+| 1 | thread/deleted(通知) | 免代码(泛化转发) | — | 未跑 | 2026-06-28 |
+| 2 | skills/config/write · extraRoots/set · hooks/list | ✅ 6.28s 零错误 | ✅ 通过 | 未跑 | 2026-06-28 |
+| 2 | plugin/{list,installed,read,install,uninstall,skill/read} | ✅ 同上 | ✅ | 未跑 | 2026-06-28 |
+| 2 | marketplace/{add,remove,upgrade} | ✅ 同上 | ✅ | 未跑 | 2026-06-28 |
 
 > 第 2 批实测:`cargo check` → `Finished dev in 6.28s`,零编译错误、12 方法零 unused 警告(全链路接通);`npm run typecheck` → 通过。复杂参数(Vec/Option<Vec>/bool)走现成 helper(parse_string_array / parse_optional_string_array / parse_optional_bool),AbsolutePathBuf/enum 在 wire 层降为 string,不引入 typed Rust 结构。
 
@@ -39,7 +39,7 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 - ⚠️ **`thread/items/list` → 内核回 "is not supported yet"(-32601)**:壳已正确接入,但 `bdd282f` 内核侧尚未实现(stub)。它本应取代已删除的 `thread/turns/items/list`,故当前内核两者都不可用——壳是「接入超前于内核」,待未来 bump 点亮。
 - ⚠️ `plugin/uninstall`、`plugin/skill/read` → "chatgpt authentication required for remote plugin catalog":shape OK;**远程**目录插件需 OpenAI auth,本地插件可用(符合 C 类 OpenAI 门控边界)。
 
-**剩余只待 GUI 冒烟**:协议 shape 已自证;`tauri dev` 只需验 IPC→command→daemon 粘合层 + 前端接得上(无头环境做不了的那半)。
+**该批次在当时基线还缺 GUI 冒烟**：协议 shape 已自证，但 IPC→command→daemon 粘合和前端交互没有实跑。当前还必须额外对 `44918ea` 重跑 shape，并复核认证、stub、实验开关与 Windows 运行时门控。
 
 ## 第 3 批 a(Thread 高级,13 方法)2026-06-28
 
@@ -55,13 +55,13 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 
 ## #3 总计(batch-1 + 2 + 3a + 3b)
 
-**42 个方法全 5 层接入**,全部 `cargo check` + `npm run typecheck` 双绿、协议 shape 探针 0 真漂移。明细:batch-1=5、batch-2=12、batch-3a=13、batch-3b=12。
-- 已知非缺陷:`thread/items/list` 内核 stub("not supported yet",待 bump 点亮);`plugin/uninstall`+`skill/read`、`mcp/*` 远程目录需 OpenAI auth(本地可用)。
-- **唯一剩余 = GUI 冒烟**:协议 shape 全自证;`tauri dev` 只需验 IPC→command→daemon 粘合 + 前端接得上(无头做不了的那半)。
+**42 个方法在当时基线走完 5 层包装**,`cargo check` + `npm run typecheck` 双绿、协议 shape 探针 0 真漂移。明细:batch-1=5、batch-2=12、batch-3a=13、batch-3b=12。
+- 已知门控:`thread/items/list` 在 `cfead68` 为上游 stub;`plugin/skill/read` 与部分远程 plugin 路径需 OpenAI auth;MCP 只验到 fake server 的参数 shape;Windows sandbox 未在 Windows 运行。
+- **剩余不只是 GUI 冒烟**:还有 `44918ea` 全量重验、Windows 运行时门控验证和 spec 005 GUI 落地。
 
 > 第 1 批实测:`cd apps/desktop/src-tauri && cargo check` → `Finished dev in 5.72s`,零编译错误、新方法零 unused 警告(全链路接通);`cd apps/desktop && npm run typecheck` → 通过。新方法全部走 5 层 archive_thread pattern,协议方法名零改写。
 
-## 内核 bump 验证(已完成)
+## 历史内核 bump 验证(截止 `cfead68`)
 
 - 2026-06-28:`codex-upstream` checkout `bdd282f` → `cargo build -p codex-app-server` 成功(1m44s)→ M0 四探针(initialize/model.list/thread.start/turn.start)复跑全绿。
 - 遗留:探针只覆盖 4 方法 happy path;壳完整参数用法对新内核的字段级兼容待 `tauri dev` 冒烟。
@@ -75,3 +75,17 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 - **能力 shape 探针 17 方法** → SHAPE-DRIFT = **0**;所有 SEMANTIC 均为预期语义错(fake id/未认证),shape 全被接受。`thread/items/list` 在 `cfead68` 仍回「not supported yet」(-32601)——与 `bdd282f` 同状态,未点亮也未退化,「接入超前于内核」记录依然成立。
 - 钉定真源已同步:`scripts/fetch-references.sh`、`CLAUDE.md`、`AGENTS.md`。
 - 遗留:同上,字段级完整参数兼容 + GUI 待 `tauri dev` 冒烟(无头环境做不了的那半)。
+
+## 当前锁定 rust-v0.144.1 / `44918ea` 重验
+
+- 2026-07-12：相对 `da4c8ca`，ClientRequest、ServerRequest、ServerNotification 方法集合无增删；现有 65 个壳层 outgoing 方法没有出现“上游方法删除”。
+- 2026-07-12：`cargo check -p codex-app-server-protocol -p codex-app-server` 在 macOS 通过。
+- payload schema 有扩展：`AuthMode` 新增 `headers`，`AppToolApproval` 新增 `writes`，login 参数增加可选品牌/hosted success page，web search/image generation 类型被抽取但字段结构保持兼容。
+- 未完成：42 项 capability shape、认证/stub/实验门控重验、Windows GUI 冒烟与真实 Gateway 工具调用。
+
+| 范围 | 结果 | 备注 |
+|---|---|---|
+| 上游 `codex-app-server-protocol` + `codex-app-server` `cargo check` | 通过（macOS） | 只证明候选上游源码基础编译健康 |
+| BlackRain 壳 `cargo check` + `npm run typecheck` | 未跑/未记录 | 本轮未修改壳代码；不沿用 `cfead68` 结论 |
+| 42 方法 capability shape 探针 | 未跑 | 需刷新 stub/认证/实验门控 |
+| Windows `tauri:dev:win` GUI 冒烟 | 未跑 | 只有此项通过后才能声称对应 GUI 可用 |

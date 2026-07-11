@@ -1,5 +1,7 @@
 # Verification
 
+> 状态校准（2026-07-12）：下表真实结果主要发生在 2026-06-24～25。macOS Keychain/app/dmg 项是历史工程证据，不是当前 Windows-only MVP 的发布证据；`gateway.py` 仍是可替换原型。工具调用只在显式 `STRIP_TOOLS=0` 的探针/开发路径通过，当前 App 托管 spawn 未覆盖默认值 `1`，普通产品启动路径会剥除工具。Windows Credential Manager、NSIS 包内 sidecar 和正式签名/运行矩阵尚未在本 spec 跑通，关联 007。
+
 ## 验证矩阵
 
 | 日期 | 范围 | 命令/方式 | 结果 | 备注 |
@@ -66,10 +68,10 @@
 - App 已托管 Gateway sidecar：启动、停止、状态、健康检查、端口、日志路径；启动时写入 `blackrain_gateway` Codex config。
 - 缺省 `CODEX_HOME` 已指向 App data 下的专属 `codex-home`，避免默认写用户 `~/.codex`。
 - Settings 已接入 provider API key 输入、保存、清除和状态展示；真实 key 走系统凭据存储，settings/Codex config 不落明文。
-- macOS Keychain 真实写入、读取、状态查询和清理 smoke 已通过。
+- macOS Keychain 真实写入、读取、状态查询和清理 smoke 已通过（历史 post-MVP 证据）。
 - Provider 测试连接、刷新模型和 Gateway sidecar registry 会优先读取系统凭据中的 key，缺失时再回退环境变量。
 - Tauri base/windows 打包配置已纳入 `gateway/gateway.py` resource，并用 cargo test 守护。
-- macOS 无签名 app/dmg 已完成真实打包、dmg 挂载资源检查和包内二进制短启动 smoke。
+- macOS 无签名 app/dmg 已完成真实打包、dmg 挂载资源检查和包内二进制短启动 smoke（历史证据，不代表 Windows 发布通过）。
 - 普通对话模型选择器已合并 Gateway/App registry，新增 provider 能进入 selector。
 - Gateway 日志已加入 API key / token / secret 基础脱敏。
 - 真实 DeepSeek 单工具多轮调用已通过：Gateway `STRIP_TOOLS=0` 时能触发内核 `commandExecution` 并完成收尾。
@@ -83,11 +85,13 @@
 
 ## 未验证风险
 
-- 正式公开分发仍缺签名、公证、updater 私钥配置验证；当前只完成 `--no-sign` app/dmg 打包与短启动 smoke。
+- Windows-only MVP 尚缺 Credential Manager 实机、NSIS 包内 sidecar 启停/回收、随包 Python 运行时、代码签名与安装后真实对话验证；完整 Windows 矩阵关联 007。macOS 签名/公证/updater 已降为 post-MVP。
 - 多 provider registry 的模型 ID 别名策略只做了本地前端测试和 DeepSeek 兼容验证，尚未跑真实第二 provider。
-- 系统凭据仅完成 macOS Keychain smoke；Windows Credential Manager / Linux Secret Service 尚未实机验证。
+- 系统凭据仅完成 macOS Keychain smoke；Windows Credential Manager 尚未实机验证，Linux Secret Service 非当前 MVP。
 - Gateway provider 热重载仍通过重启进程完成，未做运行时 reload。
 - 并行多工具、3+ 轮深循环、namespace 工具仍未验证。
+- `gateway.py` 仍是纯 stdlib Python 可行性原型；错误恢复、并发、资源治理和生产运维边界尚未达到正式网关标准。
+- App 托管 sidecar 未显式设置 `STRIP_TOOLS=0`；当前工具调用 PASS 只属于手动探针/开发脚本，产品态默认行为仍是纯文本，是发布阻塞项。
 
 ## 失败记录
 

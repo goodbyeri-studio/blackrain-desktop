@@ -1,197 +1,260 @@
 # 快捷命令行
 
-> 常用命令速查。命令均经实跑验证。路径以仓库根 `2049-app/` 为基准。
-> 详细背景见 [CONTRIBUTING](../CONTRIBUTING.md)（协作流程）、[docs/09](09-运行时架构与里程碑.md)（运行时架构）。
+> BlackRain 日常启动、构建、发布和通用验证命令的唯一真源。模块 README/runbook 只保留不重复的局部诊断或协议探针。除特别标注外，路径均以仓库根 `BlackRain/` 为基准。
+> MVP 仅发行 Windows，主流程使用 PowerShell 7 (`pwsh`)；macOS / iOS 只作为 post-MVP 或上游资产。
 
 ## 目录
 
-- [日常 GitHub Flow](#日常-github-flow)（最常用）
-- [启动本地客户端](#启动本地客户端)
+- [Windows 首次准备](#windows-首次准备)
+- [拉取并对齐双引擎](#拉取并对齐双引擎)
+- [构建 CODE 内核](#构建-code-内核)
+- [启动 Windows 客户端](#启动-windows-客户端)
+- [前端与 Rust 验证](#前端与-rust-验证)
 - [Windows 本机发布](#windows-本机发布)
-- [内核构建](#内核构建)
-- [模型网关](#模型网关)
-- [协议探针 / 测试](#协议探针--测试)
-- [上游同步（subtree）](#上游同步subtree)
-- [密钥 / 环境](#密钥--环境)
+- [单独调试模型网关](#单独调试模型网关)
+- [协议探针](#协议探针)
+- [日常 GitHub Flow](#日常-github-flow)
+- [CodexMonitor subtree 同步](#codexmonitor-subtree-同步)
+- [post-MVP 非 Windows 参考](#post-mvp-非-windows-参考)
 
 ---
 
-## 日常 GitHub Flow
+## Windows 首次准备
 
-```bash
-# 开新工作：从最新 main 切分支
-git switch main && git pull
-git switch -c feat/我的功能          # type: feat/fix/docs/refactor/chore/test
+```powershell
+# 仓库根执行
+Copy-Item .env.example .env
+# 编辑 .env，填写 DEEPSEEK_API_KEY；不要提交该文件
 
-# 提交（type 前缀必带）
-git add -p
-git commit -m "feat: 一句话描述"
+# codex/whisper-rs 构建依赖
+winget install Kitware.CMake LLVM.LLVM
+# 或：choco install cmake llvm
 
-# 推分支 + 开 PR
-git push -u origin feat/我的功能
-gh pr create                          # 按提示填，或加 --title/--body
-
-# 看 PR 状态 / 合并（Squash + 自动删分支）
-gh pr view <num>
-gh pr merge <num> --squash --delete-branch
-
-# 合并后回 main 同步 + 清理本地过期分支引用
-git switch main && git pull --prune
+Set-Location apps\desktop
+npm install
+npm run doctor:win
+Set-Location ..\..
 ```
 
----
+还需预先安装 Git、Node.js 22、Rust stable、Python 3.10+、PowerShell 7 和 Tauri 所需的 Windows 构建环境。`npm run doctor:win` 只做项目已有的环境自检，不代表 GUI、Office 或 NSIS 已验证。
+
+## 拉取并对齐双引擎
+
+### Windows 推荐：显式 clone + checkout
+
+`scripts/fetch-references.sh` 当前只克隆默认分支，不会强制 checkout 目标锁定版本。Windows 构建/验证前使用下面的显式流程：
+
+```powershell
+if (-not (Test-Path codex-upstream)) {
+  git clone --filter=blob:none https://github.com/openai/codex.git codex-upstream
+}
+if (-not (Test-Path hermes-upstream)) {
+  git clone --filter=blob:none https://github.com/NousResearch/hermes-agent.git hermes-upstream
+}
+
+if ((git -C codex-upstream rev-parse --is-shallow-repository) -eq "true") {
+  git -C codex-upstream fetch --unshallow origin
+}
+if ((git -C hermes-upstream rev-parse --is-shallow-repository) -eq "true") {
+  git -C hermes-upstream fetch --unshallow origin
+}
+
+git -C codex-upstream fetch origin --tags --prune
+git -C codex-upstream checkout --detach 44918ea10c0f99151c6710411b4322c2f5c96bea
+
+git -C hermes-upstream fetch origin --tags --prune
+git -C hermes-upstream checkout --detach 9de9c25f620ff7f1ce0fd5457d596052d5159596
+
+git -C codex-upstream rev-parse --short HEAD
+git -C hermes-upstream rev-parse --short HEAD
+# 预期分别为 44918ea10c0f99151c6710411b4322c2f5c96bea、9de9c25f620ff7f1ce0fd5457d596052d5159596
+```
+
+目标锁定值与脚本风险见 [REFERENCES](REFERENCES.md)。不要把本机 gitignored 克隆的 `HEAD` 当成仓库已完成状态。
+
+### 已有 POSIX shell 时的便利入口
+
+```powershell
+sh scripts/fetch-references.sh
+```
+
+这条命令只准备目录；仍必须执行上面的 fetch / checkout / `rev-parse` 校验。纯 PowerShell 环境没有 `sh` 时直接使用推荐流程。
+
+## 构建 CODE 内核
+
+```powershell
+Set-Location codex-upstream\codex-rs
+$env:CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+
+# 壳需要的 codex.exe
+cargo build -p codex-cli --bin codex
+
+# 协议调试用 codex-app-server.exe
+cargo build -p codex-app-server
+
+.\target\debug\codex.exe --help
+Set-Location ..\..
+```
+
+产物：
+
+- `codex-upstream\codex-rs\target\debug\codex.exe`
+- `codex-upstream\codex-rs\target\debug\codex-app-server.exe`
+
+若 bindgen 找不到 clang，可在当前 PowerShell 会话设置：
+
+```powershell
+$env:LIBCLANG_PATH = "C:\Program Files\LLVM\bin"
+```
+
+## 启动 Windows 客户端
+
+```powershell
+# 默认 deepseek-v4-flash
+pwsh scripts/dev-client.ps1
+
+# 指定模型
+$env:DEV_MODEL = "deepseek-v4-pro"
+pwsh scripts/dev-client.ps1
+```
+
+脚本会加载 `.env`、检查 `codex.exe` / Python / cmake / `node_modules`、生成 `.scratch\dev-codex-home\config.toml`、启动带本地 bearer 的 Gateway，再执行 `npm run tauri:dev:win`。Ctrl-C 退出时会停止脚本启动的 Gateway。
+
+该命令会打开 GUI，必须在有显示器的 Windows 本机运行，不能用 SSH/无头结果代替实机验证。
+
+## 前端与 Rust 验证
+
+```powershell
+Set-Location apps\desktop
+
+npm run typecheck
+npm run test
+npm run lint
+npm run lint:ds
+npm run codemod:ds:dry
+
+Push-Location src-tauri
+cargo check
+Pop-Location
+
+# Windows 专用入口
+npm run doctor:win
+npm run tauri:dev:win
+npm run tauri:build:win
+
+Set-Location ..\..
+```
+
+按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；Rust 后端跑 `cargo check`。发布级结论还必须完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 中适用的 Windows 实机项。
 
 ## Windows 本机发布
 
-> MVP 只交付 Windows；当前只有 dev / prod 双环境，staging 暂缓。GitHub Actions 只跑检查，不打安装包，正式安装包在本机生成。
+> GitHub Actions 当前只做检查，不生成安装包。正式 NSIS 产物在 Windows 本机生成。
 
 ```powershell
 Copy-Item .env.production.example .env.production.local
-# 编辑 .env.production.local，填 VITE_SUPABASE_ANON_KEY
+# 编辑 .env.production.local，至少确认 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY
 
 pwsh scripts/release-client-win.ps1
 ```
 
-脚本会加载生产 Supabase 前端配置，依次跑 `typecheck`、`test`、`cargo check`、`tauri:build:win`。产物在 `apps/desktop/src-tauri/target/release/bundle/`。
+脚本会 vendoring Windows runtime，并依次运行 `typecheck`、`test`、Rust `cargo check` 和 `tauri:build:win`。产物在：
 
----
+```text
+apps\desktop\src-tauri\target\release\bundle\
+```
 
-## 启动本地客户端
+发布前还要在 Windows 实机完成 `.exe` 安装、开始菜单启动、真实对话、Credential Manager、Office（如涉及）和卸载验证；仅生成 bundle 不算发布闭环。
 
-> 桌面壳（CodexMonitor fork）+ BlackRain Gateway（默认 DeepSeek）。需要三样就位：内核二进制、网关、密钥。
-> ⚠️ `tauri dev` 会开 GUI 窗口，需在有显示器的本机跑（非 SSH/无头）。
+## 单独调试模型网关
 
-### 一键启动（推荐）
+### 启动（Windows PowerShell）
+
+```powershell
+$line = (Select-String -Path .env -Pattern '^DEEPSEEK_API_KEY=' | Select-Object -First 1).Line
+$env:DEEPSEEK_API_KEY = ($line -replace '^DEEPSEEK_API_KEY=', '').Trim().Trim('"').Trim("'")
+$env:BLACKRAIN_GATEWAY_API_KEY = "local-debug-gateway"
+$env:GW_PORT = "8899"
+$env:STRIP_TOOLS = "0"
+$env:GW_LOG = "$env:TEMP\blackrain-gateway.log"
+
+python gateway\gateway.py
+```
+
+如果机器只提供 Python Launcher，把最后一行改成 `py gateway\gateway.py`。
+
+### 健康与模型列表
+
+`/health` 不鉴权；`/v1/*` 在设置了 `BLACKRAIN_GATEWAY_API_KEY` 后必须带 bearer：
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8899/health
+
+$headers = @{
+  Authorization = "Bearer $env:BLACKRAIN_GATEWAY_API_KEY"
+}
+Invoke-RestMethod http://127.0.0.1:8899/v1/models -Headers $headers
+```
+
+不要把 bearer、模型厂商 key 或完整请求日志粘进 PR、聊天或正式文档。
+
+## 协议探针
+
+探针目前位于 gitignored 的 `.scratch/`，不是仓库可重建的正式工具。只有本机文件确实存在时才运行；可复用结果必须写入对应 spec `verification.md`。
+
+```powershell
+$bin = (Resolve-Path codex-upstream\codex-rs\target\debug\codex-app-server.exe).Path
+$workspace = (Get-Location).Path
+
+python .scratch\m0_protocol_probe.py $bin $env:CODEX_HOME $workspace
+python .scratch\m0_tool_driver.py $bin $env:CODEX_HOME $workspace
+```
+
+升级 codex 锁定版本后，必须在 Windows 上重跑适用探针；macOS 历史 PASS 不能替代 Windows MVP 证据。
+
+## 日常 GitHub Flow
+
+```powershell
+git switch main
+git pull --ff-only
+git switch -c feat/我的功能
+
+git add -p
+git commit -m "feat: 一句话描述"
+git push -u origin feat/我的功能
+gh pr create
+
+gh pr view <num>
+gh pr merge <num> --squash --delete-branch
+
+git switch main
+git pull --ff-only --prune
+```
+
+分支 type 可用 `feat` / `fix` / `docs` / `refactor` / `chore` / `test`。`main` 禁止直推；合并需 1 approve + CI 绿。
+
+## CodexMonitor subtree 同步
+
+> 维护者动作，禁止在普通功能 PR 中顺手执行。
+
+```powershell
+git subtree pull --prefix apps/desktop `
+  https://github.com/Dimillian/CodexMonitor main --squash
+```
+
+同步后按影响范围跑前端/Rust 检查，并在 Windows 实机验证 GUI、标题栏、Mica、对话和打包。
+
+## post-MVP 非 Windows 参考
+
+以下脚本是保留的历史开发资产，不属于当前发布和 CI 验收：
 
 ```bash
 ./scripts/dev-client.sh
 
-# 指定模型启动（默认 deepseek-v4-flash；攻坚用 pro）
-DEV_MODEL=deepseek-v4-pro ./scripts/dev-client.sh
-```
-
-封装了：加载 `.env` 密钥 → 把内核二进制注入 PATH → 准备只连接 `blackrain_gateway` 的 CODEX_HOME → 起网关 → `npm run tauri dev`。按 Ctrl-C 退出会自动停网关。
-前提：① `cp .env.example .env` 填好 key；② 内核已编译（见下方「内核构建」）；③ `apps/desktop` 已 `npm install`。
-
-### 首次环境前提（编译 Tauri 后端会撞的两个坑）
-
-```bash
-# 坑 1：cargo 用内置 libgit2 拉 git 依赖会 SSL 握手失败 → 改用系统 git
-export CARGO_NET_GIT_FETCH_WITH_CLI=true     # 脚本已内置，手动编时需自己设
-
-# 坑 2：whisper-rs（语音输入）构建需要 cmake
-brew install cmake
-```
-
-### 手动分步（debug 用）
-
-```bash
-# 0) 一次性前提
-cd apps/desktop && npm install && cd ..        # 装壳前端依赖
-#    内核二进制需已编译，见「内核构建」；产物在
-#    codex-upstream/codex-rs/target/debug/codex
-
-# 1) 起翻译网关（后台，默认接 DeepSeek）
-export DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2)
-STRIP_TOOLS=0 python3 gateway/gateway.py &      # 监听 127.0.0.1:8899
-
-# 2) 起壳（在 apps/desktop 下）
 cd apps/desktop
-CARGO_NET_GIT_FETCH_WITH_CLI=true npm run tauri dev   # 首次会编 Rust 后端较久
+npm run doctor:strict
+npm run tauri:dev
+npm run tauri:build
 ```
 
-壳默认找 PATH 上的 `codex`；CODEX_HOME 未在设置里配时，继承启动 shell 的 `CODEX_HOME` 环境变量（一键脚本已处理这两点）。config.toml 范例见 [docs/09](09-运行时架构与里程碑.md)：`model_provider` 固定为 `blackrain_gateway`，provider 的 `base_url` 填 `http://127.0.0.1:8899/v1`、`wire_api="responses"`。
-
-```bash
-# 关掉后台网关
-kill %1            # 或 pkill -f gateway.py
-```
-
----
-
-## 内核构建
-
-> codex 内核当黑盒用，从 `codex-upstream/`（gitignored 本地克隆）编译。首次约 12 分钟，之后增量很快。
-
-```bash
-cd codex-upstream/codex-rs
-
-# 壳需要的二进制：codex（带 app-server 子命令）
-cargo build -p codex-cli --bin codex
-#   产物：target/debug/codex
-
-# 仅协议调试用的精简二进制（本身即 app-server，无子命令）
-cargo build -p codex-app-server
-#   产物：target/debug/codex-app-server
-
-# 验证 app-server 子命令可用
-./target/debug/codex --help | grep app-server
-```
-
----
-
-## 模型网关
-
-> `gateway/gateway.py`：responses⇄chat 翻译，纯 stdlib 零依赖。内置 DeepSeek provider，可用 JSON 环境变量追加 OpenAI-compatible provider。详见 [gateway/README](../gateway/README.md)。
-
-```bash
-export DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2)
-
-# 启动（环境变量可调）
-python3 gateway/gateway.py
-#   GW_PORT=8899      监听端口
-#   STRIP_TOOLS=1     剥工具逼纯文本（调试）；=0 允许多轮工具调用
-#   GW_LOG=/tmp/gateway.log   交互日志
-#   BLACKRAIN_MODEL_GATEWAY_PROVIDERS='[...]'  追加第三方 provider registry
-
-# 看 Gateway 暴露给 Codex/前端的模型
-curl -s http://127.0.0.1:8899/v1/models
-
-# 直连 DeepSeek 健康检查（不回显 key）
-curl -s https://api.deepseek.com/v1/chat/completions \
-  -H "Authorization: Bearer $DEEPSEEK_API_KEY" -H "Content-Type: application/json" \
-  -d '{"model":"deepseek-v4-flash","messages":[{"role":"user","content":"ping"}],"max_tokens":5}'
-```
-
----
-
-## 协议探针 / 测试
-
-> 验证壳⇄内核协议兼容、或 DeepSeek 经网关驱动内核。脚本在 `.scratch/`（gitignored 草稿区）。
-
-```bash
-BIN="$PWD/codex-upstream/codex-rs/target/debug/codex-app-server"
-
-# 协议四探针（initialize/model·list/thread·start/turn·start）
-python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
-
-# 触发工具调用、跑多轮（需先起网关 + 配好 CODEX_HOME 指向网关）
-python3 .scratch/m0_tool_driver.py "$BIN" <CODEX_HOME> <工作区>
-```
-
----
-
-## 上游同步（subtree）
-
-> ⚠️ 维护者动作，约定一人负责，别随手做。`apps/desktop/` 是 CodexMonitor 的 subtree。
-
-```bash
-# 拉上游 CodexMonitor 最新（--squash 不灌全史）
-git subtree pull --prefix apps/desktop \
-  https://github.com/Dimillian/CodexMonitor main --squash
-```
-
----
-
-## 密钥 / 环境
-
-```bash
-# 首次：复制模板填自己的 key
-cp .env.example .env
-#   编辑 .env 填入真实 DEEPSEEK_API_KEY；.env 已 gitignore，绝不提交
-
-# 临时加载到当前 shell
-export DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2)
-```
-
-> 密钥只存本地 `.env` 或环境变量，**永不写进会提交的文件、不在聊天/IM 明文发**。泄露立即去控制台吊销重发。
+这些命令在 macOS / Linux 上通过，只能说明相应平台代码路径；不能替代 Windows MVP 的 NSIS、Credential Manager、真实对话、Office 或安装/卸载验证。iOS 仅是上游壳资产，当前没有 BlackRain iOS 发布命令。

@@ -43,7 +43,7 @@
 - [ ] 按 provider 分组展示模型。
 - [ ] 显示模型能力标签。
 - [x] 新线程使用全局默认模型。
-- [x] 线程级模型覆盖可持久化。
+- [x] 线程级模型覆盖可持久化。（长期唯一真源仍待 requirements 开放问题收口）
 - [ ] 模型不可用时显示清晰降级状态。
 - [x] 设置页 Codex/Agents 区的 `useSettingsDefaultModels` 已收敛到网关 registry（与对话选择器同源，复用 `gatewayModelOptions`）；不再读内核自带 OpenAI 目录，gpt 模型不会再被写进 config.toml 默认 / agent 配置。
 
@@ -54,11 +54,15 @@
 - [x] Gateway sidecar 启动前把系统凭据中的 provider key 注入 registry，不把 key 写入 settings/Codex config。
 - [x] Tauri 打包配置纳入 `gateway/gateway.py` resource，并加配置测试守护。
 - [x] 做 macOS Keychain 真实写入/读取/清理 smoke。
-- [x] 做 macOS app/dmg 真实打包资源 smoke。
+- [x] 做 macOS app/dmg 真实打包资源 smoke。（历史 post-MVP 证据，不作为 Windows 发布通过）
+- [ ] 在 Windows 实机验证 Credential Manager、NSIS 包内 sidecar 启动/停止、端口与日志；细项关联 007。
+- [ ] 跑真实第二 provider，验证模型 ID/别名、`/models` 兼容和工具调用。
 - [ ] 补并行多工具和 3+ 轮深循环测试。
 - [ ] 处理 `namespace` 工具的策略：支持、显式拒绝、或转发为普通工具。
 - [ ] 补模型元数据 fallback warning 的处理或 UI 提示。
+- [ ] App 托管 sidecar 显式设置 `STRIP_TOOLS=0`，并补回归测试，避免产品启动路径默认剥除工具。
 - [x] Gateway 日志默认脱敏 API key 和请求敏感字段。
+- [ ] 决定生产 Gateway 形态（继续 Python sidecar 或迁移 Rust/Go）；在此之前 `gateway.py` 保持“可行性原型”定位。
 
 ## 阶段 6：验证和收口
 
@@ -69,6 +73,7 @@
 - [x] 改 Rust 后跑 `cd apps/desktop/src-tauri && cargo check`。
 - [x] 跑协议四探针。
 - [x] 跑真实 DeepSeek 工具调用。
-- [x] 跑无签名 macOS app/dmg 打包、dmg 挂载资源检查和短启动 smoke。
+- [x] 跑无签名 macOS app/dmg 打包、dmg 挂载资源检查和短启动 smoke。（历史证据）
+- [ ] 跑 Windows MVP 发布级 smoke；本 spec 只记录 CODE Gateway 相关结果，完整矩阵在 007。
 - [x] 在 `verification.md` 记录每次真实验证结果。
 - [x] 更新 `README.md` / `docs/commands.md` / `gateway/README.md` 中受影响的命令和状态。

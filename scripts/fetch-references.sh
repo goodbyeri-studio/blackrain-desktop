@@ -7,27 +7,51 @@ set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# ── openai/codex ── 我们计划 Fork 的上游内核（许可证 Apache-2.0）
-# 参考时锁定的 commit：cfead68（2026-06-29；历经 51b3cd5/2026-06-09 → bdd282f/2026-06-27 → cfead68，2026-06-30 跟进上游，协议四探针 + 17 方法能力探针复测全绿）。如需对齐请在克隆后自行 checkout。
-if [ ! -d codex-upstream ]; then
-  echo "→ 克隆 openai/codex 到 codex-upstream/ ..."
-  git clone --depth 1 https://github.com/openai/codex.git codex-upstream
-else
-  echo "✓ codex-upstream/ 已存在，跳过。"
-fi
+CODEX_URL="https://github.com/openai/codex.git"
+CODEX_TAG="rust-v0.144.1"
+CODEX_COMMIT="44918ea10c0f99151c6710411b4322c2f5c96bea"
 
-# ── NousResearch/hermes-agent ── WORK 引擎黑盒（许可证 MIT）
-# 同 codex 待遇：只读黑盒、不入库、白嫖上游。
-# TODO(钉版本)：spike 阶段先拉 HEAD 探路；架构验通后必须钉死一个 commit 并存证
-#   （MIT 对快照不可撤销，防 Nous 未来版本转 BSL/商业授权）。届时改成
-#   `git clone https://...hermes-agent.git hermes-upstream && cd hermes-upstream && git checkout <commit>`
-if [ ! -d hermes-upstream ]; then
-  echo "→ 克隆 NousResearch/hermes-agent 到 hermes-upstream/ ..."
-  git clone --depth 1 https://github.com/NousResearch/hermes-agent.git hermes-upstream
-else
-  echo "✓ hermes-upstream/ 已存在，跳过。"
-fi
+HERMES_URL="https://github.com/NousResearch/hermes-agent.git"
+HERMES_TAG="v2026.7.7.2"
+HERMES_COMMIT="9de9c25f620ff7f1ce0fd5457d596052d5159596"
+
+sync_tagged_reference() {
+  name="$1"
+  url="$2"
+  dir="$3"
+  tag="$4"
+  expected_commit="$5"
+
+  if [ ! -d "$dir/.git" ]; then
+    if [ -e "$dir" ]; then
+      echo "✗ $dir 已存在但不是 Git 仓库；为避免覆盖本地文件，停止同步。" >&2
+      exit 1
+    fi
+    echo "→ 克隆 $name 到 $dir/ ..."
+    git clone --no-checkout --filter=blob:none --depth 1 --branch "$tag" "$url" "$dir"
+  fi
+
+  if ! git -C "$dir" diff --quiet || ! git -C "$dir" diff --cached --quiet; then
+    echo "✗ $dir/ 存在已跟踪文件改动；请先处理后再同步。" >&2
+    exit 1
+  fi
+
+  echo "→ 同步 $name $tag ..."
+  git -C "$dir" fetch --force --depth 1 origin "refs/tags/$tag:refs/tags/$tag"
+  actual_commit="$(git -C "$dir" rev-parse "$tag^{}")"
+  if [ "$actual_commit" != "$expected_commit" ]; then
+    echo "✗ $name 标签 $tag 当前指向 $actual_commit，与存证 $expected_commit 不一致。" >&2
+    exit 1
+  fi
+
+  git -C "$dir" checkout --detach "$expected_commit"
+  echo "✓ $name 已锁定 $tag ($expected_commit)"
+}
+
+# 两个引擎都作为只读黑盒使用；脚本只同步官方稳定 tag 并 checkout 精确 commit。
+sync_tagged_reference "openai/codex" "$CODEX_URL" "codex-upstream" "$CODEX_TAG" "$CODEX_COMMIT"
+sync_tagged_reference "NousResearch/hermes-agent" "$HERMES_URL" "hermes-upstream" "$HERMES_TAG" "$HERMES_COMMIT"
 
 echo ""
-echo "参考源码就绪。其余竞品（Coze Studio、Dify 等）按需临时克隆即可，勿整包入库。"
+echo "参考源码已按稳定版本锁定。其余竞品（Coze Studio、Dify 等）按需临时克隆即可，勿整包入库。"
 echo "详见 docs/REFERENCES.md"

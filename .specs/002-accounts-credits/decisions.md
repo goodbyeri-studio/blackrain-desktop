@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-07-12：文档锚定服从现有可执行公式
+
+- 决策：在定价重新拍板前，文档按当前实现公式表述：`cost = tokens × multiplier / 10000`，所以 1 credit = 10,000 个 1x 等效 token；100 credit = 1,000,000 个 1x 等效 token，约等于 666,667 个 pro token 或 2,000,000 个 flash token。
+- 原因：旧文档把“1x 等效 token”误写成“pro 等效 token”，并把 flash 总量误写为 3M，与实现和测试锚点冲突。
+- 影响范围：requirements/design/verification 的计费说明；代码注释和测试命名仍有旧措辞，另列任务清理，不在文档治理中改运行时代码。
+- 后续复查条件：正式定价若改变 `TOKENS_PER_CREDIT_AT_1X` 或倍率，必须同步实现、前端展示、数据库默认值和本 spec。
+
 ## 2026-06-25：账号/计费后端用 Supabase
 
 - 决策：账号认证 + 数据库用 Supabase（Auth 邮箱密码 + Postgres），不自建鉴权后端。
@@ -29,7 +36,8 @@
 
 ## 2026-06-25：注册用邮箱+密码 + 二次确认密码 + 邮箱验证码（OTP）确认
 
-- 决策：账号标识保留邮箱（Supabase 原生）；注册表单加「确认密码」字段（前端校验两次一致）；**开启邮箱确认**（`enable_confirmations=true`），注册分两步——填邮箱密码 → 收 6 位验证码（OTP）→ 输码 `verifyOtp(type:"signup")` 确认即自动登录。trigger 在确认时建 profile + 赠送 credit。
+- 决策：账号标识保留邮箱（Supabase 原生）；注册表单加「确认密码」字段（前端校验两次一致）；**开启邮箱确认**（`enable_confirmations=true`），注册分两步——填邮箱密码 → 收 6 位验证码（OTP）→ 输码 `verifyOtp(type:"signup")` 确认即自动登录。
+- 实现校准：当前 migration 是 `auth.users after insert` trigger，用户尚未完成 OTP 时就会建 profile + 赠送 credit；它并非“确认时赠送”。是否改为确认后发放列为开放问题，现阶段不改写成已解决。
 - 用 OTP 验证码而非确认链接：桌面 App 无深链（magic link 点开是浏览器，回不到 App），验证码可直接在登录卡输入。
 - 发信通道：国际 SMTP（Resend），`smtp.resend.com:587`，密钥 `env(RESEND_SMTP_KEY)` 注入、绝不入库；发信域名 `goodbyeri.cc` 需在 Resend 验证 SPF/DKIM。⚠️ 已知风险：境外 SMTP 发到 QQ/163/126 送达不稳，可能进垃圾箱；面向国内大规模用户时复查，必要时迁国内发信（需企业实名+发信域名备案）。
 - 备案澄清：ICP 备案只约束「域名+大陆境内服务器」。Supabase 在境外、代理在 DO 新加坡、本体是桌面 App，均不触发备案。真正相关的是 PIPL 跨境数据合规（待法务确认），与本决策正交。
@@ -56,9 +64,9 @@
 - 影响范围：设置 BYOK 入口门禁、模式切换。
 - 后续复查条件：定价/套餐定稿后复核门禁档位。
 
-## 2026-06-25：credit 绝对锚定与价格暂留占位
+## 2026-06-25：credit 绝对锚定与价格暂留占位（数值措辞已被 2026-07-12 校正）
 
-- 决策：1 credit=多少 token、Plus/Pro 价格与额度，本阶段留占位（暂定 100 credit ≈ 1M pro-等效 token），集中在代理配置/Supabase 改，不散落代码。
+- 当时决策：1 credit=多少 token、Plus/Pro 价格与额度留作占位；当时误写为“100 credit ≈ 1M pro-等效 token”。当前文档按现有实现改为“100 credit = 1M 个 1x 等效 token”，定价本身仍未定稿。
 - 原因：发行前定价未定；先把机制做实，数值后填。
 - 替代方案：现在拍死价格。
 - 为什么不用替代方案：缺真实盲测/成本数据，拍死易返工。
@@ -77,10 +85,10 @@
 - 备注：Supabase 仍管账号/DB/扣款 RPC（`spend_credits`）；仅 LLM 转发+计量这一跳放常驻代理。
 - 后续复查条件：new-api 搭好后按 `base_url + Bearer <jwt>` 接缝顶替 `proxy.py`，清理临时代理。
 
-## 2026-06-25：credit 强一致实时扣减，接受并发小幅超卖
+## 2026-06-25：credit 前置门禁 + 后置原子记账，接受并发小幅超卖
 
-- 决策：① 转发前门禁——`profiles.credits > 0` 才转发，否则拒（`insufficient_credits`）；② 出对话后拿 usage，用 Supabase Postgres RPC 在单事务内原子扣减 `credits` + 写 `credit_ledger`。余额每轮真实下降、立即反映。
-- 原因：用户要实时性；单事务扣减保证单次不超扣。
+- 决策：① 转发前门禁——`profiles.credits > 0` 才转发，否则拒（`insufficient_credits`）；② 出对话后拿 usage，用 Supabase Postgres RPC 在单事务内原子扣减 `credits` + 写 `credit_ledger`。单次记账原子，但不是预授权或全局严格强一致。
+- 原因：用户要实时性；单事务保证单次余额和流水一致。
 - 并发取舍：同一用户并发多轮可能都过了「转发前>0」门禁、各自扣到负。**接受**这种小幅为负，下次充值补齐即可（桌面单用户并发低、风险有界）。
 - 替代方案：异步批量结算（弱一致）；或对话前预授权冻结上限、结束多退少补（强准但重）。
 - 为什么不用替代方案：异步不满足实时；预授权对 MVP 过重。预授权列为后续可选精细化。
@@ -102,6 +110,19 @@
 - 为什么不用替代方案：(a) 国内网络一抖就进不去、误伤 BYOK / 本地用户；(b) 入口太弱、与「登录优先」心智不符。
 - 影响范围：`App.tsx` 包裹 `AccountProvider`+`AccountGate`；首页移除内联登录/门禁；设置区账号管理 + 积分额度条 + 登出。
 - 后续复查条件：若离线宽限被滥用（伪造本地会话蹭功能），收紧为离线禁用 credit 全功能。
+
+## 2026-07-11：`proxy.py` 是已验证过渡代理，生产 credit 拓扑待决
+
+- 状态：`gateway/proxy.py` 已完成真实 Supabase、DeepSeek、Docker、HTTPS 和公网扣款验证；这证明最小代理可行，不等于它已被定为最终生产入口。
+- 待决：生产由 new-api 直接承担 credit、保留 `proxy.py` 做 Supabase 鉴权/扣款适配，还是采用其他组合；WORK/Hermes 如何接同一余额；Plus BYOK 是否允许绕过 new-api。
+- 约束：平台 key 只在服务端、客户端尽量保持 `base_url + Bearer` 接缝、所有扣款写 `credit_ledger`，这些既有约束不变。
+- 影响范围：requirements/design/tasks/verification；不在本次文档治理中替产品选方案。
+
+## 2026-07-11：Windows GUI 与双引擎 credit 尚未验证
+
+- 状态：2026-06-25 已完成代码检查和云端/代理验证，但桌面重启恢复、JWT 刷新、CODE credit GUI、402 提示、WORK credit 和 Plus BYOK 均未完成 Windows 实机闭环。
+- 影响范围：`tasks.md` 和 `verification.md` 不再把“服务端通过”概括成“账号计费交付完成”。
+- 后续复查条件：007 Windows 环境准备完成并跑通双引擎 credit/BYOK 矩阵。
 
 ## 被推翻的方案
 

@@ -3,7 +3,8 @@
 > 本文是 CODE 模式引擎(openai/codex 的 Rust 内核 codex-rs)的**功能事实底账**,与 [hermes-capability-ledger.md](hermes-capability-ledger.md) 并列,供双引擎能力 diff 与「CODE 模式照抄 codex 到什么颗粒度」决策用。
 > 全部结论基于**本地源码逐文件核查**,分析基线为 commit `51b3cd5`(`codex-upstream/codex-rs/`,Apache-2.0,105 crate)。
 > ⚠️ **2026-06-28 内核已跟进到 `bdd282f`**(协议四探针复测全绿)。相对分析基线**新增 13 个 ClientRequest/通知方法**(thread/delete、thread/items/list、thread/backgroundTerminals/{list,terminate}、currentTime/read、environment/info、externalAgentConfig/import/{progress,readHistories}、account/{workspaceMessages/read,rateLimitResetCredit/consume}、model/safetyBuffering/updated、thread/deleted、thread/realtime/appendSpeech),**删除/改名 1 个**(thread/turns/items/list → thread/items/list)。本底账正文仍按基线描述,新增能力见 [code-mode-boundary.md](code-mode-boundary.md) 接入缺口表;下次全量复核时并入正文。
-> ⚠️ **2026-07-03 当前仓库锁定已更新到 `da4c8ca`**(见 `docs/REFERENCES.md` 与 `docs/upstream-update-checklist.md` 的历史更新记录;当次更新的详细验证报告已并入该清单,不再单独保留)。本底账还没有按 `da4c8ca` 逐文件重核;只能作为旧基线 + 增量提示使用,不要把正文当作当前版本的完整能力清单。
+> ⚠️ **2026-07-12 当前仓库锁定已更新到 rust-v0.144.1 / `44918ea`**(见 `docs/REFERENCES.md` 与 `docs/upstream-update-checklist.md`)。本底账还没有按该版本逐文件重核;只能作为旧基线 + 增量提示使用,不要把正文当作当前版本的完整能力清单。
+> ⚠️ **状态口径补充（2026-07-12）**：当前 BlackRain 壳记录为 42 个 RPC 接入；本轮只确认上游方法集合相对 `da4c8ca` 无增删，并完成 app-server macOS `cargo check`，不等于 42 项能力核查完成。Windows 沙箱、payload shape、默认 feature 和 GUI 必须以 007、spec 006 和当前源码复验为准。
 > 标记:✅ 默认启用 · ○ 需 opt-in / feature flag · ⚠️ 接国产模型时的坑 · 🔒 强绑 OpenAI 后端(国产化须替换/砍掉)。
 
 ## 范围与口径
@@ -72,7 +73,7 @@
 | **平台沙箱** | macOS=Seatbelt(sandbox-exec)/ Linux=bwrap(文件)+seccomp(网络)/ Windows=受限令牌 | 按 OS | 自动 |
 | **Windows 沙箱级** | disabled / restricted-token / elevated | **disabled(此 commit 标 Removed)** | feature flag |
 
-> 关键事实:① **磁盘读永远全开**,codex 隔离的是「写」和「网」不是「读」——CODE 模式若要守隐私,deny-read 要额外配;② **默认 fail-closed**(deny glob 出错按拒绝、无法施加沙箱时拒绝自动批)——照搬务必保留这条线,否则丢掉安全招牌;③ **Windows 是短板**,原生沙箱默认关,`workspace-write` 会被降级为 `read-only`,要 Windows 写操作需自补;④ `--full-auto` 已删除。
+> 关键事实（旧基线）:① **磁盘读永远全开**,codex 隔离的是「写」和「网」不是「读」——CODE 模式若要守隐私,deny-read 要额外配;② **默认 fail-closed**(deny glob 出错按拒绝、无法施加沙箱时拒绝自动批)——照搬务必保留这条线,否则丢掉安全招牌;③ 本文记录的 Windows 沙箱状态来自旧 commit，当前 Windows-only MVP 必须在 007/当前锁定内核下实测，不得直接沿用“默认关/降级”结论;④ `--full-auto` 已删除。
 > ✅ 这套三档语义就是「危险操作照搬 codex、显式同意」定调的精确依据(见 memory `2049-danger-ops-copy-codex-consent-model`)。
 
 ## 四、app-server 协议(★我方监工壳驱动内核的命脉)

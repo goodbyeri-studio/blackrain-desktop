@@ -1,6 +1,6 @@
 # Verification
 
-> 说明：2026-06-26 已跑通 S1 第一段(WORK 引擎链路)的真实 spike——Hermes 经 new-api 接 DeepSeek、计量、流式、工具调用穿过中转,全部实测通过(环境:macOS/darwin)。Windows 验证、CODE 引擎(S2)、外置记忆(S3)、跨模式(S4)、MCP 热拔插(S5)仍待跑。早先的调研结论来自一手来源,已在 `decisions.md` 标注 URL。
+> 状态校准（2026-07-12）：2026-06-26 只跑通了独立 WORK 链路 spike——Hermes 经 new-api 接 DeepSeek、计量、流式、工具调用穿过中转（环境：macOS/darwin）。这不是 Tauri 壳集成或 Windows 产品验证，且早于当前 Hermes 锁定 `9de9c25`。2026-07-12 已在 macOS 对该版本跑过 315 个 API Server/Windows 相关上游测试，但不能替代 BlackRain Windows 产品矩阵。CODE 当前代码接入记录为 42 个 RPC，但本 spec 的 S2 当前锁复验、外置记忆 S3、跨模式 S4、office 质量基线、整 server 热拔插 S5 均未完成。
 
 ## 验证矩阵
 
@@ -23,6 +23,8 @@
 | YYYY-MM-DD | 跨模式端到端 | 人工 | 未跑 | S4 过关判据 |
 | YYYY-MM-DD | MCP 热拔插(中途新挂/拔整个 server) | spike | 未跑 | S5,热拔插模型承重假设 |
 | 2026-06-30 | Windows 全栈打包/运行 | 已收敛到 [.specs/007](../007-windows-client/) | **收敛**(MVP 仅 Windows,macOS 推迟 post-MVP) | 详细 Windows 验证矩阵移到 `.specs/007`;本 spec 不再追踪 |
+| YYYY-MM-DD | office 质量基线 | Windows：5 场景 × 10 次 | 未跑 | 当前 P0；目标每场景 ≥8/10 无人工干预 |
+| 2026-07-12 | Hermes 上游基础复验 | `uv run --frozen --extra dev pytest -q tests/gateway/test_api_server.py tests/gateway/test_api_server_runs.py tests/gateway/test_api_server_bind_guard.py tests/test_windows_subprocess_no_window_flags.py tests/tools/test_windows_native_support.py` | 部分通过 | `315 passed`（macOS）；S1/S4/S5 与 Windows 产品验证仍未跑 |
 | 2026-06-25 | Hermes 遥测/数据飞轮 | 读 `agent/trajectory.py` + 仓库搜遥测关键词 | 通过 | trajectory 纯本地落盘无外传;无内建遥测框架;cua 遥测默认关 |
 | 2026-06-25 | Hermes 依赖许可证 | 读 `pyproject.toml` + PyPI license 字段 | 通过 | 核心全宽松系;LGPL 仅在可选 extra(不装即规避) |
 | 2026-06-25 | Hermes 进程/纳管模型 | 读官方 docs(api-server/profiles/installation) | 通过 | `hermes gateway`+`API_SERVER_ENABLED`;`HERMES_HOME`=CODEX_HOME 孪生;8642/Bearer/`/health` |
@@ -39,6 +41,7 @@
 - **WORK 引擎链路实测通(2026-06-26)**:Hermes 经 new-api 接 DeepSeek 跑通(无网关);new-api 计量每笔(单轮1笔/多轮4笔);流式 12 帧连续;工具调用穿中转不丢。命名 custom provider 显式 base_url 未 fallback OpenRouter。
 - **交付体量实测(2026-06-26)**:venv 104MB + CPython ~55MB,无重物;v1 基础包 ~250MB 可达。API server 真实依赖是 aiohttp(单装合规)非 fastapi。
 - **MCP 动态工具发现**:源码确认 Hermes 原生支持 `tools/list_changed` + 自动重连(热拔插模型的工具级一半已成立)。
+- 上述结果只证明独立 spike 和源码事实；Hermes 尚未由 Tauri 监工纳管，不能表述为 WORK surface 已完成。
 
 ## 未验证风险
 
@@ -50,7 +53,10 @@
 - **new-api 单点**:本轮 MVP **不在架构考虑范围**(2026-06-29:信任自家 new-api 稳定性)。HA/容灾待真实流量规模后评估,非 MVP 阻塞。
 - 危险工具(execute_code 等)需走 `/v1/runs` 审批通道,无状态 `/v1/chat/completions` 会被审批门拦——这是 S4 跨模式真干活要解决的。
 - 跨模式编排子任务切分在长任务下是否稳定不丢上下文(S4)。
-- **v2 悬崖**:开放创作者工作台需补「本地沙盒 + 审核」整层,v1 便携包模型延伸不到,届时是一次重架构。
+- office 5×10 质量基线未跑；当前没有证据证明 Hermes+国产模型能稳定完成真实长链办公任务。
+- 生产 credit 路由未统一：WORK/Hermes 的 Supabase credit、新 API/`proxy.py` 组合和 Plus BYOK 仍待 002/003 联合定案。
+- **工作台生命周期缺口**：MCP 动态工具发现不能替代 Manifest、依赖、权限、安装、升级、回滚和卸载；该缺口已拆到 [.specs/008](../008-expert-workbench-package/)，当前只有文档设计。
+- **第三方市场悬崖**：开放专家工作台仍需包签名、安全审核、来源和结算，008 首版只覆盖官方包。
 
 ## 失败记录
 

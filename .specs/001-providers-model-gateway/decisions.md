@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-07-12：产品态 sidecar 必须显式保留工具
+
+- 决策：App 托管 Gateway 的产品启动参数必须显式使用 `STRIP_TOOLS=0`，并在 Windows E2E 中验证真实工具调用。`STRIP_TOOLS=1` 只允许作为纯文本协议诊断开关。
+- 原因：`gateway.py` 默认值目前是 `1`，而 App 的 sidecar spawn 代码未显式覆盖；因此开发脚本中的工具调用 PASS 不能外推到普通 App 启动路径。
+- 影响范围：App sidecar 启动环境、Gateway 状态/日志、001/007 工具调用验证。
+- 后续复查条件：实现改动并完成 Windows App 托管路径的真实工具调用后关闭该阻塞项。
+
 ## 2026-06-24：Codex 只连接 BlackRain Gateway
 
 - 决策：Codex 内核侧只配置一个固定 provider：`blackrain_gateway`。
@@ -36,14 +43,14 @@
 - 影响范围：Gateway registry 先存能力，不做复杂调度。
 - 后续复查条件：至少两个 provider 跑通工具调用后，再建独立 spec 做模型路由策略。
 
-## 2026-06-24：M1 只记录 `apiKeyEnv`，暂不保存真实 API key
+## 2026-06-24：M1 只记录 `apiKeyEnv`，暂不保存真实 API key（已被后续系统凭据方案覆盖）
 
 - 决策：设置页和 Gateway registry 的 M1 实现只记录 provider 的 `apiKeyEnv`，真实 key 仍从环境变量读取。
 - 原因：这能先消除“Codex 直连某 vendor”的架构问题，同时避免在未定安全存储方案前把第三方 key 明文写入普通 settings。
 - 替代方案：直接在 `settings.json` 存储 API key。
 - 为什么不用替代方案：普通 JSON 存储不满足产品态安全预期，也容易被日志/导出误带出。
 - 影响范围：Settings UI、Gateway registry、dev-client、后续 sidecar lifecycle。
-- 后续复查条件：Tauri 安全存储/系统钥匙串接入后，更新设置页为真实 key 输入与测试连接。
+- 后续状态：2026-06-24 同日的“公开 MVP 使用系统凭据”决策已覆盖本条；`apiKeyEnv` 仅保留开发态 fallback，不再是产品态唯一 key 来源。
 
 ## 2026-06-24：公开 MVP 使用系统凭据存第三方 API key
 
@@ -81,9 +88,9 @@
 - 影响范围：Tauri command、AppState runtime、Settings 模型网关页面、Codex config 写入。
 - 后续复查条件：打包安装验证通过后，再评估是否把 Python sidecar 替换成正式二进制或 Rust 内嵌实现。
 
-## 2026-06-25：网关强制 bearer 校验，且不对外开 CORS
+## 2026-06-25：产品托管路径强制 bearer 校验，且不对外开 CORS
 
-- 决策：`gateway.py` 对 `/v1/models` 和 `/v1/responses` 强制校验 `Authorization: Bearer <BLACKRAIN_GATEWAY_API_KEY>`；移除此前的 `Access-Control-Allow-Origin: *` 与 OPTIONS 预检；`/health` 仍免鉴权供 App 存活探测。
+- 决策：产品托管路径必须设置 `BLACKRAIN_GATEWAY_API_KEY`，此时 `gateway.py` 对 `/v1/models` 和 `/v1/responses` 强制校验 `Authorization: Bearer <token>`；移除此前的 `Access-Control-Allow-Origin: *` 与 OPTIONS 预检；`/health` 仍免鉴权供 App 存活探测。只有手动本地诊断且环境变量为空时才跳过 bearer，不能把该降级用于产品态。
 - 原因：网关只服务本地 Codex 内核（进程间），不是浏览器端点。开 `*` CORS 且无鉴权时，用户访问的任意网页都能跨域 POST `/v1/responses`，用钥匙串里的第三方 key 盗刷 token 并读取模型输出。
 - 替代方案：保留 CORS 但收紧 Origin 白名单；或只加鉴权不动 CORS。
 - 为什么不用替代方案：网关没有任何合法的浏览器调用方，最稳妥是直接不输出 CORS 头（预检即被浏览器拦死），鉴权作为对本地非浏览器攻击者的纵深防御。
@@ -145,6 +152,20 @@
 - 为什么不用替代方案：会动到刚合并（#27）的可用 UI 与测试，且 Codex 区「默认参数」组（模型/推理 effort/访问模式/审查模式）放一起对用户是连贯的；当前先消除数据漂移这个真实缺陷，入口彻底合并留作 UX 打磨。
 - 影响范围：`SettingsCodexSection`（下拉 onChange 双写）、`SettingsView.test.tsx`（断言双写）。
 - 后续复查条件：若决定彻底合并入口，再评估把 Codex 区改为只读展示 + 跳转模型网关页。
+
+## 2026-07-11：001 只描述 CODE 路径，Python Gateway 仍是原型
+
+- 决策：在 003 双引擎架构下，`gateway.py` 只服务 CODE/codex 的 Responses⇄Chat 翻译；WORK/Hermes 不经过它。现有 App 托管、资源打包和 DeepSeek smoke 证明接缝可行，但不把 Python 原型升级表述为生产网关。
+- 原因：双引擎已把翻译边界锁在 CODE 路径；当前仓库对 `gateway.py` 的正式定位仍是“可替换 sidecar 槽位中的可行性验证原型”。
+- 影响范围：本文 requirements/design/tasks/verification 的范围说明。
+- 后续复查条件：生产网关语言/进程形态拍板并完成 Windows 发布级验证后，再更新该定位。
+
+## 2026-07-11：macOS 验证保留为历史，Windows 发布证据另补
+
+- 决策：2026-06-24 的 macOS Keychain、app/dmg 和短启动结果继续保留，但不再作为 MVP 发布通过；Windows Credential Manager、NSIS 包内 sidecar、签名和实机运行证据关联 007 补齐。
+- 原因：2026-06-30 后 MVP 已收敛为 Windows-only。
+- 影响范围：`tasks.md`、`verification.md`。
+- 后续复查条件：007 Windows 矩阵完成。
 
 ## 被推翻的方案
 

@@ -1,10 +1,12 @@
-# Codebase Map (Task-Oriented)
+# BlackRain Desktop Codebase Map (Task-Oriented)
 
-Canonical navigation guide for CodexMonitor. Use this as: "if you need X, edit Y".
+Canonical navigation guide for the BlackRain desktop shell. The codebase is derived from CodexMonitor, but current file names and release scope follow BlackRain.
 
 Related docs:
 
-- Setup/build/release: `README.md`
+- Repository status: `../../../README.md`
+- Setup/build/release: `../../../docs/commands.md`
+- Workbench package/lifecycle contract: `../../../.specs/008-expert-workbench-package/`
 - Localization/i18n: `docs/i18n.md`
 - iOS remote over Tailscale (TCP): `docs/mobile-ios-tailscale-blueprint.md`
 
@@ -17,9 +19,9 @@ For backend behavior, follow this path in order:
 3. Tauri command registration: `src-tauri/src/lib.rs` (`invoke_handler`)
 4. App adapter: `src-tauri/src/{codex,workspaces,git,files,settings,prompts}/*`
 5. Shared core source of truth: `src-tauri/src/shared/*`
-6. Daemon RPC method parity: `src-tauri/src/bin/codex_monitor_daemon/rpc.rs`
-7. Daemon state/wiring implementation: `src-tauri/src/bin/codex_monitor_daemon.rs`
-8. Standalone daemon lifecycle CLI: `src-tauri/src/bin/codex_monitor_daemonctl.rs`
+6. Daemon RPC method parity: `src-tauri/src/bin/blackrain_daemon/rpc.rs`
+7. Daemon state/wiring implementation: `src-tauri/src/bin/blackrain_daemon.rs`
+8. Standalone daemon lifecycle CLI: `src-tauri/src/bin/blackrain_daemonctl.rs`
 
 If a behavior must work in both app and daemon, implement it in `src-tauri/src/shared/*` first.
 
@@ -32,11 +34,12 @@ If a behavior must work in both app and daemon, implement it in `src-tauri/src/s
 | Add/change app-server event handling in UI | `src/services/events.ts`, `src/features/app/hooks/useAppServerEvents.ts`, `src/utils/appServerEvents.ts`, `src/features/threads/utils/threadNormalize.ts` |
 | Change thread state transitions | `src/features/threads/hooks/useThreadsReducer.ts`, `src/features/threads/hooks/threadReducer/*`, `src/features/threads/hooks/useThreads.ts`, focused thread hooks under `src/features/threads/hooks/*` |
 | Change workspace lifecycle/worktree behavior | `src/features/workspaces/hooks/useWorkspaces.ts`, `src-tauri/src/workspaces/commands.rs`, `src-tauri/src/shared/workspaces_core.rs`, `src-tauri/src/shared/workspaces_core/*`, `src-tauri/src/shared/worktree_core.rs` |
+| Add workbench inspect/install/activate/verify/uninstall | No implementation path is canonical yet. Start from spec 008, put cross-runtime domain logic in a new `src-tauri/src/shared/*` core, then add App/Daemon thin adapters and frontend IPC/UI. Do not overload existing workspace/worktree cores. |
 | Change settings model/load/update | `src/features/settings/components/SettingsView.tsx`, `src/features/settings/hooks/useAppSettings.ts`, `src/services/tauri.ts`, `src-tauri/src/settings/mod.rs`, `src-tauri/src/shared/settings_core.rs`, `src-tauri/src/types.rs`, `src/types.ts` |
-| Change Git/GitHub backend behavior | `src/features/git/hooks/*`, `src/services/tauri.ts`, `src-tauri/src/git/mod.rs`, `src-tauri/src/shared/git_ui_core.rs`, `src-tauri/src/shared/git_ui_core/*`, `src-tauri/src/shared/git_core.rs`, `src-tauri/src/bin/codex_monitor_daemon/rpc.rs`, `src-tauri/src/bin/codex_monitor_daemon/rpc/git.rs` |
-| Change prompts CRUD/listing behavior | `src/features/prompts/hooks/useCustomPrompts.ts`, `src/features/prompts/components/PromptPanel.tsx`, `src/services/tauri.ts`, `src-tauri/src/prompts.rs`, `src-tauri/src/shared/prompts_core.rs`, `src-tauri/src/bin/codex_monitor_daemon/rpc.rs` |
-| Change file read/write for Agents/config | `src/services/tauri.ts`, `src-tauri/src/files/mod.rs`, `src-tauri/src/shared/files_core.rs`, `src-tauri/src/bin/codex_monitor_daemon/rpc.rs` |
-| Add/change daemon JSON-RPC surface | `src-tauri/src/bin/codex_monitor_daemon/rpc.rs`, `src-tauri/src/bin/codex_monitor_daemon/rpc/*`, `src-tauri/src/bin/codex_monitor_daemon.rs`, matching shared core |
+| Change Git/GitHub backend behavior | `src/features/git/hooks/*`, `src/services/tauri.ts`, `src-tauri/src/git/mod.rs`, `src-tauri/src/shared/git_ui_core.rs`, `src-tauri/src/shared/git_ui_core/*`, `src-tauri/src/shared/git_core.rs`, `src-tauri/src/bin/blackrain_daemon/rpc.rs`, `src-tauri/src/bin/blackrain_daemon/rpc/git.rs` |
+| Change prompts CRUD/listing behavior | `src/features/prompts/hooks/useCustomPrompts.ts`, `src/features/prompts/components/PromptPanel.tsx`, `src/services/tauri.ts`, `src-tauri/src/prompts.rs`, `src-tauri/src/shared/prompts_core.rs`, `src-tauri/src/bin/blackrain_daemon/rpc.rs` |
+| Change file read/write for Agents/config | `src/services/tauri.ts`, `src-tauri/src/files/mod.rs`, `src-tauri/src/shared/files_core.rs`, `src-tauri/src/bin/blackrain_daemon/rpc.rs` |
+| Add/change daemon JSON-RPC surface | `src-tauri/src/bin/blackrain_daemon/rpc.rs`, `src-tauri/src/bin/blackrain_daemon/rpc/*`, `src-tauri/src/bin/blackrain_daemon.rs`, matching shared core |
 
 ## Frontend Navigation
 
@@ -105,11 +108,11 @@ Use TS/Vite aliases for refactor-safe imports:
 
 ## Daemon Navigation
 
-- Daemon entrypoint and state/wiring: `src-tauri/src/bin/codex_monitor_daemon.rs`
-- Daemon lifecycle CLI (headless start/stop/status): `src-tauri/src/bin/codex_monitor_daemonctl.rs`
-- Daemon JSON-RPC dispatcher/router: `src-tauri/src/bin/codex_monitor_daemon/rpc.rs`
-- Daemon domain handlers: `src-tauri/src/bin/codex_monitor_daemon/rpc/*`
-- Daemon transport: `src-tauri/src/bin/codex_monitor_daemon/transport.rs`
+- Daemon entrypoint and state/wiring: `src-tauri/src/bin/blackrain_daemon.rs`
+- Daemon lifecycle CLI (headless start/stop/status): `src-tauri/src/bin/blackrain_daemonctl.rs`
+- Daemon JSON-RPC dispatcher/router: `src-tauri/src/bin/blackrain_daemon/rpc.rs`
+- Daemon domain handlers: `src-tauri/src/bin/blackrain_daemon/rpc/*`
+- Daemon transport: `src-tauri/src/bin/blackrain_daemon/transport.rs`
 
 When adding a new method, keep method names and payload shape aligned with `src/services/tauri.ts` and app commands in `src-tauri/src/lib.rs`.
 

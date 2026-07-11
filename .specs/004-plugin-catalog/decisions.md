@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-07-11:目录是 post-MVP 终局参考,Windows office MVP 不实现全目录
+
+- 决策：~34 打包单元只作长期插件供给账本；MVP 只发行 Windows 客户端，并用 Office 参考工作台验证工作台底座，不启动全目录实现。
+- 原因:目录广度是终局供给策略,不能挤占当前 Windows 落地与 WORK 承重验证。
+- 影响范围:`requirements.md` / `design.md` / `tasks.md` / `verification.md` 都必须把「候选目录」与「已实现/已可发行」分开。
+- 后续复查条件:office MVP 完成 Windows E2E 与 WORK 承重验证后,再按真实垂类需求拆分实现 spec。
+
+## 2026-07-11：GPL 候选关闭，LGPL 单独审计
+
+- 决策：Blender 等 GPL 组件只能作为仓库外的架构参考，不能进入 BlackRain 仓库、安装包或产品依赖；3D headless 能力必须另选 MIT/Apache/BSD 等宽松许可证引擎或自行实现。FFmpeg 的 LGPL build 可继续作为候选，但进入发行包前必须完成链接方式、可替换性、许可证文件和最终制品审计。
+- 原因：根 `AGENTS.md` / `CONTRIBUTING.md` 已把 GPL/AGPL/BSL/无许可证列为闭源商业产品红线，不能在单功能 spec 里重新打开；LGPL 的义务与 GPL 不同，应单独判断。
+- 影响范围：D 类 `3d-headless` 选型、A 类 `media-ffmpeg` 打包配方、requirements/tasks/verification 的合规口径。
+- 后续复查条件：只有全仓许可证政策经明确决策改变时，才可重议 GPL；FFmpeg 每次换 build 或版本都要重做制品审计。
+
 ## 2026-06-26：插件按「引擎/格式适配器」切，不按任务切
 
 - 决策：插件 = 一个引擎/格式适配器 + 其原生操作族 = 一个 MCP server = 一个 `@`。任务级的东西(转竖屏/改图框/出门窗表/周报)是 skill 配方，住工作台层，不占插件编制。
@@ -41,13 +55,11 @@
 - 影响范围：关联 [03 系统架构](../../docs/03-系统架构.md) 新增 ④验证层、[07 护城河](../../docs/07-护城河与风险.md) 护城河 D。
 - 后续复查条件：若某垂类验证成本经实测远超预期(脚手架做不出来)，则该垂类降优先级，但不从目录删除。
 
-## 2026-06-26：GPL 引擎走独立进程聚合，规避传染
+## 2026-06-26：GPL/LGPL 引擎候选路线（已被 2026-07-11 决策收窄）
 
-- 决策：blender(GPL)、FFmpeg 等以 **CLI 独立进程聚合调用**、不静态/动态链接源码；FFmpeg 取 **LGPL build**。
-- 原因：进程级聚合(aggregation)不触发 GPL 传染；链接才触发。守 [CONTRIBUTING](../../CONTRIBUTING.md) 闭源商业红线。
-- 必做功课：逐包跑依赖树扫描(`pip-licenses`/`uv`)，GPL/AGPL/BSL 在链接路径上的一律拦。
-- 影响范围：D 类 blender、A 类 media-ffmpeg 的打包配方。
-- 后续复查条件：升级引擎版本时重扫依赖树。
+- 当时方案：把 Blender(GPL) 独立进程与 FFmpeg LGPL build 一并保留为候选路线，等待法务和制品审计。
+- 收窄原因：后续全仓许可证红线已经明确，GPL 不再是可进入产品的待决项；只有 LGPL 路线继续保留审计空间。
+- 当前替代：Blender 仅作仓库外参考；3D headless 另选宽松许可证实现。FFmpeg LGPL build 仍须逐版本审计。
 
 ## 被推翻的方案
 

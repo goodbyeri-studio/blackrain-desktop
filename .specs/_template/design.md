@@ -1,5 +1,7 @@
 # Design
 
+> 设计中的目标拓扑/配置示例不是实现或验证证据。凡描述现状,必须标明是「代码/配置存在」、「验证通过」还是「发布可交付」,并链接 `verification.md` 的真实记录。
+
 ## 总体方案
 
 一句话说明实现策略。
@@ -9,6 +11,7 @@
 - 属于 `apps/desktop` 的逻辑：
 - 属于 `gateway` 的逻辑：
 - 属于 `plugins` / `workbenches` 的内容：
+- 若涉及工作台生命周期：与 `.specs/008-expert-workbench-package/` 的关系：
 - 明确不改 `codex-upstream` 的部分：
 
 ## 数据流

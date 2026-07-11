@@ -1,5 +1,12 @@
 # Decisions — GUI 重做
 
+## 2026-07-11:范围包含前端功能对齐,MVP 只验收 Windows
+
+- 决策:本 spec 既包含 token/视觉/DS,也包含搜索、导航历史、侧栏层级等为复刻 CODE UX 必需的前端交互;不新增内核协议。MVP 只在 Windows 实机验收,macOS/iOS 属 post-MVP/上游资产。
+- 原因:旧口径「纯视觉」与 tasks 中的搜索、导航、侧栏状态任务相互冲突;Windows-only 已是 MVP 平台决策。
+- 影响范围:`requirements.md`、`design.md`、`tasks.md`、`verification.md`、`codex-ui-copy-checklist.md`。
+- 后续复查条件:post-MVP 启动其他平台时,新增对应实机验收矩阵。
+
 ## 2026-06-26：复刻 = 重建设计语言，而非照搬资源字节（第一法律）
 
 - 决策：本 spec 的「照着原版复刻」严格限定为**复刻设计语言**（布局/间距/配色/字阶/交互态），在 BlackRain 自己的 design-system 里重实现；**绝不**复制 OpenAI 的图标 SVG path 字节、字体文件、private path 源码/bundle。

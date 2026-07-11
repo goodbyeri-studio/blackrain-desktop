@@ -4,6 +4,8 @@
 
 Codex 内核永远只连本地 BlackRain Gateway；第三方 provider、API key、模型列表和协议差异全部由 BlackRain App + Gateway 管理。前端模型选择器显示的是 BlackRain Gateway registry 中的模型，而不是 Codex 原生 provider 列表。
 
+当前边界（2026-07-11）：该 Gateway 只挂在 CODE 路径；WORK/Hermes 使用原生 Chat Completions，不经过 Responses⇄Chat 翻译。`gateway.py` 仍是可替换的可行性原型，本文记录的是其接缝和已验证行为，不宣称它已经达到生产网关标准。
+
 ```text
 对话模型选择器
   -> App provider/model registry
@@ -153,6 +155,7 @@ M1 可以先由 App 直接读写配置并重启 Gateway；不强制第一版做�
 - 集成测试：
   - App 启动 Gateway，并确认 `/v1/models` 返回 registry。
   - Codex app-server 使用专属 `CODEX_HOME` 走 Gateway。
+  - Windows MVP 在真实 NSIS 安装环境中使用随包运行时启动 sidecar，并完成 Credential Manager、端口、日志、进程回收 smoke（尚未完成，细项关联 007）。
 - 协议探针：
   - `m0_protocol_probe.py` 验证 initialize / model list / thread start / turn start。
   - `m0_tool_driver.py` 验证真实工具调用。
@@ -160,3 +163,4 @@ M1 可以先由 App 直接读写配置并重启 Gateway；不强制第一版做�
   - 设置页新增 provider。
   - 对话模型选择器切换模型。
   - DeepSeek 默认链路跑通一轮文件创建或读取任务。
+  - 当前发布平台只认 Windows 实机证据；下文已有 macOS smoke 仅保留为历史证据。

@@ -2,7 +2,8 @@
 
 > 本文是 WORK 模式引擎(NousResearch Hermes Agent)的**功能事实底账**,供 [003 双引擎架构](design.md) 设计「白嫖 vs 自建」边界用。
 > 全部结论基于**本地源码逐文件核查**(非官方文档措辞),钉死调研时的上游 commit `a6a28ce`(`hermes-upstream/`,MIT)。升级 Hermes 版本时须重核。
-> ⚠️ **2026-07-03 当前仓库锁定已更新到 Hermes v2026.7.1 (`7c1a029`)**(见 `docs/REFERENCES.md`)。本底账还没有按 v2026.7.1 逐文件重核;只能作为旧基线 + 选型依据使用,不要把正文当作当前版本的完整能力清单。
+> ⚠️ **2026-07-12 当前仓库锁定已更新到 Hermes v2026.7.7.2 (`9de9c25`)**(见 `docs/REFERENCES.md`)。本底账还没有按 v2026.7.7.2 逐文件重核;只能作为旧基线 + 选型依据使用,不要把正文当作当前版本的完整能力清单。
+> ⚠️ **状态口径补充（2026-07-12）**：现有真实产品链路验证仍只有旧版本独立 S1 spike，Hermes 尚未接入 Tauri 壳；本轮 315 个上游 API Server/Windows 相关测试在 macOS 通过，但 MOA/self-verification、Windows 实机行为和全部默认工具仍需按 `9de9c25` 重核。产品发行会排除若干可选 extra，因此“上游默认可用”也不等于 BlackRain 包内可用。
 > 标记:✅ 开箱即用(默认开、零依赖) · ○ 需开启/装依赖/API key · 🔌 平台或账号专用 · ⭐ 直接复用金矿 · ⚠️ 必须避开。
 
 ## 范围与口径
@@ -62,7 +63,7 @@
 ### 7. 媒体生成与语音 ○ 多数需后端
 | 工具 | 能力 | 默认 |
 |---|---|---|
-| `text_to_speech` | 文本转语音,Edge TTS 免费兜底 | ✅ |
+| `text_to_speech` | 文本转语音；上游可用 Edge TTS 兜底，但 BlackRain 安全发行配方排除 LGPL `edge-tts`，包内是否提供其他后端待定 | ○ |
 | `image_generate` | 文生图/图生图(在核心列表,但需 FAL 等后端 key) | ○ |
 | `video_generate` / `video_analyze` | 文生/图生视频、视频理解 | ○ opt-in |
 

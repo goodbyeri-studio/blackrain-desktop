@@ -1,5 +1,7 @@
 # Decisions
 
+> 决策记录只说明「选了什么」,不自动证明实现或验证已完成。若决策改变了验收口径,同步更新 `tasks.md` 和 `verification.md`。
+
 ## YYYY-MM-DD：决策标题
 
 - 决策：

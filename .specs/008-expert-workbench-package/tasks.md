@@ -1,0 +1,72 @@
+# Tasks
+
+## 阶段 0：冻结最小边界
+
+- [x] 确认正式产品关系：`Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室`
+- [x] 确认工作台是核心商品，双引擎是执行实现
+- [x] 创建本 spec 五件套
+- [ ] 盘点 Office 参考工作台当前所有资源、注入路径和 License
+- [ ] 确认首版只支持 Windows x64 和官方签名/随包工作台
+- [ ] 决定 Manifest 格式、schema 校验库和版本策略
+- [ ] 决定受控安装路径、用户项目路径和共享依赖策略
+
+## 阶段 1：最小 Manifest 与只读检查
+
+- [ ] 定义 `workbench.yaml` v1 schema
+- [ ] 为 schema 提供正反例 fixtures
+- [ ] 实现 shared core 的 manifest parse/validate
+- [ ] 实现依赖、权限、License、空间和兼容性 inspect
+- [ ] 前端展示工作台详情和安装计划，只读不安装
+- [ ] App 与 Daemon 提供一致的 inspect RPC
+- [ ] 将 Office 骨架迁移成首个 v1 manifest
+
+## 阶段 2：官方工作台安装与激活
+
+- [ ] 实现版本化 staging/active/state 目录
+- [ ] 支持 `bundled` 依赖
+- [ ] 支持 `system` 依赖检测和用户引导
+- [ ] 接入系统凭据槽位，不在 manifest/settings 落密钥
+- [ ] 实现 install / health / activate / deactivate
+- [ ] 将工作台 Skills、插件和项目路径映射给 Hermes WORK surface
+- [ ] 保持 App 是唯一引擎配置写入者
+- [ ] 完成 Office 参考工作台安装后 smoke
+
+## 阶段 3：升级、回滚和卸载
+
+- [ ] 实现新版本 staging 安装和原子激活
+- [ ] 健康检查失败自动回滚
+- [ ] 共享依赖引用计数
+- [ ] 卸载保留用户项目
+- [ ] 报告无法删除的残留项
+- [ ] 失败注入覆盖断网、磁盘不足、进程残留和依赖冲突
+
+## 阶段 4：发布级安全与来源
+
+- [ ] 建立包内来源和 License 清单
+- [ ] 校验 checksum，禁止路径穿越和包外写入
+- [ ] 定义官方包签名与信任根
+- [ ] 安装前权限和网络数据流审批
+- [ ] 生成/检查发行 NOTICE
+- [ ] Windows VM 运行安装、升级、回滚、卸载矩阵
+
+## 阶段 5：第二垂类验证抽象
+
+- [ ] 与真实领域专家选择第二套工作台
+- [ ] 不复制 Office 特例，验证 schema 是否足够通用
+- [ ] 覆盖至少一个 `managed` 或 `user-provided` 依赖
+- [ ] 覆盖商业宿主软件或数据源授权场景
+- [ ] 记录需要进入 v2 schema 的真实缺口
+
+## post-MVP：市场与工作室
+
+- [ ] 第三方包上传、签名、审核和分发另建 spec
+- [ ] 专家/封装者联合署名和分成另建 spec
+- [ ] 工作室多岗位编排另建 spec
+- [ ] 高责任领域合规分类另建 spec
+
+## 收口纪律
+
+- [ ] 每个任务分别记录代码/配置存在、Windows 验证通过、发布可交付
+- [ ] 同步 `README.md`、`docs/04`、`plugins/README.md`、`workbenches/README.md`
+- [ ] 所有真实命令和结果写入 `verification.md`
+- [ ] 未实现字段和开放问题不得在产品文档写成现有能力

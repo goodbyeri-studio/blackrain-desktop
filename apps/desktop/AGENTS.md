@@ -1,6 +1,6 @@
-# CodexMonitor Agent Guide
+# BlackRain Desktop Agent Guide
 
-All docs must be canonical, with no past commentary, only live state.
+BlackRain-owned docs should describe current live state by default. Explicitly labeled upstream snapshots, historical protocol baselines and POC records may be retained, but must never be presented as current product truth.
 
 ## Scope
 
@@ -8,16 +8,18 @@ This file is the agent contract for how to work in this repo.
 Detailed navigation/runbooks live in:
 
 - `docs/codebase-map.md` (task-oriented file map: "if you need X, edit Y")
-- `docs/multi-agent-sync-runbook.md` (upstream `../Codex` sync checklist for multi-agent/config behavior)
-- `README.md` (setup, build, release, and broader project docs)
+- `docs/multi-agent-sync-runbook.md` (upstream `../../codex-upstream` sync checklist for multi-agent/config behavior)
+- `../../README.md` (repository status and product entry)
+- `../../docs/commands.md` (canonical setup/build/release commands)
+- `../../.specs/008-expert-workbench-package/` (workbench package and lifecycle contract)
 
 ## Project Snapshot
 
-CodexMonitor is a Tauri app that orchestrates Codex agents across local workspaces.
+BlackRain Desktop is the Core runtime for installable expert workbenches. It is a Tauri app derived from CodexMonitor. The current tracked implementation primarily orchestrates Codex agents; the workbench-first information architecture, WORK/Hermes product integration, and workbench lifecycle must not be described as complete until they are wired and verified.
 
 - Frontend: React + Vite (`src/`)
 - Backend app: Tauri Rust process (`src-tauri/src/lib.rs`)
-- Backend daemon: JSON-RPC process (`src-tauri/src/bin/codex_monitor_daemon.rs`)
+- Backend daemon: JSON-RPC process (`src-tauri/src/bin/blackrain_daemon.rs`)
 - Shared backend source of truth: `src-tauri/src/shared/*`
 
 ## Non-Negotiable Architecture Rules
@@ -27,6 +29,7 @@ CodexMonitor is a Tauri app that orchestrates Codex agents across local workspac
 3. Do not duplicate logic between app and daemon.
 4. Keep JSON-RPC method names and payload shapes stable unless intentionally changing contracts.
 5. Keep frontend IPC contracts in sync with backend command surfaces.
+6. Workbench packages declare desired state; only the App/Core may install resources or write engine activation config. Do not let a workbench become a second configuration writer.
 
 ## Backend Routing Rules
 
@@ -35,7 +38,7 @@ For backend behavior changes, follow this order:
 1. Shared core (`src-tauri/src/shared/*`) when behavior is cross-runtime.
 2. App adapter and Tauri command surface (`src-tauri/src/lib.rs` + adapter module).
 3. Frontend IPC wrapper (`src/services/tauri.ts`).
-4. Daemon RPC surface (`src-tauri/src/bin/codex_monitor_daemon/rpc.rs` + `rpc/*`).
+4. Daemon RPC surface (`src-tauri/src/bin/blackrain_daemon/rpc.rs` + `rpc/*`).
 
 If you add a backend command, update all relevant layers and tests.
 
@@ -67,8 +70,8 @@ Use project aliases for frontend imports:
 - Frontend IPC wrapper: `src/services/tauri.ts`
 - Frontend event hub: `src/services/events.ts`
 - App command registry: `src-tauri/src/lib.rs`
-- Daemon entrypoint: `src-tauri/src/bin/codex_monitor_daemon.rs`
-- Daemon RPC router: `src-tauri/src/bin/codex_monitor_daemon/rpc.rs`
+- Daemon entrypoint: `src-tauri/src/bin/blackrain_daemon.rs`
+- Daemon RPC router: `src-tauri/src/bin/blackrain_daemon/rpc.rs`
 - Shared workspaces core: `src-tauri/src/shared/workspaces_core.rs` + `src-tauri/src/shared/workspaces_core/*`
 - Shared git UI core: `src-tauri/src/shared/git_ui_core.rs` + `src-tauri/src/shared/git_ui_core/*`
 - Threads reducer entrypoint: `src/features/threads/hooks/useThreadsReducer.ts`
@@ -128,28 +131,9 @@ Run validations based on touched areas:
 
 ## Quick Runbook
 
-Core local commands (keep these inline for daily use):
+Canonical Windows setup, dev, validation and release commands live in `../../docs/commands.md`; do not maintain a second command list here. Run commands from the working directory specified there. macOS/Linux commands remain upstream or post-MVP references only and are not required validation for the current release line.
 
-```bash
-npm install
-npm run doctor:strict
-npm run tauri:dev
-npm run test
-npm run typecheck
-cd src-tauri && cargo check
-```
-
-Release build:
-
-```bash
-npm run tauri:build
-```
-
-Focused test runs:
-
-```bash
-npm run test -- <path-to-test-file>
-```
+During iteration, focused test filtering is allowed for the touched module, followed by the validation set required by the change scope above.
 
 ## Hotspots
 
@@ -160,10 +144,11 @@ Use extra care in high-churn/high-complexity files:
 - `src/features/threads/hooks/useThreadsReducer.ts`
 - `src-tauri/src/shared/git_ui_core.rs`
 - `src-tauri/src/shared/workspaces_core.rs`
-- `src-tauri/src/bin/codex_monitor_daemon/rpc.rs`
+- `src-tauri/src/bin/blackrain_daemon/rpc.rs`
 
 ## Canonical References
 
 - Task-oriented code map: `docs/codebase-map.md`
 - Multi-agent upstream sync runbook: `docs/multi-agent-sync-runbook.md`
-- Setup/build/release/test commands: `README.md`
+- Repository status: `../../README.md`
+- Setup/build/release/test commands: `../../docs/commands.md`

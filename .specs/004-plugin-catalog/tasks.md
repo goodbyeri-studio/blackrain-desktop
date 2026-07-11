@@ -1,6 +1,6 @@
 # Tasks
 
-> 撒网顺序铁律：**横向 [铺] → 纵向 [铺] → [控] 垫底。** 触达率(进胖包对全量用户开 = [铺];需正版宿主 = [控])是排序唯一依据，不按验证成本过滤。每个 `[铺]` 包的验收 = 能 headless 跑通(见 verification.md)。
+> **非 MVP 任务表**:本文是 post-MVP 供给侧 backlog,不参与当前 Windows office MVP 排期。未来启动时的顺序才是**横向 [铺] → 纵向 [铺] → [控] 垫底**;每个包必须分别标记「代码/配置已存在」、「Windows 验证通过」、「发布可分发」,三者不得互相代替。
 
 ## 阶段 0：确认边界
 
@@ -9,6 +9,7 @@
 - [x] 确认不触碰 `codex-upstream`，插件全走 skill/MCP/ACP
 - [ ] 列出每个 `[铺]` 包的最小 headless 探针命令(填入 verification.md)
 - [ ] 逐包跑依赖树 license 扫描(GPL/AGPL/BSL 拦截)
+- [ ] GPL/AGPL/BSL/无许可证组件按全仓红线排除；LGPL 候选组件通过法务 + 链接/聚合方式 + Windows 安装包制品审计后，才能进入实现队列
 
 ## 阶段 1：横向底座 [铺]（最高 ROI，每个工作台都用）
 
@@ -19,7 +20,7 @@
 
 ## 阶段 2：纵向无头 [铺]（塞进胖包就能全量铺）
 
-- [ ] D 类无头：dwg-dxf / ifc / geo / stats / spss-stata-gen / blender
+- [ ] D 类无头：dwg-dxf / ifc / geo / stats / spss-stata-gen / 3d-headless（先完成宽松许可证选型）
 - [ ] E 类无头：edi / hl7-fhir / dicom / historian-read(只读)
 - [ ] F 类：reconcile / voucher（写死自检断言：账平 / 借贷相等）
 - [ ] G 类：contract / xbrl
