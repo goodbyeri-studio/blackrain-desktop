@@ -266,6 +266,14 @@
 - 影响范围：`workbench_core` store、AppState/Tauri commands、Hermes task start/TaskStore contract、WORK controller/surface 和 spec 008 activation producer。
 - 后续复查条件：008 完成正式 install/verify/activate/deactivate 后，将内部写入入口接入生命周期状态机，并在 deactivate 时按 `activationId` 收敛任务和受控进程；普通前端仍不得获得任意写权限。
 
+## 2026-07-12：Skills 使用 Hermes 原生 external_dirs，单 runtime 切换时 fail closed
+
+- 决策：不复制 Skills 到 Hermes 自有目录，也不修改 Agent loop。Core 在创建或继续新 run 前，将 activation 的受控 `skillRoots` 写入专属 `HERMES_HOME/config.yaml` 的原生 `skills.external_dirs`，并把非敏感 binding 持久化为 `workbench-desired-state.v1.json`。绑定前递归拒绝不存在、无 `SKILL.md`、重复、超过 50,000 项/32 层或包含 symlink 的技能树；provider credential ref 必须匹配当前 App-owned provider。provider 更新、runtime restart 和 repair 都保留并重新验证该 binding。
+- 原因：锁定 Hermes 已原生支持 external dirs，并按 config mtime 重新解析；使用它能继续白嫖上游而不 fork。复制目录会制造第二份生命周期和更新真源；把多个工作台 roots 合并则会让 skill catalog 串台。当前 supervisor 只有一个进程/端口，因此在另一 activation 存在 active run 时拒绝切换，比静默并存更安全。
+- 替代方案：复制/软链到 `HERMES_HOME/skills`、把所有 activation roots 做并集、让前端传任意 external dirs、运行 `/reload-skills` 伪装成隔离，或立即引入多 profile supervisor。
+- 影响范围：Hermes config/runtime、task start/continue、AppState activation gate、阶段 11 Skills 隔离和未来多 profile 评估。
+- 后续复查条件：真实 Windows 并行工作台需求出现时，评估每 activation/profile 独立 `HERMES_HOME + port + supervisor`；在此之前不得放松 active-run 冲突门禁。MCP/env/session 仍需独立实现和验证，不能用本决策冒充整项隔离完成。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

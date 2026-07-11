@@ -1357,6 +1357,7 @@ mod tests {
                 config: home.join("config.yaml"),
                 last_good_config: home.join("config.yaml.last-good"),
                 desired_state: home.join("desired-state.v1.json"),
+                workbench_desired_state: home.join("workbench-desired-state.v1.json"),
             },
             port,
             "br_fixture_0123456789abcdef0123456789abcdef",

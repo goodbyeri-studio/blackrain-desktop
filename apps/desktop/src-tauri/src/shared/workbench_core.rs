@@ -268,6 +268,14 @@ impl ActivatedWorkbenchStore {
             .iter_mut()
             .find(|entry| entry.activation_id == context.activation_id)
         {
+            let mut comparable = existing.clone();
+            comparable.verified_at = context.verified_at;
+            if comparable != context {
+                return Err(
+                    "Activated workbench ids are immutable; issue a new activation id for changed resources."
+                        .into(),
+                );
+            }
             *existing = context.clone();
         } else {
             if envelope.activations.len() >= MAX_ACTIVATIONS {
@@ -536,6 +544,20 @@ mod tests {
         replacement.verified_at += 1.0;
         store.persist_verified(replacement.clone()).unwrap();
         assert_eq!(store.list().unwrap(), vec![replacement]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn refuses_to_reuse_an_activation_id_for_changed_resources() {
+        let root = temp_root();
+        let store = ActivatedWorkbenchStore::new(&root);
+        let context = fixture();
+        store.persist_verified(context.clone()).unwrap();
+
+        let mut changed = context;
+        changed.skill_roots = vec![r"C:\ProgramData\BlackRain\other-skills".into()];
+        let error = store.persist_verified(changed).unwrap_err();
+        assert!(error.contains("ids are immutable"));
         fs::remove_dir_all(root).unwrap();
     }
 

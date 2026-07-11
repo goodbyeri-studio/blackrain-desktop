@@ -7,8 +7,9 @@ use serde::{Deserialize, Serialize};
 use super::client::HermesApiClient;
 use super::client::HermesHttpTrace;
 use super::config::{
-    render_config, summary, HermesConfigInspection, HermesConfigManager, HermesConfigSummary,
-    HermesLaunchEnvironment, HermesPaths, HermesProviderDesiredState,
+    render_config_with_workbench, summary, HermesConfigInspection, HermesConfigManager,
+    HermesConfigSummary, HermesLaunchEnvironment, HermesPaths, HermesProviderDesiredState,
+    WorkbenchHermesDesiredState,
 };
 use super::credential_store::{ensure_api_server_key, provider_secret_get};
 use super::process::HermesProcessSupervisor;
@@ -36,6 +37,19 @@ pub(crate) fn configure_runtime_desired_state(
     }
     .apply(desired)
     .map_err(config_error)
+}
+
+pub(crate) fn bind_runtime_workbench(
+    paths: &HermesPaths,
+    workbench: &WorkbenchHermesDesiredState,
+) -> Result<HermesConfigSummary, WorkError> {
+    let manager = HermesConfigManager {
+        paths: paths.clone(),
+    };
+    let provider = manager.load_desired_state().map_err(config_error)?;
+    manager
+        .bind_workbench(&provider, workbench)
+        .map_err(config_error)
 }
 
 pub(crate) async fn start_runtime(
@@ -93,9 +107,12 @@ pub(crate) async fn runtime_diagnostics(
     };
     let (config_state, config_summary) = match manager.inspect() {
         Ok(HermesConfigInspection::Missing) => ("missing".into(), None),
-        Ok(HermesConfigInspection::Valid) => match manager.load_desired_state() {
-            Ok(desired) => ("valid".into(), Some(summary(&desired))),
-            Err(_) => ("desiredStateInvalid".into(), None),
+        Ok(HermesConfigInspection::Valid) => match (
+            manager.load_desired_state(),
+            manager.load_workbench_desired_state(),
+        ) {
+            (Ok(desired), Ok(_)) => ("valid".into(), Some(summary(&desired))),
+            _ => ("desiredStateInvalid".into(), None),
         },
         Ok(HermesConfigInspection::RepairRequired(_)) => ("repairRequired".into(), None),
         Err(_) => ("inspectionFailed".into(), None),
@@ -140,7 +157,11 @@ fn ensure_config_matches_desired(
         HermesConfigInspection::Valid => {
             let current = fs::read_to_string(&manager.paths.config)
                 .map_err(|error| config_error(format!("Unable to read Hermes config: {error}")))?;
-            let expected = render_config(desired).map_err(config_error)?;
+            let workbench = manager
+                .load_workbench_desired_state()
+                .map_err(config_error)?;
+            let expected =
+                render_config_with_workbench(desired, workbench.as_ref()).map_err(config_error)?;
             if current == expected {
                 Ok(())
             } else {

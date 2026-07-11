@@ -88,6 +88,7 @@ pub(crate) struct AppState {
     pub(crate) hermes_tasks: Arc<Mutex<HermesTaskStore>>,
     pub(crate) hermes_task_recovery: Arc<Mutex<HermesTaskRecoveryState>>,
     pub(crate) hermes_runs: Arc<HermesRunRegistry>,
+    pub(crate) hermes_activation_gate: Arc<Mutex<()>>,
     pub(crate) workbench_activations: Arc<Mutex<ActivatedWorkbenchStore>>,
 }
 
@@ -145,6 +146,7 @@ impl AppState {
             hermes_tasks: Arc::new(Mutex::new(hermes_tasks)),
             hermes_task_recovery: Arc::new(Mutex::new(hermes_task_recovery)),
             hermes_runs: Arc::new(HermesRunRegistry::default()),
+            hermes_activation_gate: Arc::new(Mutex::new(())),
             workbench_activations: Arc::new(Mutex::new(workbench_activations)),
         }
     }
