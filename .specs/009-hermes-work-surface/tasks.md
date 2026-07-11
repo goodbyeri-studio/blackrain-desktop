@@ -72,11 +72,11 @@
 - [ ] App 正常退出时清理 Hermes 和受控 MCP 子进程
 - [x] App 异常退出/下次启动时审计并清理或安全接管孤儿进程
 - [ ] 处理系统休眠/恢复和网络变化
-- [ ] 暴露 runtime status、start、stop、restart、repair、logs Tauri commands
-- [ ] local-only 时为 remote backend 返回显式 unsupported
+- [x] 暴露 runtime status、start、stop、restart、repair、logs Tauri commands
+- [x] local-only 时为 remote backend 返回显式 unsupported
 - [x] 补 supervisor 单元、并发和失败注入测试
 
-> 2026-07-12：版本化 PID lease、进程身份核对、health/bearer/capability 复核与下次启动清理已经实现；PID 被复用、身份查询失败或 bearer 不匹配时进入 `repairRequired`，不会误杀。Windows `PowerShell Get-CimInstance`/`taskkill /T` 分支仍需 Windows 编译和实机验证。App 正常退出已停止 Hermes；受控 MCP 尚未接入，所以对应组合任务未勾选。
+> 2026-07-12：版本化 PID lease、进程身份核对、health/bearer/capability 复核与下次启动清理已经实现；PID 被复用、身份查询失败或 bearer 不匹配时进入 `repairRequired`，不会误杀。App adapter 已暴露六个 runtime commands，命令不接受 host/port/binary/env，remote mode 返回结构化 `unsupported_in_remote_backend`。Windows `PowerShell Get-CimInstance`/`taskkill /T` 分支仍需 Windows 编译和实机验证。App 正常退出已停止 Hermes；受控 MCP 尚未接入，所以对应组合任务未勾选。
 
 ## 阶段 5：Hermes API client
 

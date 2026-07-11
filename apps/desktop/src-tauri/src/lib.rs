@@ -15,6 +15,7 @@ mod event_sink;
 mod files;
 mod git;
 mod git_utils;
+mod hermes;
 mod local_usage;
 #[cfg(desktop)]
 mod menu;
@@ -354,6 +355,12 @@ pub fn run() {
             model_gateway::model_gateway_daemon_restart,
             model_gateway::model_gateway_credit_jwt_set,
             model_gateway::model_gateway_credit_jwt_clear,
+            hermes::hermes_runtime_status,
+            hermes::hermes_runtime_start,
+            hermes::hermes_runtime_stop,
+            hermes::hermes_runtime_restart,
+            hermes::hermes_runtime_repair,
+            hermes::hermes_runtime_diagnostics,
             codex::experimental_feature_list,
             codex::set_codex_feature_flag,
             codex::get_agents_settings,
