@@ -10,7 +10,8 @@
 - WORK `/v1/runs` shared client 与增量 SSE decoder：已实现并通过 fake HTTP server 测试；尚未接 Tauri event bridge/任务层。
 - WORK event normalizer：已实现确定性 event id、sequence、去重、消息/工具/审批/输出/终态映射和无值未知诊断；TaskStore 已消费其稳定 contract，尚未接真实 SSE consumer 或前端 reducer。
 - WORK task store/recovery：已实现版本化 snapshot + NDJSON journal、migration、journal-first 提交、稳定 ID 去重、截断尾修复、`AppState::load` 本地审计，以及 runtime start/restart Ready 后的活跃 run status 对账；任务命令和 replay 门禁证据见下一行，UI 尚未接入。
-- WORK task commands/event bridge：已实现本地 task list/read/start/resume/approval/stop/delete metadata/recovery status，真实 run start→SSE→normalizer→TaskStore→`work-event` 纵切，以及前端唯一 IPC 包装和单 listener fanout；尚未接 reducer/UI、continue/retry 或自动断流重连。
+- WORK task commands/event bridge：已实现本地 task list/read/start/resume/approval/stop/delete metadata/recovery status，真实 run start→SSE→normalizer→TaskStore→`work-event` 纵切，以及前端唯一 IPC 包装和单 listener fanout；状态层证据见下一行，尚未接 UI、continue/retry 或自动断流重连。
+- WORK 前端状态层：已实现独立 reducer/selectors、并行 bootstrap controller、runtime/task actions、单订阅清理、event/task 响应竞态缓冲和同 task mutation 门禁；尚未接 UI、continue/retry/user-input 或自动断流重连。
 - WORK 前端 feature/reducer/UI：不存在。
 - 工作台激活到 WORK 的接缝：不存在。
 - Windows NSIS 内 Hermes runtime：未验证。
@@ -42,6 +43,7 @@
 | 2026-07-12 | Task store | v1 snapshot、v0 migration、task/session/run 映射、NDJSON journal、journal-first、稳定 ID replay 去重、冲突/倒序 sequence/路径穿越拒绝、EOF 截断尾修复、本地恢复分类、可重试 metadata 清理且保留用户项目 | `cargo test hermes --lib`; `cargo check`; `npm run typecheck` | `67 passed` + check/typecheck 通过（macOS） | 该阶段只含 `AppState::load` 本地审计；远端对账见下一行，Tauri task commands/Windows 未接 |
 | 2026-07-12 | Remote task recovery | runtime Ready 后后台逐个 `GET /v1/runs/{run_id}`；running/completed/failed、404 orphaned、503/未知状态 degraded+resumable；身份核对；不生成合成事件 | `cargo test hermes --lib`; `cargo check`; `npm run typecheck` | `68 passed` + check/typecheck 通过（macOS） | fake server；接在 runtime start/restart 后且不阻塞命令返回，真实 Hermes/App restart/Windows 尚未验证；SSE replay 未接 |
 | 2026-07-12 | Task commands/event bridge | shared start transaction、结构化参数/remote 拒绝、registry 重复门禁、POST→attach、SSE 持久化后 emit、replay 不重复、runtime 取消；TS IPC wrappers 和单 listener fanout | `cargo test hermes --lib`; `npm run test -- --run src/services/tauri.test.ts src/services/events.test.ts src/features/work/types.test.ts`; `cargo check`; `npm run typecheck`; `npm run lint`; `npm run lint:ds` | `73 passed`（Rust）+ `75 passed`（TS targeted）+ check/typecheck 通过；lint 0 error（macOS） | lint 有 5 条既有 hooks warning；fake server/Tauri wrapper contract；真实 Hermes、Tauri WebView、Windows 未验证；continue/retry/reconnect 未实现 |
+| 2026-07-12 | WORK state/controller | event id 去重、sequence/hydration 合并、terminal projection、approval selector、event-before-task buffer、parallel bootstrap、single subscription cleanup、同 task mutation gate | `npm run test -- --run src/features/work/state/reducer.test.ts src/features/work/hooks/useWorkController.test.tsx src/features/work/types.test.ts`; `npm run typecheck`; `npm run lint` | `11 passed` + typecheck 通过 + lint 0 error（macOS） | lint 仍有 5 条既有 hooks warning；尚无真实 Tauri WebView、长流性能或 Windows 证据；continue/retry/user-input/reconnect 未实现 |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |

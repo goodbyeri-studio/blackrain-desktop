@@ -125,14 +125,16 @@
 
 ## 阶段 8：WORK 前端状态层
 
-- [ ] 新建独立 `src/features/work/`，不复用 Codex thread reducer 存储 Hermes 状态
-- [ ] 实现 runtime hook 和启动/修复状态
-- [ ] 实现 tasks list/load/create/resume/delete-local-metadata
-- [ ] 实现 `WorkEvent` reducer 和 selectors
+- [x] 新建独立 `src/features/work/`，不复用 Codex thread reducer 存储 Hermes 状态
+- [x] 实现 runtime hook 和启动/修复状态
+- [x] 实现 tasks list/load/create/resume/delete-local-metadata
+- [x] 实现 `WorkEvent` reducer 和 selectors
 - [ ] 实现 send/stop/retry/approval/user-input actions
-- [ ] 防止重复发送、重复审批和 stop 竞态
+- [x] 防止重复发送、重复审批和 stop 竞态
 - [ ] 实现断流恢复和 App 重启恢复状态
-- [ ] 为 reducer/hooks/actions 建立完整测试
+- [x] 为 reducer/hooks/actions 建立完整测试
+
+> 2026-07-12：`useWorkController` 并行 bootstrap runtime/tasks/recovery，持有唯一 WORK event subscription，并通过同步 `inFlightRef` 将同一 task 的 resume/approval/stop/delete 串行化，避免等待 render 才生效的双击竞态。Reducer 以 event id 幂等、按 sequence 合并；事件先于 task start 响应到达时进入有界 orphan buffer，task metadata 到达后再收敛，避免真实快响应丢事件。当前 actions 已覆盖 start/resume/approval/stop/delete；continue/retry/user-input 与自动断流重连仍未实现，因此对应总项保持未完成。
 
 ## 阶段 9：Codex 风格 WORK surface UI
 
