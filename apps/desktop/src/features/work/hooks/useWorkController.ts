@@ -22,6 +22,7 @@ import type {
   HermesRuntimeDiagnostics,
   HermesTaskContinueInput,
   HermesTaskStartInput,
+  WorkEvent,
   WorkError,
 } from "../types";
 import { initialWorkState, workReducer } from "../state/reducer";
@@ -57,14 +58,46 @@ const operationInProgressError = (): WorkError => ({
   details: {},
 });
 
+const WORK_EVENT_BATCH_SIZE = 256;
+const WORK_EVENT_BATCH_DELAY_MS = 16;
+
 export function useWorkController() {
   const [state, dispatch] = useReducer(workReducer, initialWorkState);
   const inFlightRef = useRef(new Set<string>());
+  const eventQueueRef = useRef<WorkEvent[]>([]);
+  const eventFlushTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    return subscribeWorkEvents((event) => {
-      dispatch({ type: "workEventReceived", event });
+    const flush = () => {
+      eventFlushTimerRef.current = null;
+      const events = eventQueueRef.current.splice(0, WORK_EVENT_BATCH_SIZE);
+      if (events.length > 0) {
+        dispatch({ type: "workEventsReceived", events });
+      }
+      if (eventQueueRef.current.length > 0) {
+        eventFlushTimerRef.current = window.setTimeout(
+          flush,
+          WORK_EVENT_BATCH_DELAY_MS,
+        );
+      }
+    };
+    const unsubscribe = subscribeWorkEvents((event) => {
+      eventQueueRef.current.push(event);
+      if (eventFlushTimerRef.current === null) {
+        eventFlushTimerRef.current = window.setTimeout(
+          flush,
+          WORK_EVENT_BATCH_DELAY_MS,
+        );
+      }
     });
+    return () => {
+      unsubscribe();
+      if (eventFlushTimerRef.current !== null) {
+        window.clearTimeout(eventFlushTimerRef.current);
+      }
+      eventFlushTimerRef.current = null;
+      eventQueueRef.current = [];
+    };
   }, []);
 
   useEffect(() => {

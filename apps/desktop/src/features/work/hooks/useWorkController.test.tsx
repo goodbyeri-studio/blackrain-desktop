@@ -12,7 +12,7 @@ import {
   hermesTaskResume,
   hermesTaskStop,
 } from "@/services/tauri";
-import type { WorkRuntimeStatus, WorkTask } from "../types";
+import type { WorkEvent, WorkRuntimeStatus, WorkTask } from "../types";
 import { useWorkController } from "./useWorkController";
 
 vi.mock("@/services/events", () => ({
@@ -160,5 +160,52 @@ describe("useWorkController", () => {
     expect(subscribeWorkEvents).toHaveBeenCalledTimes(1);
     unmount();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("batches high-frequency WORK events before reducer delivery", async () => {
+    vi.useFakeTimers();
+    vi.mocked(hermesRuntimeStatus).mockResolvedValue(runtime);
+    vi.mocked(hermesTaskList).mockResolvedValue([task]);
+    vi.mocked(hermesTaskRecoveryStatus).mockResolvedValue({ records: [], error: null });
+    let onEvent: ((event: WorkEvent) => void) | null = null;
+    vi.mocked(subscribeWorkEvents).mockImplementation((listener) => {
+      onEvent = listener;
+      return vi.fn();
+    });
+    const { result } = renderHook(() => useWorkController());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      for (let index = 0; index < 600; index += 1) {
+        onEvent?.({
+          schemaVersion: 1,
+          eventId: `event-${index}`,
+          sequence: index + 1,
+          taskId: task.taskId,
+          runId: "run-1",
+          timestamp: index + 2,
+          itemId: "message-1",
+          type: "agentTextDelta",
+          delta: "x",
+        });
+      }
+    });
+    expect(result.current.state.tasks[task.taskId].events).toHaveLength(0);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16);
+    });
+    expect(result.current.state.tasks[task.taskId].events).toHaveLength(256);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16);
+    });
+    expect(result.current.state.tasks[task.taskId].events).toHaveLength(512);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16);
+    });
+    expect(result.current.state.tasks[task.taskId].events).toHaveLength(600);
+    vi.useRealTimers();
   });
 });

@@ -91,6 +91,27 @@ describe("workReducer", () => {
     ]);
   });
 
+  it("applies a high-frequency batch with one task projection", () => {
+    let state = workReducer(initialWorkState, {
+      type: "taskUpserted",
+      task: task(),
+    });
+    const events = Array.from({ length: 600 }, (_, index) =>
+      event(`delta-${index}`, index + 1, {
+        type: "agentTextDelta",
+        delta: "x",
+      }),
+    );
+    state = workReducer(state, {
+      type: "workEventsReceived",
+      events: [...events, events[100]],
+    });
+
+    expect(selectTaskEvents(state, "task-1")).toHaveLength(600);
+    expect(state.tasks["task-1"].task.lastEventSequence).toBe(600);
+    expect(state.taskOrder).toEqual(["task-1"]);
+  });
+
   it("projects terminal task status and clears the active run", () => {
     let state = workReducer(initialWorkState, {
       type: "taskUpserted",
