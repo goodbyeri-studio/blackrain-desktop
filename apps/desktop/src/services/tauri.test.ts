@@ -16,6 +16,16 @@ import {
   getGitLog,
   getGitStatus,
   getOpenAppIcon,
+  hermesRuntimeDiagnostics,
+  hermesRuntimeStart,
+  hermesTaskApproval,
+  hermesTaskDeleteLocalMetadata,
+  hermesTaskList,
+  hermesTaskRead,
+  hermesTaskRecoveryStatus,
+  hermesTaskResume,
+  hermesTaskStart,
+  hermesTaskStop,
   listThreads,
   listMcpServerStatus,
   modelGatewayDaemonStart,
@@ -524,6 +534,46 @@ describe("tauri invoke wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("model_gateway_daemon_start");
     expect(invokeMock).toHaveBeenCalledWith("model_gateway_daemon_stop");
     expect(invokeMock).toHaveBeenCalledWith("model_gateway_daemon_status");
+  });
+
+  it("invokes Hermes WORK wrappers with only structured arguments", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockResolvedValue(undefined);
+    const input = {
+      workbenchId: "office-agent",
+      workbenchVersion: "0.1.0",
+      projectPath: "C:\\Users\\demo\\Project",
+      prompt: "整理季度报告",
+      model: "office-fast",
+    };
+
+    await hermesRuntimeStart();
+    await hermesRuntimeDiagnostics();
+    await hermesTaskList();
+    await hermesTaskRead("task-1");
+    await hermesTaskStart(input);
+    await hermesTaskResume("task-1");
+    await hermesTaskApproval("task-1", "once", true);
+    await hermesTaskStop("task-1");
+    await hermesTaskDeleteLocalMetadata("task-1");
+    await hermesTaskRecoveryStatus();
+
+    expect(invokeMock).toHaveBeenCalledWith("hermes_runtime_start");
+    expect(invokeMock).toHaveBeenCalledWith("hermes_runtime_diagnostics");
+    expect(invokeMock).toHaveBeenCalledWith("hermes_task_list");
+    expect(invokeMock).toHaveBeenCalledWith("hermes_task_read", { taskId: "task-1" });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_task_start", { input });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_task_resume", { taskId: "task-1" });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_task_approval", {
+      taskId: "task-1",
+      choice: "once",
+      resolveAll: true,
+    });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_task_stop", { taskId: "task-1" });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_task_delete_local_metadata", {
+      taskId: "task-1",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_task_recovery_status");
   });
 
   it("reads agent.md for a workspace", async () => {

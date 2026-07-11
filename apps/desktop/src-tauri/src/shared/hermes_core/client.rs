@@ -80,6 +80,11 @@ impl HermesStreamCancellation {
         self.sender.send_replace(true);
     }
 
+    #[cfg(test)]
+    pub(crate) fn is_cancelled(&self) -> bool {
+        *self.sender.borrow()
+    }
+
     fn subscribe(&self) -> watch::Receiver<bool> {
         self.sender.subscribe()
     }

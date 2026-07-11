@@ -62,6 +62,7 @@ fn keep_daemon_running_after_close(app_handle: &tauri::AppHandle) -> bool {
 #[cfg(desktop)]
 async fn stop_managed_daemons_for_exit(app_handle: tauri::AppHandle, keep_daemon: bool) {
     let state = app_handle.state::<state::AppState>();
+    state.hermes_runs.cancel_all().await;
     let _ = state.hermes_runtime.stop().await;
     if keep_daemon {
         return;
@@ -361,6 +362,14 @@ pub fn run() {
             hermes::hermes_runtime_restart,
             hermes::hermes_runtime_repair,
             hermes::hermes_runtime_diagnostics,
+            hermes::hermes_task_list,
+            hermes::hermes_task_read,
+            hermes::hermes_task_start,
+            hermes::hermes_task_resume,
+            hermes::hermes_task_approval,
+            hermes::hermes_task_stop,
+            hermes::hermes_task_delete_local_metadata,
+            hermes::hermes_task_recovery_status,
             codex::experimental_feature_list,
             codex::set_codex_feature_flag,
             codex::get_agents_settings,
