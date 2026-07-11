@@ -114,6 +114,14 @@
 - 影响范围：阶段 2、5、11、12 和设置 UI。
 - 后续复查条件：002/003 对生产认证、模型目录和 BYOK 权限做出正式决策。
 
+## 2026-07-12：Hermes secret 只通过 keyring 和进程环境注入
+
+- 决策：`config.yaml` 只保存命名 provider、`key_env` 和非敏感模型配置；`API_SERVER_KEY` 与 provider API key 使用独立 keyring namespace，启动时注入受控子进程环境，不生成 Hermes `.env`。
+- 原因：`.env` 会把长期 secret 以明文落到 App data；工作台、诊断包或错误日志更容易误读。keyring 与短期进程环境符合 App/Core 唯一配置写入者和 Windows Credential Manager 目标。
+- 替代方案：把 key 写入 `config.yaml`、Hermes `.env`、项目目录或工作台包。
+- 影响范围：阶段 2、4、5、Windows Credential Manager 验收和诊断脱敏。
+- 后续复查条件：企业 secret broker 成为正式能力时，把 keyring 实现替换为 secret reference resolver；仍不得把明文写入工作台或项目。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
