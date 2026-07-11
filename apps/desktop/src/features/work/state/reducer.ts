@@ -55,6 +55,7 @@ export type WorkAction =
   | { type: "taskUpserted"; task: WorkTask }
   | { type: "taskRemoved"; taskId: string }
   | { type: "workEventReceived"; event: WorkEvent }
+  | { type: "workEventsReceived"; events: WorkEvent[] }
   | { type: "taskSelected"; taskId: string | null }
   | { type: "operationStarted"; key: string }
   | { type: "operationFinished"; key: string; error?: WorkError | null }
@@ -99,6 +100,88 @@ function projectTaskFromEvent(task: WorkTask, event: WorkEvent): WorkTask {
     lastEventSequence: Math.max(task.lastEventSequence, event.sequence),
     updatedAt: Math.max(task.updatedAt, event.timestamp),
   };
+}
+
+function receiveWorkEvents(state: WorkState, incoming: WorkEvent[]): WorkState {
+  if (incoming.length === 0) {
+    return state;
+  }
+  const grouped = new Map<string, { events: WorkEvent[]; lastIndex: number }>();
+  for (const [index, event] of incoming.entries()) {
+    const group = grouped.get(event.taskId);
+    if (group) {
+      group.events.push(event);
+      group.lastIndex = index;
+    } else {
+      grouped.set(event.taskId, { events: [event], lastIndex: index });
+    }
+  }
+
+  let tasks = state.tasks;
+  let orphanEvents = state.orphanEvents;
+  let taskOrder = state.taskOrder;
+  let changed = false;
+
+  const orderedGroups = Array.from(grouped.entries()).sort(
+    ([, left], [, right]) => left.lastIndex - right.lastIndex,
+  );
+  for (const [taskId, group] of orderedGroups) {
+    const taskEvents = group.events;
+    const current = tasks[taskId];
+    if (!current) {
+      const currentOrphans = orphanEvents[taskId] ?? [];
+      const orphanIds = new Set(currentOrphans.map((event) => event.eventId));
+      if (taskEvents.every((event) => orphanIds.has(event.eventId))) {
+        continue;
+      }
+      const pending = mergeEvents(currentOrphans, taskEvents).slice(
+        -MAX_ORPHAN_EVENTS_PER_TASK,
+      );
+      if (orphanEvents === state.orphanEvents) {
+        orphanEvents = { ...state.orphanEvents };
+      }
+      orphanEvents[taskId] = pending;
+      changed = true;
+      continue;
+    }
+
+    const seenEventIds = new Set(Object.keys(current.eventIds));
+    const appended: WorkEvent[] = [];
+    for (const event of taskEvents) {
+      if (!seenEventIds.has(event.eventId)) {
+        seenEventIds.add(event.eventId);
+        appended.push(event);
+      }
+    }
+    appended.sort((left, right) => left.sequence - right.sequence);
+    if (appended.length === 0) {
+      continue;
+    }
+    const events = mergeEvents(current.events, appended);
+    const task = appended.reduce(projectTaskFromEvent, current.task);
+    const nextEventIds = { ...current.eventIds };
+    for (const event of appended) {
+      nextEventIds[event.eventId] = true;
+    }
+    if (tasks === state.tasks) {
+      tasks = { ...state.tasks };
+    }
+    tasks[taskId] = { task, events, eventIds: nextEventIds };
+    taskOrder = [taskId, ...taskOrder.filter((candidate) => candidate !== taskId)];
+    changed = true;
+  }
+
+  if (orphanEvents !== state.orphanEvents) {
+    const orphanTaskIds = Object.keys(orphanEvents);
+    while (orphanTaskIds.length > MAX_ORPHAN_TASKS) {
+      const oldest = orphanTaskIds.shift();
+      if (oldest) {
+        delete orphanEvents[oldest];
+      }
+    }
+  }
+
+  return changed ? { ...state, tasks, orphanEvents, taskOrder } : state;
 }
 
 function upsertTasks(
@@ -191,46 +274,10 @@ export function workReducer(state: WorkState, action: WorkAction): WorkState {
       };
     }
     case "workEventReceived": {
-      const current = state.tasks[action.event.taskId];
-      if (!current) {
-        const pending = mergeEvents(
-          state.orphanEvents[action.event.taskId] ?? [],
-          [action.event],
-        ).slice(-MAX_ORPHAN_EVENTS_PER_TASK);
-        const orphanEvents = {
-          ...state.orphanEvents,
-          [action.event.taskId]: pending,
-        };
-        const orphanTaskIds = Object.keys(orphanEvents);
-        if (orphanTaskIds.length > MAX_ORPHAN_TASKS) {
-          delete orphanEvents[orphanTaskIds[0]];
-        }
-        return {
-          ...state,
-          orphanEvents,
-        };
-      }
-      if (current.eventIds[action.event.eventId]) {
-        return state;
-      }
-      const events = mergeEvents(current.events, [action.event]);
-      const task = projectTaskFromEvent(current.task, action.event);
-      return {
-        ...state,
-        tasks: {
-          ...state.tasks,
-          [action.event.taskId]: {
-            task,
-            events,
-            eventIds: { ...current.eventIds, [action.event.eventId]: true },
-          },
-        },
-        taskOrder: [
-          action.event.taskId,
-          ...state.taskOrder.filter((taskId) => taskId !== action.event.taskId),
-        ],
-      };
+      return receiveWorkEvents(state, [action.event]);
     }
+    case "workEventsReceived":
+      return receiveWorkEvents(state, action.events);
     case "taskSelected":
       return {
         ...state,

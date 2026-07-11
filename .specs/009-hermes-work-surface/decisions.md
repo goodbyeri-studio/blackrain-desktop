@@ -234,6 +234,14 @@
 - 影响范围：阶段 9/10、NOTICE/THIRD-PARTY、组件测试和视觉验证。
 - 后续复查条件：仅当现有组件无法覆盖已确认的产品行为时，再逐文件评估 Hermes MIT 源码并记录来源；否则继续重写。
 
+## 2026-07-12：高频 WORK event 在单 listener 后按帧分批进入 reducer
+
+- 决策：保持 TaskStore 持久化和 `appended_events` 门禁不变；前端唯一 `work-event` listener 只负责排队，以 16ms 间隔、每批最多 256 个事件 dispatch。reducer 新增批量 action，按 task 去重、排序、合并并一次更新 task 投影；积压继续排下一批，卸载时取消 timer 并清空仅属于已卸载视图的内存队列。
+- 原因：Hermes 工具进度和 text delta 可能在短时间产生大量事件；逐事件 dispatch 会制造同量 React render/reducer clone。事件在进入 listener 前已经 journal-first 持久化，因此 UI 内存队列无需承担可靠存储职责，也不能把节流前移到持久化门禁之前。
+- 替代方案：丢弃中间 delta、在 Tauri adapter 未持久化前合并、每个事件立即 dispatch、无限单批处理全部积压，或在 reducer 中反复递归单事件 action。
+- 影响范围：`useWorkController`、WORK reducer/tests、长任务 UI 性能和阶段 13 性能基线。
+- 后续复查条件：Windows WebView 长会话性能数据证明 256/16ms 不合适时可调整批大小/节奏；不得降低事件幂等和持久化顺序。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
