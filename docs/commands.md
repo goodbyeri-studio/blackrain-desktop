@@ -135,6 +135,8 @@ npm run codemod:ds:dry
 
 Push-Location src-tauri
 cargo check
+# Hermes WORK shared contract/client/supervisor 专项
+cargo test hermes --lib
 Pop-Location
 
 # Windows 专用入口
