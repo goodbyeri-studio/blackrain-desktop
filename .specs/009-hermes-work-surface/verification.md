@@ -20,6 +20,8 @@
 | 2026-07-12 | Fixtures | capabilities/models/runs/events/approval/stop/error/SSE 无敏感样例 | `find ... -name '*.json' -print0 \| xargs -0 -n1 jq empty` | 通过（26 个 JSON，34 个 fixture 文件） | 只证明样例格式，不证明网络运行 |
 | 2026-07-12 | UI/Runtime 审计 | Hermes Desktop 候选、BlackRain 可复用基础设施、Windows 缺口 | 静态路径/依赖/脚本核对 | 通过 | 当前决定全部重写，未复制上游 React 源码 |
 | 2026-07-12 | Rust contract/fake server | raw protocol、SSE、正常 run、approval allow/deny、stop、auth/model/tool/capability failure、断流、重复/未知/乱序、terminal reconnect | `cargo test hermes_core --lib` | `12 passed`（macOS） | 222 tests filtered；故障注入支架，不证明真实 Hermes client/supervisor |
+| 2026-07-12 | Rust config domain | named provider、bare custom 拒绝、隔离路径、原子写入/last-good/repair、loopback env、强 key、脱敏 | `cargo test hermes_core --lib` | `22 passed`（macOS） | keyring smoke 默认跳过；Windows `MoveFileExW` 分支未在本机编译 |
+| 2026-07-12 | Rust 非测试构建 | Hermes contract/config/secrets 纳入 App 与 daemon shared module | `cargo check` | 通过（macOS，75/79 个 dead-code 等 warning） | 新模块尚未接 adapter，warning 符合当前阶段；不替代 Windows check |
 | 2026-07-12 | TypeScript contract | shared WorkEvent fixture、raw unknown event guard、malformed event 拒绝 | `npm run test -- --run src/features/work/types.test.ts` | `4 passed`（macOS） | 与 Rust 共用 `work-event-agent-delta.json` |
 | 2026-07-12 | 前端静态检查 | 新增 WORK contract types | `npm run typecheck` | 通过（macOS） | 不替代 Windows 验证 |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |

@@ -1,0 +1,569 @@
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+const MANAGED_HEADER: &str = "# BlackRain managed Hermes config v1";
+pub(crate) const PROVIDER_API_KEY_ENV: &str = "BLACKRAIN_HERMES_PROVIDER_API_KEY";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HermesPaths {
+    pub(crate) home: PathBuf,
+    pub(crate) config: PathBuf,
+    pub(crate) last_good_config: PathBuf,
+}
+
+impl HermesPaths {
+    pub(crate) fn from_app_data_dir(app_data_dir: &Path) -> Self {
+        let home = app_data_dir.join("hermes-home");
+        Self {
+            config: home.join("config.yaml"),
+            last_good_config: home.join("config.yaml.last-good"),
+            home,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HermesProviderDesiredState {
+    pub(crate) provider_id: String,
+    pub(crate) display_name: String,
+    pub(crate) base_url: String,
+    pub(crate) model: String,
+    pub(crate) key_env: String,
+    pub(crate) context_length: Option<u64>,
+    pub(crate) discover_models: bool,
+}
+
+impl HermesProviderDesiredState {
+    pub(crate) fn blackrain_new_api(
+        base_url: String,
+        model: String,
+        context_length: Option<u64>,
+    ) -> Self {
+        Self {
+            provider_id: "blackrain-new-api".into(),
+            display_name: "BlackRain new-api".into(),
+            base_url,
+            model,
+            key_env: PROVIDER_API_KEY_ENV.into(),
+            context_length,
+            discover_models: true,
+        }
+    }
+
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        validate_provider_id(&self.provider_id)?;
+        if self.provider_id.eq_ignore_ascii_case("custom") {
+            return Err("Bare custom provider ids are forbidden; use a named provider.".into());
+        }
+        validate_non_empty("provider display name", &self.display_name)?;
+        validate_http_url(&self.base_url)?;
+        validate_non_empty("model", &self.model)?;
+        validate_env_key(&self.key_env)?;
+        if let Some(context_length) = self.context_length {
+            if context_length < 1024 {
+                return Err("Hermes context length must be at least 1024 tokens.".into());
+            }
+        }
+        Ok(())
+    }
+}
+
+/// 工作台只能声明资源引用，不能注入任意进程环境或覆盖 Hermes 全局配置。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorkbenchHermesDesiredState {
+    pub(crate) workbench_id: String,
+    pub(crate) workbench_version: String,
+    pub(crate) skill_roots: Vec<PathBuf>,
+    pub(crate) plugin_ids: Vec<String>,
+    pub(crate) mcp_server_ids: Vec<String>,
+    pub(crate) provider_secret_ref: Option<String>,
+    pub(crate) permission_grant_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HermesConfigSummary {
+    pub(crate) provider_id: String,
+    pub(crate) provider_identity: String,
+    pub(crate) base_url: String,
+    pub(crate) model: String,
+    pub(crate) key_env: String,
+    pub(crate) contains_inline_secret: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HermesRepairPlan {
+    pub(crate) reason: String,
+    pub(crate) config_path: String,
+    pub(crate) last_good_path: String,
+    pub(crate) last_good_available: bool,
+    pub(crate) action: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum HermesConfigInspection {
+    Missing,
+    Valid,
+    RepairRequired(HermesRepairPlan),
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct HermesConfigManager {
+    pub(crate) paths: HermesPaths,
+}
+
+impl HermesConfigManager {
+    pub(crate) fn new(app_data_dir: &Path) -> Self {
+        Self {
+            paths: HermesPaths::from_app_data_dir(app_data_dir),
+        }
+    }
+
+    pub(crate) fn inspect(&self) -> Result<HermesConfigInspection, String> {
+        if !self.paths.config.exists() {
+            return Ok(HermesConfigInspection::Missing);
+        }
+        let content = fs::read_to_string(&self.paths.config).map_err(|error| {
+            format!(
+                "Unable to read Hermes config {}: {error}",
+                self.paths.config.display()
+            )
+        })?;
+        match validate_managed_config_contents(&content) {
+            Ok(()) => Ok(HermesConfigInspection::Valid),
+            Err(reason) => Ok(HermesConfigInspection::RepairRequired(
+                self.repair_plan(reason),
+            )),
+        }
+    }
+
+    pub(crate) fn apply(
+        &self,
+        desired: &HermesProviderDesiredState,
+    ) -> Result<HermesConfigSummary, String> {
+        desired.validate()?;
+        if let HermesConfigInspection::RepairRequired(plan) = self.inspect()? {
+            return Err(format!(
+                "Hermes config requires repair before update: {} ({})",
+                plan.reason, plan.config_path
+            ));
+        }
+        fs::create_dir_all(&self.paths.home).map_err(|error| {
+            format!(
+                "Unable to create isolated HERMES_HOME {}: {error}",
+                self.paths.home.display()
+            )
+        })?;
+        if self.paths.config.is_file() {
+            let previous = fs::read(&self.paths.config)
+                .map_err(|error| format!("Unable to read previous Hermes config: {error}"))?;
+            atomic_write(&self.paths.last_good_config, &previous)?;
+        }
+        let rendered = render_config(desired)?;
+        atomic_write(&self.paths.config, rendered.as_bytes())?;
+        if !self.paths.last_good_config.exists() {
+            atomic_write(&self.paths.last_good_config, rendered.as_bytes())?;
+        }
+        tighten_file_permissions(&self.paths.config)?;
+        Ok(summary(desired))
+    }
+
+    pub(crate) fn repair(
+        &self,
+        desired: &HermesProviderDesiredState,
+    ) -> Result<(HermesConfigSummary, Option<PathBuf>), String> {
+        desired.validate()?;
+        fs::create_dir_all(&self.paths.home).map_err(|error| error.to_string())?;
+        let quarantined = if self.paths.config.exists() {
+            let quarantine = self
+                .paths
+                .home
+                .join(format!("config.yaml.corrupt-{}", Uuid::new_v4().simple()));
+            fs::rename(&self.paths.config, &quarantine)
+                .map_err(|error| format!("Unable to quarantine corrupt Hermes config: {error}"))?;
+            Some(quarantine)
+        } else {
+            None
+        };
+        let rendered = render_config(desired)?;
+        atomic_write(&self.paths.config, rendered.as_bytes())?;
+        tighten_file_permissions(&self.paths.config)?;
+        Ok((summary(desired), quarantined))
+    }
+
+    fn repair_plan(&self, reason: String) -> HermesRepairPlan {
+        HermesRepairPlan {
+            reason,
+            config_path: self.paths.config.to_string_lossy().to_string(),
+            last_good_path: self.paths.last_good_config.to_string_lossy().to_string(),
+            last_good_available: self.paths.last_good_config.is_file(),
+            action: "Quarantine the corrupt config, regenerate it from App-owned desired state, then restart Hermes.".into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct HermesLaunchEnvironment {
+    values: BTreeMap<String, String>,
+}
+
+impl HermesLaunchEnvironment {
+    pub(crate) fn build(
+        paths: &HermesPaths,
+        api_port: u16,
+        api_server_key: &str,
+        provider_api_key: &str,
+    ) -> Result<Self, String> {
+        if api_port == 0 {
+            return Err("Hermes API port must be non-zero.".into());
+        }
+        validate_secret("Hermes API server key", api_server_key, 32)?;
+        validate_secret("Hermes provider API key", provider_api_key, 1)?;
+        let mut values = BTreeMap::new();
+        values.insert(
+            "HERMES_HOME".into(),
+            paths.home.to_string_lossy().to_string(),
+        );
+        values.insert("API_SERVER_ENABLED".into(), "true".into());
+        values.insert("API_SERVER_HOST".into(), "127.0.0.1".into());
+        values.insert("API_SERVER_PORT".into(), api_port.to_string());
+        values.insert("API_SERVER_KEY".into(), api_server_key.into());
+        values.insert(PROVIDER_API_KEY_ENV.into(), provider_api_key.into());
+        values.insert("CUA_DRIVER_RS_TELEMETRY_ENABLED".into(), "0".into());
+        Ok(Self { values })
+    }
+
+    pub(crate) fn values(&self) -> &BTreeMap<String, String> {
+        &self.values
+    }
+
+    pub(crate) fn redacted_summary(&self) -> BTreeMap<String, String> {
+        self.values
+            .iter()
+            .map(|(key, value)| {
+                let safe = if key == "API_SERVER_KEY" || key == PROVIDER_API_KEY_ENV {
+                    "<redacted>".into()
+                } else {
+                    value.clone()
+                };
+                (key.clone(), safe)
+            })
+            .collect()
+    }
+}
+
+pub(crate) fn render_config(desired: &HermesProviderDesiredState) -> Result<String, String> {
+    desired.validate()?;
+    let provider_identity = format!("custom:{}", desired.provider_id);
+    let mut output = format!(
+        "{MANAGED_HEADER}\nmodel:\n  default: {}\n  provider: {}\nproviders:\n  {}:\n    name: {}\n    base_url: {}\n    key_env: {}\n    api_mode: \"chat_completions\"\n    default_model: {}\n    discover_models: {}\n",
+        yaml_quote(&desired.model),
+        yaml_quote(&provider_identity),
+        desired.provider_id,
+        yaml_quote(&desired.display_name),
+        yaml_quote(&desired.base_url),
+        yaml_quote(&desired.key_env),
+        yaml_quote(&desired.model),
+        desired.discover_models,
+    );
+    if let Some(context_length) = desired.context_length {
+        output.push_str(&format!(
+            "    models:\n      {}:\n        context_length: {context_length}\n",
+            yaml_quote(&desired.model)
+        ));
+    }
+    Ok(output)
+}
+
+fn summary(desired: &HermesProviderDesiredState) -> HermesConfigSummary {
+    HermesConfigSummary {
+        provider_id: desired.provider_id.clone(),
+        provider_identity: format!("custom:{}", desired.provider_id),
+        base_url: desired.base_url.clone(),
+        model: desired.model.clone(),
+        key_env: desired.key_env.clone(),
+        contains_inline_secret: false,
+    }
+}
+
+fn validate_managed_config_contents(content: &str) -> Result<(), String> {
+    if !content.starts_with(MANAGED_HEADER) {
+        return Err("missing BlackRain managed header".into());
+    }
+    if !content.contains("\nmodel:\n") || !content.contains("\nproviders:\n") {
+        return Err("missing model/providers sections".into());
+    }
+    if content.contains("provider: \"custom\"") || !content.contains("provider: \"custom:") {
+        return Err("model provider must be a named custom provider".into());
+    }
+    if !content.contains("key_env: \"BLACKRAIN_HERMES_PROVIDER_API_KEY\"") {
+        return Err("provider key_env is missing or unmanaged".into());
+    }
+    if content.contains("api_key:") {
+        return Err("inline provider secrets are forbidden".into());
+    }
+    Ok(())
+}
+
+fn yaml_quote(value: &str) -> String {
+    serde_json::to_string(value).expect("JSON string quoting cannot fail")
+}
+
+fn validate_provider_id(value: &str) -> Result<(), String> {
+    if value.is_empty()
+        || !value.chars().all(|character| {
+            character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
+        })
+        || !value
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_ascii_lowercase() || character.is_ascii_digit())
+    {
+        return Err("Hermes provider id must use lowercase letters, digits, and hyphens.".into());
+    }
+    Ok(())
+}
+
+fn validate_http_url(value: &str) -> Result<(), String> {
+    let trimmed = value.trim();
+    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://"))
+        || trimmed.chars().any(char::is_whitespace)
+        || trimmed.contains('?')
+        || trimmed.contains('#')
+        || trimmed.contains('@')
+    {
+        return Err(
+            "Hermes provider base_url must be an absolute HTTP(S) URL without credentials, query, or fragment."
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+fn validate_env_key(value: &str) -> Result<(), String> {
+    if value.is_empty()
+        || !value.chars().all(|character| {
+            character.is_ascii_uppercase() || character.is_ascii_digit() || character == '_'
+        })
+    {
+        return Err("Hermes provider key_env must be an uppercase environment key.".into());
+    }
+    Ok(())
+}
+
+fn validate_non_empty(label: &str, value: &str) -> Result<(), String> {
+    if value.trim().is_empty() || value.chars().any(char::is_control) {
+        return Err(format!(
+            "Hermes {label} must be non-empty and contain no control characters."
+        ));
+    }
+    Ok(())
+}
+
+fn validate_secret(label: &str, value: &str, min_length: usize) -> Result<(), String> {
+    if value.len() < min_length || value.chars().any(char::is_control) {
+        return Err(format!(
+            "{label} is missing, too short, or contains control characters."
+        ));
+    }
+    Ok(())
+}
+
+fn atomic_write(path: &Path, data: &[u8]) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("Invalid Hermes config path: {}", path.display()))?;
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let temp = parent.join(format!(".blackrain-hermes-{}.tmp", Uuid::new_v4().simple()));
+    fs::write(&temp, data).map_err(|error| format!("Unable to write Hermes temp file: {error}"))?;
+    tighten_file_permissions(&temp)?;
+    replace_file_atomic(&temp, path).map_err(|error| {
+        let _ = fs::remove_file(&temp);
+        format!("Unable to atomically replace {}: {error}", path.display())
+    })
+}
+
+#[cfg(not(target_os = "windows"))]
+fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
+    fs::rename(source, destination)
+}
+
+#[cfg(target_os = "windows")]
+fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+
+    const MOVEFILE_REPLACE_EXISTING: u32 = 0x1;
+    const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
+    #[link(name = "Kernel32")]
+    extern "system" {
+        fn MoveFileExW(existing: *const u16, replacement: *const u16, flags: u32) -> i32;
+    }
+    let source_wide = source
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let destination_wide = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    // SAFETY: both UTF-16 buffers are NUL-terminated and live for the duration of the call.
+    let result = unsafe {
+        MoveFileExW(
+            source_wide.as_ptr(),
+            destination_wide.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if result == 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+fn tighten_file_permissions(path: &Path) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .map_err(|error| format!("Unable to restrict {} permissions: {error}", path.display()))
+}
+
+#[cfg(not(unix))]
+fn tighten_file_permissions(_path: &Path) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        render_config, HermesConfigInspection, HermesConfigManager, HermesLaunchEnvironment,
+        HermesPaths, HermesProviderDesiredState, PROVIDER_API_KEY_ENV,
+    };
+    use std::fs;
+    use std::path::PathBuf;
+    use uuid::Uuid;
+
+    fn temp_root() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "blackrain-hermes-config-{}",
+            Uuid::new_v4().simple()
+        ))
+    }
+
+    fn desired(model: &str) -> HermesProviderDesiredState {
+        HermesProviderDesiredState::blackrain_new_api(
+            "https://new-api.example.test/v1".into(),
+            model.into(),
+            Some(128_000),
+        )
+    }
+
+    #[test]
+    fn renders_named_provider_without_inline_secrets() {
+        let rendered = render_config(&desired("deepseek-chat")).unwrap();
+        assert!(rendered.contains("provider: \"custom:blackrain-new-api\""));
+        assert!(rendered.contains("providers:\n  blackrain-new-api:"));
+        assert!(rendered.contains(&format!("key_env: \"{PROVIDER_API_KEY_ENV}\"")));
+        assert!(rendered.contains("api_mode: \"chat_completions\""));
+        assert!(!rendered.contains("api_key:"));
+        assert!(!rendered.contains("provider: \"custom\""));
+    }
+
+    #[test]
+    fn rejects_bare_custom_provider_ids() {
+        let mut state = desired("deepseek-chat");
+        state.provider_id = "custom".into();
+        assert!(state.validate().unwrap_err().contains("Bare custom"));
+    }
+
+    #[test]
+    fn paths_are_isolated_under_app_data() {
+        let root = PathBuf::from("/app-data/blackrain");
+        let paths = HermesPaths::from_app_data_dir(&root);
+        assert_eq!(paths.home, root.join("hermes-home"));
+        assert!(!paths.home.ends_with(".hermes"));
+    }
+
+    #[test]
+    fn apply_is_atomic_and_preserves_last_good_config() {
+        let root = temp_root();
+        let manager = HermesConfigManager::new(&root);
+        manager.apply(&desired("deepseek-chat")).unwrap();
+        let first = fs::read_to_string(&manager.paths.config).unwrap();
+        manager.apply(&desired("glm-5")).unwrap();
+        let second = fs::read_to_string(&manager.paths.config).unwrap();
+        let last_good = fs::read_to_string(&manager.paths.last_good_config).unwrap();
+        assert!(first.contains("deepseek-chat"));
+        assert!(second.contains("glm-5"));
+        assert_eq!(last_good, first);
+        let leftovers = fs::read_dir(&manager.paths.home)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
+            .count();
+        assert_eq!(leftovers, 0);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn corrupt_config_requires_explicit_repair_and_is_quarantined() {
+        let root = temp_root();
+        let manager = HermesConfigManager::new(&root);
+        manager.apply(&desired("deepseek-chat")).unwrap();
+        fs::write(&manager.paths.config, "provider: custom\napi_key: leaked\n").unwrap();
+        let inspection = manager.inspect().unwrap();
+        assert!(matches!(
+            inspection,
+            HermesConfigInspection::RepairRequired(_)
+        ));
+        assert!(manager.apply(&desired("glm-5")).is_err());
+        let (_, quarantined) = manager.repair(&desired("glm-5")).unwrap();
+        let quarantined = quarantined.expect("corrupt config quarantine");
+        assert!(quarantined.is_file());
+        assert!(fs::read_to_string(&manager.paths.config)
+            .unwrap()
+            .contains("glm-5"));
+        assert!(manager.paths.last_good_config.is_file());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn launch_environment_is_loopback_only_and_redacted() {
+        let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
+        let api_key = "a".repeat(64);
+        let environment =
+            HermesLaunchEnvironment::build(&paths, 8642, &api_key, "provider-secret").unwrap();
+        assert_eq!(environment.values()["API_SERVER_HOST"], "127.0.0.1");
+        assert_eq!(environment.values()["API_SERVER_ENABLED"], "true");
+        assert_eq!(environment.values()["CUA_DRIVER_RS_TELEMETRY_ENABLED"], "0");
+        assert_eq!(
+            environment.redacted_summary()["API_SERVER_KEY"],
+            "<redacted>"
+        );
+        assert_eq!(
+            environment.redacted_summary()[PROVIDER_API_KEY_ENV],
+            "<redacted>"
+        );
+        assert!(!environment
+            .redacted_summary()
+            .values()
+            .any(|value| value == &api_key));
+    }
+
+    #[test]
+    fn launch_environment_rejects_weak_api_server_keys() {
+        let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
+        let error =
+            HermesLaunchEnvironment::build(&paths, 8642, "short", "provider-secret").unwrap_err();
+        assert!(error.contains("too short"));
+    }
+}

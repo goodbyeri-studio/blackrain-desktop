@@ -32,17 +32,17 @@
 
 ## 阶段 2：隔离配置和凭据
 
-- [ ] 新建 shared Hermes config domain，不在 `lib.rs` 直接拼 YAML/.env
+- [x] 新建 shared Hermes config domain，不在 `lib.rs` 直接拼 YAML/.env
 - [ ] 使用 Tauri App data API 解析独立 `HERMES_HOME`
-- [ ] 实现 config schema 和原子写入
-- [ ] 只生成命名 `providers:`，增加禁止 bare `custom` 的测试
-- [ ] 配置 `127.0.0.1`、受控端口、`API_SERVER_ENABLED=true` 和非空 bearer
-- [ ] 生成高熵 `API_SERVER_KEY`，实现安全保存/轮换策略
+- [x] 实现 config schema 和原子写入
+- [x] 只生成命名 `providers:`，增加禁止 bare `custom` 的测试
+- [x] 配置 `127.0.0.1`、受控端口、`API_SERVER_ENABLED=true` 和非空 bearer
+- [x] 生成高熵 `API_SERVER_KEY`，实现安全保存/轮换策略
 - [ ] 对接模型/平台 secret reference，不在配置、日志或项目中落明文
-- [ ] 注入 `CUA_DRIVER_RS_TELEMETRY_ENABLED=0`，默认不接 Nous Portal
-- [ ] 实现脱敏 config/runtime summary
-- [ ] 配置损坏时保留上一个可用版本并输出 repair plan
-- [ ] 为工作台激活定义受限 desired-state 输入，禁止任意全局环境覆盖
+- [x] 注入 `CUA_DRIVER_RS_TELEMETRY_ENABLED=0`，默认不接 Nous Portal
+- [x] 实现脱敏 config/runtime summary
+- [x] 配置损坏时保留上一个可用版本并输出 repair plan
+- [x] 为工作台激活定义受限 desired-state 输入，禁止任意全局环境覆盖
 
 ## 阶段 3：Windows Hermes runtime 制品
 
