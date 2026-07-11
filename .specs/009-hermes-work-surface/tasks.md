@@ -23,8 +23,8 @@
 - [x] 定义版本化 Hermes raw protocol types，只覆盖实际使用字段并保留 unknown event
 - [x] 定义稳定 `WorkEvent`、`WorkTask`、`WorkRuntimeStatus`、`WorkError` contract
 - [x] 保存锁定版本 capabilities/models/runs/SSE/approval/stop fixtures
-- [ ] 实现 fake Hermes HTTP/SSE server 测试支架
-- [ ] 覆盖正常 run：创建 → stream → tool → completion
+- [x] 实现 fake Hermes HTTP/SSE server 测试支架
+- [x] 覆盖正常 run：创建 → stream → tool → completion
 - [ ] 覆盖 approval：pending → approve/deny → continue/terminate
 - [ ] 覆盖 stop、模型错误、工具错误、鉴权失败和 capability 缺失
 - [ ] 覆盖断流、重复事件、未知事件、乱序、重连和已结束 run
