@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::pin::Pin;
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use futures_util::{stream, Stream, StreamExt};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
@@ -8,6 +9,7 @@ use reqwest::{Method, Response, StatusCode, Url};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::watch;
 use uuid::Uuid;
 
 use super::protocol::{
@@ -21,7 +23,67 @@ const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const MAX_ERROR_BODY_BYTES: usize = 64 * 1024;
 const MAX_JSON_BODY_BYTES: usize = 4 * 1024 * 1024;
+const MAX_SSE_PENDING_FRAMES: usize = 1024;
+const MAX_HTTP_TRACE_ENTRIES: usize = 200;
 const USER_AGENT_VALUE: &str = concat!("BlackRain/", env!("CARGO_PKG_VERSION"), " Hermes-WORK/1");
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HermesHttpTrace {
+    pub(crate) request_id: String,
+    pub(crate) method: String,
+    pub(crate) path: String,
+    pub(crate) status: Option<u16>,
+    pub(crate) outcome: String,
+    pub(crate) elapsed_ms: u64,
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct HermesHttpTraceSink {
+    traces: Arc<Mutex<VecDeque<HermesHttpTrace>>>,
+}
+
+impl HermesHttpTraceSink {
+    pub(crate) fn recent(&self) -> Vec<HermesHttpTrace> {
+        self.traces
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .iter()
+            .cloned()
+            .collect()
+    }
+
+    fn record(&self, trace: HermesHttpTrace) {
+        let mut traces = self
+            .traces
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        traces.push_back(trace);
+        while traces.len() > MAX_HTTP_TRACE_ENTRIES {
+            traces.pop_front();
+        }
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct HermesStreamCancellation {
+    sender: watch::Sender<bool>,
+}
+
+impl HermesStreamCancellation {
+    pub(crate) fn new() -> Self {
+        let (sender, _) = watch::channel(false);
+        Self { sender }
+    }
+
+    pub(crate) fn cancel(&self) {
+        self.sender.send_replace(true);
+    }
+
+    fn subscribe(&self) -> watch::Receiver<bool> {
+        self.sender.subscribe()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct HermesConversationMessage {
@@ -89,6 +151,7 @@ pub(crate) struct HermesApiClient {
     bearer: HeaderValue,
     request_client: reqwest::Client,
     stream_client: reqwest::Client,
+    trace_sink: HermesHttpTraceSink,
 }
 
 impl HermesApiClient {
@@ -107,6 +170,22 @@ impl HermesApiClient {
         request_timeout: Duration,
         connect_timeout: Duration,
     ) -> Result<Self, WorkError> {
+        Self::with_timeouts_and_trace_sink(
+            base_url,
+            bearer,
+            request_timeout,
+            connect_timeout,
+            HermesHttpTraceSink::default(),
+        )
+    }
+
+    pub(crate) fn with_timeouts_and_trace_sink(
+        base_url: &str,
+        bearer: &str,
+        request_timeout: Duration,
+        connect_timeout: Duration,
+        trace_sink: HermesHttpTraceSink,
+    ) -> Result<Self, WorkError> {
         let base_url = validate_loopback_base_url(base_url)?;
         let bearer = validate_bearer(bearer)?;
         let request_client = reqwest::Client::builder()
@@ -123,11 +202,16 @@ impl HermesApiClient {
             bearer,
             request_client,
             stream_client,
+            trace_sink,
         })
     }
 
     pub(crate) fn base_url(&self) -> &str {
         self.base_url.as_str().trim_end_matches('/')
+    }
+
+    pub(crate) fn recent_http_traces(&self) -> Vec<HermesHttpTrace> {
+        self.trace_sink.recent()
     }
 
     pub(crate) async fn health(&self) -> Result<HermesHealth, WorkError> {
@@ -241,19 +325,73 @@ impl HermesApiClient {
         run_id: &str,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<HermesSseFrame, WorkError>> + Send>>, WorkError>
     {
+        self.stream_run_events_inner(run_id, None).await
+    }
+
+    pub(crate) async fn stream_run_events_with_cancel(
+        &self,
+        run_id: &str,
+        cancellation: &HermesStreamCancellation,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<HermesSseFrame, WorkError>> + Send>>, WorkError>
+    {
+        self.stream_run_events_inner(run_id, Some(cancellation))
+            .await
+    }
+
+    async fn stream_run_events_inner(
+        &self,
+        run_id: &str,
+        cancellation: Option<&HermesStreamCancellation>,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<HermesSseFrame, WorkError>> + Send>>, WorkError>
+    {
         validate_path_id("run id", run_id)?;
         let request_id = request_id();
-        let response = self
-            .authorized_request(
-                &self.stream_client,
-                Method::GET,
-                &format!("/v1/runs/{run_id}/events"),
-                &request_id,
-            )?
-            .send()
-            .await
-            .map_err(|error| map_transport_error(error, Some(request_id.clone())))?;
-        let response = ensure_success(response, request_id).await?;
+        let path = format!("/v1/runs/{run_id}/events");
+        let started = Instant::now();
+        let request =
+            self.authorized_request(&self.stream_client, Method::GET, &path, &request_id)?;
+        let response = if let Some(cancellation) = cancellation {
+            let mut receiver = cancellation.subscribe();
+            tokio::select! {
+                response = request.send() => response
+                    .map_err(|error| map_transport_error(error, Some(request_id.clone()))),
+                _ = wait_for_cancellation(&mut receiver) => Err(cancelled_error(Some(request_id.clone()))),
+            }
+        } else {
+            request
+                .send()
+                .await
+                .map_err(|error| map_transport_error(error, Some(request_id.clone())))
+        };
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                self.record_http_trace(
+                    &request_id,
+                    "GET",
+                    &path,
+                    error.http_status,
+                    &error.code,
+                    started,
+                );
+                return Err(error);
+            }
+        };
+        let status = response.status().as_u16();
+        let response = match ensure_success(response, request_id.clone()).await {
+            Ok(response) => response,
+            Err(error) => {
+                self.record_http_trace(
+                    &request_id,
+                    "GET",
+                    &path,
+                    Some(status),
+                    &error.code,
+                    started,
+                );
+                return Err(error);
+            }
+        };
         let content_type = response
             .headers()
             .get(CONTENT_TYPE)
@@ -263,19 +401,39 @@ impl HermesApiClient {
             .to_ascii_lowercase()
             .starts_with("text/event-stream")
         {
-            return Err(client_error(
+            let mut error = client_error(
                 WorkErrorKind::InvalidRequest,
                 "invalid_sse_content_type",
                 "Hermes run events endpoint did not return text/event-stream.",
                 false,
-            ));
+            );
+            error.request_id = Some(request_id.clone());
+            self.record_http_trace(
+                &request_id,
+                "GET",
+                &path,
+                Some(status),
+                &error.code,
+                started,
+            );
+            return Err(error);
         }
+        self.record_http_trace(
+            &request_id,
+            "GET",
+            &path,
+            Some(status),
+            "stream_ready",
+            started,
+        );
 
         struct State<S> {
             stream: S,
             decoder: Option<HermesSseDecoder>,
             pending: VecDeque<Result<HermesSseFrame, WorkError>>,
             finished: bool,
+            cancellation: Option<watch::Receiver<bool>>,
+            request_id: String,
         }
 
         let state = State {
@@ -283,24 +441,55 @@ impl HermesApiClient {
             decoder: Some(HermesSseDecoder::default()),
             pending: VecDeque::new(),
             finished: false,
+            cancellation: cancellation.map(HermesStreamCancellation::subscribe),
+            request_id,
         };
         let output = stream::unfold(state, |mut state| async move {
             loop {
+                if state
+                    .cancellation
+                    .as_ref()
+                    .is_some_and(|receiver| *receiver.borrow())
+                {
+                    state.finished = true;
+                    state.cancellation = None;
+                    return Some((Err(cancelled_error(Some(state.request_id.clone()))), state));
+                }
                 if let Some(item) = state.pending.pop_front() {
                     return Some((item, state));
                 }
                 if state.finished {
                     return None;
                 }
-                match state.stream.next().await {
-                    Some(Ok(chunk)) => {
+                let next = if let Some(receiver) = state.cancellation.as_mut() {
+                    tokio::select! {
+                        item = state.stream.next() => Some(item),
+                        _ = wait_for_cancellation(receiver) => None,
+                    }
+                } else {
+                    Some(state.stream.next().await)
+                };
+                match next {
+                    None => {
+                        state.finished = true;
+                        state.cancellation = None;
+                        state
+                            .pending
+                            .push_back(Err(cancelled_error(Some(state.request_id.clone()))));
+                    }
+                    Some(Some(Ok(chunk))) => {
                         let result = state
                             .decoder
                             .as_mut()
                             .expect("decoder exists until stream completion")
                             .push(&chunk);
                         match result {
-                            Ok(frames) => state.pending.extend(frames.into_iter().map(Ok)),
+                            Ok(frames) => {
+                                if let Err(error) = queue_sse_frames(&mut state.pending, frames) {
+                                    state.finished = true;
+                                    state.pending.push_back(Err(error));
+                                }
+                            }
                             Err(message) => {
                                 state.finished = true;
                                 state.pending.push_back(Err(client_error(
@@ -312,17 +501,22 @@ impl HermesApiClient {
                             }
                         }
                     }
-                    Some(Err(error)) => {
+                    Some(Some(Err(error))) => {
                         state.finished = true;
-                        state
-                            .pending
-                            .push_back(Err(map_transport_error(error, None)));
+                        state.pending.push_back(Err(map_transport_error(
+                            error,
+                            Some(state.request_id.clone()),
+                        )));
                     }
-                    None => {
+                    Some(None) => {
                         state.finished = true;
                         let decoder = state.decoder.take().expect("decoder is consumed once");
                         match decoder.finish() {
-                            Ok(frames) => state.pending.extend(frames.into_iter().map(Ok)),
+                            Ok(frames) => {
+                                if let Err(error) = queue_sse_frames(&mut state.pending, frames) {
+                                    state.pending.push_back(Err(error));
+                                }
+                            }
                             Err(message) => state.pending.push_back(Err(client_error(
                                 WorkErrorKind::Connection,
                                 "truncated_sse_stream",
@@ -393,38 +587,51 @@ impl HermesApiClient {
         body: Option<Value>,
     ) -> Result<T, WorkError> {
         let request_id = request_id();
+        let method_name = method.as_str().to_string();
+        let started = Instant::now();
         let mut request =
             self.authorized_request(&self.request_client, method, path, &request_id)?;
         if let Some(body) = body {
             request = request.json(&body);
         }
-        let response = request
-            .send()
-            .await
-            .map_err(|error| map_transport_error(error, Some(request_id.clone())))?;
-        let response = ensure_success(response, request_id.clone()).await?;
-        let (body, truncated) =
-            read_limited_body(response, MAX_JSON_BODY_BYTES, &request_id).await?;
-        if truncated {
-            return Err(WorkError {
+        let mut response_status = None;
+        let result = async {
+            let response = request
+                .send()
+                .await
+                .map_err(|error| map_transport_error(error, Some(request_id.clone())))?;
+            response_status = Some(response.status().as_u16());
+            let response = ensure_success(response, request_id.clone()).await?;
+            let (body, truncated) =
+                read_limited_body(response, MAX_JSON_BODY_BYTES, &request_id).await?;
+            if truncated {
+                return Err(WorkError {
+                    kind: WorkErrorKind::InvalidRequest,
+                    code: "hermes_json_body_too_large".into(),
+                    message: "Hermes JSON response exceeded 4 MiB.".into(),
+                    retryable: false,
+                    http_status: response_status,
+                    request_id: Some(request_id.clone()),
+                    details: BTreeMap::new(),
+                });
+            }
+            serde_json::from_slice::<T>(&body).map_err(|error| WorkError {
                 kind: WorkErrorKind::InvalidRequest,
-                code: "hermes_json_body_too_large".into(),
-                message: "Hermes JSON response exceeded 4 MiB.".into(),
+                code: "invalid_hermes_json".into(),
+                message: format!("Hermes returned invalid JSON: {error}"),
                 retryable: false,
-                http_status: None,
-                request_id: Some(request_id),
+                http_status: response_status,
+                request_id: Some(request_id.clone()),
                 details: BTreeMap::new(),
-            });
+            })
         }
-        serde_json::from_slice::<T>(&body).map_err(|error| WorkError {
-            kind: WorkErrorKind::InvalidRequest,
-            code: "invalid_hermes_json".into(),
-            message: format!("Hermes returned invalid JSON: {error}"),
-            retryable: false,
-            http_status: None,
-            request_id: Some(request_id),
-            details: BTreeMap::new(),
-        })
+        .await;
+        let (status, outcome) = match &result {
+            Ok(_) => (response_status, "ok"),
+            Err(error) => (error.http_status.or(response_status), error.code.as_str()),
+        };
+        self.record_http_trace(&request_id, &method_name, path, status, outcome, started);
+        result
     }
 
     fn authorized_request(
@@ -479,6 +686,78 @@ impl HermesApiClient {
             HeaderValue::from_str(request_id).expect("UUID request id is a valid header"),
         );
         Ok(client.request(method, url).headers(headers))
+    }
+
+    fn record_http_trace(
+        &self,
+        request_id: &str,
+        method: &str,
+        path: &str,
+        status: Option<u16>,
+        outcome: &str,
+        started: Instant,
+    ) {
+        let trace = HermesHttpTrace {
+            request_id: request_id.into(),
+            method: method.into(),
+            path: path.into(),
+            status,
+            outcome: sanitize_trace_outcome(outcome),
+            elapsed_ms: started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
+        };
+        self.trace_sink.record(trace);
+    }
+}
+
+fn sanitize_trace_outcome(value: &str) -> String {
+    let valid = !value.is_empty()
+        && value.len() <= 80
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'));
+    if valid {
+        value.into()
+    } else {
+        "error".into()
+    }
+}
+
+fn queue_sse_frames(
+    pending: &mut VecDeque<Result<HermesSseFrame, WorkError>>,
+    frames: Vec<HermesSseFrame>,
+) -> Result<(), WorkError> {
+    if pending.len().saturating_add(frames.len()) > MAX_SSE_PENDING_FRAMES {
+        return Err(client_error(
+            WorkErrorKind::Connection,
+            "hermes_sse_backpressure_overflow",
+            "Hermes emitted more SSE frames than the bounded client queue can safely buffer.",
+            true,
+        ));
+    }
+    pending.extend(frames.into_iter().map(Ok));
+    Ok(())
+}
+
+async fn wait_for_cancellation(receiver: &mut watch::Receiver<bool>) {
+    loop {
+        if *receiver.borrow() {
+            return;
+        }
+        if receiver.changed().await.is_err() {
+            std::future::pending::<()>().await;
+        }
+    }
+}
+
+fn cancelled_error(request_id: Option<String>) -> WorkError {
+    WorkError {
+        kind: WorkErrorKind::Cancelled,
+        code: "hermes_stream_cancelled".into(),
+        message: "Hermes event streaming was cancelled by BlackRain.".into(),
+        retryable: false,
+        http_status: None,
+        request_id,
+        details: BTreeMap::new(),
     }
 }
 
@@ -679,7 +958,10 @@ mod tests {
     use futures_util::StreamExt;
     use serde_json::json;
 
-    use super::{HermesApiClient, HermesRunCreateRequest};
+    use super::{
+        queue_sse_frames, sanitize_trace_outcome, HermesApiClient, HermesRunCreateRequest,
+        HermesStreamCancellation, MAX_SSE_PENDING_FRAMES,
+    };
     use crate::shared::hermes_core::fake_server::{FakeExchange, FakeHermesServer};
     use crate::shared::hermes_core::protocol::{HermesApprovalRequest, HermesSseFrame};
     use crate::shared::hermes_core::types::WorkErrorKind;
@@ -708,6 +990,16 @@ mod tests {
         assert!(HermesApiClient::new("http://localhost:8642", bearer()).is_err());
         assert!(HermesApiClient::new("http://127.0.0.1:8642/v1", bearer()).is_err());
         assert!(HermesApiClient::new("http://127.0.0.1:8642", "short").is_err());
+    }
+
+    #[test]
+    fn trace_outcomes_reject_free_form_or_sensitive_text() {
+        assert_eq!(sanitize_trace_outcome("upstream_busy"), "upstream_busy");
+        assert_eq!(
+            sanitize_trace_outcome("private detail with spaces"),
+            "error"
+        );
+        assert_eq!(sanitize_trace_outcome(&"x".repeat(81)), "error");
     }
 
     #[test]
@@ -783,6 +1075,12 @@ mod tests {
             assert!(requests
                 .iter()
                 .all(|request| request.header("x-request-id").is_some()));
+            let traces = client.recent_http_traces();
+            assert_eq!(traces.len(), 7);
+            let serialized = serde_json::to_string(&traces).unwrap();
+            assert!(!serialized.contains(bearer()));
+            assert!(!serialized.contains("stay in project"));
+            assert!(traces.iter().all(|trace| trace.outcome == "ok"));
         });
     }
 
@@ -832,6 +1130,92 @@ mod tests {
             assert!(frames.iter().any(|item| item.is_err()));
             server.finish().await.unwrap();
         });
+    }
+
+    #[test]
+    fn stream_cancellation_interrupts_a_blocked_body_read() {
+        run_async(async {
+            let server = FakeHermesServer::spawn(vec![FakeExchange::sse(
+                "/v1/runs/run_demo_001/events",
+                fixture!("sse-normal.txt"),
+            )
+            .delay_body(Duration::from_millis(200))])
+            .await
+            .unwrap();
+            let client = HermesApiClient::new(&server.base_url, bearer()).unwrap();
+            let cancellation = HermesStreamCancellation::new();
+            let mut stream = client
+                .stream_run_events_with_cancel("run_demo_001", &cancellation)
+                .await
+                .unwrap();
+            cancellation.cancel();
+            let error = stream.next().await.unwrap().unwrap_err();
+            assert_eq!(error.kind, WorkErrorKind::Cancelled);
+            assert_eq!(error.code, "hermes_stream_cancelled");
+            assert!(!error.retryable);
+            assert!(stream.next().await.is_none());
+            server.finish().await.unwrap();
+        });
+    }
+
+    #[test]
+    fn timeout_is_retryable_but_requests_are_never_replayed_implicitly() {
+        run_async(async {
+            let timeout_server = FakeHermesServer::spawn(vec![FakeExchange::json(
+                "GET",
+                "/health",
+                200,
+                fixture!("health.json"),
+            )
+            .delay_body(Duration::from_millis(150))])
+            .await
+            .unwrap();
+            let client = HermesApiClient::with_timeouts(
+                &timeout_server.base_url,
+                bearer(),
+                Duration::from_millis(30),
+                Duration::from_secs(1),
+            )
+            .unwrap();
+            let error = client.health().await.unwrap_err();
+            assert_eq!(error.kind, WorkErrorKind::Timeout);
+            assert!(error.retryable);
+            assert_eq!(timeout_server.finish().await.unwrap().len(), 1);
+
+            let failure_server = FakeHermesServer::spawn(vec![FakeExchange::json(
+                "POST",
+                "/v1/runs",
+                503,
+                r#"{"error":{"message":"temporarily unavailable","code":"upstream_busy"}}"#,
+            )])
+            .await
+            .unwrap();
+            let client = HermesApiClient::new(&failure_server.base_url, bearer()).unwrap();
+            let error = client
+                .create_run(&HermesRunCreateRequest {
+                    input: json!("single attempt"),
+                    instructions: None,
+                    session_id: None,
+                    model: None,
+                    conversation_history: Vec::new(),
+                })
+                .await
+                .unwrap_err();
+            assert_eq!(error.code, "upstream_busy");
+            assert!(error.retryable);
+            assert_eq!(failure_server.finish().await.unwrap().len(), 1);
+        });
+    }
+
+    #[test]
+    fn sse_pending_queue_is_bounded_for_backpressure() {
+        let frames = (0..=MAX_SSE_PENDING_FRAMES)
+            .map(|index| HermesSseFrame::Comment(format!("frame-{index}")))
+            .collect();
+        let mut pending = std::collections::VecDeque::new();
+        let error = queue_sse_frames(&mut pending, frames).unwrap_err();
+        assert_eq!(error.code, "hermes_sse_backpressure_overflow");
+        assert!(pending.is_empty());
     }
 
     #[test]

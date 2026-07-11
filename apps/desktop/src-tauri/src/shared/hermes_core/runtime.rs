@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use super::client::HermesHttpTrace;
 use super::config::{
     render_config, summary, HermesConfigInspection, HermesConfigManager, HermesConfigSummary,
     HermesLaunchEnvironment, HermesPaths, HermesProviderDesiredState,
@@ -22,6 +23,7 @@ pub(crate) struct HermesRuntimeDiagnostics {
     pub(crate) config_state: String,
     pub(crate) config_summary: Option<HermesConfigSummary>,
     pub(crate) recent_logs: Vec<String>,
+    pub(crate) recent_requests: Vec<HermesHttpTrace>,
 }
 
 pub(crate) fn configure_runtime_desired_state(
@@ -102,6 +104,7 @@ pub(crate) async fn runtime_diagnostics(
         config_state,
         config_summary,
         recent_logs: supervisor.recent_logs(),
+        recent_requests: supervisor.recent_http_traces(),
     }
 }
 

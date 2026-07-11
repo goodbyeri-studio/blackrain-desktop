@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -31,6 +32,8 @@ pub(crate) struct FakeExchange {
     pub(crate) body: Vec<u8>,
     /// 声明完整 Content-Length，但只写出前 N bytes，用于模拟 SSE/HTTP 断流。
     pub(crate) disconnect_after: Option<usize>,
+    /// 写完响应头后延迟 body，用于测试请求超时和流取消。
+    pub(crate) body_delay: Option<Duration>,
 }
 
 impl FakeExchange {
@@ -42,6 +45,7 @@ impl FakeExchange {
             content_type: "application/json".into(),
             body: body.as_bytes().to_vec(),
             disconnect_after: None,
+            body_delay: None,
         }
     }
 
@@ -53,11 +57,17 @@ impl FakeExchange {
             content_type: "text/event-stream".into(),
             body: body.as_bytes().to_vec(),
             disconnect_after: None,
+            body_delay: None,
         }
     }
 
     pub(crate) fn disconnect_after(mut self, bytes: usize) -> Self {
         self.disconnect_after = Some(bytes);
+        self
+    }
+
+    pub(crate) fn delay_body(mut self, delay: Duration) -> Self {
+        self.body_delay = Some(delay);
         self
     }
 }
@@ -114,6 +124,7 @@ impl FakeHermesServer {
                         "application/json",
                         br#"{"error":{"message":"unexpected fake request","code":"unexpected_request"}}"#,
                         None,
+                        None,
                     )
                     .await?;
                     return Err(format!(
@@ -127,6 +138,7 @@ impl FakeHermesServer {
                     &exchange.content_type,
                     &exchange.body,
                     exchange.disconnect_after,
+                    exchange.body_delay,
                 )
                 .await?;
             }
@@ -222,6 +234,7 @@ async fn write_response(
     content_type: &str,
     body: &[u8],
     disconnect_after: Option<usize>,
+    body_delay: Option<Duration>,
 ) -> Result<(), String> {
     let reason = match status {
         200 => "OK",
@@ -242,6 +255,9 @@ async fn write_response(
         .write_all(headers.as_bytes())
         .await
         .map_err(|error| format!("Fake Hermes response headers failed: {error}"))?;
+    if let Some(delay) = body_delay {
+        tokio::time::sleep(delay).await;
+    }
     let body_end = disconnect_after.unwrap_or(body.len()).min(body.len());
     stream
         .write_all(&body[..body_end])

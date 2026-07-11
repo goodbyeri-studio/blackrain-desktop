@@ -14,7 +14,7 @@ use tokio::process::Child;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, timeout, Instant};
 
-use super::client::HermesApiClient;
+use super::client::{HermesApiClient, HermesHttpTrace, HermesHttpTraceSink};
 use super::config::HermesLaunchEnvironment;
 use super::types::{
     WorkError, WorkErrorKind, WorkRuntimeState, WorkRuntimeStatus, WORK_SCHEMA_VERSION,
@@ -167,6 +167,7 @@ pub(crate) struct HermesProcessSupervisor {
     start_gate: Mutex<()>,
     state: Mutex<HermesProcessState>,
     logs: Arc<StdMutex<LogState>>,
+    http_traces: HermesHttpTraceSink,
     lease_path: PathBuf,
 }
 
@@ -204,6 +205,7 @@ impl HermesProcessSupervisor {
                 options.log_backups,
                 options.log_memory_lines,
             ))),
+            http_traces: HermesHttpTraceSink::default(),
             options,
             start_gate: Mutex::new(()),
             state: Mutex::new(HermesProcessState {
@@ -314,7 +316,7 @@ impl HermesProcessSupervisor {
 
         let base_url = format!("http://127.0.0.1:{port}");
         if loopback_port_is_open(port).await {
-            let error = classify_port_conflict(&base_url, &bearer).await;
+            let error = classify_port_conflict(&base_url, &bearer, self.http_traces.clone()).await;
             self.set_failed(WorkRuntimeState::Degraded, error.clone(), Some(base_url))
                 .await;
             return Err(error);
@@ -404,11 +406,12 @@ impl HermesProcessSupervisor {
         }
 
         let readiness_request_timeout = self.options.startup_timeout.min(Duration::from_secs(2));
-        let client = match HermesApiClient::with_timeouts(
+        let client = match HermesApiClient::with_timeouts_and_trace_sink(
             &base_url,
             &bearer,
             readiness_request_timeout,
             Duration::from_secs(1),
+            self.http_traces.clone(),
         ) {
             Ok(client) => client,
             Err(error) => {
@@ -529,6 +532,10 @@ impl HermesProcessSupervisor {
             .collect()
     }
 
+    pub(crate) fn recent_http_traces(&self) -> Vec<HermesHttpTrace> {
+        self.http_traces.recent()
+    }
+
     pub(crate) async fn audit_orphaned_process(
         &self,
         bearer: &str,
@@ -592,11 +599,12 @@ impl HermesProcessSupervisor {
 
         if loopback_port_is_open(lease.port).await {
             let base_url = format!("http://127.0.0.1:{}", lease.port);
-            let client = HermesApiClient::with_timeouts(
+            let client = HermesApiClient::with_timeouts_and_trace_sink(
                 &base_url,
                 bearer,
                 Duration::from_secs(2),
                 Duration::from_secs(1),
+                self.http_traces.clone(),
             )?;
             let verified = client.health().await.is_ok_and(|health| {
                 health.platform == "hermes-agent" && health.version == EXPECTED_HERMES_VERSION
@@ -760,12 +768,17 @@ async fn loopback_port_is_open(port: u16) -> bool {
     .is_ok_and(|result| result.is_ok())
 }
 
-async fn classify_port_conflict(base_url: &str, bearer: &str) -> WorkError {
-    let Ok(client) = HermesApiClient::with_timeouts(
+async fn classify_port_conflict(
+    base_url: &str,
+    bearer: &str,
+    trace_sink: HermesHttpTraceSink,
+) -> WorkError {
+    let Ok(client) = HermesApiClient::with_timeouts_and_trace_sink(
         base_url,
         bearer,
         Duration::from_secs(1),
         Duration::from_millis(500),
+        trace_sink,
     ) else {
         return runtime_error(
             "hermes_port_in_use",
@@ -1270,6 +1283,7 @@ mod tests {
         HermesRuntimeLease, HermesSupervisorOptions, LogState, RUNTIME_LEASE_SCHEMA_VERSION,
     };
     use crate::shared::hermes_core::config::{HermesLaunchEnvironment, HermesPaths};
+    use crate::shared::hermes_core::client::HermesHttpTraceSink;
     use crate::shared::hermes_core::fake_server::{FakeExchange, FakeHermesServer};
     use crate::shared::hermes_core::types::WorkRuntimeState;
 
@@ -1415,6 +1429,7 @@ mod tests {
             let error = classify_port_conflict(
                 &server.base_url,
                 "br_fixture_0123456789abcdef0123456789abcdef",
+                HermesHttpTraceSink::default(),
             )
             .await;
             assert_eq!(error.code, "hermes_bearer_mismatch_instance");
@@ -1525,6 +1540,16 @@ mod tests {
             let ready = supervisor.start(environment).await.unwrap();
             assert_eq!(ready.state, WorkRuntimeState::Ready);
             assert_eq!(ready.version.as_deref(), Some("0.18.2"));
+            let traces = supervisor.recent_http_traces();
+            assert!(traces.len() >= 3);
+            let successful = &traces[traces.len() - 3..];
+            assert_eq!(successful[0].path, "/health");
+            assert_eq!(successful[1].path, "/v1/capabilities");
+            assert_eq!(successful[2].path, "/v1/models");
+            assert!(successful.iter().all(|trace| trace.outcome == "ok"));
+            assert!(!serde_json::to_string(&traces)
+                .unwrap()
+                .contains("br_fixture_0123456789abcdef0123456789abcdef"));
             let server = server_task.await.unwrap();
             assert_eq!(server.finish().await.unwrap().len(), 3);
             assert!(supervisor.lease_path.is_file());
