@@ -59,7 +59,12 @@ fn keep_daemon_running_after_close(app_handle: &tauri::AppHandle) -> bool {
 }
 
 #[cfg(desktop)]
-async fn stop_managed_daemons_for_exit(app_handle: tauri::AppHandle) {
+async fn stop_managed_daemons_for_exit(app_handle: tauri::AppHandle, keep_daemon: bool) {
+    let state = app_handle.state::<state::AppState>();
+    let _ = state.hermes_runtime.stop().await;
+    if keep_daemon {
+        return;
+    }
     let state = app_handle.state::<state::AppState>();
     let _ = model_gateway::model_gateway_stop_for_state(state).await;
     let state = app_handle.state::<state::AppState>();
@@ -401,14 +406,13 @@ pub fn run() {
     app.run(|app_handle, event| {
         #[cfg(desktop)]
         if let RunEvent::ExitRequested { api, .. } = event {
-            if !EXIT_CLEANUP_IN_PROGRESS.load(Ordering::SeqCst)
-                && !keep_daemon_running_after_close(app_handle)
-            {
+            if !EXIT_CLEANUP_IN_PROGRESS.load(Ordering::SeqCst) {
                 api.prevent_exit();
                 EXIT_CLEANUP_IN_PROGRESS.store(true, Ordering::SeqCst);
+                let keep_daemon = keep_daemon_running_after_close(app_handle);
                 let app_handle = app_handle.clone();
                 tauri::async_runtime::spawn(async move {
-                    stop_managed_daemons_for_exit(app_handle.clone()).await;
+                    stop_managed_daemons_for_exit(app_handle.clone(), keep_daemon).await;
                     app_handle.exit(0);
                 });
             }

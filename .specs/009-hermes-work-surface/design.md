@@ -1,6 +1,6 @@
 # Design
 
-> 本文描述目标架构，不证明实现完成。当前仓库仍没有 Hermes Tauri 集成；真实进度只看 [verification](verification.md) 和代码。
+> 本文描述目标架构，不证明实现完成。当前仓库已有 shared Hermes config/client/supervisor 并由 AppState 持有，但尚无可供 WORK surface 调用的完整 Tauri adapter；真实进度只看 [verification](verification.md) 和代码。
 
 ## 总体方案
 

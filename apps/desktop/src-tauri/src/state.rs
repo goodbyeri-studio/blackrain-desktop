@@ -7,6 +7,7 @@ use tokio::sync::Mutex;
 
 use crate::dictation::DictationState;
 use crate::shared::codex_core::CodexLoginCancelState;
+use crate::shared::hermes_core::process::{HermesProcessSupervisor, HermesRuntimeLayout};
 use crate::storage::{read_settings, read_workspaces};
 use crate::types::{
     AppSettings, ModelGatewayRuntimeState, ModelGatewayRuntimeStatus, TcpDaemonState,
@@ -80,6 +81,7 @@ pub(crate) struct AppState {
     pub(crate) codex_login_cancels: Mutex<HashMap<String, CodexLoginCancelState>>,
     pub(crate) tcp_daemon: Mutex<TcpDaemonRuntime>,
     pub(crate) model_gateway: Mutex<ModelGatewayRuntime>,
+    pub(crate) hermes_runtime: Arc<HermesProcessSupervisor>,
 }
 
 impl AppState {
@@ -92,6 +94,23 @@ impl AppState {
         let settings_path = data_dir.join("settings.json");
         let hermes_paths =
             crate::shared::hermes_core::config::HermesPaths::from_app_data_dir(&data_dir);
+        let hermes_runtime_root = app
+            .path()
+            .resource_dir()
+            .ok()
+            .map(|root| root.join("hermes-runtime").join("windows-x64"))
+            .filter(|root| root.exists())
+            .unwrap_or_else(|| {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("resources")
+                    .join("hermes-runtime")
+                    .join("windows-x64")
+            });
+        let hermes_runtime = Arc::new(HermesProcessSupervisor::new(
+            HermesRuntimeLayout::from_root(hermes_runtime_root),
+            hermes_paths.home.clone(),
+            data_dir.join("hermes-runtime.log"),
+        ));
         if std::env::var_os("CODEX_HOME").is_none() {
             std::env::set_var("CODEX_HOME", data_dir.join("codex-home"));
         }
@@ -111,6 +130,7 @@ impl AppState {
             codex_login_cancels: Mutex::new(HashMap::new()),
             tcp_daemon: Mutex::new(TcpDaemonRuntime::default()),
             model_gateway: Mutex::new(ModelGatewayRuntime::new(data_dir, gateway_port)),
+            hermes_runtime,
         }
     }
 }

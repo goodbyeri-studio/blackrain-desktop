@@ -146,6 +146,14 @@
 - 影响范围：`client.rs`、阶段 6 task store/恢复、阶段 8 actions 和故障注入测试。
 - 后续复查条件：Hermes 提供正式 idempotency key/cursor contract，或任务层完成能证明安全的请求去重。
 
+## 2026-07-12：supervisor 清空继承环境并拒绝接管未知端口实例
+
+- 决策：spawn Hermes 前执行 `env_clear`，只继承 Windows/Python 启动所需的最小系统变量，再注入 App 生成的 `HERMES_HOME`、loopback、bearer、provider secret 和 telemetry 开关；受控端口已有 listener 时不自动接管，即使它能响应 Hermes health，也必须区分未知实例和 bearer mismatch 后 fail closed。
+- 原因：继承用户 shell 中的 Hermes/provider/telemetry 变量会破坏唯一配置写入者和工作台隔离；仅凭 health 接管旧进程无法证明 PID、配置、版本和密钥归 App 所有。
+- 替代方案：完整继承父进程环境、随机换端口绕过冲突、发现 Hermes health 就直接复用。
+- 影响范围：`process.rs`、后续 PID lease/orphan recovery、诊断 UI 和 Windows 故障矩阵。
+- 后续复查条件：阶段 4 持久化受签名/受校验的 PID lease 后，可安全接管明确属于同一 App/profile 的孤儿实例；未知实例仍不得复用。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
