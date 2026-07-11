@@ -448,7 +448,7 @@ fn validate_secret(label: &str, value: &str, min_length: usize) -> Result<(), St
     Ok(())
 }
 
-fn atomic_write(path: &Path, data: &[u8]) -> Result<(), String> {
+pub(crate) fn atomic_write(path: &Path, data: &[u8]) -> Result<(), String> {
     let parent = path
         .parent()
         .ok_or_else(|| format!("Invalid Hermes config path: {}", path.display()))?;
@@ -503,14 +503,14 @@ fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()>
 }
 
 #[cfg(unix)]
-fn tighten_file_permissions(path: &Path) -> Result<(), String> {
+pub(crate) fn tighten_file_permissions(path: &Path) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(path, fs::Permissions::from_mode(0o600))
         .map_err(|error| format!("Unable to restrict {} permissions: {error}", path.display()))
 }
 
 #[cfg(not(unix))]
-fn tighten_file_permissions(_path: &Path) -> Result<(), String> {
+pub(crate) fn tighten_file_permissions(_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
