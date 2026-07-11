@@ -67,16 +67,16 @@
 - [x] spawn 前台 `hermes gateway` 并注入专属环境
 - [x] 捕获并滚动保存脱敏 stdout/stderr
 - [x] health + capabilities readiness，日志字符串只作辅助
-- [ ] 处理启动超时、端口冲突、旧 PID 和 bearer 不匹配实例
+- [x] 处理启动超时、端口冲突、旧 PID 和 bearer 不匹配实例
 - [x] 实现 graceful stop、超时强杀和 Windows process tree 回收
 - [ ] App 正常退出时清理 Hermes 和受控 MCP 子进程
-- [ ] App 异常退出/下次启动时审计并清理或安全接管孤儿进程
+- [x] App 异常退出/下次启动时审计并清理或安全接管孤儿进程
 - [ ] 处理系统休眠/恢复和网络变化
 - [ ] 暴露 runtime status、start、stop、restart、repair、logs Tauri commands
 - [ ] local-only 时为 remote backend 返回显式 unsupported
 - [x] 补 supervisor 单元、并发和失败注入测试
 
-> 2026-07-12：已实现启动超时、端口冲突和 bearer mismatch fail-closed；旧 PID 持久记录/下次启动孤儿审计尚未实现，因此该组合任务保持未完成。Windows `taskkill /T` 分支已有代码，但仍需 Windows 编译和实机进程树验证。App 正常退出已停止 Hermes；受控 MCP 尚未接入，所以对应组合任务未勾选。
+> 2026-07-12：版本化 PID lease、进程身份核对、health/bearer/capability 复核与下次启动清理已经实现；PID 被复用、身份查询失败或 bearer 不匹配时进入 `repairRequired`，不会误杀。Windows `PowerShell Get-CimInstance`/`taskkill /T` 分支仍需 Windows 编译和实机验证。App 正常退出已停止 Hermes；受控 MCP 尚未接入，所以对应组合任务未勾选。
 
 ## 阶段 5：Hermes API client
 

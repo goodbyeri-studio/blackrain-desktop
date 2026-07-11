@@ -152,6 +152,15 @@ pub fn run() {
             {
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
+                    #[cfg(target_os = "windows")]
+                    if let Ok(bearer) =
+                        crate::shared::hermes_core::credential_store::ensure_api_server_key(
+                            "default", false,
+                        )
+                    {
+                        let state = app_handle.state::<state::AppState>();
+                        let _ = state.hermes_runtime.audit_orphaned_process(&bearer).await;
+                    }
                     let _ = model_gateway::model_gateway_start_for_app(app_handle.clone()).await;
                     let state = app_handle.state::<state::AppState>();
                     let settings = state.app_settings.lock().await.clone();
