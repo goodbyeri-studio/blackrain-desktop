@@ -170,6 +170,14 @@
 - 影响范围：`config.rs`、`runtime.rs`、Tauri adapter、后续 Providers/工作台激活接缝和 repair UI。
 - 后续复查条件：支持多并行 Hermes profile 时，由 Core 分配受控端口和 profile namespace；仍不允许工作台或普通前端调用方指定 binary/env。
 
+## 2026-07-12：normalizer 使用确定性 event id 与有界无值诊断
+
+- 决策：`WorkEvent.event_id` 由完整 raw event 的稳定序列化做 128-bit 确定性 fingerprint，再加同一 raw event 的输出索引；sequence 从 task store 提供的最后序号继续递增。进程内保留最近 20,000 个 fingerprint 去重，未知/损坏事件诊断最多 200 条，只保存受白名单约束的 event type、payload 字段名、时间和原因，不保存 payload 值。
+- 原因：锁定 Hermes SSE 没有 upstream event id/cursor/replay；随机 ID 会使 App 重启后的 journal 无法识别重复事件。完整保存未知 raw payload 又可能把用户输入、命令或文件内容带入诊断。确定性 ID 允许后续 task journal 在 normalizer 重建后继续幂等。
+- 替代方案：以到达 sequence 直接充当 event id、随机 UUID、完整 raw JSON 写诊断、未知事件直接报错终止 stream。
+- 影响范围：`events.rs`、阶段 6 task journal/recovery、阶段 7 event bridge 和阶段 8 reducer。
+- 后续复查条件：Hermes 上游提供稳定 event id/cursor 后优先采用上游 ID，同时保留 schema migration 和旧 journal 去重兼容。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
