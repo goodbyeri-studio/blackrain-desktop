@@ -7,6 +7,7 @@ use std::process::Stdio;
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::process::Child;
@@ -25,6 +26,7 @@ const DEFAULT_LOG_MAX_BYTES: u64 = 2 * 1024 * 1024;
 const DEFAULT_LOG_BACKUPS: usize = 3;
 const DEFAULT_LOG_MEMORY_LINES: usize = 400;
 const MAX_LOG_LINE_CHARS: usize = 4096;
+const RUNTIME_LEASE_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone)]
 pub(crate) struct HermesRuntimeLayout {
@@ -146,6 +148,18 @@ struct HermesProcessState {
     port: Option<u16>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HermesRuntimeLease {
+    schema_version: u32,
+    instance_id: String,
+    pid: u32,
+    port: u16,
+    started_at: f64,
+    executable: String,
+    hermes_version: String,
+}
+
 pub(crate) struct HermesProcessSupervisor {
     layout: HermesRuntimeLayout,
     home: PathBuf,
@@ -153,6 +167,7 @@ pub(crate) struct HermesProcessSupervisor {
     start_gate: Mutex<()>,
     state: Mutex<HermesProcessState>,
     logs: Arc<StdMutex<LogState>>,
+    lease_path: PathBuf,
 }
 
 impl HermesProcessSupervisor {
@@ -180,6 +195,7 @@ impl HermesProcessSupervisor {
             last_error: initial_error,
         };
         Self {
+            lease_path: home.join("runtime-lease.v1.json"),
             layout,
             home,
             logs: Arc::new(StdMutex::new(LogState::new(
@@ -273,6 +289,16 @@ impl HermesProcessSupervisor {
         if let Some(mut child) = stale_child {
             terminate_child_gracefully(&mut child, self.options.graceful_stop_timeout).await;
         }
+        if self.lease_path.exists() {
+            let error = runtime_error(
+                "hermes_orphan_audit_required",
+                "A previous Hermes runtime lease still exists and must be audited before start.",
+                false,
+            );
+            self.set_failed(WorkRuntimeState::RepairRequired, error.clone(), None)
+                .await;
+            return Err(error);
+        }
         if let Err(error) = self.layout.inspect() {
             self.set_failed(WorkRuntimeState::NotInstalled, error.clone(), None)
                 .await;
@@ -355,6 +381,26 @@ impl HermesProcessSupervisor {
                 started_at: Some(now_unix_seconds()),
                 last_error: None,
             };
+        }
+        let pid = pid.ok_or_else(|| {
+            runtime_error(
+                "hermes_pid_missing",
+                "The managed Hermes process did not expose a process id.",
+                true,
+            )
+        })?;
+        let lease = HermesRuntimeLease {
+            schema_version: RUNTIME_LEASE_SCHEMA_VERSION,
+            instance_id: uuid::Uuid::new_v4().to_string(),
+            pid,
+            port,
+            started_at: now_unix_seconds(),
+            executable: self.layout.executable.to_string_lossy().to_string(),
+            hermes_version: EXPECTED_HERMES_VERSION.into(),
+        };
+        if let Err(error) = write_runtime_lease(&self.lease_path, &lease) {
+            self.fail_start(error.clone()).await;
+            return Err(error);
         }
 
         let readiness_request_timeout = self.options.startup_timeout.min(Duration::from_secs(2));
@@ -465,6 +511,7 @@ impl HermesProcessSupervisor {
         state.status.base_url = None;
         state.status.started_at = None;
         state.status.last_error = None;
+        remove_runtime_lease(&self.lease_path);
         self.logs
             .lock()
             .unwrap_or_else(|error| error.into_inner())
@@ -480,6 +527,133 @@ impl HermesProcessSupervisor {
             .iter()
             .cloned()
             .collect()
+    }
+
+    pub(crate) async fn audit_orphaned_process(
+        &self,
+        bearer: &str,
+    ) -> Result<WorkRuntimeStatus, WorkError> {
+        let _gate = self.start_gate.lock().await;
+        self.refresh_process_state().await;
+        {
+            let state = self.state.lock().await;
+            if state.child.is_some() {
+                return Ok(state.status.clone());
+            }
+        }
+        let lease = match read_runtime_lease(&self.lease_path) {
+            Ok(lease) => lease,
+            Err(error) => {
+                self.set_failed(WorkRuntimeState::RepairRequired, error.clone(), None)
+                    .await;
+                return Err(error);
+            }
+        };
+        let Some(lease) = lease else {
+            return Ok(self.state.lock().await.status.clone());
+        };
+        if let Err(error) = validate_runtime_lease(&lease, &self.layout) {
+            self.set_failed(WorkRuntimeState::RepairRequired, error.clone(), None)
+                .await;
+            return Err(error);
+        }
+        let identity = match query_process_identity(lease.pid).await {
+            Ok(identity) => identity,
+            Err(error) => {
+                self.set_failed(WorkRuntimeState::RepairRequired, error.clone(), None)
+                    .await;
+                return Err(error);
+            }
+        };
+        let Some(identity) = identity else {
+            remove_runtime_lease(&self.lease_path);
+            let mut state = self.state.lock().await;
+            state.status.state = if self.layout.inspect().is_ok() {
+                WorkRuntimeState::Stopped
+            } else {
+                WorkRuntimeState::NotInstalled
+            };
+            state.status.pid = None;
+            state.status.base_url = None;
+            state.status.started_at = None;
+            state.status.last_error = None;
+            return Ok(state.status.clone());
+        };
+        if !identity.matches_layout(&self.layout) {
+            let error = runtime_error(
+                "hermes_orphan_pid_reused",
+                "The saved Hermes PID now belongs to a different process; refusing to terminate it.",
+                false,
+            );
+            self.set_failed(WorkRuntimeState::RepairRequired, error.clone(), None)
+                .await;
+            return Err(error);
+        }
+
+        if loopback_port_is_open(lease.port).await {
+            let base_url = format!("http://127.0.0.1:{}", lease.port);
+            let client = HermesApiClient::with_timeouts(
+                &base_url,
+                bearer,
+                Duration::from_secs(2),
+                Duration::from_secs(1),
+            )?;
+            let verified = client.health().await.is_ok_and(|health| {
+                health.platform == "hermes-agent" && health.version == EXPECTED_HERMES_VERSION
+            }) && client
+                .capabilities()
+                .await
+                .and_then(|capabilities| {
+                    HermesApiClient::validate_required_capabilities(&capabilities)
+                })
+                .is_ok();
+            if !verified {
+                let error = runtime_error(
+                    "hermes_orphan_verification_failed",
+                    "A saved Hermes process is still listening but failed bearer/capability verification; refusing to terminate it automatically.",
+                    false,
+                );
+                self.set_failed(
+                    WorkRuntimeState::RepairRequired,
+                    error.clone(),
+                    Some(base_url),
+                )
+                .await;
+                return Err(error);
+            }
+        }
+
+        terminate_pid_tree(lease.pid).await;
+        let process_gone = match wait_for_process_exit(lease.pid, Duration::from_secs(2)).await {
+            Ok(process_gone) => process_gone,
+            Err(error) => {
+                self.set_failed(WorkRuntimeState::RepairRequired, error.clone(), None)
+                    .await;
+                return Err(error);
+            }
+        };
+        if !process_gone {
+            let error = runtime_error(
+                "hermes_orphan_cleanup_failed",
+                "Unable to terminate the verified orphaned Hermes process tree.",
+                true,
+            );
+            self.set_failed(WorkRuntimeState::RepairRequired, error.clone(), None)
+                .await;
+            return Err(error);
+        }
+        remove_runtime_lease(&self.lease_path);
+        let mut state = self.state.lock().await;
+        state.status.state = WorkRuntimeState::Stopped;
+        state.status.pid = None;
+        state.status.base_url = None;
+        state.status.started_at = None;
+        state.status.last_error = None;
+        self.logs
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .append("supervisor", "Cleaned a verified orphaned Hermes process.");
+        Ok(state.status.clone())
     }
 
     async fn refresh_process_state(&self) {
@@ -508,6 +682,7 @@ impl HermesProcessSupervisor {
                 };
                 state.status.pid = None;
                 state.status.last_error = (!exit.success()).then_some(error);
+                remove_runtime_lease(&self.lease_path);
             }
             Ok(None) => state.status.pid = child.id(),
             Err(error) => {
@@ -528,6 +703,7 @@ impl HermesProcessSupervisor {
             Ok(Some(exit)) => {
                 state.child = None;
                 state.port = None;
+                remove_runtime_lease(&self.lease_path);
                 Some(runtime_error(
                     "hermes_process_exited_during_start",
                     &format!("Hermes exited during startup with status {exit}."),
@@ -548,6 +724,7 @@ impl HermesProcessSupervisor {
         if let Some(mut child) = child {
             terminate_child_gracefully(&mut child, self.options.graceful_stop_timeout).await;
         }
+        remove_runtime_lease(&self.lease_path);
         self.set_failed(WorkRuntimeState::Crashed, error, None)
             .await;
     }
@@ -619,6 +796,280 @@ async fn classify_port_conflict(base_url: &str, bearer: &str) -> WorkError {
             "The managed Hermes loopback port is already in use by an unknown process.",
             true,
         ),
+    }
+}
+
+#[derive(Debug)]
+struct ProcessIdentity {
+    executable: String,
+    command_line: String,
+}
+
+impl ProcessIdentity {
+    fn matches_layout(&self, layout: &HermesRuntimeLayout) -> bool {
+        let executable = self.executable.to_ascii_lowercase();
+        let command_line = self.command_line.to_ascii_lowercase();
+        let expected = layout.executable.to_string_lossy().to_ascii_lowercase();
+        let runtime_root = layout.root.to_string_lossy().to_ascii_lowercase();
+        executable == expected
+            || executable.starts_with(&runtime_root)
+            || command_line.contains(&expected)
+            || command_line.contains(&runtime_root)
+    }
+}
+
+#[cfg(windows)]
+async fn query_process_identity(pid: u32) -> Result<Option<ProcessIdentity>, WorkError> {
+    let command = format!(
+        "$p=Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}'; if($p){{@{{executable=$p.ExecutablePath;commandLine=$p.CommandLine}} | ConvertTo-Json -Compress}}"
+    );
+    let output = tokio_command("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &command])
+        .output()
+        .await
+        .map_err(|error| {
+            runtime_error(
+                "hermes_process_identity_query_failed",
+                &format!("Unable to query saved Hermes process identity: {error}"),
+                true,
+            )
+        })?;
+    if !output.status.success() {
+        return Err(runtime_error(
+            "hermes_process_identity_query_failed",
+            "Windows process identity query failed.",
+            true,
+        ));
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    if text.trim().is_empty() {
+        return Ok(None);
+    }
+    let value = serde_json::from_str::<serde_json::Value>(text.trim()).map_err(|error| {
+        runtime_error(
+            "hermes_process_identity_invalid",
+            &format!("Windows process identity response is invalid: {error}"),
+            true,
+        )
+    })?;
+    Ok(Some(ProcessIdentity {
+        executable: value
+            .get("executable")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        command_line: value
+            .get("commandLine")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .to_string(),
+    }))
+}
+
+#[cfg(unix)]
+async fn query_process_identity(pid: u32) -> Result<Option<ProcessIdentity>, WorkError> {
+    let status_output = tokio_command("ps")
+        .args(["-p", &pid.to_string(), "-o", "stat="])
+        .output()
+        .await
+        .map_err(|error| {
+            runtime_error(
+                "hermes_process_identity_query_failed",
+                &format!("Unable to query saved Hermes process status: {error}"),
+                true,
+            )
+        })?;
+    let status = String::from_utf8_lossy(&status_output.stdout);
+    if !status_output.status.success() || status.trim_start().starts_with('Z') {
+        return Ok(None);
+    }
+    let executable = tokio_command("ps")
+        .args(["-p", &pid.to_string(), "-o", "comm="])
+        .output()
+        .await
+        .map_err(|error| {
+            runtime_error(
+                "hermes_process_identity_query_failed",
+                &format!("Unable to query saved Hermes process executable: {error}"),
+                true,
+            )
+        })?;
+    if !executable.status.success() {
+        return Ok(None);
+    }
+    let command_line = tokio_command("ps")
+        .args(["-p", &pid.to_string(), "-o", "command="])
+        .output()
+        .await
+        .map_err(|error| {
+            runtime_error(
+                "hermes_process_identity_query_failed",
+                &format!("Unable to query saved Hermes process command line: {error}"),
+                true,
+            )
+        })?;
+    if !command_line.status.success() {
+        return Ok(None);
+    }
+    let executable = String::from_utf8_lossy(&executable.stdout)
+        .trim()
+        .to_string();
+    if executable.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(ProcessIdentity {
+        executable,
+        command_line: String::from_utf8_lossy(&command_line.stdout)
+            .trim()
+            .to_string(),
+    }))
+}
+
+#[cfg(not(any(unix, windows)))]
+async fn query_process_identity(_pid: u32) -> Result<Option<ProcessIdentity>, WorkError> {
+    Err(runtime_error(
+        "hermes_process_identity_unsupported",
+        "Process identity audit is unsupported on this platform.",
+        false,
+    ))
+}
+
+async fn terminate_pid_tree(pid: u32) {
+    #[cfg(windows)]
+    {
+        let _ = tokio_command("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .await;
+    }
+    #[cfg(unix)]
+    {
+        unsafe {
+            libc::kill(pid as i32, libc::SIGTERM);
+        }
+        for _ in 0..10 {
+            let exited = unsafe { libc::kill(pid as i32, 0) != 0 };
+            if exited {
+                return;
+            }
+            sleep(Duration::from_millis(50)).await;
+        }
+        unsafe {
+            libc::kill(pid as i32, libc::SIGKILL);
+        }
+    }
+}
+
+async fn wait_for_process_exit(pid: u32, wait: Duration) -> Result<bool, WorkError> {
+    let deadline = Instant::now() + wait;
+    loop {
+        if query_process_identity(pid).await?.is_none() {
+            return Ok(true);
+        }
+        if Instant::now() >= deadline {
+            return Ok(false);
+        }
+        sleep(Duration::from_millis(50)).await;
+    }
+}
+
+fn write_runtime_lease(path: &Path, lease: &HermesRuntimeLease) -> Result<(), WorkError> {
+    if path.exists() {
+        return Err(runtime_error(
+            "hermes_orphan_audit_required",
+            "A previous Hermes runtime lease still exists and must be audited before start.",
+            false,
+        ));
+    }
+    let parent = path.parent().ok_or_else(|| {
+        runtime_error(
+            "hermes_lease_path_invalid",
+            "Hermes runtime lease path has no parent directory.",
+            false,
+        )
+    })?;
+    fs::create_dir_all(parent).map_err(|error| {
+        runtime_error(
+            "hermes_lease_directory_failed",
+            &format!("Unable to create Hermes lease directory: {error}"),
+            false,
+        )
+    })?;
+    let temporary = parent.join(format!(
+        ".runtime-lease-{}.tmp",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let body = serde_json::to_vec_pretty(lease).map_err(|error| {
+        runtime_error(
+            "hermes_lease_serialize_failed",
+            &format!("Unable to serialize Hermes runtime lease: {error}"),
+            false,
+        )
+    })?;
+    fs::write(&temporary, body).map_err(|error| {
+        runtime_error(
+            "hermes_lease_write_failed",
+            &format!("Unable to write Hermes runtime lease: {error}"),
+            false,
+        )
+    })?;
+    fs::rename(&temporary, path).map_err(|error| {
+        let _ = fs::remove_file(&temporary);
+        runtime_error(
+            "hermes_lease_commit_failed",
+            &format!("Unable to commit Hermes runtime lease: {error}"),
+            false,
+        )
+    })
+}
+
+fn read_runtime_lease(path: &Path) -> Result<Option<HermesRuntimeLease>, WorkError> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let bytes = fs::read(path).map_err(|error| {
+        runtime_error(
+            "hermes_lease_read_failed",
+            &format!("Unable to read Hermes runtime lease: {error}"),
+            false,
+        )
+    })?;
+    serde_json::from_slice(&bytes).map(Some).map_err(|error| {
+        runtime_error(
+            "hermes_lease_invalid",
+            &format!("Hermes runtime lease is invalid: {error}"),
+            false,
+        )
+    })
+}
+
+fn validate_runtime_lease(
+    lease: &HermesRuntimeLease,
+    layout: &HermesRuntimeLayout,
+) -> Result<(), WorkError> {
+    let valid = lease.schema_version == RUNTIME_LEASE_SCHEMA_VERSION
+        && lease.pid != 0
+        && lease.port != 0
+        && lease.hermes_version == EXPECTED_HERMES_VERSION
+        && Path::new(&lease.executable) == layout.executable;
+    if valid {
+        Ok(())
+    } else {
+        Err(runtime_error(
+            "hermes_lease_mismatch",
+            "Hermes runtime lease does not match the current bundled runtime.",
+            false,
+        ))
+    }
+}
+
+fn remove_runtime_lease(path: &Path) {
+    match fs::remove_file(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => {}
     }
 }
 
@@ -809,12 +1260,14 @@ mod tests {
     use std::future::Future;
     use std::net::TcpListener;
     use std::path::{Path, PathBuf};
+    use std::process::Stdio;
     use std::sync::Arc;
     use std::time::Duration;
 
     use super::{
-        classify_port_conflict, redact_log_line, HermesProcessSupervisor, HermesRuntimeLayout,
-        HermesSupervisorOptions, LogState,
+        classify_port_conflict, read_runtime_lease, redact_log_line, remove_runtime_lease,
+        validate_runtime_lease, write_runtime_lease, HermesProcessSupervisor, HermesRuntimeLayout,
+        HermesRuntimeLease, HermesSupervisorOptions, LogState, RUNTIME_LEASE_SCHEMA_VERSION,
     };
     use crate::shared::hermes_core::config::{HermesLaunchEnvironment, HermesPaths};
     use crate::shared::hermes_core::fake_server::{FakeExchange, FakeHermesServer};
@@ -910,6 +1363,32 @@ mod tests {
         assert_eq!(logs.lines.len(), 10);
         assert!(path.is_file());
         assert!(root.join("hermes.log.1").is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn runtime_lease_is_atomic_versioned_and_refuses_overwrite() {
+        let root = temp_dir("lease");
+        let layout = create_layout(&root.join("runtime"), b"#!/bin/sh\nexit 0\n");
+        let path = root.join("home/runtime-lease.v1.json");
+        let lease = HermesRuntimeLease {
+            schema_version: RUNTIME_LEASE_SCHEMA_VERSION,
+            instance_id: "fixture-instance".into(),
+            pid: 123,
+            port: 8642,
+            started_at: 1.0,
+            executable: layout.executable.to_string_lossy().to_string(),
+            hermes_version: "0.18.2".into(),
+        };
+        write_runtime_lease(&path, &lease).unwrap();
+        assert_eq!(read_runtime_lease(&path).unwrap(), Some(lease.clone()));
+        validate_runtime_lease(&lease, &layout).unwrap();
+        assert_eq!(
+            write_runtime_lease(&path, &lease).unwrap_err().code,
+            "hermes_orphan_audit_required"
+        );
+        remove_runtime_lease(&path);
+        assert!(!path.exists());
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1047,10 +1526,68 @@ mod tests {
             assert_eq!(ready.version.as_deref(), Some("0.18.2"));
             let server = server_task.await.unwrap();
             assert_eq!(server.finish().await.unwrap().len(), 3);
+            assert!(supervisor.lease_path.is_file());
             assert_eq!(
                 supervisor.stop().await.unwrap().state,
                 WorkRuntimeState::Stopped
             );
+            assert!(!supervisor.lease_path.exists());
+            fs::remove_dir_all(root).unwrap();
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn audits_and_cleans_verified_hung_orphan_from_lease() {
+        run_async(async {
+            let root = temp_dir("orphan");
+            let layout = create_layout(
+                &root.join("runtime"),
+                b"#!/bin/sh\nwhile true; do sleep 1; done\n",
+            );
+            let home = root.join("home");
+            let supervisor = HermesProcessSupervisor::with_options(
+                layout.clone(),
+                home,
+                root.join("hermes.log"),
+                HermesSupervisorOptions {
+                    startup_timeout: Duration::from_secs(1),
+                    poll_interval: Duration::from_millis(20),
+                    graceful_stop_timeout: Duration::from_millis(100),
+                    log_max_bytes: 1024,
+                    log_backups: 1,
+                    log_memory_lines: 50,
+                },
+            );
+            let mut child = crate::shared::process_core::tokio_command(&layout.executable)
+                .arg("gateway")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap();
+            let pid = child.id().unwrap();
+            write_runtime_lease(
+                &supervisor.lease_path,
+                &HermesRuntimeLease {
+                    schema_version: RUNTIME_LEASE_SCHEMA_VERSION,
+                    instance_id: "orphan-fixture".into(),
+                    pid,
+                    port: free_port(),
+                    started_at: 1.0,
+                    executable: layout.executable.to_string_lossy().to_string(),
+                    hermes_version: "0.18.2".into(),
+                },
+            )
+            .unwrap();
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            let status = supervisor
+                .audit_orphaned_process("br_fixture_0123456789abcdef0123456789abcdef")
+                .await
+                .unwrap();
+            assert_eq!(status.state, WorkRuntimeState::Stopped);
+            assert!(!supervisor.lease_path.exists());
+            let _ = child.wait().await;
             fs::remove_dir_all(root).unwrap();
         });
     }

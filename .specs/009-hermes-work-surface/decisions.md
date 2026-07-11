@@ -154,6 +154,14 @@
 - 影响范围：`process.rs`、后续 PID lease/orphan recovery、诊断 UI 和 Windows 故障矩阵。
 - 后续复查条件：阶段 4 持久化受签名/受校验的 PID lease 后，可安全接管明确属于同一 App/profile 的孤儿实例；未知实例仍不得复用。
 
+## 2026-07-12：异常退出恢复使用 PID lease 加多重身份验证
+
+- 决策：spawn 成功后在独立 `HERMES_HOME` 写入版本化 `runtime-lease.v1.json`，记录 instance id、PID、受控端口、入口路径和 Hermes 版本；正常 stop/已知退出删除 lease。下次 Windows 启动先通过 `Get-CimInstance` 核对 executable/command line，再按端口状态验证 health、锁定版本、bearer 和 required capabilities，最后才允许 `taskkill /T /F` 清理。
+- 原因：只保存 PID 会遭遇 PID reuse 误杀；只看端口/health 又不能证明进程属于当前 App。进程身份、lease 和 bearer 三者组合才能在不修改 Hermes 黑盒的前提下形成保守恢复边界。
+- 替代方案：发现 lease 就无条件 kill、随机换端口遗忘旧进程、把 bearer 明文写进 lease、自动接管任何 Hermes health 实例。
+- 影响范围：supervisor、App Windows 启动审计、repair UI、强退/系统重启测试和卸载清理。
+- 后续复查条件：Windows Job Object 可稳定覆盖 Hermes 及受控工具进程时，lease 仍保留作诊断/重启恢复，但异常退出的首要回收可转为 kill-on-job-close。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
