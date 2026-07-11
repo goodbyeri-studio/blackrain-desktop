@@ -157,16 +157,18 @@
 
 ## 阶段 10：Hermes Desktop 参考能力迁移
 
-- [ ] 完成候选组件清单和来源 commit 存证
-- [ ] 优先重写 gateway connecting/boot failure 状态到现有 DS
-- [ ] 借鉴 session resume/watchdog 行为
+- [x] 完成候选组件清单和来源 commit 存证
+- [x] 优先重写 gateway connecting/boot failure 状态到现有 DS
+- [x] 借鉴 session resume/watchdog 行为
 - [ ] 借鉴 composer status/queue 和 clarify/approval 行为
-- [ ] 借鉴 tool progress/result summary
-- [ ] 评估并按需实现 PTY attach/detach 与长任务面板
-- [ ] 评估并按需实现 skills/memory/model 面板
-- [ ] 每个复制文件加来源头，更新 NOTICE/THIRD-PARTY
-- [ ] 移除 Electron、Node preload 和 Hermes 私有 dashboard runtime 依赖
-- [ ] 对复制/重写后的行为补 BlackRain 测试，不沿用上游测试数量冒充覆盖
+- [x] 借鉴 tool progress/result summary
+- [x] 评估并按需实现 PTY attach/detach 与长任务面板
+- [x] 评估并按需实现 skills/memory/model 面板
+- [x] 每个复制文件加来源头，更新 NOTICE/THIRD-PARTY
+- [x] 移除 Electron、Node preload 和 Hermes 私有 dashboard runtime 依赖
+- [x] 对复制/重写后的行为补 BlackRain 测试，不沿用上游测试数量冒充覆盖
+
+> 2026-07-12：`references/hermes-desktop-ui-audit.md` 已锁定 Hermes `9de9c25` 的候选路径、依赖/Electron 耦合、License 和逐项复制/重写决定。首版没有复制任何 Hermes Desktop React 文件，因此来源头和 NOTICE/THIRD-PARTY 本阶段为“无复制文件、无需新增”；若后续复制，门禁仍然生效。`WorkRuntimeBanner`、TaskStore/recovery/resume、`WorkEventRow`、`WorkApprovalCard` 已按独立 WORK contract 重写并由 BlackRain 测试覆盖；PTY 结论是如进入产品只复用 BlackRain terminal，Skills/MCP 服从 008，model/memory 延后 002/003/阶段 15。Composer 已有 send/stop/busy/approval/user-input 缺能力说明，但 queue、附件和 active clarify response 仍未完成，所以该项保持未勾选。
 
 ## 阶段 11：工作台激活接缝（与 spec 008 联动）
 
