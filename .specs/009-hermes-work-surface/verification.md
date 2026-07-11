@@ -12,8 +12,8 @@
 - WORK task store/recovery：已实现版本化 snapshot + NDJSON journal、migration、journal-first 提交、稳定 ID 去重、截断尾修复、`AppState::load` 本地审计，以及 runtime start/restart Ready 后的活跃 run status 对账；任务列表/读取/恢复状态已接 WORK UI。
 - WORK task commands/event bridge：已实现本地 task list/read/start/continue/resume/approval/stop/delete metadata/recovery status，真实 run start→SSE→normalizer→TaskStore→`work-event` 纵切，以及前端唯一 IPC 包装和单 listener fanout；retryable 断流已接 status 对账、有限重连和前台恢复对账。
 - WORK 前端状态层：已实现独立 reducer/selectors、并行 bootstrap controller、runtime/task actions、单订阅清理、event/task 响应竞态缓冲、同 task mutation 门禁和 status-first SSE 有限重连；continue/显式 retry 和 App restart bootstrap 已接，active user-input 因锁定协议无 endpoint 未实现。
-- WORK 前端 feature/reducer/UI：Home→Office WORK surface 已接现有主壳，真实 controller actions 已覆盖任务列表/读取/创建/继续、runtime 启动/修复、消息/工具/审批/输出、Stop/Resume 和脱敏诊断；附件/队列/任务删除 UI、008 激活上下文、真实 Tauri/Hermes/Windows 尚未完成。
-- 工作台激活到 WORK 的接缝：`ActivatedWorkbenchContext v1` shared contract、校验和 Hermes desired-state 映射已存在；activation store/commands、前端消费、Skills/MCP 实际挂载仍不存在。
+- WORK 前端 feature/reducer/UI：Home→Office WORK surface 已接现有主壳，真实 controller actions 已覆盖任务列表/读取/创建/继续、runtime 启动/修复、消息/工具/审批/输出、Stop/Resume 和脱敏诊断；创建任务已改为只消费 Core activation。附件/队列/任务删除 UI、真实 Tauri/Hermes/Windows 尚未完成。
+- 工作台激活到 WORK 的接缝：`ActivatedWorkbenchContext v1`、App-data activation store、local-only list/read commands、前端列表消费和 task start 强制门禁已存在；新任务持久化 `activationId`。008 install/verify/activate 生产者与 Skills/MCP 实际挂载仍不存在。
 - Windows NSIS 内 Hermes runtime：未验证。
 
 ## 验证矩阵
@@ -51,6 +51,7 @@
 | 2026-07-12 | 高频 WORK events | 600 个 delta 的 listener 分批、reducer 批量去重/排序/任务投影、卸载清理 | `npm run test -- --run src/features/work/state/reducer.test.ts src/features/work/hooks/useWorkController.test.tsx`; `npm run typecheck`; `npm run lint` | `9 passed`；600 事件按 256/256/88 三批收敛；typecheck 通过；lint 0 error（macOS） | 证明前端批处理 contract，不替代 Windows WebView 长会话性能分析；5 条 lint warning 为既有文件 |
 | 2026-07-12 | 前台/网络恢复 | focus + online 合并去抖；runtime/tasks/recovery 对账；仅 degraded active run 调用 resume；监听器/timer cleanup | `npm run test -- --run src/features/work/hooks/useWorkController.test.tsx`; `npm run typecheck` | `5 passed` + typecheck 通过（macOS/jsdom） | 证明 controller policy；不证明 Windows 原生 sleep/resume、真实网络或 Hermes SSE 恢复，所以阶段 4 总项未勾选 |
 | 2026-07-12 | ActivatedWorkbenchContext v1 | Rust/TS 共享 fixture、未知字段、路径/权限/MCP/plugin/env ref 门禁、Hermes desired-state 单向映射 | `cargo test workbench_core --lib`; `cargo test hermes --lib`; `npm run test -- --run src/features/work/types.test.ts`; `npm run typecheck`; `npm run lint` | `3 passed` + `77 passed`（Rust）+ `5 passed`（TS）；typecheck 通过；lint 0 error（macOS） | contract 存在不等于 008 install/verify/activate 已实现；Windows 路径只做 portable validator 测试，未实机 |
+| 2026-07-12 | Activation store 与正式任务门禁 | App-data 版本化 store 原子替换/重复 ID/目录 symlink 门禁；local-only list/read；controller bootstrap/前台刷新；无 activation 禁用 Composer；task start 只接受 activationId 并持久化该身份 | `cargo test workbench_core --lib`; `cargo test hermes --lib`; `cargo check`; `npm run test -- --run src/features/work/types.test.ts src/features/work/state/reducer.test.ts src/features/work/hooks/useWorkController.test.tsx src/features/work/components/WorkSurface.test.tsx src/services/tauri.test.ts`; `npm run typecheck` | `6 passed` + `77 passed`（Rust）+ `85 passed`（TS targeted）；check/typecheck 通过（macOS） | 前端无 activation 写命令；`persist_verified` 尚未接 008 pipeline。旧任务的 `activationId` 为 null；真实 Office activation、Skills/MCP 挂载与 Windows 未验证 |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |
@@ -134,7 +135,7 @@ cargo check
 - SSE 已确认无 cursor/replay；本地 journal、启动本地审计、runtime Ready 后 run status 收敛、有限自动重连和 replay 去重已实现，但真实网络抖动、休眠恢复和真实 App 重启流程尚未验证。
 - client 已有脱敏有界 trace、取消 token 和 backpressure 门禁，supervisor diagnostics 已聚合 trace并接入前端面板；真实 Tauri WebView、长流性能和 Windows 脱敏审计尚未验证。
 - Hermes Desktop 候选路径、commit、License/依赖/Electron 耦合和复制/重写决定已审计；当前没有复制上游 React 文件，未来任何新增复制仍需逐文件来源头与 NOTICE/THIRD-PARTY 证据。
-- 工作台激活 contract 尚未在 008 实现。
+- activation store/消费门禁已实现，但 008 Manifest/install/verify/activate pipeline 尚未生成正式 activation；当前无可发布的 Office 激活实例。
 - 生产 credit/new-api/BYOK 路由仍待 002/003 决策。
 - Office 质量基线未跑，无法证明 Hermes 能稳定完成长链任务。
 - Remote backend 首版已明确 local-only 并返回 `unsupported_in_remote_backend`；远程 WORK adapter 尚未实现。

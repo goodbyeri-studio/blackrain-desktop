@@ -1858,7 +1858,6 @@ export default function MainApp() {
   const primaryHomeNode = workSurfaceOpen ? (
     <WorkSurface
       controller={workController}
-      workspaces={workspaces}
       onClose={() => setWorkSurfaceOpen(false)}
     />
   ) : homeNode;

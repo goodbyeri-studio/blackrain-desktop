@@ -25,6 +25,7 @@ import type {
   WorkspaceSettings,
 } from "../types";
 import type {
+  ActivatedWorkbenchContext,
   HermesRuntimeDiagnostics,
   HermesTaskContinueInput,
   HermesTaskReadResult,
@@ -1841,6 +1842,16 @@ export async function hermesRuntimeRepair(): Promise<WorkRuntimeStatus> {
 
 export async function hermesRuntimeDiagnostics(): Promise<HermesRuntimeDiagnostics> {
   return invoke<HermesRuntimeDiagnostics>("hermes_runtime_diagnostics");
+}
+
+export async function workbenchActivationList(): Promise<ActivatedWorkbenchContext[]> {
+  return invoke<ActivatedWorkbenchContext[]>("workbench_activation_list");
+}
+
+export async function workbenchActivationRead(
+  activationId: string,
+): Promise<ActivatedWorkbenchContext> {
+  return invoke<ActivatedWorkbenchContext>("workbench_activation_read", { activationId });
 }
 
 export async function hermesTaskList(): Promise<WorkTask[]> {

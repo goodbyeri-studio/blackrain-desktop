@@ -50,6 +50,8 @@ pub(crate) struct WorkRuntimeStatus {
 pub(crate) struct WorkTask {
     pub(crate) schema_version: u32,
     pub(crate) task_id: String,
+    #[serde(default)]
+    pub(crate) activation_id: Option<String>,
     pub(crate) workbench_id: String,
     pub(crate) workbench_version: String,
     pub(crate) project_path: String,

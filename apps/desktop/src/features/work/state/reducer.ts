@@ -1,4 +1,5 @@
 import type {
+  ActivatedWorkbenchContext,
   HermesTaskRecoveryState,
   WorkError,
   WorkEvent,
@@ -17,6 +18,7 @@ export type WorkTaskState = {
 };
 
 export type WorkState = {
+  activations: ActivatedWorkbenchContext[];
   runtime: WorkRuntimeStatus | null;
   recovery: HermesTaskRecoveryState | null;
   tasks: Record<string, WorkTaskState>;
@@ -29,6 +31,7 @@ export type WorkState = {
 };
 
 export const initialWorkState: WorkState = {
+  activations: [],
   runtime: null,
   recovery: null,
   tasks: {},
@@ -46,11 +49,13 @@ export type WorkAction =
       runtime: WorkRuntimeStatus | null;
       recovery: HermesTaskRecoveryState | null;
       tasks: WorkTask[];
+      activations: ActivatedWorkbenchContext[];
       error: WorkError | null;
     }
   | { type: "runtimeUpdated"; runtime: WorkRuntimeStatus }
   | { type: "recoveryUpdated"; recovery: HermesTaskRecoveryState }
   | { type: "tasksLoaded"; tasks: WorkTask[] }
+  | { type: "activationsLoaded"; activations: ActivatedWorkbenchContext[] }
   | { type: "taskLoaded"; task: WorkTask; events: WorkEvent[] }
   | { type: "taskUpserted"; task: WorkTask }
   | { type: "taskRemoved"; taskId: string }
@@ -230,6 +235,7 @@ export function workReducer(state: WorkState, action: WorkAction): WorkState {
         ...merged,
         runtime: action.runtime,
         recovery: action.recovery,
+        activations: action.activations,
         bootstrapping: false,
         lastError: action.error,
       };
@@ -240,6 +246,8 @@ export function workReducer(state: WorkState, action: WorkAction): WorkState {
       return { ...state, recovery: action.recovery };
     case "tasksLoaded":
       return { ...state, ...upsertTasks(state, action.tasks) };
+    case "activationsLoaded":
+      return { ...state, activations: action.activations };
     case "taskLoaded": {
       const pendingState = {
         ...state,

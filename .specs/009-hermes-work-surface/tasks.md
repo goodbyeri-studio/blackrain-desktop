@@ -173,16 +173,16 @@
 ## 阶段 11：工作台激活接缝（与 spec 008 联动）
 
 - [x] 定义 `ActivatedWorkbenchContext` contract
-- [ ] 接收 workbench id/version、project、task、skill roots、plugins/MCP、env refs、permissions
+- [x] 接收 workbench id/version、project、task、skill roots、plugins/MCP、env refs、permissions
 - [ ] 将 Skills 映射到专属 Hermes 环境
 - [ ] 注册/注销受控 MCP server，并验证 `tools/list_changed`
 - [ ] 动态挂载/拔出插件时不重启当前对话，失败可恢复
 - [ ] 停用工作台时停止其受控进程但保留用户项目
 - [ ] 防止不同工作台环境变量、Skills、MCP 和 session 串台
 - [ ] Office 官方工作台进入 WORK surface，而不是 CODE 临时路径
-- [ ] 工作台未通过 008 activate/verify 时禁止创建正式任务
+- [x] 工作台未通过 008 activate/verify 时禁止创建正式任务
 
-> 2026-07-12：shared `workbench_core` 已冻结 `ActivatedWorkbenchContext v1`，Rust/TypeScript 共用 fixture。contract 只包含 Core 签发的 activation/workbench/project/task、绝对 skill roots、插件/MCP 引用、无值 environment refs 和结构化 permission grant；拒绝未知字段、相对/穿越路径、未激活插件的 MCP、重复引用、多 provider credential 和未覆盖项目的文件权限，并可单向映射到受限 `WorkbenchHermesDesiredState`。当前尚无 008 activation store/command，前端也仍未消费 Core-issued context，所以后续项保持未完成。
+> 2026-07-12：shared `workbench_core` 已冻结并持久化 `ActivatedWorkbenchContext v1`，Rust/TypeScript 共用 fixture。App data 下的版本化 activation store 只提供 local-only list/read 前端命令，写入方法仅保留给未来 008 install/verify pipeline；store 拒绝未知 schema、重复 ID、非法 context、文件/目录 symlink 和超过 1024 条记录。WORK controller 启动与前台对账会刷新 activation 列表，surface 只允许选择已验证 context；`hermes_task_start` 只接受 `activationId + prompt`，从 Core store 读取并校验完整 context，再把 activation/workbench/version/project 身份写入持久任务。没有 activation 时 Composer 禁用，前端不能传 workbench/version/project、env、MCP command、binary、host 或 port。Skills/MCP 目前仅完成受限引用接收和 desired-state 映射，尚未实际挂载；008 Manifest/install/verify/activate 生产者仍未实现，因此 Office 当前也没有正式 activation。
 
 ## 阶段 12：真实模型、工具和 Office 纵切
 

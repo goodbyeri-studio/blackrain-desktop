@@ -11,6 +11,7 @@ import {
   hermesTaskRecoveryStatus,
   hermesTaskResume,
   hermesTaskStop,
+  workbenchActivationList,
 } from "@/services/tauri";
 import type { WorkEvent, WorkRuntimeStatus, WorkTask } from "../types";
 import { useWorkController } from "./useWorkController";
@@ -35,6 +36,7 @@ vi.mock("@/services/tauri", () => ({
   hermesTaskResume: vi.fn(),
   hermesTaskStart: vi.fn(),
   hermesTaskStop: vi.fn(),
+  workbenchActivationList: vi.fn(),
 }));
 
 const runtime: WorkRuntimeStatus = {
@@ -50,6 +52,7 @@ const runtime: WorkRuntimeStatus = {
 const task: WorkTask = {
   schemaVersion: 1,
   taskId: "task-1",
+  activationId: "activation-office-demo",
   workbenchId: "office-agent",
   workbenchVersion: "0.1.0",
   projectPath: "C:\\Users\\demo\\Project",
@@ -74,6 +77,7 @@ describe("useWorkController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(subscribeWorkEvents).mockReturnValue(vi.fn());
+    vi.mocked(workbenchActivationList).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -93,6 +97,7 @@ describe("useWorkController", () => {
     expect(hermesRuntimeStatus).toHaveBeenCalledTimes(1);
     expect(hermesTaskList).toHaveBeenCalledTimes(1);
     expect(hermesTaskRecoveryStatus).toHaveBeenCalledTimes(1);
+    expect(workbenchActivationList).toHaveBeenCalledTimes(1);
     expect(result.current.state.bootstrapping).toBe(true);
 
     await act(async () => {

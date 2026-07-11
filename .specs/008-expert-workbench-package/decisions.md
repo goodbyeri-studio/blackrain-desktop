@@ -58,6 +58,14 @@
 - 影响范围：阶段 2 activation store、App/Daemon RPC、009 WORK surface、未来 CODE 工作台激活。
 - 后续复查条件：Manifest schema v1 冻结时补齐从 active state 生成 context 的字段映射和持久化签名；v1 不允许加入可执行配置。
 
+## 2026-07-12：activation store 由 Core 独占写入，surface 只读
+
+- 决策：activation context 持久化在 Tauri App data 下版本化 `workbenches/activations.v1.json`；Core 提供原子替换、容量、schema、重复 ID 和 symlink 门禁。执行 surface 只能通过 local-only list/read command 消费；普通前端没有 create/update/delete 命令。内部 `persist_verified` 预留给阶段 2 install/verify/permission 全部成功后的生命周期状态机。
+- 原因：如果 surface 或工作台包能自行写 activation，就能伪造“已验证”状态，门禁只剩命名。先冻结只读接缝，可以让 009 停止接受前端任意项目路径，同时不谎称 008 安装器已经存在。
+- 替代方案：把 context 放在项目目录、允许前端写 JSON、由每个 surface 维护自己的 activation store，或在 008 完成前继续硬编码 Office 身份。
+- 影响范围：阶段 2生命周期、009 WORK task start、未来 CODE surface、deactivate/upgrade/rollback 和审计。
+- 后续复查条件：正式 activate/deactivate 实现时，将内部写入方法收口进状态机并补 generation/signature/revision 证据；不得为 UI 方便开放通用写命令。
+
 ## 被推翻的方案
 
 ### 2026-07-12：工作台主要是纯 Markdown

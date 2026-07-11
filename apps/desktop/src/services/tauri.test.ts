@@ -27,6 +27,8 @@ import {
   hermesTaskResume,
   hermesTaskStart,
   hermesTaskStop,
+  workbenchActivationList,
+  workbenchActivationRead,
   listThreads,
   listMcpServerStatus,
   modelGatewayDaemonStart,
@@ -541,15 +543,15 @@ describe("tauri invoke wrappers", () => {
     const invokeMock = vi.mocked(invoke);
     invokeMock.mockResolvedValue(undefined);
     const input = {
-      workbenchId: "office-agent",
-      workbenchVersion: "0.1.0",
-      projectPath: "C:\\Users\\demo\\Project",
+      activationId: "activation-office-demo",
       prompt: "整理季度报告",
       model: "office-fast",
     };
 
     await hermesRuntimeStart();
     await hermesRuntimeDiagnostics();
+    await workbenchActivationList();
+    await workbenchActivationRead("activation-office-demo");
     await hermesTaskList();
     await hermesTaskRead("task-1");
     await hermesTaskStart(input);
@@ -562,6 +564,10 @@ describe("tauri invoke wrappers", () => {
 
     expect(invokeMock).toHaveBeenCalledWith("hermes_runtime_start");
     expect(invokeMock).toHaveBeenCalledWith("hermes_runtime_diagnostics");
+    expect(invokeMock).toHaveBeenCalledWith("workbench_activation_list");
+    expect(invokeMock).toHaveBeenCalledWith("workbench_activation_read", {
+      activationId: "activation-office-demo",
+    });
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_list");
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_read", { taskId: "task-1" });
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_start", { input });

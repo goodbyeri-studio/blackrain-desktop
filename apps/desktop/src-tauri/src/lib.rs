@@ -42,6 +42,7 @@ mod tray;
 mod types;
 mod utils;
 mod window;
+mod workbench;
 mod workspaces;
 
 #[cfg(desktop)]
@@ -371,6 +372,8 @@ pub fn run() {
             hermes::hermes_task_stop,
             hermes::hermes_task_delete_local_metadata,
             hermes::hermes_task_recovery_status,
+            workbench::workbench_activation_list,
+            workbench::workbench_activation_read,
             codex::experimental_feature_list,
             codex::set_codex_feature_flag,
             codex::get_agents_settings,

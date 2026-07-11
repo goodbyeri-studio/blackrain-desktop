@@ -13,6 +13,7 @@ function task(overrides: Partial<WorkTask> = {}): WorkTask {
   return {
     schemaVersion: 1,
     taskId: "task-1",
+    activationId: "activation-office-demo",
     workbenchId: "office-agent",
     workbenchVersion: "0.1.0",
     projectPath: "C:\\Users\\demo\\Project",

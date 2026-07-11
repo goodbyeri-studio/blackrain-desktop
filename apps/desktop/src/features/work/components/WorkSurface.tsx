@@ -4,7 +4,6 @@ import Copy from "lucide-react/dist/esm/icons/copy";
 import X from "lucide-react/dist/esm/icons/x";
 
 import { revealPathInFileManager } from "@/services/tauri";
-import type { WorkspaceInfo } from "@/types";
 import { PanelFrame } from "@/features/design-system/components/panel/PanelPrimitives";
 import type { useWorkController } from "../hooks/useWorkController";
 import {
@@ -27,7 +26,6 @@ type WorkController = ReturnType<typeof useWorkController>;
 
 type WorkSurfaceProps = {
   controller: WorkController;
-  workspaces: WorkspaceInfo[];
   onClose: () => void;
 };
 
@@ -39,7 +37,7 @@ function isSettled(status: WorkTaskStatus | undefined) {
   return isTerminal(status) || status === "orphaned";
 }
 
-export function WorkSurface({ controller, workspaces, onClose }: WorkSurfaceProps) {
+export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   const { state } = controller;
   const tasks = selectOrderedTasks(state);
   const selectedTask = selectSelectedTask(state);
@@ -47,13 +45,19 @@ export function WorkSurface({ controller, workspaces, onClose }: WorkSurfaceProp
   const visibleEvents = useMemo(() => buildVisibleWorkEvents(events), [events]);
   const approval = selectPendingApproval(state, state.selectedTaskId);
   const [draft, setDraft] = useState("");
-  const [projectPath, setProjectPath] = useState(() => workspaces[0]?.path ?? "");
+  const [activationId, setActivationId] = useState(
+    () => state.activations[0]?.activationId ?? "",
+  );
   const [diagnostics, setDiagnostics] = useState<HermesRuntimeDiagnostics | null>(null);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [copiedDiagnostics, setCopiedDiagnostics] = useState(false);
   const pending = Object.keys(state.pendingOperations).length > 0;
   const busy = state.bootstrapping || pending;
-  const selectedProjectPath = selectedTask?.projectPath ?? projectPath;
+  const selectedActivation =
+    state.activations.find((activation) => activation.activationId === activationId) ??
+    state.activations[0] ??
+    null;
+  const selectedProjectPath = selectedTask?.projectPath ?? selectedActivation?.project.path ?? "";
   const running = Boolean(selectedTask && !isSettled(selectedTask.status));
   const canStop = selectCanStop(selectedTask);
   const canResume = selectedTask?.status === "degraded" && selectCanResume(selectedTask);
@@ -64,10 +68,10 @@ export function WorkSurface({ controller, workspaces, onClose }: WorkSurfaceProp
   );
 
   useEffect(() => {
-    if (!projectPath && workspaces[0]?.path) {
-      setProjectPath(workspaces[0].path);
+    if (!activationId && state.activations[0]?.activationId) {
+      setActivationId(state.activations[0].activationId);
     }
-  }, [projectPath, workspaces]);
+  }, [activationId, state.activations]);
 
   const handleSelectTask = async (taskId: string) => {
     controller.selectTask(taskId);
@@ -90,13 +94,11 @@ export function WorkSurface({ controller, workspaces, onClose }: WorkSurfaceProp
     if (selectedTask && isTerminal(selectedTask.status)) {
       await controller.continueTask({ taskId: selectedTask.taskId, prompt });
     } else if (!selectedTask) {
-      if (!projectPath) {
+      if (!selectedActivation) {
         return;
       }
       await controller.startTask({
-        workbenchId: "office-agent",
-        workbenchVersion: "0.1.0",
-        projectPath,
+        activationId: selectedActivation.activationId,
         prompt,
       });
     } else {
@@ -165,15 +167,27 @@ export function WorkSurface({ controller, workspaces, onClose }: WorkSurfaceProp
           <div className="work-transcript" aria-live="polite">
             {visibleEvents.length === 0 ? (
               <div className="work-welcome">
-                <h1>{selectedTask ? "任务还没有可展示的事件" : "让 Office 工作台替你完成复杂工作"}</h1>
-                <p>选择项目目录，描述目标。BlackRain 会启动隔离的 Hermes runtime，并在执行高影响操作前请求你的确认。</p>
+                <h1>
+                  {selectedTask
+                    ? "任务还没有可展示的事件"
+                    : selectedActivation
+                      ? "让 Office 工作台替你完成复杂工作"
+                      : "Office 工作台尚未激活"}
+                </h1>
+                <p>
+                  {selectedActivation
+                    ? "选择已验证的工作台项目，描述目标。BlackRain 会启动隔离的 Hermes runtime，并在执行高影响操作前请求你的确认。"
+                    : "需要先通过工作台安装、权限审批和健康验证，才能创建正式 WORK 任务。"}
+                </p>
                 {!selectedTask ? (
                   <label className="work-project-picker">
-                    <span>项目</span>
-                    <select value={projectPath} onChange={(event) => setProjectPath(event.target.value)}>
-                      <option value="" disabled>选择一个项目</option>
-                      {workspaces.map((workspace) => (
-                        <option key={workspace.id} value={workspace.path}>{workspace.name}</option>
+                    <span>已激活工作台项目</span>
+                    <select value={activationId} onChange={(event) => setActivationId(event.target.value)} disabled={state.activations.length === 0}>
+                      <option value="" disabled>选择一个已激活项目</option>
+                      {state.activations.map((activation) => (
+                        <option key={activation.activationId} value={activation.activationId}>
+                          {activation.workbenchId} · {activation.project.path}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -203,7 +217,7 @@ export function WorkSurface({ controller, workspaces, onClose }: WorkSurfaceProp
 
           <WorkComposer
             value={draft}
-            disabled={busy || (!selectedTask && !projectPath) || selectedTask?.status === "orphaned"}
+            disabled={busy || (!selectedTask && !selectedActivation) || selectedTask?.status === "orphaned"}
             running={running}
             canStop={canStop}
             canResume={canResume}

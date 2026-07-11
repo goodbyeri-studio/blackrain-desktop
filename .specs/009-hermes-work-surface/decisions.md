@@ -258,6 +258,14 @@
 - 影响范围：shared `workbench_core`、Hermes desired state、008 activation store、009 task start 和后续 App/Daemon commands。
 - 后续复查条件：008 Manifest v1 和 activation persistence 冻结后，可扩展签名摘要/activation generation；必须通过 schema version 升级，不能给 v1 偷加可执行字段。
 
+## 2026-07-12：正式 WORK task 只接受 Core 持久化的 activationId
+
+- 决策：`hermes_task_start` 不再接收前端提供的 workbench id/version/project path，只接受 `activationId + prompt`。App 从 `%APPDATA%/BlackRain/workbenches/activations.v1.json` 对应的 Tauri App data 路径读取完整 context，重新校验后创建任务；新 `WorkTask` 持久化 `activationId`，旧任务迁移时允许该字段为 `null`。前端只能 list/read，不能写 activation；`persist_verified` 仅供未来 008 install/verify pipeline 内部调用。
+- 原因：只在 UI 隐藏入口不能形成安全门禁，任意前端调用仍可伪造项目和工作台身份。由 Core-owned store 读取且任务保留 activation 身份，才能支持后续停用、隔离、审计和升级归属；旧任务必须继续可恢复，不能为了新增证据字段破坏现有 snapshot。
+- 替代方案：继续接收前端 workbench/version/project、把完整 context 作为 command payload、为开发方便暴露 activation 写命令，或新增字段后拒绝所有旧任务。
+- 影响范围：`workbench_core` store、AppState/Tauri commands、Hermes task start/TaskStore contract、WORK controller/surface 和 spec 008 activation producer。
+- 后续复查条件：008 完成正式 install/verify/activate/deactivate 后，将内部写入入口接入生命周期状态机，并在 deactivate 时按 `activationId` 收敛任务和受控进程；普通前端仍不得获得任意写权限。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

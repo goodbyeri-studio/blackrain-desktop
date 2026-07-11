@@ -62,9 +62,7 @@ fn schedule_task_recovery(state: &AppState) {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct HermesTaskStartInput {
-    workbench_id: String,
-    workbench_version: String,
-    project_path: String,
+    activation_id: String,
     prompt: String,
     instructions: Option<String>,
     model: Option<String>,
@@ -240,14 +238,24 @@ pub(crate) async fn hermes_task_start(
     if let Some(model) = &input.model {
         validate_bounded_text("model", model, 256)?;
     }
+    let activation = state
+        .workbench_activations
+        .lock()
+        .await
+        .read(&input.activation_id)
+        .map_err(|message| command_error("workbench_activation_required", &message, false))?;
+    activation
+        .to_hermes_desired_state()
+        .map_err(|message| command_error("workbench_activation_invalid", &message, false))?;
     let now = now_unix_seconds();
     let task_id = format!("task-{}", uuid::Uuid::new_v4().simple());
     let task = WorkTask {
         schema_version: WORK_SCHEMA_VERSION,
         task_id: task_id.clone(),
-        workbench_id: input.workbench_id,
-        workbench_version: input.workbench_version,
-        project_path: input.project_path,
+        activation_id: Some(activation.activation_id),
+        workbench_id: activation.workbench_id,
+        workbench_version: activation.workbench_version,
+        project_path: activation.project.path,
         hermes_session_id: None,
         active_run_id: None,
         status: WorkTaskStatus::Draft,
@@ -512,9 +520,7 @@ mod tests {
     #[test]
     fn task_start_contract_rejects_runtime_override_fields() {
         let value = serde_json::json!({
-            "workbenchId": "office-agent",
-            "workbenchVersion": "0.1.0",
-            "projectPath": "C:\\Users\\demo\\Project",
+            "activationId": "activation-office-demo",
             "prompt": "整理季度报告",
             "host": "0.0.0.0",
             "port": 9999,
