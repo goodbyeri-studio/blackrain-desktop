@@ -1,0 +1,17 @@
+: keepalive
+
+data: {"event":"message.delta","run_id":"run_demo_001","timestamp":1783814400.1,"delta":"正在读取季度报告。"}
+
+data: {"event":"tool.started","run_id":"run_demo_001","timestamp":1783814400.2,"tool":"read_file","preview":"读取季度报告"}
+
+data: {"event":"tool.completed","run_id":"run_demo_001","timestamp":1783814400.3,"tool":"read_file","duration":0.245,"error":false}
+
+data: {"event":"reasoning.available","run_id":"run_demo_001","timestamp":1783814400.4,"text":"正在检查表格结构"}
+
+data: {"event":"approval.request","run_id":"run_demo_001","timestamp":1783814400.5,"command":"python generate_report.py","description":"生成季度报告文件","pattern_keys":["shell"],"choices":["once","session","always","deny"]}
+
+data: {"event":"approval.responded","run_id":"run_demo_001","timestamp":1783814400.6,"choice":"once","resolved":1}
+
+data: {"event":"run.completed","run_id":"run_demo_001","timestamp":1783814401.0,"output":"季度报告已生成。","usage":{"input_tokens":120,"output_tokens":48,"total_tokens":168}}
+
+: stream closed

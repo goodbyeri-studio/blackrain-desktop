@@ -1,0 +1,16 @@
+{
+  "object": "hermes.run",
+  "run_id": "run_demo_001",
+  "status": "completed",
+  "created_at": 1783814400.0,
+  "updated_at": 1783814401.0,
+  "session_id": "session_demo_001",
+  "model": "office-fast",
+  "last_event": "run.completed",
+  "output": "季度报告已生成。",
+  "usage": {
+    "input_tokens": 120,
+    "output_tokens": 48,
+    "total_tokens": 168
+  }
+}

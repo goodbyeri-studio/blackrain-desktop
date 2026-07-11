@@ -8,27 +8,27 @@
 - [x] 确认 Hermes 锁定 v2026.7.7.2 / `9de9c25`
 - [x] 确认目标协议包含 `/health`、`/v1/capabilities`、`/v1/models`、`/v1/runs`、events、approval、stop
 - [x] 创建本 spec 五件套
-- [ ] 逐项记录锁定 Hermes 的 run event schema 和示例 payload，建立无敏感数据 fixtures
-- [ ] 盘点 Hermes Desktop 中 session、composer、tool、approval、gateway status、PTY、skills/memory 面板的真实来源文件
-- [ ] 为每个 UI 候选记录复制/重写决定、Electron 耦合、第三方依赖和 MIT 署名要求
-- [ ] 盘点现有 Tauri 子进程、sidecar、process tree、keyring、App data、event fanout 可复用基础设施
-- [ ] 盘点当前 Windows resource/vendor/release 脚本中 Hermes runtime 的缺口
-- [ ] 决定并记录 local-only 与 Daemon parity 边界
-- [ ] 决定 Hermes runtime 属于基础包还是 008 managed runtime
-- [ ] 决定 BlackRain task ↔ Hermes session/run 的持久映射格式
-- [ ] 将生产 credit/new-api/BYOK 未决项链接到 002/003，不在实现中偷偷定案
+- [x] 逐项记录锁定 Hermes 的 run event schema 和示例 payload，建立无敏感数据 fixtures
+- [x] 盘点 Hermes Desktop 中 session、composer、tool、approval、gateway status、PTY、skills/memory 面板的真实来源文件
+- [x] 为每个 UI 候选记录复制/重写决定、Electron 耦合、第三方依赖和 MIT 署名要求
+- [x] 盘点现有 Tauri 子进程、sidecar、process tree、keyring、App data、event fanout 可复用基础设施
+- [x] 盘点当前 Windows resource/vendor/release 脚本中 Hermes runtime 的缺口
+- [x] 决定并记录 local-only 与 Daemon parity 边界
+- [x] 决定 Hermes runtime 属于基础包还是 008 managed runtime
+- [x] 决定 BlackRain task ↔ Hermes session/run 的持久映射格式
+- [x] 将生产 credit/new-api/BYOK 未决项链接到 002/003，不在实现中偷偷定案
 
 ## 阶段 1：协议 contract 和 fake server
 
-- [ ] 定义版本化 Hermes raw protocol types，只覆盖实际使用字段并保留 unknown event
-- [ ] 定义稳定 `WorkEvent`、`WorkTask`、`WorkRuntimeStatus`、`WorkError` contract
-- [ ] 保存锁定版本 capabilities/models/runs/SSE/approval/stop fixtures
+- [x] 定义版本化 Hermes raw protocol types，只覆盖实际使用字段并保留 unknown event
+- [x] 定义稳定 `WorkEvent`、`WorkTask`、`WorkRuntimeStatus`、`WorkError` contract
+- [x] 保存锁定版本 capabilities/models/runs/SSE/approval/stop fixtures
 - [ ] 实现 fake Hermes HTTP/SSE server 测试支架
 - [ ] 覆盖正常 run：创建 → stream → tool → completion
 - [ ] 覆盖 approval：pending → approve/deny → continue/terminate
 - [ ] 覆盖 stop、模型错误、工具错误、鉴权失败和 capability 缺失
 - [ ] 覆盖断流、重复事件、未知事件、乱序、重连和已结束 run
-- [ ] 冻结 Rust↔TypeScript 序列化 contract 测试
+- [x] 冻结 Rust↔TypeScript 序列化 contract 测试
 
 ## 阶段 2：隔离配置和凭据
 

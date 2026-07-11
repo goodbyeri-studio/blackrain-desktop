@@ -82,6 +82,38 @@
 - 影响范围：阶段 0/10、代码注释和发行 NOTICE。
 - 后续复查条件：Hermes 上游许可证或目录结构变化。
 
+## 2026-07-12：Hermes runtime 属于 BlackRain 基础包
+
+- 决策：Windows Hermes runtime 由 BlackRain 固定版本、vendor、校验、打包、升级和卸载；不作为某个工作台通过 008 自行安装的 managed runtime。
+- 原因：Hermes 是所有普通/专家工作台的默认执行底座，必须由唯一配置写入者统一保证来源、版本、进程和卸载安全。
+- 替代方案：每个工作台携带自己的 Hermes/venv，或首次激活时从公网安装。
+- 影响范围：阶段 3、spec 007 resources/NSIS、spec 008 runtime dependency 表达。
+- 后续复查条件：未来允许多个经过签名和兼容性验证的 Hermes runtime channel；即使如此仍由 Core 管理，工作台不能直接写入。
+
+## 2026-07-12：任务映射使用版本化快照加事件 journal
+
+- 决策：首版在 App data 下使用 `work/tasks.v1.json` 原子快照和 `work/events/<task_id>.ndjson` 归一化事件 journal，保存 BlackRain task ↔ workbench/project ↔ Hermes session/run 映射。
+- 原因：当前仓库没有 SQLite 依赖；低频任务元数据适合原子 JSON，高频事件需只追加，不能每个 delta 重写整份文件；该结构也能支持 App 重启恢复和 schema migration。
+- 替代方案：只用 localStorage、只存 Hermes session id、每事件重写单一 JSON、立即引入 SQLite。
+- 影响范围：阶段 6、恢复、诊断和卸载数据保留策略。
+- 后续复查条件：性能/一致性测试证明 journal compaction 或 SQLite 是必要条件时迁移物理后端，但保持 `WorkTask`/`WorkEvent` contract。
+
+## 2026-07-12：锁定 Hermes SSE 不具备断点重放
+
+- 决策：将 v2026.7.7.2 `/v1/runs/{id}/events` 视为无 cursor、无 replay 的单消费事件流；BlackRain 不把重连描述成上游续流。
+- 原因：锁定源码在 consumer 结束时删除 `_run_streams` 队列，协议没有 `Last-Event-ID` 或事件查询接口。
+- 替代方案：断线后无条件重新 GET 同一 events URL并假设会补齐历史事件。
+- 影响范围：fake server、normalizer、task journal、断流恢复和 orphaned/degraded UI。
+- 后续复查条件：上游提供有测试保证的 cursor/replay contract 后重新审计并升级 fixtures。
+
+## 2026-07-12：商业计量与 BYOK 不在 WORK 客户端隐式定案
+
+- 决策：credit/套餐/BYOK 服从 spec 002，WORK→new-api 路径服从 spec 003；009 只接收结构化 provider/model desired state 和 secret reference。
+- 原因：客户端私自固化 provider key、模型路由或套餐判断会绕过服务端计量和统一配置边界。
+- 替代方案：为了先跑通，在 Hermes config 中直接写死生产 key 或 BYOK 策略。
+- 影响范围：阶段 2、5、11、12 和设置 UI。
+- 后续复查条件：002/003 对生产认证、模型目录和 BYOK 权限做出正式决策。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
