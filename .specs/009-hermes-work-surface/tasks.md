@@ -134,7 +134,7 @@
 - [ ] 实现断流恢复和 App 重启恢复状态
 - [x] 为 reducer/hooks/actions 建立完整测试
 
-> 2026-07-12：`useWorkController` 并行 bootstrap runtime/tasks/recovery，持有唯一 WORK event subscription，并通过同步 `inFlightRef` 将同一 task 的 resume/approval/stop/delete 串行化，避免等待 render 才生效的双击竞态。Reducer 以 event id 幂等、按 sequence 合并；事件先于 task start 响应到达时进入有界 orphan buffer，task metadata 到达后再收敛，避免真实快响应丢事件。当前 actions 已覆盖 start/resume/approval/stop/delete；continue/retry/user-input 与自动断流重连仍未实现，因此对应总项保持未完成。
+> 2026-07-12：`useWorkController` 并行 bootstrap runtime/tasks/recovery，持有唯一 WORK event subscription，并通过同步 `inFlightRef` 将同一 task 的 continue/resume/approval/stop/delete 串行化，避免等待 render 才生效的双击竞态。Reducer 以 event id 幂等、按 sequence 合并；事件先于 task start 响应到达时进入有界 orphan buffer，task metadata 到达后再收敛，避免真实快响应丢事件。actions 已覆盖 start、终态 task 显式 continue/retry、resume、approval、stop、delete；locked `/v1` 没有 active run user-input response endpoint，不能伪造，因此总项保持未完成。自动断流重连也尚未实现。
 
 ## 阶段 9：Codex 风格 WORK surface UI
 

@@ -19,6 +19,7 @@ import {
   hermesRuntimeDiagnostics,
   hermesRuntimeStart,
   hermesTaskApproval,
+  hermesTaskContinue,
   hermesTaskDeleteLocalMetadata,
   hermesTaskList,
   hermesTaskRead,
@@ -552,6 +553,7 @@ describe("tauri invoke wrappers", () => {
     await hermesTaskList();
     await hermesTaskRead("task-1");
     await hermesTaskStart(input);
+    await hermesTaskContinue({ taskId: "task-1", prompt: "继续整理" });
     await hermesTaskResume("task-1");
     await hermesTaskApproval("task-1", "once", true);
     await hermesTaskStop("task-1");
@@ -563,6 +565,9 @@ describe("tauri invoke wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_list");
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_read", { taskId: "task-1" });
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_start", { input });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_task_continue", {
+      input: { taskId: "task-1", prompt: "继续整理" },
+    });
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_resume", { taskId: "task-1" });
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_approval", {
       taskId: "task-1",

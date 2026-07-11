@@ -365,6 +365,7 @@ pub fn run() {
             hermes::hermes_task_list,
             hermes::hermes_task_read,
             hermes::hermes_task_start,
+            hermes::hermes_task_continue,
             hermes::hermes_task_resume,
             hermes::hermes_task_approval,
             hermes::hermes_task_stop,

@@ -42,10 +42,11 @@ pub(crate) async fn start_task_run(
             return Err(error);
         }
     };
+    let session_id = request.session_id.as_deref().unwrap_or(&started.run_id);
     let task = match store
         .lock()
         .await
-        .attach_run(task_id, &started.run_id, &started.run_id)
+        .attach_run(task_id, &started.run_id, session_id)
     {
         Ok(task) => task,
         Err(error) => {
@@ -343,6 +344,59 @@ mod tests {
         assert!(body.get("port").is_none());
         assert!(body.get("env").is_none());
         registry.release("task-runner", Some("run_demo_001")).await;
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn continuation_preserves_the_existing_session_scope() {
+        let root = temp_root();
+        let store = Arc::new(Mutex::new(HermesTaskStore::new(&root)));
+        let mut continuing = task();
+        continuing.task_id = "task-continue".into();
+        continuing.status = WorkTaskStatus::Completed;
+        continuing.hermes_session_id = Some("session-original".into());
+        store.lock().await.upsert_task(&continuing).unwrap();
+        let registry = Arc::new(HermesRunRegistry::default());
+        let server = FakeHermesServer::spawn(vec![FakeExchange::json(
+            "POST",
+            "/v1/runs",
+            202,
+            r#"{"run_id":"run-continued","status":"started"}"#,
+        )])
+        .await
+        .unwrap();
+        let client = HermesApiClient::new(
+            &server.base_url,
+            "blackrain-test-bearer-runner-continue-123456789",
+        )
+        .unwrap();
+        let started = start_task_run(
+            &store,
+            &registry,
+            &client,
+            "task-continue",
+            &HermesRunCreateRequest {
+                input: serde_json::Value::String("继续处理".into()),
+                instructions: None,
+                session_id: Some("session-original".into()),
+                model: None,
+                conversation_history: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(started.task.active_run_id.as_deref(), Some("run-continued"));
+        assert_eq!(
+            started.task.hermes_session_id.as_deref(),
+            Some("session-original")
+        );
+        let requests = server.finish().await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+        assert_eq!(body["session_id"], "session-original");
+        registry
+            .release("task-continue", Some("run-continued"))
+            .await;
         fs::remove_dir_all(root).unwrap();
     }
 

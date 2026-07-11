@@ -25,6 +25,7 @@ import type {
 } from "../types";
 import type {
   HermesRuntimeDiagnostics,
+  HermesTaskContinueInput,
   HermesTaskReadResult,
   HermesTaskRecoveryState,
   HermesTaskStartInput,
@@ -1847,6 +1848,12 @@ export async function hermesTaskRead(taskId: string): Promise<HermesTaskReadResu
 
 export async function hermesTaskStart(input: HermesTaskStartInput): Promise<WorkTask> {
   return invoke<WorkTask>("hermes_task_start", { input });
+}
+
+export async function hermesTaskContinue(
+  input: HermesTaskContinueInput,
+): Promise<WorkTask> {
+  return invoke<WorkTask>("hermes_task_continue", { input });
 }
 
 export async function hermesTaskResume(taskId: string): Promise<WorkTask> {

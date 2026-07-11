@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { subscribeWorkEvents } from "@/services/events";
 import {
   hermesRuntimeStatus,
+  hermesTaskContinue,
   hermesTaskList,
   hermesTaskRecoveryStatus,
   hermesTaskResume,
@@ -26,6 +27,7 @@ vi.mock("@/services/tauri", () => ({
   hermesRuntimeStatus: vi.fn(),
   hermesRuntimeStop: vi.fn(),
   hermesTaskApproval: vi.fn(),
+  hermesTaskContinue: vi.fn(),
   hermesTaskDeleteLocalMetadata: vi.fn(),
   hermesTaskList: vi.fn(),
   hermesTaskRead: vi.fn(),
@@ -134,6 +136,17 @@ describe("useWorkController", () => {
       await first;
     });
     expect(result.current.state.tasks["task-1"].task.status).toBe("stopping");
+
+    const continued = { ...task, activeRunId: "run-2", status: "running" as const };
+    vi.mocked(hermesTaskContinue).mockResolvedValue(continued);
+    await act(async () => {
+      await result.current.continueTask({ taskId: "task-1", prompt: "继续" });
+    });
+    expect(hermesTaskContinue).toHaveBeenCalledWith({
+      taskId: "task-1",
+      prompt: "继续",
+    });
+    expect(result.current.state.tasks["task-1"].task.activeRunId).toBe("run-2");
   });
 
   it("cleans up the single WORK event subscription", () => {

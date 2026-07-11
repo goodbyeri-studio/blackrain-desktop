@@ -202,6 +202,14 @@
 - 影响范围：阶段 8 reducer/selectors/controller hooks、后续任务 UI 和长任务性能优化。
 - 后续复查条件：event envelope 增加完整 task metadata 或 start command 提供 preallocated task acknowledgement 时，可缩小 orphan buffer，但仍保留有界乱序保护。
 
+## 2026-07-12：继续与重试创建新 run，active user-input 不伪造
+
+- 决策：终态 task 的继续/显式重试必须复用持久化 `hermes_session_id`，通过新的 `POST /v1/runs` 创建 run；不自动重放旧 prompt，也不把 retry 做成隐式 POST。locked Hermes `/v1` 当前没有响应 active `user_input.request` 的正式 endpoint，因此 UI/commands 暂不声称支持该动作。
+- 原因：run create 没有可验证 idempotency key，自动 retry 可能重复执行工具；TaskStore 也不把用户 prompt 额外复制成 retry payload。使用 session id 能保留上游会话 scope，同时让每次继续都是明确的用户动作。把不存在的 user-input endpoint 映射成 approval 或新 run 会破坏语义。
+- 替代方案：失败后自动重发上一请求、把 run id 当长期 session 覆盖旧 session、用 approval endpoint 回填任意文本、或在 active run 旁创建并行 run。
+- 影响范围：shared runner、task continue command、TS IPC/controller，以及阶段 8/9 Composer 行为。
+- 后续复查条件：上游提供正式 user-input response 或幂等 retry contract 后，先更新锁定 contract/fixtures，再接 command 和 UI。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
