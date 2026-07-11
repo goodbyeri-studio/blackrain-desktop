@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 const MANAGED_HEADER: &str = "# BlackRain managed Hermes config v1";
+const MAX_SKILL_TREE_ENTRIES: usize = 50_000;
+const MAX_SKILL_TREE_DEPTH: usize = 32;
 pub(crate) const PROVIDER_API_KEY_ENV: &str = "BLACKRAIN_HERMES_PROVIDER_API_KEY";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,6 +16,7 @@ pub(crate) struct HermesPaths {
     pub(crate) config: PathBuf,
     pub(crate) last_good_config: PathBuf,
     pub(crate) desired_state: PathBuf,
+    pub(crate) workbench_desired_state: PathBuf,
 }
 
 impl HermesPaths {
@@ -23,6 +26,7 @@ impl HermesPaths {
             config: home.join("config.yaml"),
             last_good_config: home.join("config.yaml.last-good"),
             desired_state: home.join("desired-state.v1.json"),
+            workbench_desired_state: home.join("workbench-desired-state.v1.json"),
             home,
         }
     }
@@ -100,6 +104,9 @@ impl WorkbenchHermesDesiredState {
         validate_non_empty("workbench id", &self.workbench_id)?;
         validate_non_empty("workbench version", &self.workbench_version)?;
         validate_non_empty("permission grant id", &self.permission_grant_id)?;
+        if self.skill_roots.is_empty() {
+            return Err("Hermes workbench requires at least one skill root.".into());
+        }
         if self
             .skill_roots
             .iter()
@@ -116,6 +123,7 @@ impl WorkbenchHermesDesiredState {
         if let Some(secret_ref) = &self.provider_secret_ref {
             secret_ref.validate()?;
         }
+        validate_unique_paths(&self.skill_roots)?;
         Ok(())
     }
 }
@@ -219,6 +227,7 @@ impl HermesConfigManager {
         desired: &HermesProviderDesiredState,
     ) -> Result<HermesConfigSummary, String> {
         desired.validate()?;
+        let workbench = self.load_workbench_desired_state()?;
         if let HermesConfigInspection::RepairRequired(plan) = self.inspect()? {
             return Err(format!(
                 "Hermes config requires repair before update: {} ({})",
@@ -236,7 +245,7 @@ impl HermesConfigManager {
                 .map_err(|error| format!("Unable to read previous Hermes config: {error}"))?;
             atomic_write(&self.paths.last_good_config, &previous)?;
         }
-        let rendered = render_config(desired)?;
+        let rendered = render_config_with_workbench(desired, workbench.as_ref())?;
         // desired-state 是 App 的非敏感真源。先持久化它，确保随后 config 写入失败时
         // repair 仍有可用输入；反向顺序会留下无法自动修复的“新 config + 旧/缺失 desired”。
         persist_desired_state(&self.paths.desired_state, desired)?;
@@ -248,13 +257,60 @@ impl HermesConfigManager {
         Ok(summary(desired))
     }
 
+    pub(crate) fn bind_workbench(
+        &self,
+        provider: &HermesProviderDesiredState,
+        workbench: &WorkbenchHermesDesiredState,
+    ) -> Result<HermesConfigSummary, String> {
+        provider.validate()?;
+        workbench.validate()?;
+        if let Some(HermesSecretReference::ProviderCredential { provider_id }) =
+            &workbench.provider_secret_ref
+        {
+            if provider_id != &provider.provider_id {
+                return Err(
+                    "Hermes workbench provider credential does not match the configured provider."
+                        .into(),
+                );
+            }
+        }
+        validate_skill_roots_for_binding(&workbench.skill_roots)?;
+        if let HermesConfigInspection::RepairRequired(plan) = self.inspect()? {
+            return Err(format!(
+                "Hermes config requires repair before binding a workbench: {} ({})",
+                plan.reason, plan.config_path
+            ));
+        }
+        fs::create_dir_all(&self.paths.home).map_err(|error| {
+            format!(
+                "Unable to create isolated HERMES_HOME {}: {error}",
+                self.paths.home.display()
+            )
+        })?;
+        if self.paths.config.is_file() {
+            let previous = fs::read(&self.paths.config)
+                .map_err(|error| format!("Unable to read previous Hermes config: {error}"))?;
+            atomic_write(&self.paths.last_good_config, &previous)?;
+        }
+        persist_workbench_desired_state(&self.paths.workbench_desired_state, workbench)?;
+        persist_desired_state(&self.paths.desired_state, provider)?;
+        let rendered = render_config_with_workbench(provider, Some(workbench))?;
+        atomic_write(&self.paths.config, rendered.as_bytes())?;
+        if !self.paths.last_good_config.exists() {
+            atomic_write(&self.paths.last_good_config, rendered.as_bytes())?;
+        }
+        tighten_file_permissions(&self.paths.config)?;
+        Ok(summary(provider))
+    }
+
     pub(crate) fn repair(
         &self,
         desired: &HermesProviderDesiredState,
     ) -> Result<(HermesConfigSummary, Option<PathBuf>), String> {
         desired.validate()?;
+        let workbench = self.load_workbench_desired_state()?;
         fs::create_dir_all(&self.paths.home).map_err(|error| error.to_string())?;
-        let rendered = render_config(desired)?;
+        let rendered = render_config_with_workbench(desired, workbench.as_ref())?;
         // repair 也先冻结可恢复的 desired-state，再移动现有 config。
         persist_desired_state(&self.paths.desired_state, desired)?;
         let quarantined = if self.paths.config.exists() {
@@ -284,6 +340,29 @@ impl HermesConfigManager {
             .map_err(|error| format!("Hermes desired state is invalid: {error}"))?;
         desired.validate()?;
         Ok(desired)
+    }
+
+    pub(crate) fn load_workbench_desired_state(
+        &self,
+    ) -> Result<Option<WorkbenchHermesDesiredState>, String> {
+        if !self.paths.workbench_desired_state.exists() {
+            return Ok(None);
+        }
+        reject_symlink(
+            &self.paths.workbench_desired_state,
+            "workbench desired state",
+        )?;
+        let bytes = fs::read(&self.paths.workbench_desired_state).map_err(|error| {
+            format!(
+                "Unable to read Hermes workbench desired state {}: {error}",
+                self.paths.workbench_desired_state.display()
+            )
+        })?;
+        let desired = serde_json::from_slice::<WorkbenchHermesDesiredState>(&bytes)
+            .map_err(|error| format!("Hermes workbench desired state is invalid: {error}"))?;
+        desired.validate()?;
+        validate_skill_roots_for_binding(&desired.skill_roots)?;
+        Ok(Some(desired))
     }
 
     fn repair_plan(&self, reason: String) -> HermesRepairPlan {
@@ -348,7 +427,17 @@ impl HermesLaunchEnvironment {
 }
 
 pub(crate) fn render_config(desired: &HermesProviderDesiredState) -> Result<String, String> {
+    render_config_with_workbench(desired, None)
+}
+
+pub(crate) fn render_config_with_workbench(
+    desired: &HermesProviderDesiredState,
+    workbench: Option<&WorkbenchHermesDesiredState>,
+) -> Result<String, String> {
     desired.validate()?;
+    if let Some(workbench) = workbench {
+        workbench.validate()?;
+    }
     let provider_identity = format!("custom:{}", desired.provider_id);
     let mut output = format!(
         "{MANAGED_HEADER}\nmodel:\n  default: {}\n  provider: {}\nproviders:\n  {}:\n    name: {}\n    base_url: {}\n    key_env: {}\n    api_mode: \"chat_completions\"\n    default_model: {}\n    discover_models: {}\n",
@@ -366,6 +455,12 @@ pub(crate) fn render_config(desired: &HermesProviderDesiredState) -> Result<Stri
             "    models:\n      {}:\n        context_length: {context_length}\n",
             yaml_quote(&desired.model)
         ));
+    }
+    if let Some(workbench) = workbench {
+        output.push_str("skills:\n  external_dirs:\n");
+        for root in &workbench.skill_roots {
+            output.push_str(&format!("    - {}\n", yaml_quote(&root.to_string_lossy())));
+        }
     }
     Ok(output)
 }
@@ -386,6 +481,100 @@ fn persist_desired_state(path: &Path, desired: &HermesProviderDesiredState) -> R
         .map_err(|error| format!("Unable to serialize Hermes desired state: {error}"))?;
     atomic_write(path, &body)?;
     tighten_file_permissions(path)
+}
+
+fn persist_workbench_desired_state(
+    path: &Path,
+    desired: &WorkbenchHermesDesiredState,
+) -> Result<(), String> {
+    let body = serde_json::to_vec_pretty(desired)
+        .map_err(|error| format!("Unable to serialize Hermes workbench desired state: {error}"))?;
+    atomic_write(path, &body)?;
+    tighten_file_permissions(path)
+}
+
+fn validate_unique_paths(paths: &[PathBuf]) -> Result<(), String> {
+    let mut seen = HashSet::new();
+    for path in paths {
+        let normalized = path.to_string_lossy().replace('\\', "/");
+        let normalized = if normalized.as_bytes().get(1) == Some(&b':') {
+            normalized.to_ascii_lowercase()
+        } else {
+            normalized
+        };
+        if !seen.insert(normalized) {
+            return Err("Hermes workbench skill roots must be unique.".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_skill_roots_for_binding(paths: &[PathBuf]) -> Result<(), String> {
+    for root in paths {
+        reject_symlink(root, "skill root")?;
+        if !root.is_dir() {
+            return Err(format!(
+                "Hermes workbench skill root does not exist or is not a directory: {}",
+                root.display()
+            ));
+        }
+        let mut stack = vec![(root.clone(), 0usize)];
+        let mut entries = 0usize;
+        let mut found_skill = false;
+        while let Some((directory, depth)) = stack.pop() {
+            if depth > MAX_SKILL_TREE_DEPTH {
+                return Err("Hermes workbench skill tree exceeds the maximum depth.".into());
+            }
+            for entry in fs::read_dir(&directory).map_err(|error| {
+                format!(
+                    "Unable to inspect Hermes workbench skill directory {}: {error}",
+                    directory.display()
+                )
+            })? {
+                let entry = entry.map_err(|error| error.to_string())?;
+                entries += 1;
+                if entries > MAX_SKILL_TREE_ENTRIES {
+                    return Err("Hermes workbench skill tree exceeds the bounded size.".into());
+                }
+                let path = entry.path();
+                let file_type = entry.file_type().map_err(|error| error.to_string())?;
+                if file_type.is_symlink() {
+                    return Err(format!(
+                        "Hermes workbench skill tree cannot contain symbolic links: {}",
+                        path.display()
+                    ));
+                }
+                if file_type.is_dir() {
+                    stack.push((path, depth + 1));
+                } else if file_type.is_file() && entry.file_name() == "SKILL.md" {
+                    found_skill = true;
+                }
+            }
+        }
+        if !found_skill {
+            return Err(format!(
+                "Hermes workbench skill root contains no SKILL.md: {}",
+                root.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn reject_symlink(path: &Path, label: &str) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(path).map_err(|error| {
+        format!(
+            "Unable to inspect Hermes {label} {}: {error}",
+            path.display()
+        )
+    })?;
+    if metadata.file_type().is_symlink() {
+        return Err(format!(
+            "Hermes {label} cannot be a symbolic link: {}",
+            path.display()
+        ));
+    }
+    Ok(())
 }
 
 fn validate_managed_config_contents(content: &str) -> Result<(), String> {
@@ -562,6 +751,20 @@ mod tests {
         )
     }
 
+    fn workbench(skill_root: PathBuf) -> WorkbenchHermesDesiredState {
+        WorkbenchHermesDesiredState {
+            workbench_id: "com.blackrain.office".into(),
+            workbench_version: "0.1.0".into(),
+            skill_roots: vec![skill_root],
+            plugin_ids: vec!["com.blackrain.office-cli".into()],
+            mcp_server_ids: Vec::new(),
+            provider_secret_ref: Some(super::HermesSecretReference::ProviderCredential {
+                provider_id: "blackrain-new-api".into(),
+            }),
+            permission_grant_id: "grant-office-demo".into(),
+        }
+    }
+
     #[test]
     fn renders_named_provider_without_inline_secrets() {
         let rendered = render_config(&desired("deepseek-chat")).unwrap();
@@ -618,6 +821,61 @@ mod tests {
             .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
             .count();
         assert_eq!(leftovers, 0);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn binds_verified_skill_roots_as_external_dirs_and_preserves_them_on_provider_update() {
+        let root = temp_root();
+        let skill_root = root.join("installed-workbench").join("skills");
+        fs::create_dir_all(skill_root.join("office-author")).unwrap();
+        fs::write(
+            skill_root.join("office-author").join("SKILL.md"),
+            "---\nname: office-author\n---\n",
+        )
+        .unwrap();
+        let manager = HermesConfigManager::new(&root);
+        manager.apply(&desired("deepseek-chat")).unwrap();
+        manager
+            .bind_workbench(&desired("deepseek-chat"), &workbench(skill_root.clone()))
+            .unwrap();
+
+        let bound = fs::read_to_string(&manager.paths.config).unwrap();
+        assert!(bound.contains("skills:\n  external_dirs:\n"));
+        assert!(bound.contains(&serde_json::to_string(&skill_root.to_string_lossy()).unwrap()));
+        assert!(manager.paths.workbench_desired_state.is_file());
+
+        manager.apply(&desired("glm-5")).unwrap();
+        let updated = fs::read_to_string(&manager.paths.config).unwrap();
+        assert!(updated.contains("glm-5"));
+        assert!(updated.contains(&serde_json::to_string(&skill_root.to_string_lossy()).unwrap()));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlinks_inside_a_bound_skill_tree() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root();
+        let skill_root = root.join("installed-workbench").join("skills");
+        let outside = root.join("outside");
+        fs::create_dir_all(skill_root.join("office-author")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("SKILL.md"), "---\nname: escaped\n---\n").unwrap();
+        symlink(&outside, skill_root.join("office-author").join("escaped")).unwrap();
+        fs::write(
+            skill_root.join("office-author").join("SKILL.md"),
+            "---\nname: office-author\n---\n",
+        )
+        .unwrap();
+        let manager = HermesConfigManager::new(&root);
+        manager.apply(&desired("deepseek-chat")).unwrap();
+
+        let error = manager
+            .bind_workbench(&desired("deepseek-chat"), &workbench(skill_root))
+            .unwrap_err();
+        assert!(error.contains("cannot contain symbolic links"));
         let _ = fs::remove_dir_all(root);
     }
 

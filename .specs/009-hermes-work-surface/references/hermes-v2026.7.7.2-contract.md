@@ -207,3 +207,25 @@ HTTP 错误使用 OpenAI 风格包裹：
 ```
 
 BlackRain `WorkError` 需要同时保留 HTTP status、上游 code、可展示 message、request id 和可重试性；不能只把 body 压成字符串。
+
+## Skills external_dirs contract
+
+锁定 commit `9de9c25` 的 `agent/skill_utils.py` 提供原生 `skills.external_dirs`：
+
+- 从当前 `HERMES_HOME/config.yaml` 读取 `skills.external_dirs`。
+- 相对路径以 `HERMES_HOME` 为根，绝对路径保持绝对；不存在的目录会跳过。
+- 本地 `HERMES_HOME/skills` 始终排第一，external dirs 按配置顺序追加并去重。
+- cache key 包含 config path 与 `mtime_ns`，配置原子替换后后续扫描会读取新目录。
+- prompt builder、slash skill commands、skill tools 和 credential mount 都消费 `get_all_skills_dirs()`；无需修改 Agent loop。
+- `/reload-skills` 会清理 skill command/prompt cache，但它不是隔离机制，也不能代替 Core 对并发 activation 的门禁。
+
+本仓验证：
+
+```text
+hermes-upstream/.venv/bin/python -m pytest \
+  hermes-upstream/tests/agent/test_external_skills.py \
+  hermes-upstream/tests/agent/test_external_skills_dirs_cache.py -q
+17 passed
+```
+
+BlackRain 只把 008 已验证且运行时再次检查的 roots 写入该字段；不允许工作台或前端直接提供 config 片段。

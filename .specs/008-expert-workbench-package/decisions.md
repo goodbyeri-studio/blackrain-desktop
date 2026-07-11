@@ -60,7 +60,7 @@
 
 ## 2026-07-12：activation store 由 Core 独占写入，surface 只读
 
-- 决策：activation context 持久化在 Tauri App data 下版本化 `workbenches/activations.v1.json`；Core 提供原子替换、容量、schema、重复 ID 和 symlink 门禁。执行 surface 只能通过 local-only list/read command 消费；普通前端没有 create/update/delete 命令。内部 `persist_verified` 预留给阶段 2 install/verify/permission 全部成功后的生命周期状态机。
+- 决策：activation context 持久化在 Tauri App data 下版本化 `workbenches/activations.v1.json`；Core 提供原子替换、容量、schema、重复 ID 和 symlink 门禁。同一 `activationId` 的资源身份不可变，只允许刷新 `verifiedAt`；项目、版本、Skills、插件、权限等变化必须签发新 ID。执行 surface 只能通过 local-only list/read command 消费；普通前端没有 create/update/delete 命令。内部 `persist_verified` 预留给阶段 2 install/verify/permission 全部成功后的生命周期状态机。
 - 原因：如果 surface 或工作台包能自行写 activation，就能伪造“已验证”状态，门禁只剩命名。先冻结只读接缝，可以让 009 停止接受前端任意项目路径，同时不谎称 008 安装器已经存在。
 - 替代方案：把 context 放在项目目录、允许前端写 JSON、由每个 surface 维护自己的 activation store，或在 008 完成前继续硬编码 Office 身份。
 - 影响范围：阶段 2生命周期、009 WORK task start、未来 CODE surface、deactivate/upgrade/rollback 和审计。

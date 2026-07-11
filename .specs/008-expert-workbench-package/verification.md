@@ -8,7 +8,7 @@
 |---|---|---|---|---|
 | 2026-07-12 | spec 五件套存在 | 静态检查目录和文件 | 存在 | 只证明文档建立 |
 | 2026-07-12 | 激活运行 contract | `ActivatedWorkbenchContext v1` Rust/TS shared fixture、校验与 Hermes desired-state 映射 | `cargo test workbench_core --lib`; `npm run test -- --run src/features/work/types.test.ts` | `3 passed`（Rust）+ `5 passed`（TS，macOS） | 当时只证明 activation 输出 contract；后续 store 证据见下一行，Manifest/install/verify 仍未实现 |
-| 2026-07-12 | activation 持久化接缝 | App-data `activations.v1.json` list/read/persist_verified、原子替换、容量/schema/重复 ID/symlink 门禁；前端仅 list/read | `cargo test workbench_core --lib`; `cargo check`; `npm run test -- --run src/features/work/types.test.ts src/features/work/hooks/useWorkController.test.tsx src/features/work/components/WorkSurface.test.tsx src/services/tauri.test.ts`; `npm run typecheck` | `6 passed`（Rust）+ `80 passed`（TS targeted）+ check/typecheck 通过（macOS） | 只证明 store 与只读消费接缝；`persist_verified` 未接 install/verify pipeline，无正式 Office activation，Windows 未验证 |
+| 2026-07-12 | activation 持久化接缝 | App-data `activations.v1.json` list/read/persist_verified、原子替换、容量/schema/重复 ID/symlink 门禁、同 ID 资源不可变；前端仅 list/read | `cargo test workbench_core --lib`; `cargo check`; `npm run test -- --run src/features/work/types.test.ts src/features/work/hooks/useWorkController.test.tsx src/features/work/components/WorkSurface.test.tsx src/services/tauri.test.ts`; `npm run typecheck` | `7 passed`（Rust）+ `80 passed`（TS targeted）+ check/typecheck 通过（macOS） | 只证明 store 与只读消费接缝；`persist_verified` 未接 install/verify pipeline，无正式 Office activation，Windows 未验证 |
 | YYYY-MM-DD | Manifest schema | schema 单测 | 未跑 | 尚无 schema 实现 |
 | YYYY-MM-DD | Office manifest | parse/inspect | 未跑 | 尚未迁移 |
 | YYYY-MM-DD | Windows 安装 | 干净 Windows x64 VM | 未跑 | 尚无安装器 |

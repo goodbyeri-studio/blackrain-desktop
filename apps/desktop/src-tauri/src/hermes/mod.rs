@@ -11,8 +11,8 @@ use crate::shared::hermes_core::protocol::HermesApprovalRequest;
 use crate::shared::hermes_core::recovery::audit_remote_recovery;
 use crate::shared::hermes_core::runner::{consume_run_events, is_terminal_status, start_task_run};
 use crate::shared::hermes_core::runtime::{
-    repair_runtime, restart_runtime, runtime_api_client, runtime_diagnostics, start_runtime,
-    HermesRuntimeDiagnostics,
+    bind_runtime_workbench, repair_runtime, restart_runtime, runtime_api_client,
+    runtime_diagnostics, start_runtime, HermesRuntimeDiagnostics,
 };
 use crate::shared::hermes_core::tasks::HermesTaskRecoveryState;
 use crate::shared::hermes_core::types::{
@@ -92,6 +92,30 @@ fn validate_bounded_text(label: &str, value: &str, max_chars: usize) -> Result<(
             &format!("WORK {label} must be non-empty and at most {max_chars} characters."),
             false,
         ));
+    }
+    Ok(())
+}
+
+fn ensure_no_conflicting_activation(
+    tasks: &[WorkTask],
+    activation_id: &str,
+    exclude_task_id: Option<&str>,
+) -> Result<(), WorkError> {
+    let conflict = tasks.iter().find(|task| {
+        task.active_run_id.is_some()
+            && exclude_task_id != Some(task.task_id.as_str())
+            && task.activation_id.as_deref() != Some(activation_id)
+    });
+    if let Some(task) = conflict {
+        let mut error = command_error(
+            "workbench_activation_conflict",
+            "Another workbench activation has an active Hermes run. Stop it before switching the WORK environment.",
+            false,
+        );
+        error
+            .details
+            .insert("conflictingTaskId".into(), json!(task.task_id));
+        return Err(error);
     }
     Ok(())
 }
@@ -238,15 +262,19 @@ pub(crate) async fn hermes_task_start(
     if let Some(model) = &input.model {
         validate_bounded_text("model", model, 256)?;
     }
+    let _activation_guard = state.hermes_activation_gate.lock().await;
     let activation = state
         .workbench_activations
         .lock()
         .await
         .read(&input.activation_id)
         .map_err(|message| command_error("workbench_activation_required", &message, false))?;
-    activation
+    let workbench_desired = activation
         .to_hermes_desired_state()
         .map_err(|message| command_error("workbench_activation_invalid", &message, false))?;
+    let tasks = state.hermes_tasks.lock().await.load_tasks()?;
+    ensure_no_conflicting_activation(&tasks, &activation.activation_id, None)?;
+    bind_runtime_workbench(&state.hermes_paths, &workbench_desired)?;
     let now = now_unix_seconds();
     let task_id = format!("task-{}", uuid::Uuid::new_v4().simple());
     let task = WorkTask {
@@ -348,6 +376,7 @@ pub(crate) async fn hermes_task_continue(
     if let Some(model) = &input.model {
         validate_bounded_text("model", model, 256)?;
     }
+    let _activation_guard = state.hermes_activation_gate.lock().await;
     let task = state.hermes_tasks.lock().await.load_task(&input.task_id)?;
     if task.active_run_id.is_some() || !is_terminal_status(&task.status) {
         return Err(command_error(
@@ -356,6 +385,35 @@ pub(crate) async fn hermes_task_continue(
             false,
         ));
     }
+    let activation_id = task.activation_id.as_deref().ok_or_else(|| {
+        command_error(
+            "workbench_activation_required",
+            "Legacy WORK task has no verified activation identity and cannot create a new run.",
+            false,
+        )
+    })?;
+    let activation = state
+        .workbench_activations
+        .lock()
+        .await
+        .read(activation_id)
+        .map_err(|message| command_error("workbench_activation_required", &message, false))?;
+    if activation.workbench_id != task.workbench_id
+        || activation.workbench_version != task.workbench_version
+        || activation.project.path != task.project_path
+    {
+        return Err(command_error(
+            "workbench_activation_changed",
+            "The verified workbench activation no longer matches this WORK task.",
+            false,
+        ));
+    }
+    let workbench_desired = activation
+        .to_hermes_desired_state()
+        .map_err(|message| command_error("workbench_activation_invalid", &message, false))?;
+    let tasks = state.hermes_tasks.lock().await.load_tasks()?;
+    ensure_no_conflicting_activation(&tasks, activation_id, Some(&input.task_id))?;
+    bind_runtime_workbench(&state.hermes_paths, &workbench_desired)?;
     let session_id = task.hermes_session_id.ok_or_else(|| {
         command_error(
             "work_task_session_missing",
@@ -501,8 +559,35 @@ pub(crate) async fn hermes_task_recovery_status(
 
 #[cfg(test)]
 mod tests {
-    use super::{unsupported_remote_error, validate_bounded_text, HermesTaskStartInput};
-    use crate::shared::hermes_core::types::WorkErrorKind;
+    use super::{
+        ensure_no_conflicting_activation, unsupported_remote_error, validate_bounded_text,
+        HermesTaskStartInput,
+    };
+    use crate::shared::hermes_core::types::{
+        WorkErrorKind, WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION,
+    };
+
+    fn task(task_id: &str, activation_id: Option<&str>, active_run_id: Option<&str>) -> WorkTask {
+        WorkTask {
+            schema_version: WORK_SCHEMA_VERSION,
+            task_id: task_id.into(),
+            activation_id: activation_id.map(str::to_string),
+            workbench_id: "com.blackrain.office".into(),
+            workbench_version: "0.1.0".into(),
+            project_path: r"C:\Users\demo\Office Project".into(),
+            hermes_session_id: Some(format!("session-{task_id}")),
+            active_run_id: active_run_id.map(str::to_string),
+            status: if active_run_id.is_some() {
+                WorkTaskStatus::Running
+            } else {
+                WorkTaskStatus::Completed
+            },
+            last_event_sequence: 0,
+            created_at: 1.0,
+            updated_at: 1.0,
+            recovery: Default::default(),
+        }
+    }
 
     #[test]
     fn remote_runtime_commands_return_stable_structured_error() {
@@ -542,5 +627,35 @@ mod tests {
                 .code,
             "invalid_work_input"
         );
+    }
+
+    #[test]
+    fn active_runs_cannot_switch_to_another_or_unknown_activation() {
+        let active = task("task-office", Some("activation-office"), Some("run-office"));
+        assert!(ensure_no_conflicting_activation(
+            std::slice::from_ref(&active),
+            "activation-office",
+            None,
+        )
+        .is_ok());
+        assert_eq!(
+            ensure_no_conflicting_activation(
+                std::slice::from_ref(&active),
+                "activation-finance",
+                None,
+            )
+            .unwrap_err()
+            .code,
+            "workbench_activation_conflict"
+        );
+
+        let legacy = task("task-legacy", None, Some("run-legacy"));
+        assert!(ensure_no_conflicting_activation(&[legacy], "activation-office", None).is_err());
+        assert!(ensure_no_conflicting_activation(
+            &[active],
+            "activation-finance",
+            Some("task-office"),
+        )
+        .is_ok());
     }
 }
