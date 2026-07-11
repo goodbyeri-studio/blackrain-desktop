@@ -1,0 +1,8 @@
+{
+  "error": {
+    "message": "Upstream model is temporarily unavailable",
+    "type": "server_error",
+    "param": null,
+    "code": "model_unavailable"
+  }
+}

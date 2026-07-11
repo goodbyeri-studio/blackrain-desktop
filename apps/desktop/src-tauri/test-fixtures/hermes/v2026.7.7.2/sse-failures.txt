@@ -1,0 +1,7 @@
+data: {"event":"tool.started","run_id":"run_demo_failed","timestamp":1783814400.2,"tool":"write_file","preview":"写入报告"}
+
+data: {"event":"tool.completed","run_id":"run_demo_failed","timestamp":1783814400.3,"tool":"write_file","duration":0.101,"error":true}
+
+data: {"event":"run.failed","run_id":"run_demo_failed","timestamp":1783814400.8,"error":"Upstream model request failed"}
+
+: stream closed

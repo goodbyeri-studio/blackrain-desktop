@@ -248,6 +248,9 @@ mod tests {
     use std::future::Future;
 
     use super::{FakeExchange, FakeHermesServer};
+    use crate::shared::hermes_core::protocol::{
+        parse_sse_transcript, HermesCapabilities, HermesSseFrame,
+    };
 
     macro_rules! fixture {
         ($name:literal) => {
@@ -332,6 +335,16 @@ mod tests {
                     200,
                     fixture!("stop-response.json"),
                 ),
+                FakeExchange::sse(
+                    "/v1/runs/run_demo_cancelled/events",
+                    fixture!("sse-cancelled.txt"),
+                ),
+                FakeExchange::json(
+                    "GET",
+                    "/v1/runs/run_demo_cancelled",
+                    200,
+                    fixture!("run-status-cancelled.json"),
+                ),
             ])
             .await
             .unwrap();
@@ -348,7 +361,32 @@ mod tests {
                 .send()
                 .await
                 .unwrap();
+            let cancelled_events = client
+                .get(format!(
+                    "{}/v1/runs/run_demo_cancelled/events",
+                    server.base_url
+                ))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            assert!(cancelled_events.contains("run.cancelled"));
+            let cancelled_status = client
+                .get(format!("{}/v1/runs/run_demo_cancelled", server.base_url))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(&cancelled_status).unwrap()["status"],
+                "cancelled"
+            );
             let requests = server.finish().await.unwrap();
+            assert_eq!(requests.len(), 4);
             assert_eq!(
                 serde_json::from_slice::<serde_json::Value>(&requests[0].body).unwrap()["choice"],
                 "deny"
@@ -371,6 +409,258 @@ mod tests {
                 .await
                 .unwrap();
             assert!(response.bytes().await.is_err());
+            let _ = server.finish().await.unwrap();
+        });
+    }
+
+    #[test]
+    fn covers_approval_allow_and_deny_state_transitions() {
+        run_async(async {
+            let server = FakeHermesServer::spawn(vec![
+                FakeExchange::sse(
+                    "/v1/runs/run_demo_001/events",
+                    fixture!("sse-approval-pending.txt"),
+                ),
+                FakeExchange::json(
+                    "POST",
+                    "/v1/runs/run_demo_001/approval",
+                    200,
+                    fixture!("approval-response.json"),
+                ),
+                FakeExchange::sse(
+                    "/v1/runs/run_demo_001/events-after-approval",
+                    fixture!("sse-approval-approved.txt"),
+                ),
+                FakeExchange::sse(
+                    "/v1/runs/run_demo_denied/events",
+                    fixture!("sse-approval-pending.txt"),
+                ),
+                FakeExchange::json(
+                    "POST",
+                    "/v1/runs/run_demo_denied/approval",
+                    200,
+                    r#"{"object":"hermes.run.approval_response","run_id":"run_demo_denied","choice":"deny","resolved":1}"#,
+                ),
+                FakeExchange::sse(
+                    "/v1/runs/run_demo_denied/events-after-approval",
+                    fixture!("sse-approval-denied.txt"),
+                ),
+            ])
+            .await
+            .unwrap();
+            let client = reqwest::Client::new();
+
+            let pending = client
+                .get(format!("{}/v1/runs/run_demo_001/events", server.base_url))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            assert!(pending.contains("approval.request"));
+            client
+                .post(format!("{}/v1/runs/run_demo_001/approval", server.base_url))
+                .header("content-type", "application/json")
+                .body(r#"{"choice":"once"}"#)
+                .send()
+                .await
+                .unwrap();
+            let approved = client
+                .get(format!(
+                    "{}/v1/runs/run_demo_001/events-after-approval",
+                    server.base_url
+                ))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            assert!(approved.contains("approval.responded"));
+            assert!(approved.contains("run.completed"));
+
+            let denied_pending = client
+                .get(format!(
+                    "{}/v1/runs/run_demo_denied/events",
+                    server.base_url
+                ))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            assert!(denied_pending.contains("approval.request"));
+            client
+                .post(format!(
+                    "{}/v1/runs/run_demo_denied/approval",
+                    server.base_url
+                ))
+                .header("content-type", "application/json")
+                .body(r#"{"choice":"deny"}"#)
+                .send()
+                .await
+                .unwrap();
+            let denied = client
+                .get(format!(
+                    "{}/v1/runs/run_demo_denied/events-after-approval",
+                    server.base_url
+                ))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            assert!(denied.contains("approval.responded"));
+            assert!(denied.contains("run.cancelled"));
+
+            let requests = server.finish().await.unwrap();
+            assert_eq!(requests.len(), 6);
+            assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(&requests[1].body).unwrap()["choice"],
+                "once"
+            );
+            assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(&requests[4].body).unwrap()["choice"],
+                "deny"
+            );
+        });
+    }
+
+    #[test]
+    fn covers_auth_model_tool_and_capability_failures() {
+        run_async(async {
+            let server = FakeHermesServer::spawn(vec![
+                FakeExchange::json(
+                    "GET",
+                    "/v1/capabilities",
+                    200,
+                    fixture!("capabilities-missing-run-events.json"),
+                ),
+                FakeExchange::json("POST", "/v1/runs", 401, fixture!("error-auth.json")),
+                FakeExchange::json("POST", "/v1/runs", 503, fixture!("error-model.json")),
+                FakeExchange::sse(
+                    "/v1/runs/run_demo_failed/events",
+                    fixture!("sse-failures.txt"),
+                ),
+            ])
+            .await
+            .unwrap();
+            let client = reqwest::Client::new();
+            let capabilities_response = client
+                .get(format!("{}/v1/capabilities", server.base_url))
+                .send()
+                .await
+                .unwrap();
+            let capabilities: HermesCapabilities =
+                serde_json::from_str(&capabilities_response.text().await.unwrap()).unwrap();
+            assert_eq!(
+                capabilities.features["run_events_sse"].as_bool(),
+                Some(false)
+            );
+            let auth = client
+                .post(format!("{}/v1/runs", server.base_url))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(auth.status(), reqwest::StatusCode::UNAUTHORIZED);
+            let model = client
+                .post(format!("{}/v1/runs", server.base_url))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(model.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
+            let failures = client
+                .get(format!(
+                    "{}/v1/runs/run_demo_failed/events",
+                    server.base_url
+                ))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            assert!(failures.contains("\"error\":true"));
+            assert!(failures.contains("run.failed"));
+            let _ = server.finish().await.unwrap();
+        });
+    }
+
+    #[test]
+    fn covers_duplicates_unknown_out_of_order_and_terminal_reconnect() {
+        run_async(async {
+            let server = FakeHermesServer::spawn(vec![
+                FakeExchange::sse(
+                    "/v1/runs/run_demo_disordered/events",
+                    fixture!("sse-duplicates-unknown-out-of-order.txt"),
+                ),
+                FakeExchange::json(
+                    "GET",
+                    "/v1/runs/run_demo_disordered/events",
+                    404,
+                    fixture!("error-openai.json"),
+                ),
+                FakeExchange::json(
+                    "GET",
+                    "/v1/runs/run_demo_disordered",
+                    200,
+                    fixture!("run-status-completed.json"),
+                ),
+            ])
+            .await
+            .unwrap();
+            let client = reqwest::Client::new();
+            let transcript = client
+                .get(format!(
+                    "{}/v1/runs/run_demo_disordered/events",
+                    server.base_url
+                ))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            let events = parse_sse_transcript(&transcript).unwrap();
+            let event_names = events
+                .iter()
+                .filter_map(|frame| match frame {
+                    HermesSseFrame::Event(event) => Some(event.event.as_str()),
+                    HermesSseFrame::Comment(_) => None,
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                event_names,
+                vec![
+                    "tool.completed",
+                    "message.delta",
+                    "message.delta",
+                    "future.progress",
+                    "tool.started",
+                    "run.completed"
+                ]
+            );
+            let reconnect = client
+                .get(format!(
+                    "{}/v1/runs/run_demo_disordered/events",
+                    server.base_url
+                ))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(reconnect.status(), reqwest::StatusCode::NOT_FOUND);
+            let status = client
+                .get(format!("{}/v1/runs/run_demo_disordered", server.base_url))
+                .send()
+                .await
+                .unwrap();
+            assert!(status.status().is_success());
+            let status_json: serde_json::Value =
+                serde_json::from_str(&status.text().await.unwrap()).unwrap();
+            assert_eq!(status_json["status"], "completed");
             let _ = server.finish().await.unwrap();
         });
     }
