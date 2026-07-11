@@ -73,6 +73,22 @@ impl FakeHermesServer {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .map_err(|error| format!("Unable to bind fake Hermes server: {error}"))?;
+        Self::spawn_with_listener(listener, exchanges).await
+    }
+
+    pub(crate) async fn spawn_on(port: u16, exchanges: Vec<FakeExchange>) -> Result<Self, String> {
+        let listener = TcpListener::bind(("127.0.0.1", port))
+            .await
+            .map_err(|error| {
+                format!("Unable to bind fake Hermes server on port {port}: {error}")
+            })?;
+        Self::spawn_with_listener(listener, exchanges).await
+    }
+
+    async fn spawn_with_listener(
+        listener: TcpListener,
+        exchanges: Vec<FakeExchange>,
+    ) -> Result<Self, String> {
         let address = listener
             .local_addr()
             .map_err(|error| format!("Unable to read fake Hermes address: {error}"))?;

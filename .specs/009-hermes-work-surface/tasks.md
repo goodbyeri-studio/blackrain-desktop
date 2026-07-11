@@ -61,20 +61,22 @@
 
 ## 阶段 4：Hermes 进程 supervisor
 
-- [ ] 新建 `src-tauri/src/shared/hermes_core` 及 process supervisor
-- [ ] 实现 runtime 状态机和线程安全共享状态
-- [ ] 实现并发 start 去重
-- [ ] spawn 前台 `hermes gateway` 并注入专属环境
-- [ ] 捕获并滚动保存脱敏 stdout/stderr
-- [ ] health + capabilities readiness，日志字符串只作辅助
+- [x] 新建 `src-tauri/src/shared/hermes_core` 及 process supervisor
+- [x] 实现 runtime 状态机和线程安全共享状态
+- [x] 实现并发 start 去重
+- [x] spawn 前台 `hermes gateway` 并注入专属环境
+- [x] 捕获并滚动保存脱敏 stdout/stderr
+- [x] health + capabilities readiness，日志字符串只作辅助
 - [ ] 处理启动超时、端口冲突、旧 PID 和 bearer 不匹配实例
-- [ ] 实现 graceful stop、超时强杀和 Windows process tree 回收
+- [x] 实现 graceful stop、超时强杀和 Windows process tree 回收
 - [ ] App 正常退出时清理 Hermes 和受控 MCP 子进程
 - [ ] App 异常退出/下次启动时审计并清理或安全接管孤儿进程
 - [ ] 处理系统休眠/恢复和网络变化
 - [ ] 暴露 runtime status、start、stop、restart、repair、logs Tauri commands
 - [ ] local-only 时为 remote backend 返回显式 unsupported
-- [ ] 补 supervisor 单元、并发和失败注入测试
+- [x] 补 supervisor 单元、并发和失败注入测试
+
+> 2026-07-12：已实现启动超时、端口冲突和 bearer mismatch fail-closed；旧 PID 持久记录/下次启动孤儿审计尚未实现，因此该组合任务保持未完成。Windows `taskkill /T` 分支已有代码，但仍需 Windows 编译和实机进程树验证。App 正常退出已停止 Hermes；受控 MCP 尚未接入，所以对应组合任务未勾选。
 
 ## 阶段 5：Hermes API client
 
