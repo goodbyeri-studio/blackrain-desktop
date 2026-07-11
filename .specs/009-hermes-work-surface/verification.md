@@ -19,7 +19,7 @@
 | 2026-07-12 | 上游 contract | Hermes v2026.7.7.2 runs/SSE/approval/stop 源码审计 | `git -C hermes-upstream rev-parse HEAD` + 静态源码/测试核对 | 通过 | commit `9de9c25f620ff7f1ce0fd5457d596052d5159596`；发现 SSE 无 cursor/replay，见 `references/hermes-v2026.7.7.2-contract.md` |
 | 2026-07-12 | Fixtures | capabilities/models/runs/events/approval/stop/error/SSE 无敏感样例 | `find ... -name '*.json' -print0 \| xargs -0 -n1 jq empty` | 通过（22 个 JSON） | 只证明样例格式，不证明网络运行 |
 | 2026-07-12 | UI/Runtime 审计 | Hermes Desktop 候选、BlackRain 可复用基础设施、Windows 缺口 | 静态路径/依赖/脚本核对 | 通过 | 当前决定全部重写，未复制上游 React 源码 |
-| 2026-07-12 | Rust contract | raw Hermes protocol、SSE framing、未知事件保留、稳定 WorkEvent 序列化 | `cargo test hermes_core --lib` | `6 passed`（macOS） | 222 tests filtered；仅 contract 层，不证明 client/supervisor |
+| 2026-07-12 | Rust contract/fake server | raw Hermes protocol、SSE framing、未知事件保留、稳定 WorkEvent 序列化、正常 run、approval/stop request capture、断流注入 | `cargo test hermes_core --lib` | `9 passed`（macOS） | 222 tests filtered；fake server 测试支架，不证明真实 client/supervisor |
 | 2026-07-12 | TypeScript contract | shared WorkEvent fixture、raw unknown event guard、malformed event 拒绝 | `npm run test -- --run src/features/work/types.test.ts` | `4 passed`（macOS） | 与 Rust 共用 `work-event-agent-delta.json` |
 | 2026-07-12 | 前端静态检查 | 新增 WORK contract types | `npm run typecheck` | 通过（macOS） | 不替代 Windows 验证 |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |

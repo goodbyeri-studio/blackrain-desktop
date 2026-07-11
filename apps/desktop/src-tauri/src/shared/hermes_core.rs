@@ -5,3 +5,6 @@
 
 pub(crate) mod protocol;
 pub(crate) mod types;
+
+#[cfg(test)]
+pub(crate) mod fake_server;
