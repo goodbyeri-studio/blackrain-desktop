@@ -194,6 +194,14 @@
 - 影响范围：`runner.rs`、TaskStore append result、Hermes App adapter、`src/services/{tauri,events}.ts` 和阶段 8 reducer。
 - 后续复查条件：高频 delta 需要 batching 时，只能在持久化/幂等门禁之后做有界批处理，不能改变事件先落盘再可见的顺序。
 
+## 2026-07-12：WORK 使用独立 reducer，并缓冲先于 task metadata 到达的事件
+
+- 决策：WORK 前端状态只存在 `src/features/work/`，不进入 Codex thread reducer。bootstrap 并行读取 runtime/tasks/recovery；`work-event` 按稳定 event id 幂等并按 sequence 合并。若新 run 的 SSE 事件先于 `hermes_task_start` promise 返回，先进入最多 100 个 task、每 task 1024 条的 orphan buffer，收到 task metadata 后再投影状态并清空 buffer。所有同 task mutation 使用同步 ref gate 串行化。
+- 原因：Tauri command spawn stream 后才返回，快速 Hermes 可能让事件先于 task metadata 到达；直接丢弃未知 task 事件会让第一段消息或审批永久消失。仅靠 React state 的 pending flag 需要下一次 render 才生效，挡不住同一 tick 的双击。
+- 替代方案：复用 Codex reducer、未知 task 事件直接丢弃、无限 orphan buffer、或只靠按钮 disabled state 防重复。
+- 影响范围：阶段 8 reducer/selectors/controller hooks、后续任务 UI 和长任务性能优化。
+- 后续复查条件：event envelope 增加完整 task metadata 或 start command 提供 preallocated task acknowledgement 时，可缩小 orphan buffer，但仍保留有界乱序保护。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
