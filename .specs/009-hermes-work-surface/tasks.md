@@ -96,18 +96,20 @@
 
 ## 阶段 6：事件 normalizer 和任务存储
 
-- [ ] 实现 raw Hermes event → `WorkEvent` 映射
-- [ ] 实现稳定 event id/sequence 和重复事件去重
-- [ ] 实现 text delta 聚合与 completed message 收敛
-- [ ] 实现 tool start/progress/result/error 生命周期
-- [ ] 实现 approval request/resolution 生命周期
-- [ ] 实现 user input、file/media output、warning/error 映射
-- [ ] 未知事件进入诊断，不使 stream/reducer 崩溃
+- [x] 实现 raw Hermes event → `WorkEvent` 映射
+- [x] 实现稳定 event id/sequence 和重复事件去重
+- [x] 实现 text delta 聚合与 completed message 收敛
+- [x] 实现 tool start/progress/result/error 生命周期
+- [x] 实现 approval request/resolution 生命周期
+- [x] 实现 user input、file/media output、warning/error 映射
+- [x] 未知事件进入诊断，不使 stream/reducer 崩溃
 - [ ] 实现 task/session/run 持久映射和 schema migration
 - [ ] 实现 App 重启后的恢复审计
 - [ ] 区分 resumable/completed/failed/orphaned 状态
 - [ ] 恢复时不重复消息、工具和审批
 - [ ] 高事件频率下增加批处理/节流，避免 UI 卡顿
+
+> 2026-07-12：normalizer 已覆盖锁定事件和预留扩展事件；raw 内容使用确定性 128-bit fingerprint 生成稳定 event id，sequence 从任务最后序号继续。进程内去重保留最近 20,000 个 raw fingerprint；未知/损坏事件只把 event type、字段名和原因写入最多 200 条诊断，不保存 payload 值。同名并发工具和批量 approval 使用计数生命周期，乱序 completion/responded 会发 warning 但仍保留可收敛事件。任务快照、journal、重启恢复和 UI batching 尚未实现。
 
 ## 阶段 7：Tauri commands 和事件桥
 
