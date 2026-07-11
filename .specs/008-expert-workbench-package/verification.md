@@ -7,6 +7,7 @@
 | 日期 | 范围 | 命令/方式 | 结果 | 备注 |
 |---|---|---|---|---|
 | 2026-07-12 | spec 五件套存在 | 静态检查目录和文件 | 存在 | 只证明文档建立 |
+| 2026-07-12 | 激活运行 contract | `ActivatedWorkbenchContext v1` Rust/TS shared fixture、校验与 Hermes desired-state 映射 | `cargo test workbench_core --lib`; `npm run test -- --run src/features/work/types.test.ts` | `3 passed`（Rust）+ `5 passed`（TS，macOS） | 只证明 activation 输出 contract；Manifest/install/verify/activation store 尚未实现 |
 | YYYY-MM-DD | Manifest schema | schema 单测 | 未跑 | 尚无 schema 实现 |
 | YYYY-MM-DD | Office manifest | parse/inspect | 未跑 | 尚未迁移 |
 | YYYY-MM-DD | Windows 安装 | 干净 Windows x64 VM | 未跑 | 尚无安装器 |
@@ -20,8 +21,9 @@
 - 产品概念已在 `README.md` 和 `docs/01`～`docs/09` 中重构为“专家数字工作环境平台”。
 - 工作台正式关系已定义为 `Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室`。
 - 本 spec 的 requirements/design/tasks/decisions/verification 五个文件已创建。
+- `ActivatedWorkbenchContext v1` 代码 contract 已存在，能表达已验证工作台运行实例并拒绝任意 env/command/path 越权字段。
 
-以上均为文档层事实，不证明代码、Windows 运行或发布能力。
+除 activation contract 外，其余仍为文档层事实；contract 也不证明 install/verify/Windows 运行或发布能力。
 
 ## 未验证风险
 

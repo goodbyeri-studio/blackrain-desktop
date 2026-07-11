@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "activationId": "activation-office-demo",
+  "workbenchId": "com.blackrain.office",
+  "workbenchVersion": "0.1.0",
+  "engine": "work",
+  "project": {
+    "projectId": "project-quarterly-report",
+    "path": "C:\\Users\\demo\\BlackRain Projects\\Quarterly Report"
+  },
+  "task": {
+    "taskId": "office-quarterly-report",
+    "entryId": "generate-quarterly-report"
+  },
+  "skillRoots": [
+    "C:\\Users\\demo\\AppData\\Roaming\\BlackRain\\workbenches\\com.blackrain.office\\versions\\0.1.0\\skills"
+  ],
+  "plugins": [
+    { "id": "com.blackrain.office-cli", "version": "0.1.0" }
+  ],
+  "mcpServers": [
+    { "id": "com.blackrain.office-files", "pluginId": "com.blackrain.office-cli" }
+  ],
+  "environmentRefs": [
+    { "kind": "providerCredential", "referenceId": "deepseek" },
+    { "kind": "managedVariable", "referenceId": "office-locale" }
+  ],
+  "permissions": {
+    "grantId": "grant-office-demo",
+    "files": [
+      {
+        "path": "C:\\Users\\demo\\BlackRain Projects\\Quarterly Report",
+        "access": "readWrite"
+      }
+    ],
+    "networkDomains": ["api.deepseek.com"],
+    "processIds": ["com.blackrain.office-cli"]
+  },
+  "verifiedAt": 1783800000
+}

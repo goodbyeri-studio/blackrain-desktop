@@ -16,6 +16,7 @@ pub(crate) mod model_gateway_secrets;
 pub(crate) mod process_core;
 pub(crate) mod prompts_core;
 pub(crate) mod settings_core;
+pub(crate) mod workbench_core;
 pub(crate) mod workspace_rpc;
 pub(crate) mod workspaces_core;
 pub(crate) mod worktree_core;

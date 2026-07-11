@@ -100,8 +100,12 @@ impl WorkbenchHermesDesiredState {
         validate_non_empty("workbench id", &self.workbench_id)?;
         validate_non_empty("workbench version", &self.workbench_version)?;
         validate_non_empty("permission grant id", &self.permission_grant_id)?;
-        if self.skill_roots.iter().any(|path| !path.is_absolute()) {
-            return Err("Hermes workbench skill roots must be absolute paths.".into());
+        if self
+            .skill_roots
+            .iter()
+            .any(|path| !is_safe_absolute_path(path))
+        {
+            return Err("Hermes workbench skill roots must be absolute safe paths.".into());
         }
         for plugin_id in &self.plugin_ids {
             validate_non_empty("plugin id", plugin_id)?;
@@ -114,6 +118,25 @@ impl WorkbenchHermesDesiredState {
         }
         Ok(())
     }
+}
+
+fn is_safe_absolute_path(path: &Path) -> bool {
+    if path.is_absolute() {
+        return !path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir));
+    }
+    let Some(value) = path.to_str() else {
+        return false;
+    };
+    let windows_absolute = value.starts_with("\\\\")
+        || (value.len() >= 3
+            && value.as_bytes()[0].is_ascii_alphabetic()
+            && value.as_bytes()[1] == b':'
+            && matches!(value.as_bytes()[2], b'\\' | b'/'));
+    windows_absolute
+        && !value.contains('\0')
+        && !value.split(['/', '\\']).any(|segment| segment == "..")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
