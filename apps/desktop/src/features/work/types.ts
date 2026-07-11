@@ -1,4 +1,29 @@
 export const WORK_SCHEMA_VERSION = 1 as const;
+export const ACTIVATED_WORKBENCH_SCHEMA_VERSION = 1 as const;
+
+export type ActivatedWorkbenchContext = {
+  schemaVersion: typeof ACTIVATED_WORKBENCH_SCHEMA_VERSION;
+  activationId: string;
+  workbenchId: string;
+  workbenchVersion: string;
+  engine: "work";
+  project: { projectId: string; path: string };
+  task: { taskId: string; entryId: string } | null;
+  skillRoots: string[];
+  plugins: Array<{ id: string; version: string }>;
+  mcpServers: Array<{ id: string; pluginId: string }>;
+  environmentRefs: Array<{
+    kind: "providerCredential" | "managedVariable" | "systemCapability";
+    referenceId: string;
+  }>;
+  permissions: {
+    grantId: string;
+    files: Array<{ path: string; access: "readOnly" | "readWrite" }>;
+    networkDomains: string[];
+    processIds: string[];
+  };
+  verifiedAt: number;
+};
 
 export type WorkTaskStatus =
   | "draft"
@@ -177,6 +202,63 @@ const isNullableString = (value: unknown) =>
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((entry) => typeof entry === "string");
+
+export function isActivatedWorkbenchContext(
+  value: unknown,
+): value is ActivatedWorkbenchContext {
+  if (!isRecord(value) || value.schemaVersion !== ACTIVATED_WORKBENCH_SCHEMA_VERSION) {
+    return false;
+  }
+  if (
+    typeof value.activationId !== "string" ||
+    typeof value.workbenchId !== "string" ||
+    typeof value.workbenchVersion !== "string" ||
+    value.engine !== "work" ||
+    !isRecord(value.project) ||
+    typeof value.project.projectId !== "string" ||
+    typeof value.project.path !== "string" ||
+    !(value.task === null ||
+      (isRecord(value.task) &&
+        typeof value.task.taskId === "string" &&
+        typeof value.task.entryId === "string")) ||
+    !isStringArray(value.skillRoots) ||
+    !Array.isArray(value.plugins) ||
+    !Array.isArray(value.mcpServers) ||
+    !Array.isArray(value.environmentRefs) ||
+    !isRecord(value.permissions) ||
+    typeof value.verifiedAt !== "number"
+  ) {
+    return false;
+  }
+  return (
+    value.plugins.every(
+      (entry) =>
+        isRecord(entry) && typeof entry.id === "string" && typeof entry.version === "string",
+    ) &&
+    value.mcpServers.every(
+      (entry) =>
+        isRecord(entry) && typeof entry.id === "string" && typeof entry.pluginId === "string",
+    ) &&
+    value.environmentRefs.every(
+      (entry) =>
+        isRecord(entry) &&
+        (entry.kind === "providerCredential" ||
+          entry.kind === "managedVariable" ||
+          entry.kind === "systemCapability") &&
+        typeof entry.referenceId === "string",
+    ) &&
+    typeof value.permissions.grantId === "string" &&
+    Array.isArray(value.permissions.files) &&
+    value.permissions.files.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.path === "string" &&
+        (entry.access === "readOnly" || entry.access === "readWrite"),
+    ) &&
+    isStringArray(value.permissions.networkDomains) &&
+    isStringArray(value.permissions.processIds)
+  );
+}
 
 const workTaskStatuses = new Set<WorkTaskStatus>([
   "draft",

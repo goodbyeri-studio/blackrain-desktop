@@ -250,6 +250,14 @@
 - 影响范围：`useWorkController`、阶段 4 休眠/网络恢复、阶段 9 connection UI 和阶段 13 故障注入。
 - 后续复查条件：Windows 提供稳定的 Tauri/native power-resume signal 后，把它加入同一 schedule 入口；当前 focus/visibility/online 仍需 Windows 睡眠实机验证后才能勾选总项。
 
+## 2026-07-12：ActivatedWorkbenchContext 只由 Core 签发且不携带可执行配置
+
+- 决策：008→009 使用版本化 `ActivatedWorkbenchContext v1`。它携带 activation/workbench/project/task 身份、绝对 skill roots、插件/MCP ID、无值 environment references、permission grant 和 verified timestamp；不携带 secret、任意 env value、MCP command/args、binary path、host 或 port。009 只能把已验证 context 单向降维成 `WorkbenchHermesDesiredState`。
+- 原因：如果前端或工作台包能直接传进程/环境配置，就会绕过 008 install/verify/permission 和 App 唯一配置写入者。环境只传 reference，MCP 必须引用已激活 plugin，文件 grant 必须覆盖项目，才能让 WORK task 的来源可审计。
+- 替代方案：继续由 Home 硬编码 workbench/version、把完整 manifest 直接传 Hermes、允许前端传 env map/MCP command，或只用一个未经验证的 workbench id。
+- 影响范围：shared `workbench_core`、Hermes desired state、008 activation store、009 task start 和后续 App/Daemon commands。
+- 后续复查条件：008 Manifest v1 和 activation persistence 冻结后，可扩展签名摘要/activation generation；必须通过 schema version 升级，不能给 v1 偷加可执行字段。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

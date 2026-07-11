@@ -172,7 +172,7 @@
 
 ## 阶段 11：工作台激活接缝（与 spec 008 联动）
 
-- [ ] 定义 `ActivatedWorkbenchContext` contract
+- [x] 定义 `ActivatedWorkbenchContext` contract
 - [ ] 接收 workbench id/version、project、task、skill roots、plugins/MCP、env refs、permissions
 - [ ] 将 Skills 映射到专属 Hermes 环境
 - [ ] 注册/注销受控 MCP server，并验证 `tools/list_changed`
@@ -181,6 +181,8 @@
 - [ ] 防止不同工作台环境变量、Skills、MCP 和 session 串台
 - [ ] Office 官方工作台进入 WORK surface，而不是 CODE 临时路径
 - [ ] 工作台未通过 008 activate/verify 时禁止创建正式任务
+
+> 2026-07-12：shared `workbench_core` 已冻结 `ActivatedWorkbenchContext v1`，Rust/TypeScript 共用 fixture。contract 只包含 Core 签发的 activation/workbench/project/task、绝对 skill roots、插件/MCP 引用、无值 environment refs 和结构化 permission grant；拒绝未知字段、相对/穿越路径、未激活插件的 MCP、重复引用、多 provider credential 和未覆盖项目的文件权限，并可单向映射到受限 `WorkbenchHermesDesiredState`。当前尚无 008 activation store/command，前端也仍未消费 Core-issued context，所以后续项保持未完成。
 
 ## 阶段 12：真实模型、工具和 Office 纵切
 

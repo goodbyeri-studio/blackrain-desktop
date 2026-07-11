@@ -50,6 +50,14 @@
 - 影响范围：Manifest、安装计划、License 和卸载。
 - 后续复查条件：第二垂类出现无法表达的依赖类型。
 
+## 2026-07-12：激活产物与 Manifest 分离为受限运行 contract
+
+- 决策：Manifest 仍描述工作台最大声明；Core 在 install/verify/permission 全部通过后，另行签发版本化 `ActivatedWorkbenchContext v1` 给执行 surface。context 只包含身份、受控路径、资源引用、无值 environment ref 和 permission grant，不包含 secret、环境值或任意命令。
+- 原因：直接把 Manifest 或前端输入交给 Hermes/codex 会让未验证声明进入运行时，也无法证明当前项目、权限和激活版本对应。独立 activation context 是静态包与运行实例之间的安全接缝。
+- 替代方案：把 Manifest 原样传引擎、让工作台启动时自行生成 env/MCP 配置，或只传 workbench id 后由各 surface 猜测资源。
+- 影响范围：阶段 2 activation store、App/Daemon RPC、009 WORK surface、未来 CODE 工作台激活。
+- 后续复查条件：Manifest schema v1 冻结时补齐从 active state 生成 context 的字段映射和持久化签名；v1 不允许加入可执行配置。
+
 ## 被推翻的方案
 
 ### 2026-07-12：工作台主要是纯 Markdown

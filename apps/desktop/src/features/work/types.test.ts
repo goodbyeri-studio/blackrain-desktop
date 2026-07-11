@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import rawMessageDelta from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/event-message-delta.json";
 import rawUnknown from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/event-unknown.json";
 import workAgentDelta from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/work-event-agent-delta.json";
+import activatedWorkbench from "../../../src-tauri/test-fixtures/workbench/v1/activated-workbench-context.json";
 import {
+  isActivatedWorkbenchContext,
   isHermesRawEvent,
   isWorkEvent,
   WORK_SCHEMA_VERSION,
@@ -33,6 +35,16 @@ describe("Hermes WORK contracts", () => {
   it("rejects malformed known normalized events", () => {
     expect(
       isWorkEvent({ ...workAgentDelta, type: "toolCompleted", tool: "read_file" }),
+    ).toBe(false);
+  });
+
+  it("accepts the Rust-shared activated workbench context fixture", () => {
+    expect(isActivatedWorkbenchContext(activatedWorkbench)).toBe(true);
+    expect(
+      isActivatedWorkbenchContext({
+        ...activatedWorkbench,
+        engine: "code",
+      }),
     ).toBe(false);
   });
 });
