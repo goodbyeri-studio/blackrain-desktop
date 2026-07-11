@@ -60,6 +60,7 @@ const operationInProgressError = (): WorkError => ({
 
 const WORK_EVENT_BATCH_SIZE = 256;
 const WORK_EVENT_BATCH_DELAY_MS = 16;
+const WORK_ENVIRONMENT_RECONCILE_DELAY_MS = 250;
 
 export function useWorkController() {
   const [state, dispatch] = useReducer(workReducer, initialWorkState);
@@ -286,6 +287,55 @@ export function useWorkController() {
   const clearError = useCallback(() => {
     dispatch({ type: "errorCleared" });
   }, []);
+
+  useEffect(() => {
+    let reconcileTimer: number | null = null;
+    let active = true;
+    const reconcile = async () => {
+      reconcileTimer = null;
+      const [runtimeResult, tasksResult] = await Promise.allSettled([
+        refreshRuntime(),
+        refreshTasks(),
+        refreshRecovery(),
+      ]);
+      if (!active || runtimeResult.status !== "fulfilled") {
+        return;
+      }
+      if (runtimeResult.value.state !== "ready" || tasksResult.status !== "fulfilled") {
+        return;
+      }
+      const degradedTasks = tasksResult.value.filter(
+        (task) => task.status === "degraded" && Boolean(task.activeRunId),
+      );
+      await Promise.allSettled(degradedTasks.map((task) => resumeTask(task.taskId)));
+    };
+    const scheduleReconcile = () => {
+      if (!active || reconcileTimer !== null) {
+        return;
+      }
+      reconcileTimer = window.setTimeout(
+        () => void reconcile(),
+        WORK_ENVIRONMENT_RECONCILE_DELAY_MS,
+      );
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        scheduleReconcile();
+      }
+    };
+    window.addEventListener("online", scheduleReconcile);
+    window.addEventListener("focus", scheduleReconcile);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      active = false;
+      window.removeEventListener("online", scheduleReconcile);
+      window.removeEventListener("focus", scheduleReconcile);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (reconcileTimer !== null) {
+        window.clearTimeout(reconcileTimer);
+      }
+    };
+  }, [refreshRecovery, refreshRuntime, refreshTasks, resumeTask]);
 
   return {
     state,

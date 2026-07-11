@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { subscribeWorkEvents } from "@/services/events";
 import {
@@ -74,6 +74,11 @@ describe("useWorkController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(subscribeWorkEvents).mockReturnValue(vi.fn());
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
   });
 
   it("starts runtime, task, and recovery bootstrap requests in parallel", async () => {
@@ -206,6 +211,35 @@ describe("useWorkController", () => {
       await vi.advanceTimersByTimeAsync(16);
     });
     expect(result.current.state.tasks[task.taskId].events).toHaveLength(600);
+    vi.useRealTimers();
+  });
+
+  it("reconciles and reattaches degraded runs after focus or network recovery", async () => {
+    vi.useFakeTimers();
+    const degradedTask = { ...task, status: "degraded" as const };
+    vi.mocked(hermesRuntimeStatus).mockResolvedValue(runtime);
+    vi.mocked(hermesTaskList).mockResolvedValue([degradedTask]);
+    vi.mocked(hermesTaskRecoveryStatus).mockResolvedValue({ records: [], error: null });
+    vi.mocked(hermesTaskResume).mockResolvedValue({ ...task, status: "running" });
+    const { result, unmount } = renderHook(() => useWorkController());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("online"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+
+    expect(hermesRuntimeStatus).toHaveBeenCalledTimes(2);
+    expect(hermesTaskList).toHaveBeenCalledTimes(2);
+    expect(hermesTaskRecoveryStatus).toHaveBeenCalledTimes(2);
+    expect(hermesTaskResume).toHaveBeenCalledWith(degradedTask.taskId);
+    expect(result.current.state.tasks[task.taskId].task.status).toBe("running");
+    unmount();
     vi.useRealTimers();
   });
 });

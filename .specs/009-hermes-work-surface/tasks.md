@@ -76,7 +76,7 @@
 - [x] local-only 时为 remote backend 返回显式 unsupported
 - [x] 补 supervisor 单元、并发和失败注入测试
 
-> 2026-07-12：版本化 PID lease、进程身份核对、health/bearer/capability 复核与下次启动清理已经实现；PID 被复用、身份查询失败或 bearer 不匹配时进入 `repairRequired`，不会误杀。App adapter 已暴露六个 runtime commands，命令不接受 host/port/binary/env，remote mode 返回结构化 `unsupported_in_remote_backend`。Windows `PowerShell Get-CimInstance`/`taskkill /T` 分支仍需 Windows 编译和实机验证。App 正常退出已停止 Hermes；受控 MCP 尚未接入，所以对应组合任务未勾选。
+> 2026-07-12：版本化 PID lease、进程身份核对、health/bearer/capability 复核与下次启动清理已经实现；PID 被复用、身份查询失败或 bearer 不匹配时进入 `repairRequired`，不会误杀。App adapter 已暴露六个 runtime commands，命令不接受 host/port/binary/env，remote mode 返回结构化 `unsupported_in_remote_backend`。前端在 window focus、document visible 或 browser online 后以 250ms 去抖重新读取 runtime/tasks/recovery，并只对仍有 active run 的 degraded task 调用 resume 重新挂 SSE，不创建 run、不重放 prompt。Windows 原生 sleep/resume、`Get-CimInstance`/`taskkill /T` 和真实网络恢复仍未验证，因此系统休眠总项保持未勾选。App 正常退出已停止 Hermes；受控 MCP 尚未接入，所以对应组合任务未勾选。
 
 ## 阶段 5：Hermes API client
 
