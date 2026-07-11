@@ -40,6 +40,7 @@ const baseProps = {
   reasoningSupported: false,
   onAddWorkspace: vi.fn(),
   onAddWorkspaceFromUrl: vi.fn(),
+  onOpenWorkSurface: vi.fn(),
   // 仪表盘旧 props(首页不再渲染,仅维持类型兼容)
   latestAgentRuns: [],
   isLoadingLatestAgents: false,
@@ -67,6 +68,16 @@ describe("Home (codex 1:1 replica)", () => {
     expect(screen.getByLabelText("Agent access")).toBeTruthy();
     expect(screen.getByLabelText("Model")).toBeTruthy();
     expect(screen.getByLabelText("Enter project work")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Office 工作台/ })).toBeTruthy();
+  });
+
+  it("opens the Office WORK surface from home", () => {
+    const onOpenWorkSurface = vi.fn();
+    render(<Home {...baseProps} onOpenWorkSurface={onOpenWorkSurface} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Office 工作台/ }));
+
+    expect(onOpenWorkSurface).toHaveBeenCalledTimes(1);
   });
 
   it("shows the full-access pill label and opens the rich access menu", () => {

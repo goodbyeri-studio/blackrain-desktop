@@ -83,6 +83,8 @@ import { useAppShellOrchestration } from "@app/orchestration/useLayoutOrchestrat
 import { normalizeCodexArgsInput } from "@/utils/codexArgsInput";
 import { subscribeTrayOpenThread } from "@services/events";
 import { I18nProvider } from "@/i18n";
+import { WorkSurface } from "@/features/work/components/WorkSurface";
+import { useWorkController } from "@/features/work/hooks/useWorkController";
 
 const SettingsView = lazy(() =>
   import("@settings/components/SettingsView").then((module) => ({
@@ -93,6 +95,8 @@ const SettingsView = lazy(() =>
 export default function MainApp() {
   // 账号会话 → 网关 credit 模式同步（登录写 JWT/切代理，登出回 dev）。全局一次。
   useCreditGatewaySync();
+  const workController = useWorkController();
+  const [workSurfaceOpen, setWorkSurfaceOpen] = useState(false);
   const {
     appSettings,
     setAppSettings,
@@ -1757,6 +1761,7 @@ export default function MainApp() {
     accessMode,
     onSelectAccessMode: handleSelectAccessMode,
     onEnterWorkspaceFromHome,
+    onOpenWorkSurface: () => setWorkSurfaceOpen(true),
     skills,
     apps,
     prompts,
@@ -1850,6 +1855,13 @@ export default function MainApp() {
   } = useMainAppLayoutNodes(layoutSurfaces);
 
   const mainMessagesNode = showWorkspaceHome ? workspaceHomeNode : messagesNode;
+  const primaryHomeNode = workSurfaceOpen ? (
+    <WorkSurface
+      controller={workController}
+      workspaces={workspaces}
+      onClose={() => setWorkSurfaceOpen(false)}
+    />
+  ) : homeNode;
   const compactThreadConnectionState: "live" | "polling" | "disconnected" =
     !activeWorkspace?.connected
       ? "disconnected"
@@ -1895,7 +1907,7 @@ export default function MainApp() {
       approvalToastsNode,
       updateToastNode,
       errorToastsNode,
-      homeNode,
+      homeNode: primaryHomeNode,
       mainHeaderNode,
       tabletNavNode,
       tabBarNode,
