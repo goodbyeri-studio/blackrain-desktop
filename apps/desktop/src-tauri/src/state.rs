@@ -8,9 +8,7 @@ use tokio::sync::Mutex;
 use crate::dictation::DictationState;
 use crate::shared::codex_core::CodexLoginCancelState;
 use crate::shared::hermes_core::process::{HermesProcessSupervisor, HermesRuntimeLayout};
-use crate::shared::hermes_core::tasks::{
-    HermesTaskRecoveryState, HermesTaskStore,
-};
+use crate::shared::hermes_core::tasks::{HermesTaskRecoveryState, HermesTaskStore};
 use crate::storage::{read_settings, read_workspaces};
 use crate::types::{
     AppSettings, ModelGatewayRuntimeState, ModelGatewayRuntimeStatus, TcpDaemonState,
@@ -86,7 +84,7 @@ pub(crate) struct AppState {
     pub(crate) model_gateway: Mutex<ModelGatewayRuntime>,
     pub(crate) hermes_runtime: Arc<HermesProcessSupervisor>,
     pub(crate) hermes_tasks: Arc<Mutex<HermesTaskStore>>,
-    pub(crate) hermes_task_recovery: Mutex<HermesTaskRecoveryState>,
+    pub(crate) hermes_task_recovery: Arc<Mutex<HermesTaskRecoveryState>>,
 }
 
 impl AppState {
@@ -140,7 +138,7 @@ impl AppState {
             model_gateway: Mutex::new(ModelGatewayRuntime::new(data_dir, gateway_port)),
             hermes_runtime,
             hermes_tasks: Arc::new(Mutex::new(hermes_tasks)),
-            hermes_task_recovery: Mutex::new(hermes_task_recovery),
+            hermes_task_recovery: Arc::new(Mutex::new(hermes_task_recovery)),
         }
     }
 }

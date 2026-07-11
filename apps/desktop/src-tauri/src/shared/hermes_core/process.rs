@@ -536,6 +536,25 @@ impl HermesProcessSupervisor {
         self.http_traces.recent()
     }
 
+    pub(crate) async fn api_client(&self, bearer: &str) -> Result<HermesApiClient, WorkError> {
+        let status = self.status().await;
+        if status.state != WorkRuntimeState::Ready {
+            return Err(runtime_error(
+                "hermes_runtime_not_ready",
+                "Hermes runtime must be ready before WORK tasks can connect.",
+                true,
+            ));
+        }
+        let base_url = status.base_url.ok_or_else(|| {
+            runtime_error(
+                "hermes_runtime_url_missing",
+                "Hermes runtime is ready but has no managed base URL.",
+                false,
+            )
+        })?;
+        HermesApiClient::with_trace_sink(&base_url, bearer, self.http_traces.clone())
+    }
+
     pub(crate) async fn audit_orphaned_process(
         &self,
         bearer: &str,
@@ -1282,8 +1301,8 @@ mod tests {
         validate_runtime_lease, write_runtime_lease, HermesProcessSupervisor, HermesRuntimeLayout,
         HermesRuntimeLease, HermesSupervisorOptions, LogState, RUNTIME_LEASE_SCHEMA_VERSION,
     };
-    use crate::shared::hermes_core::config::{HermesLaunchEnvironment, HermesPaths};
     use crate::shared::hermes_core::client::HermesHttpTraceSink;
+    use crate::shared::hermes_core::config::{HermesLaunchEnvironment, HermesPaths};
     use crate::shared::hermes_core::fake_server::{FakeExchange, FakeHermesServer};
     use crate::shared::hermes_core::types::WorkRuntimeState;
 

@@ -179,6 +179,20 @@ impl HermesApiClient {
         )
     }
 
+    pub(crate) fn with_trace_sink(
+        base_url: &str,
+        bearer: &str,
+        trace_sink: HermesHttpTraceSink,
+    ) -> Result<Self, WorkError> {
+        Self::with_timeouts_and_trace_sink(
+            base_url,
+            bearer,
+            DEFAULT_REQUEST_TIMEOUT,
+            DEFAULT_CONNECT_TIMEOUT,
+            trace_sink,
+        )
+    }
+
     pub(crate) fn with_timeouts_and_trace_sink(
         base_url: &str,
         bearer: &str,

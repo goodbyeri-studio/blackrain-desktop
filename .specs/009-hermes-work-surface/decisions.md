@@ -178,6 +178,14 @@
 - 影响范围：`events.rs`、阶段 6 task journal/recovery、阶段 7 event bridge 和阶段 8 reducer。
 - 后续复查条件：Hermes 上游提供稳定 event id/cursor 后优先采用上游 ID，同时保留 schema migration 和旧 journal 去重兼容。
 
+## 2026-07-12：恢复采用本地先行、runtime Ready 后远端对账
+
+- 决策：App load 只用 snapshot/journal 做无网络本地审计；managed Hermes 经 start/restart 达到 Ready 后，在不阻塞 runtime command 返回的后台任务中，用同一受控 base URL、bearer 和共享脱敏 trace 查询每个 active run。`completed`/`failed`/`cancelled` 清空 active run，运行/审批/停止态标为 resumable；只有明确 404 才标 orphaned，连接、鉴权、5xx 和未知新状态保留 active run 并降级为 degraded。远端对账只更新 task recovery metadata，不生成合成 `WorkEvent`。
+- 原因：`AppState::load` 是同步装配阶段且 Hermes 默认未启动，不能把 App 装配或 runtime 启动响应阻塞在历史任务数量和网络超时上；暂时不可达不等于 run 消失，误清 active run 会破坏恢复。status 对账不是事件 replay，伪造消息/工具/审批事件会造成 UI 重复。
+- 替代方案：App load 同步启动 Hermes 并查询、任何请求失败都标 orphaned、根据 status 合成完整事件流、或直接相信本地 running 状态。
+- 影响范围：`recovery.rs`、TaskStore、runtime start/restart commands、后续任务列表与断流恢复。
+- 后续复查条件：上游提供 cursor/replay 或正式 resume endpoint 后，将事件补齐与 status 对账组合，但仍以稳定 event id 做幂等门禁。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

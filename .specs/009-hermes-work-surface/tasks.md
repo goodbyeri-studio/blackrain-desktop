@@ -104,12 +104,12 @@
 - [x] 实现 user input、file/media output、warning/error 映射
 - [x] 未知事件进入诊断，不使 stream/reducer 崩溃
 - [x] 实现 task/session/run 持久映射和 schema migration
-- [ ] 实现 App 重启后的恢复审计（本地 snapshot/journal 审计已接 `AppState::load`；上游 run status 对账未完成）
-- [ ] 区分 resumable/completed/failed/orphaned 状态
+- [x] 实现 App 重启后的恢复审计（`AppState::load` 先做本地审计；managed runtime start/restart Ready 后查询上游 run status）
+- [x] 区分 resumable/completed/failed/orphaned 状态
 - [ ] 恢复时不重复消息、工具和审批
 - [ ] 高事件频率下增加批处理/节流，避免 UI 卡顿
 
-> 2026-07-12：normalizer 已覆盖锁定事件和预留扩展事件；raw 内容使用确定性 128-bit fingerprint 生成稳定 event id，sequence 从任务最后序号继续。进程内去重保留最近 20,000 个 raw fingerprint；未知/损坏事件只把 event type、字段名和原因写入最多 200 条诊断，不保存 payload 值。同名并发工具和批量 approval 使用计数生命周期，乱序 completion/responded 会发 warning 但仍保留可收敛事件。TaskStore 已实现 `work/tasks.v1.json` + `work/events/<task_id>.ndjson`、v0→v1 migration、稳定 ID 去重、截断尾修复和 App 启动本地审计；真实 Hermes run status 对账、任务编排和 UI batching 尚未实现。
+> 2026-07-12：normalizer 已覆盖锁定事件和预留扩展事件；raw 内容使用确定性 128-bit fingerprint 生成稳定 event id，sequence 从任务最后序号继续。进程内去重保留最近 20,000 个 raw fingerprint；未知/损坏事件只把 event type、字段名和原因写入最多 200 条诊断，不保存 payload 值。同名并发工具和批量 approval 使用计数生命周期，乱序 completion/responded 会发 warning 但仍保留可收敛事件。TaskStore 已实现版本化 snapshot/journal、本地审计和 runtime Ready 后的上游 status 对账；404 才标 orphaned，暂时连接失败与未知上游状态保留 active run 并降级为 resumable。远端审计不生成合成 `WorkEvent`，但真实 SSE 重连后的消息/工具/审批 replay 去重、任务编排和 UI batching 尚未实现。
 
 ## 阶段 7：Tauri commands 和事件桥
 

@@ -9,6 +9,7 @@ pub(crate) mod credential_store;
 pub(crate) mod events;
 pub(crate) mod process;
 pub(crate) mod protocol;
+pub(crate) mod recovery;
 pub(crate) mod runtime;
 pub(crate) mod tasks;
 pub(crate) mod types;

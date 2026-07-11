@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::config::{atomic_write, tighten_file_permissions};
+use super::protocol::HermesRunStatus;
 use super::types::{
     WorkError, WorkErrorKind, WorkEvent, WorkEventKind, WorkTask, WorkTaskStatus,
     WORK_SCHEMA_VERSION,
@@ -354,6 +355,168 @@ impl HermesTaskStore {
             self.write_snapshot(&tasks)?;
         }
         Ok(records)
+    }
+
+    pub(crate) fn remote_recovery_candidates(&self) -> Result<Vec<WorkTask>, WorkError> {
+        Ok(self
+            .load_tasks()?
+            .into_iter()
+            .filter(|task| {
+                task.active_run_id.is_some()
+                    && !matches!(
+                        task.status,
+                        WorkTaskStatus::Completed
+                            | WorkTaskStatus::Failed
+                            | WorkTaskStatus::Cancelled
+                    )
+            })
+            .collect())
+    }
+
+    pub(crate) fn reconcile_remote_status(
+        &self,
+        task_id: &str,
+        expected_run_id: &str,
+        status: &HermesRunStatus,
+    ) -> Result<WorkRecoveryRecord, WorkError> {
+        validate_store_id("task id", task_id)?;
+        validate_store_id("run id", expected_run_id)?;
+        let mut tasks = self.load_tasks()?;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))?;
+        if task.active_run_id.as_deref() != Some(expected_run_id) {
+            return Ok(recovery_record(task, WorkRecoveryDisposition::Unchanged));
+        }
+        if status.run_id != expected_run_id {
+            return self.persist_remote_identity_failure(
+                tasks,
+                task_id,
+                "hermes_recovery_run_mismatch",
+                "Hermes returned a different run id during recovery.",
+            );
+        }
+        if let (Some(expected), Some(actual)) = (
+            task.hermes_session_id.as_deref(),
+            status.session_id.as_deref(),
+        ) {
+            if expected != actual {
+                return self.persist_remote_identity_failure(
+                    tasks,
+                    task_id,
+                    "hermes_recovery_session_mismatch",
+                    "Hermes returned a different session id during recovery.",
+                );
+            }
+        }
+        if task.hermes_session_id.is_none() {
+            task.hermes_session_id = status.session_id.clone();
+        }
+        let (task_status, disposition, terminal) = map_remote_run_status(&status.status);
+        task.status = task_status;
+        if terminal {
+            task.active_run_id = None;
+        }
+        if status.updated_at.is_finite() && status.updated_at >= 0.0 {
+            task.updated_at = task.updated_at.max(status.updated_at);
+        }
+        task.recovery
+            .insert("source".into(), Value::String("remoteRunStatus".into()));
+        task.recovery.insert(
+            "upstreamStatus".into(),
+            Value::String(bounded_recovery_value(&status.status)),
+        );
+        task.recovery
+            .insert("auditedAt".into(), Value::from(now_unix_seconds()));
+        task.recovery.remove("lastError");
+        let record = recovery_record(task, disposition);
+        sort_tasks(&mut tasks);
+        self.write_snapshot(&tasks)?;
+        Ok(record)
+    }
+
+    pub(crate) fn reconcile_remote_error(
+        &self,
+        task_id: &str,
+        expected_run_id: &str,
+        error: &WorkError,
+    ) -> Result<WorkRecoveryRecord, WorkError> {
+        validate_store_id("task id", task_id)?;
+        validate_store_id("run id", expected_run_id)?;
+        let mut tasks = self.load_tasks()?;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))?;
+        if task.active_run_id.as_deref() != Some(expected_run_id) {
+            return Ok(recovery_record(task, WorkRecoveryDisposition::Unchanged));
+        }
+        let missing = error.http_status == Some(404);
+        task.status = if missing {
+            WorkTaskStatus::Orphaned
+        } else {
+            WorkTaskStatus::Degraded
+        };
+        task.recovery
+            .insert("source".into(), Value::String("remoteRunStatus".into()));
+        task.recovery.insert(
+            "upstreamStatus".into(),
+            Value::String(if missing { "missing" } else { "unavailable" }.into()),
+        );
+        task.recovery.insert(
+            "lastError".into(),
+            serde_json::json!({
+                "kind": error.kind,
+                "code": bounded_recovery_value(&error.code),
+                "retryable": error.retryable,
+                "httpStatus": error.http_status,
+            }),
+        );
+        task.recovery
+            .insert("auditedAt".into(), Value::from(now_unix_seconds()));
+        let disposition = if missing {
+            WorkRecoveryDisposition::Orphaned
+        } else {
+            WorkRecoveryDisposition::Resumable
+        };
+        let record = recovery_record(task, disposition);
+        sort_tasks(&mut tasks);
+        self.write_snapshot(&tasks)?;
+        Ok(record)
+    }
+
+    fn persist_remote_identity_failure(
+        &self,
+        mut tasks: Vec<WorkTask>,
+        task_id: &str,
+        code: &str,
+        message: &str,
+    ) -> Result<WorkRecoveryRecord, WorkError> {
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .expect("task exists during recovery identity failure");
+        task.status = WorkTaskStatus::Orphaned;
+        task.recovery
+            .insert("source".into(), Value::String("remoteRunStatus".into()));
+        task.recovery.insert(
+            "lastError".into(),
+            serde_json::json!({
+                "kind": WorkErrorKind::Persistence,
+                "code": code,
+                "retryable": false,
+            }),
+        );
+        task.recovery
+            .insert("auditedAt".into(), Value::from(now_unix_seconds()));
+        let record = recovery_record(task, WorkRecoveryDisposition::Orphaned);
+        sort_tasks(&mut tasks);
+        self.write_snapshot(&tasks).map_err(|mut error| {
+            error.message = format!("{message} Snapshot update also failed: {}", error.message);
+            error
+        })?;
+        Ok(record)
     }
 
     fn event_journal_path(&self, task_id: &str) -> Result<PathBuf, WorkError> {
@@ -747,6 +910,62 @@ fn recovery_disposition(task: &mut WorkTask, events: &[WorkEvent]) -> WorkRecove
         WorkTaskStatus::Orphaned => WorkRecoveryDisposition::Orphaned,
         WorkTaskStatus::Draft | WorkTaskStatus::Queued => WorkRecoveryDisposition::Unchanged,
     }
+}
+
+fn map_remote_run_status(status: &str) -> (WorkTaskStatus, WorkRecoveryDisposition, bool) {
+    match status.trim().to_ascii_lowercase().as_str() {
+        "completed" => (
+            WorkTaskStatus::Completed,
+            WorkRecoveryDisposition::Completed,
+            true,
+        ),
+        "failed" => (
+            WorkTaskStatus::Failed,
+            WorkRecoveryDisposition::Failed,
+            true,
+        ),
+        "cancelled" | "canceled" => (
+            WorkTaskStatus::Cancelled,
+            WorkRecoveryDisposition::Cancelled,
+            true,
+        ),
+        "waiting_for_approval" | "requires_action" => (
+            WorkTaskStatus::WaitingForApproval,
+            WorkRecoveryDisposition::Resumable,
+            false,
+        ),
+        "stopping" => (
+            WorkTaskStatus::Stopping,
+            WorkRecoveryDisposition::Resumable,
+            false,
+        ),
+        "started" | "queued" | "pending" | "running" => (
+            WorkTaskStatus::Running,
+            WorkRecoveryDisposition::Resumable,
+            false,
+        ),
+        _ => (
+            WorkTaskStatus::Degraded,
+            WorkRecoveryDisposition::Resumable,
+            false,
+        ),
+    }
+}
+
+fn recovery_record(task: &WorkTask, disposition: WorkRecoveryDisposition) -> WorkRecoveryRecord {
+    WorkRecoveryRecord {
+        task_id: task.task_id.clone(),
+        disposition,
+        last_event_sequence: task.last_event_sequence,
+    }
+}
+
+fn bounded_recovery_value(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(240)
+        .collect()
 }
 
 fn sort_tasks(tasks: &mut [WorkTask]) {
