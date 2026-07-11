@@ -15,3 +15,4 @@
 - ID、时间、路径、文本和 token usage 均为无敏感数据的固定样例。
 - raw decoder 必须容忍新增字段、未知事件和未知状态。
 - `sse-normal.txt` 保留真实 SSE framing，包括 comment/keepalive/close。
+- `sse-approval-*`、`sse-failures.txt`、`sse-duplicates-unknown-out-of-order.txt` 是用锁定版本合法 payload 组合的 BlackRain 故障注入场景，不声称上游一定按该顺序产生事件；真实上游行为仍以源码和后续集成测试为准。

@@ -25,9 +25,9 @@
 - [x] 保存锁定版本 capabilities/models/runs/SSE/approval/stop fixtures
 - [x] 实现 fake Hermes HTTP/SSE server 测试支架
 - [x] 覆盖正常 run：创建 → stream → tool → completion
-- [ ] 覆盖 approval：pending → approve/deny → continue/terminate
-- [ ] 覆盖 stop、模型错误、工具错误、鉴权失败和 capability 缺失
-- [ ] 覆盖断流、重复事件、未知事件、乱序、重连和已结束 run
+- [x] 覆盖 approval：pending → approve/deny → continue/terminate
+- [x] 覆盖 stop、模型错误、工具错误、鉴权失败和 capability 缺失
+- [x] 覆盖断流、重复事件、未知事件、乱序、重连和已结束 run
 - [x] 冻结 Rust↔TypeScript 序列化 contract 测试
 
 ## 阶段 2：隔离配置和凭据
