@@ -1,6 +1,8 @@
 use keyring::{Entry, Error as KeyringError};
 use uuid::Uuid;
 
+use super::config::HermesSecretReference;
+
 const SERVICE: &str = "BlackRain Hermes WORK";
 
 fn normalize_id(label: &str, value: &str) -> Result<String, String> {
@@ -88,12 +90,25 @@ pub(crate) fn provider_secret_clear(provider_id: &str) -> Result<(), String> {
     clear(&provider_username(provider_id)?)
 }
 
+pub(crate) fn resolve_secret_reference(
+    secret_ref: &HermesSecretReference,
+) -> Result<Option<String>, String> {
+    secret_ref.validate()?;
+    match secret_ref {
+        HermesSecretReference::ProviderCredential { provider_id } => {
+            provider_secret_get(provider_id)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         api_server_username, clear_api_server_key, ensure_api_server_key, generate_api_server_key,
         provider_secret_clear, provider_secret_get, provider_secret_set, provider_username,
+        resolve_secret_reference,
     };
+    use crate::shared::hermes_core::config::HermesSecretReference;
     use uuid::Uuid;
 
     #[test]
@@ -117,6 +132,14 @@ mod tests {
         assert!(first.starts_with("br_"));
         assert!(first.len() >= 67);
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn secret_reference_rejects_invalid_provider_ids_before_keyring_access() {
+        let secret_ref = HermesSecretReference::ProviderCredential {
+            provider_id: "INVALID PROVIDER".into(),
+        };
+        assert!(resolve_secret_reference(&secret_ref).is_err());
     }
 
     #[test]
