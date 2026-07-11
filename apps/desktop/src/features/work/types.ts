@@ -71,6 +71,56 @@ export type WorkTask = {
   recovery: Record<string, unknown>;
 };
 
+export type WorkRecoveryDisposition =
+  | "resumable"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "orphaned"
+  | "unchanged";
+
+export type WorkRecoveryRecord = {
+  taskId: string;
+  disposition: WorkRecoveryDisposition;
+  lastEventSequence: number;
+};
+
+export type HermesTaskRecoveryState = {
+  records: WorkRecoveryRecord[];
+  error: WorkError | null;
+};
+
+export type HermesTaskStartInput = {
+  workbenchId: string;
+  workbenchVersion: string;
+  projectPath: string;
+  prompt: string;
+  instructions?: string | null;
+  model?: string | null;
+};
+
+export type HermesTaskReadResult = {
+  task: WorkTask;
+  events: WorkEvent[];
+};
+
+export type HermesHttpTrace = {
+  requestId: string;
+  method: string;
+  path: string;
+  status: number | null;
+  outcome: string;
+  elapsedMs: number;
+};
+
+export type HermesRuntimeDiagnostics = {
+  status: WorkRuntimeStatus;
+  configState: string;
+  configSummary: Record<string, unknown> | null;
+  recentLogs: string[];
+  recentRequests: HermesHttpTrace[];
+};
+
 type WorkEventBase = {
   schemaVersion: typeof WORK_SCHEMA_VERSION;
   eventId: string;

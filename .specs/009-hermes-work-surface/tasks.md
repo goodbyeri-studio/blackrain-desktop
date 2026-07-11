@@ -113,13 +113,15 @@
 
 ## 阶段 7：Tauri commands 和事件桥
 
-- [ ] 在 App adapter 暴露 runtime、task、approval、stop、resume、diagnostics commands
-- [ ] 在 `lib.rs` 注册命令，保持 adapter 薄
-- [ ] 在 `src/services/tauri.ts` 增加唯一前端 IPC 包装
-- [ ] 在 `src/services/events.ts` 增加 WORK event 单 listener fanout
-- [ ] 定义前后端 types 并增加 contract 测试
-- [ ] 远程 backend 分支按 decision 显式处理，不静默落本地
-- [ ] 审核命令参数不允许任意 host、port、binary、env 或路径穿越
+- [x] 在 App adapter 暴露 runtime、task、approval、stop、resume、diagnostics commands
+- [x] 在 `lib.rs` 注册命令，保持 adapter 薄
+- [x] 在 `src/services/tauri.ts` 增加唯一前端 IPC 包装
+- [x] 在 `src/services/events.ts` 增加 WORK event 单 listener fanout
+- [x] 定义前后端 types 并增加 contract 测试
+- [x] 远程 backend 分支按 decision 显式处理，不静默落本地
+- [x] 审核命令参数不允许任意 host、port、binary、env 或路径穿越
+
+> 2026-07-12：task start 已形成真实纵切：App adapter 仅校验结构化输入并调用 shared runner；runner 原子编排 operation reserve → `POST /v1/runs` → task/run attach → SSE consumer。归一化事件必须先通过 TaskStore journal-first 持久化，只有 `appended_events` 才通过 `work-event` 发给前端，因此 SSE replay 不会重复扇出。runtime stop/restart/repair/App exit 会取消并清空受控 stream registry。continue/retry、自动断流重连和前端状态机仍属于阶段 8。
 
 ## 阶段 8：WORK 前端状态层
 

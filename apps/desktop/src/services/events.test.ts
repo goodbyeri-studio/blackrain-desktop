@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Event, EventCallback, UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import type { AppServerEvent } from "../types";
+import type { WorkEvent } from "@/features/work/types";
 import {
   subscribeAppServerEvents,
   subscribeMenuCycleCollaborationMode,
   subscribeMenuCycleModel,
   subscribeMenuNewAgent,
   subscribeTerminalOutput,
+  subscribeWorkEvents,
 } from "./events";
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -44,6 +46,41 @@ describe("events subscriptions", () => {
     expect(onEvent).toHaveBeenCalledWith(payload);
 
     cleanup();
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("fans out WORK events through one Tauri listener", async () => {
+    let listener: EventCallback<WorkEvent> = () => {};
+    const unlisten = vi.fn();
+    vi.mocked(listen).mockImplementation((eventName, handler) => {
+      expect(eventName).toBe("work-event");
+      listener = handler as EventCallback<WorkEvent>;
+      return Promise.resolve(unlisten);
+    });
+    const first = vi.fn();
+    const second = vi.fn();
+    const cleanupFirst = subscribeWorkEvents(first);
+    const cleanupSecond = subscribeWorkEvents(second);
+    const payload: WorkEvent = {
+      schemaVersion: 1,
+      eventId: "event-1",
+      sequence: 1,
+      taskId: "task-1",
+      runId: "run-1",
+      timestamp: 1,
+      itemId: null,
+      type: "agentTextDelta",
+      delta: "完成",
+    };
+
+    listener({ event: "work-event", id: 2, payload });
+    expect(first).toHaveBeenCalledWith(payload);
+    expect(second).toHaveBeenCalledWith(payload);
+    expect(listen).toHaveBeenCalledTimes(1);
+
+    cleanupFirst();
+    cleanupSecond();
     await Promise.resolve();
     expect(unlisten).toHaveBeenCalledTimes(1);
   });

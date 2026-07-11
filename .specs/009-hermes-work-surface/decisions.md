@@ -186,6 +186,14 @@
 - 影响范围：`recovery.rs`、TaskStore、runtime start/restart commands、后续任务列表与断流恢复。
 - 后续复查条件：上游提供 cursor/replay 或正式 resume endpoint 后，将事件补齐与 status 对账组合，但仍以稳定 event id 做幂等门禁。
 
+## 2026-07-12：WORK 事件先持久化后扇出
+
+- 决策：shared runner 负责 task operation reserve、创建 run、task/run attach 和 SSE 消费；每批 normalized events 必须先经过 TaskStore journal-first append，Tauri adapter 只把 `appended_events` 发到单一 `work-event` channel。前端 `events.ts` 对该 channel 建一个底层 listener，再向多个消费者 fanout。runtime 停止、重启、repair 和 App exit 统一取消并清空受控 stream registry。
+- 原因：如果先 emit 后写 journal，App 强退会出现 UI 看过但无法恢复的事件；如果 replay 事件也 emit，消息、工具和审批会重复。把 runner 留在 adapter 又会使 App/Daemon 未来产生两套领域编排。
+- 替代方案：每个 hook 单独 `listen`、raw Hermes event 直接发前端、先 emit 再异步持久化、或把 run 生命周期全部写进 Tauri command。
+- 影响范围：`runner.rs`、TaskStore append result、Hermes App adapter、`src/services/{tauri,events}.ts` 和阶段 8 reducer。
+- 后续复查条件：高频 delta 需要 batching 时，只能在持久化/幂等门禁之后做有界批处理，不能改变事件先落盘再可见的顺序。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

@@ -8,6 +8,7 @@ use tokio::sync::Mutex;
 use crate::dictation::DictationState;
 use crate::shared::codex_core::CodexLoginCancelState;
 use crate::shared::hermes_core::process::{HermesProcessSupervisor, HermesRuntimeLayout};
+use crate::shared::hermes_core::runner::HermesRunRegistry;
 use crate::shared::hermes_core::tasks::{HermesTaskRecoveryState, HermesTaskStore};
 use crate::storage::{read_settings, read_workspaces};
 use crate::types::{
@@ -85,6 +86,7 @@ pub(crate) struct AppState {
     pub(crate) hermes_runtime: Arc<HermesProcessSupervisor>,
     pub(crate) hermes_tasks: Arc<Mutex<HermesTaskStore>>,
     pub(crate) hermes_task_recovery: Arc<Mutex<HermesTaskRecoveryState>>,
+    pub(crate) hermes_runs: Arc<HermesRunRegistry>,
 }
 
 impl AppState {
@@ -139,6 +141,7 @@ impl AppState {
             hermes_runtime,
             hermes_tasks: Arc::new(Mutex::new(hermes_tasks)),
             hermes_task_recovery: Arc::new(Mutex::new(hermes_task_recovery)),
+            hermes_runs: Arc::new(HermesRunRegistry::default()),
         }
     }
 }

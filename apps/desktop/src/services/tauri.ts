@@ -24,6 +24,14 @@ import type {
   WorkspaceSettings,
 } from "../types";
 import type {
+  HermesRuntimeDiagnostics,
+  HermesTaskReadResult,
+  HermesTaskRecoveryState,
+  HermesTaskStartInput,
+  WorkRuntimeStatus,
+  WorkTask,
+} from "@/features/work/types";
+import type {
   GitFileDiff,
   GitFileStatus,
   GitCommitDiff,
@@ -1803,4 +1811,64 @@ export async function accountSessionSet(key: string, value: string): Promise<voi
 
 export async function accountSessionClear(key: string): Promise<void> {
   await invoke("account_session_clear", { key });
+}
+
+export async function hermesRuntimeStatus(): Promise<WorkRuntimeStatus> {
+  return invoke<WorkRuntimeStatus>("hermes_runtime_status");
+}
+
+export async function hermesRuntimeStart(): Promise<WorkRuntimeStatus> {
+  return invoke<WorkRuntimeStatus>("hermes_runtime_start");
+}
+
+export async function hermesRuntimeStop(): Promise<WorkRuntimeStatus> {
+  return invoke<WorkRuntimeStatus>("hermes_runtime_stop");
+}
+
+export async function hermesRuntimeRestart(): Promise<WorkRuntimeStatus> {
+  return invoke<WorkRuntimeStatus>("hermes_runtime_restart");
+}
+
+export async function hermesRuntimeRepair(): Promise<WorkRuntimeStatus> {
+  return invoke<WorkRuntimeStatus>("hermes_runtime_repair");
+}
+
+export async function hermesRuntimeDiagnostics(): Promise<HermesRuntimeDiagnostics> {
+  return invoke<HermesRuntimeDiagnostics>("hermes_runtime_diagnostics");
+}
+
+export async function hermesTaskList(): Promise<WorkTask[]> {
+  return invoke<WorkTask[]>("hermes_task_list");
+}
+
+export async function hermesTaskRead(taskId: string): Promise<HermesTaskReadResult> {
+  return invoke<HermesTaskReadResult>("hermes_task_read", { taskId });
+}
+
+export async function hermesTaskStart(input: HermesTaskStartInput): Promise<WorkTask> {
+  return invoke<WorkTask>("hermes_task_start", { input });
+}
+
+export async function hermesTaskResume(taskId: string): Promise<WorkTask> {
+  return invoke<WorkTask>("hermes_task_resume", { taskId });
+}
+
+export async function hermesTaskApproval(
+  taskId: string,
+  choice: "once" | "session" | "always" | "deny",
+  resolveAll = false,
+): Promise<WorkTask> {
+  return invoke<WorkTask>("hermes_task_approval", { taskId, choice, resolveAll });
+}
+
+export async function hermesTaskStop(taskId: string): Promise<WorkTask> {
+  return invoke<WorkTask>("hermes_task_stop", { taskId });
+}
+
+export async function hermesTaskDeleteLocalMetadata(taskId: string): Promise<boolean> {
+  return invoke<boolean>("hermes_task_delete_local_metadata", { taskId });
+}
+
+export async function hermesTaskRecoveryStatus(): Promise<HermesTaskRecoveryState> {
+  return invoke<HermesTaskRecoveryState>("hermes_task_recovery_status");
 }

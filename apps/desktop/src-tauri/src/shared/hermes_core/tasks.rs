@@ -90,6 +90,7 @@ pub(crate) struct WorkEventAppendResult {
     pub(crate) task: WorkTask,
     pub(crate) appended: usize,
     pub(crate) skipped_duplicates: usize,
+    pub(crate) appended_events: Vec<WorkEvent>,
 }
 
 #[derive(Debug, Clone)]
@@ -141,6 +142,76 @@ impl HermesTaskStore {
         sort_tasks(&mut tasks);
         self.write_snapshot(&tasks)?;
         Ok(task.clone())
+    }
+
+    pub(crate) fn load_task(&self, task_id: &str) -> Result<WorkTask, WorkError> {
+        validate_store_id("task id", task_id)?;
+        self.load_tasks()?
+            .into_iter()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))
+    }
+
+    pub(crate) fn attach_run(
+        &self,
+        task_id: &str,
+        run_id: &str,
+        session_id: &str,
+    ) -> Result<WorkTask, WorkError> {
+        validate_store_id("task id", task_id)?;
+        validate_store_id("run id", run_id)?;
+        validate_store_id("Hermes session id", session_id)?;
+        let mut tasks = self.load_tasks()?;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))?;
+        if task
+            .active_run_id
+            .as_deref()
+            .is_some_and(|active| active != run_id)
+        {
+            return Err(persistence_error(
+                "work_task_run_already_active",
+                "WORK task already has a different active Hermes run.",
+            ));
+        }
+        task.hermes_session_id = Some(session_id.into());
+        task.active_run_id = Some(run_id.into());
+        task.status = WorkTaskStatus::Running;
+        task.updated_at = now_unix_seconds().max(task.updated_at);
+        task.recovery.clear();
+        let result = task.clone();
+        sort_tasks(&mut tasks);
+        self.write_snapshot(&tasks)?;
+        Ok(result)
+    }
+
+    pub(crate) fn set_run_status(
+        &self,
+        task_id: &str,
+        run_id: &str,
+        status: WorkTaskStatus,
+    ) -> Result<WorkTask, WorkError> {
+        validate_store_id("task id", task_id)?;
+        validate_store_id("run id", run_id)?;
+        let mut tasks = self.load_tasks()?;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))?;
+        if task.active_run_id.as_deref() != Some(run_id) {
+            return Err(persistence_error(
+                "work_task_run_mismatch",
+                "WORK task active run changed before the status update.",
+            ));
+        }
+        task.status = status;
+        task.updated_at = now_unix_seconds().max(task.updated_at);
+        let result = task.clone();
+        sort_tasks(&mut tasks);
+        self.write_snapshot(&tasks)?;
+        Ok(result)
     }
 
     pub(crate) fn remove_task_metadata(&self, task_id: &str) -> Result<bool, WorkError> {
@@ -314,6 +385,7 @@ impl HermesTaskStore {
             task,
             appended: appended.len(),
             skipped_duplicates,
+            appended_events: appended,
         })
     }
 
