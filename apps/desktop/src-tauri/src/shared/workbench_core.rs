@@ -1,11 +1,29 @@
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::shared::hermes_core::config::{HermesSecretReference, WorkbenchHermesDesiredState};
+use crate::shared::hermes_core::config::{
+    atomic_write, HermesSecretReference, WorkbenchHermesDesiredState,
+};
 
 pub(crate) const ACTIVATED_WORKBENCH_SCHEMA_VERSION: u32 = 1;
+const ACTIVATION_STORE_SCHEMA_VERSION: u32 = 1;
+const MAX_ACTIVATIONS: usize = 1024;
+
+#[derive(Debug, Clone)]
+pub(crate) struct ActivatedWorkbenchStore {
+    root: PathBuf,
+    path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ActivatedWorkbenchEnvelope {
+    schema_version: u32,
+    activations: Vec<ActivatedWorkbenchContext>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -209,6 +227,115 @@ impl ActivatedWorkbenchContext {
     }
 }
 
+impl ActivatedWorkbenchStore {
+    pub(crate) fn new(app_data_dir: &Path) -> Self {
+        let root = app_data_dir.join("workbenches");
+        Self {
+            path: root.join("activations.v1.json"),
+            root,
+        }
+    }
+
+    pub(crate) fn list(&self) -> Result<Vec<ActivatedWorkbenchContext>, String> {
+        let mut activations = self.load()?.activations;
+        activations.sort_by(|left, right| {
+            right
+                .verified_at
+                .total_cmp(&left.verified_at)
+                .then_with(|| left.activation_id.cmp(&right.activation_id))
+        });
+        Ok(activations)
+    }
+
+    pub(crate) fn read(&self, activation_id: &str) -> Result<ActivatedWorkbenchContext, String> {
+        validate_identifier("activation id", activation_id)?;
+        self.load()?
+            .activations
+            .into_iter()
+            .find(|context| context.activation_id == activation_id)
+            .ok_or_else(|| format!("Activated workbench {activation_id} was not found."))
+    }
+
+    /// 仅供未来 008 install/verify pipeline 调用；不得暴露为普通前端命令。
+    pub(crate) fn persist_verified(
+        &self,
+        context: ActivatedWorkbenchContext,
+    ) -> Result<ActivatedWorkbenchContext, String> {
+        context.validate()?;
+        let mut envelope = self.load()?;
+        if let Some(existing) = envelope
+            .activations
+            .iter_mut()
+            .find(|entry| entry.activation_id == context.activation_id)
+        {
+            *existing = context.clone();
+        } else {
+            if envelope.activations.len() >= MAX_ACTIVATIONS {
+                return Err("Activated workbench store reached its bounded capacity.".into());
+            }
+            envelope.activations.push(context.clone());
+        }
+        self.persist(&envelope)?;
+        Ok(context)
+    }
+
+    fn load(&self) -> Result<ActivatedWorkbenchEnvelope, String> {
+        self.ensure_root()?;
+        if !self.path.exists() {
+            return Ok(ActivatedWorkbenchEnvelope {
+                schema_version: ACTIVATION_STORE_SCHEMA_VERSION,
+                activations: Vec::new(),
+            });
+        }
+        reject_symlink(&self.path)?;
+        let bytes = fs::read(&self.path).map_err(|error| {
+            format!(
+                "Unable to read activated workbench store {}: {error}",
+                self.path.display()
+            )
+        })?;
+        let envelope: ActivatedWorkbenchEnvelope = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("Activated workbench store is invalid: {error}"))?;
+        if envelope.schema_version != ACTIVATION_STORE_SCHEMA_VERSION {
+            return Err(format!(
+                "Unsupported activated workbench store schema version {}.",
+                envelope.schema_version
+            ));
+        }
+        if envelope.activations.len() > MAX_ACTIVATIONS {
+            return Err("Activated workbench store exceeds its bounded capacity.".into());
+        }
+        let mut ids = HashSet::new();
+        for context in &envelope.activations {
+            context.validate()?;
+            if !ids.insert(context.activation_id.as_str()) {
+                return Err("Activated workbench store contains duplicate activation ids.".into());
+            }
+        }
+        Ok(envelope)
+    }
+
+    fn persist(&self, envelope: &ActivatedWorkbenchEnvelope) -> Result<(), String> {
+        self.ensure_root()?;
+        let bytes = serde_json::to_vec_pretty(envelope)
+            .map_err(|error| format!("Unable to serialize activated workbench store: {error}"))?;
+        atomic_write(&self.path, &bytes)
+    }
+
+    fn ensure_root(&self) -> Result<(), String> {
+        if self.root.exists() {
+            reject_symlink(&self.root)?;
+        }
+        fs::create_dir_all(&self.root).map_err(|error| {
+            format!(
+                "Unable to create activated workbench store {}: {error}",
+                self.root.display()
+            )
+        })?;
+        reject_symlink(&self.root)
+    }
+}
+
 impl ActivatedPermissionGrant {
     fn validate(&self, project_path: &str) -> Result<(), String> {
         validate_identifier("permission grant id", &self.grant_id)?;
@@ -310,9 +437,34 @@ fn path_contains(root: &str, candidate: &str) -> bool {
     candidate == root || candidate.starts_with(&format!("{root}/"))
 }
 
+fn reject_symlink(path: &Path) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(path).map_err(|error| error.to_string())?;
+    if metadata.file_type().is_symlink() {
+        return Err(format!(
+            "Activated workbench store path cannot be a symlink: {}",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ActivatedWorkbenchContext, ACTIVATED_WORKBENCH_SCHEMA_VERSION};
+    use std::fs;
+    use std::path::PathBuf;
+
+    use super::{
+        ActivatedWorkbenchContext, ActivatedWorkbenchStore, ACTIVATED_WORKBENCH_SCHEMA_VERSION,
+    };
+
+    fn temp_root() -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "blackrain-workbench-activation-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
 
     fn fixture() -> ActivatedWorkbenchContext {
         serde_json::from_str(include_str!(
@@ -369,5 +521,60 @@ mod tests {
             .validate()
             .unwrap_err()
             .contains("at most one provider credential"));
+    }
+
+    #[test]
+    fn persists_reads_and_replaces_verified_activations_atomically() {
+        let root = temp_root();
+        let store = ActivatedWorkbenchStore::new(&root);
+        let context = fixture();
+        store.persist_verified(context.clone()).unwrap();
+        assert_eq!(store.list().unwrap(), vec![context.clone()]);
+        assert_eq!(store.read(&context.activation_id).unwrap(), context);
+
+        let mut replacement = fixture();
+        replacement.verified_at += 1.0;
+        store.persist_verified(replacement.clone()).unwrap();
+        assert_eq!(store.list().unwrap(), vec![replacement]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_duplicate_activation_ids_from_persisted_state() {
+        let root = temp_root();
+        let store = ActivatedWorkbenchStore::new(&root);
+        fs::create_dir_all(root.join("workbenches")).unwrap();
+        let context = fixture();
+        fs::write(
+            &store.path,
+            serde_json::to_vec(&serde_json::json!({
+                "schemaVersion": 1,
+                "activations": [context.clone(), context],
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert!(store
+            .list()
+            .unwrap_err()
+            .contains("duplicate activation ids"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_symlinked_activation_store_root() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root();
+        let redirected = temp_root();
+        symlink(&redirected, root.join("workbenches")).unwrap();
+        let store = ActivatedWorkbenchStore::new(&root);
+
+        assert!(store.list().unwrap_err().contains("cannot be a symlink"));
+        fs::remove_file(root.join("workbenches")).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(redirected).unwrap();
     }
 }

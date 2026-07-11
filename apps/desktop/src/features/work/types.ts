@@ -84,6 +84,7 @@ export type WorkRuntimeStatus = {
 export type WorkTask = {
   schemaVersion: typeof WORK_SCHEMA_VERSION;
   taskId: string;
+  activationId: string | null;
   workbenchId: string;
   workbenchVersion: string;
   projectPath: string;
@@ -116,9 +117,7 @@ export type HermesTaskRecoveryState = {
 };
 
 export type HermesTaskStartInput = {
-  workbenchId: string;
-  workbenchVersion: string;
-  projectPath: string;
+  activationId: string;
   prompt: string;
   instructions?: string | null;
   model?: string | null;

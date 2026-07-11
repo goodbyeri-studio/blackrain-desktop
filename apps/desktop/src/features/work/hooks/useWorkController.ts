@@ -17,6 +17,7 @@ import {
   hermesTaskResume,
   hermesTaskStart,
   hermesTaskStop,
+  workbenchActivationList,
 } from "@/services/tauri";
 import type {
   HermesRuntimeDiagnostics,
@@ -107,11 +108,12 @@ export function useWorkController() {
       hermesRuntimeStatus(),
       hermesTaskList(),
       hermesTaskRecoveryStatus(),
-    ]).then(([runtimeResult, tasksResult, recoveryResult]) => {
+      workbenchActivationList(),
+    ]).then(([runtimeResult, tasksResult, recoveryResult, activationsResult]) => {
       if (!active) {
         return;
       }
-      const rejected = [runtimeResult, tasksResult, recoveryResult].find(
+      const rejected = [runtimeResult, tasksResult, recoveryResult, activationsResult].find(
         (result) => result.status === "rejected",
       );
       dispatch({
@@ -120,6 +122,8 @@ export function useWorkController() {
         tasks: tasksResult.status === "fulfilled" ? tasksResult.value : [],
         recovery:
           recoveryResult.status === "fulfilled" ? recoveryResult.value : null,
+        activations:
+          activationsResult.status === "fulfilled" ? activationsResult.value : [],
         error: rejected?.status === "rejected" ? unknownError(rejected.reason) : null,
       });
     });
@@ -190,6 +194,15 @@ export function useWorkController() {
     const tasks = await runExclusive("tasks:list", hermesTaskList);
     dispatch({ type: "tasksLoaded", tasks });
     return tasks;
+  }, [runExclusive]);
+
+  const refreshActivations = useCallback(async () => {
+    const activations = await runExclusive(
+      "activations:list",
+      workbenchActivationList,
+    );
+    dispatch({ type: "activationsLoaded", activations });
+    return activations;
   }, [runExclusive]);
 
   const loadTask = useCallback(
@@ -297,6 +310,7 @@ export function useWorkController() {
         refreshRuntime(),
         refreshTasks(),
         refreshRecovery(),
+        refreshActivations(),
       ]);
       if (!active || runtimeResult.status !== "fulfilled") {
         return;
@@ -335,7 +349,7 @@ export function useWorkController() {
         window.clearTimeout(reconcileTimer);
       }
     };
-  }, [refreshRecovery, refreshRuntime, refreshTasks, resumeTask]);
+  }, [refreshActivations, refreshRecovery, refreshRuntime, refreshTasks, resumeTask]);
 
   return {
     state,
@@ -346,6 +360,7 @@ export function useWorkController() {
     repairRuntime,
     loadDiagnostics,
     refreshTasks,
+    refreshActivations,
     loadTask,
     startTask,
     continueTask,

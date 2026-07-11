@@ -7,7 +7,8 @@
 | 日期 | 范围 | 命令/方式 | 结果 | 备注 |
 |---|---|---|---|---|
 | 2026-07-12 | spec 五件套存在 | 静态检查目录和文件 | 存在 | 只证明文档建立 |
-| 2026-07-12 | 激活运行 contract | `ActivatedWorkbenchContext v1` Rust/TS shared fixture、校验与 Hermes desired-state 映射 | `cargo test workbench_core --lib`; `npm run test -- --run src/features/work/types.test.ts` | `3 passed`（Rust）+ `5 passed`（TS，macOS） | 只证明 activation 输出 contract；Manifest/install/verify/activation store 尚未实现 |
+| 2026-07-12 | 激活运行 contract | `ActivatedWorkbenchContext v1` Rust/TS shared fixture、校验与 Hermes desired-state 映射 | `cargo test workbench_core --lib`; `npm run test -- --run src/features/work/types.test.ts` | `3 passed`（Rust）+ `5 passed`（TS，macOS） | 当时只证明 activation 输出 contract；后续 store 证据见下一行，Manifest/install/verify 仍未实现 |
+| 2026-07-12 | activation 持久化接缝 | App-data `activations.v1.json` list/read/persist_verified、原子替换、容量/schema/重复 ID/symlink 门禁；前端仅 list/read | `cargo test workbench_core --lib`; `cargo check`; `npm run test -- --run src/features/work/types.test.ts src/features/work/hooks/useWorkController.test.tsx src/features/work/components/WorkSurface.test.tsx src/services/tauri.test.ts`; `npm run typecheck` | `6 passed`（Rust）+ `80 passed`（TS targeted）+ check/typecheck 通过（macOS） | 只证明 store 与只读消费接缝；`persist_verified` 未接 install/verify pipeline，无正式 Office activation，Windows 未验证 |
 | YYYY-MM-DD | Manifest schema | schema 单测 | 未跑 | 尚无 schema 实现 |
 | YYYY-MM-DD | Office manifest | parse/inspect | 未跑 | 尚未迁移 |
 | YYYY-MM-DD | Windows 安装 | 干净 Windows x64 VM | 未跑 | 尚无安装器 |
@@ -22,13 +23,14 @@
 - 工作台正式关系已定义为 `Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室`。
 - 本 spec 的 requirements/design/tasks/decisions/verification 五个文件已创建。
 - `ActivatedWorkbenchContext v1` 代码 contract 已存在，能表达已验证工作台运行实例并拒绝任意 env/command/path 越权字段。
+- Core-owned activation store 与 surface 只读 list/read 接缝已存在；009 已拒绝未出现在 store 中的正式任务创建。
 
-除 activation contract 外，其余仍为文档层事实；contract 也不证明 install/verify/Windows 运行或发布能力。
+activation contract/store 是已实现的底层接缝，但仍没有 Manifest/install/verify/permission/activate 生产链；不能据此声称工作台生命周期或 Windows 发布可用。
 
 ## 未验证风险
 
 - Manifest 格式和 schema 库未选定。
-- App/Daemon 尚无工作台 inspect/install/activate/uninstall RPC。
+- App/Daemon 尚无工作台 inspect/install/activate/uninstall RPC；当前只有 App local-only activation list/read，Daemon 明确 unsupported。
 - Office 骨架尚未迁移到目标包格式。
 - 受控路径、共享依赖、升级回滚和用户项目隔离未实现。
 - 第三方包签名、恶意包防护和权限模型未实现。

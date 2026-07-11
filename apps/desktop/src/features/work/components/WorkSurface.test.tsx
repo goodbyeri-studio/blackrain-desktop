@@ -4,7 +4,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { useWorkController } from "../hooks/useWorkController";
 import { initialWorkState, type WorkState } from "../state/reducer";
-import type { WorkEvent, WorkRuntimeStatus, WorkTask } from "../types";
+import type {
+  ActivatedWorkbenchContext,
+  WorkEvent,
+  WorkRuntimeStatus,
+  WorkTask,
+} from "../types";
 import { buildVisibleWorkEvents, resolveProjectOutputPath } from "../state/selectors";
 import { WorkSurface } from "./WorkSurface";
 
@@ -25,6 +30,7 @@ const runtime: WorkRuntimeStatus = {
 const task: WorkTask = {
   schemaVersion: 1,
   taskId: "task-1",
+  activationId: "activation-office-demo",
   workbenchId: "office-agent",
   workbenchVersion: "0.1.0",
   projectPath: "C:\\Users\\demo\\Office Project",
@@ -35,6 +41,27 @@ const task: WorkTask = {
   createdAt: 1,
   updatedAt: 2,
   recovery: {},
+};
+
+const activation: ActivatedWorkbenchContext = {
+  schemaVersion: 1,
+  activationId: "activation-office-demo",
+  workbenchId: "com.blackrain.office",
+  workbenchVersion: "0.1.0",
+  engine: "work",
+  project: { projectId: "project-1", path: task.projectPath },
+  task: null,
+  skillRoots: ["C:\\Users\\demo\\AppData\\Roaming\\BlackRain\\skills"],
+  plugins: [],
+  mcpServers: [],
+  environmentRefs: [],
+  permissions: {
+    grantId: "grant-office-demo",
+    files: [{ path: task.projectPath, access: "readWrite" }],
+    networkDomains: [],
+    processIds: [],
+  },
+  verifiedAt: 1,
 };
 
 function event(overrides: Partial<WorkEvent> & Pick<WorkEvent, "type">): WorkEvent {
@@ -53,6 +80,7 @@ function event(overrides: Partial<WorkEvent> & Pick<WorkEvent, "type">): WorkEve
 function controller(stateOverrides: Partial<WorkState> = {}) {
   const state: WorkState = {
     ...initialWorkState,
+    activations: [activation],
     runtime,
     bootstrapping: false,
     ...stateOverrides,
@@ -66,6 +94,7 @@ function controller(stateOverrides: Partial<WorkState> = {}) {
     repairRuntime: vi.fn(),
     loadDiagnostics: vi.fn(),
     refreshTasks: vi.fn(),
+    refreshActivations: vi.fn(),
     loadTask: vi.fn(),
     startTask: vi.fn().mockResolvedValue(task),
     continueTask: vi.fn().mockResolvedValue(task),
@@ -82,12 +111,21 @@ function controller(stateOverrides: Partial<WorkState> = {}) {
 afterEach(() => cleanup());
 
 describe("WorkSurface", () => {
+  it("blocks formal task creation until a verified activation exists", () => {
+    const workController = controller({ activations: [] });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    expect(screen.getByText("Office 工作台尚未激活")).toBeTruthy();
+    expect((screen.getByLabelText("Office 任务指令") as HTMLTextAreaElement).disabled).toBe(true);
+    expect((screen.getByLabelText("发送任务") as HTMLButtonElement).disabled).toBe(true);
+    expect(workController.startTask).not.toHaveBeenCalled();
+  });
+
   it("starts a real Office task through the controller", async () => {
     const workController = controller();
     render(
       <WorkSurface
         controller={workController}
-        workspaces={[{ id: "workspace-1", name: "Office Project", path: task.projectPath, connected: true, settings: { sidebarCollapsed: false } }]}
         onClose={vi.fn()}
       />,
     );
@@ -99,9 +137,7 @@ describe("WorkSurface", () => {
 
     await waitFor(() => {
       expect(workController.startTask).toHaveBeenCalledWith({
-        workbenchId: "office-agent",
-        workbenchVersion: "0.1.0",
-        projectPath: task.projectPath,
+        activationId: activation.activationId,
         prompt: "整理季度报告",
       });
     });
@@ -120,7 +156,7 @@ describe("WorkSurface", () => {
       selectedTaskId: "task-1",
     });
 
-    render(<WorkSurface controller={workController} workspaces={[]} onClose={vi.fn()} />);
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
     expect(screen.getByText("已完成整理。")).toBeTruthy();
     expect(screen.getByText("report.docx")).toBeTruthy();

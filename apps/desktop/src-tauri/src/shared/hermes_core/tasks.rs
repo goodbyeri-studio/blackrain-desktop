@@ -858,6 +858,9 @@ fn validate_task(task: &WorkTask) -> Result<(), WorkError> {
         ));
     }
     validate_store_id("task id", &task.task_id)?;
+    if let Some(activation_id) = &task.activation_id {
+        validate_store_id("activation id", activation_id)?;
+    }
     validate_non_empty("workbench id", &task.workbench_id)?;
     validate_non_empty("workbench version", &task.workbench_version)?;
     if !is_absolute_project_path(&task.project_path) {
@@ -1149,6 +1152,7 @@ mod tests {
         WorkTask {
             schema_version: WORK_SCHEMA_VERSION,
             task_id: id.into(),
+            activation_id: Some("activation-office-demo".into()),
             workbench_id: "office-agent".into(),
             workbench_version: "0.1.0".into(),
             project_path: r"C:\Users\demo\BlackRain Project".into(),
