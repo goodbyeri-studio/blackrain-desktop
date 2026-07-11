@@ -50,6 +50,10 @@ $env:CARGO_NET_GIT_FETCH_WITH_CLI = "true"
 if ($LASTEXITCODE -ne 0) {
   throw "Vendor Windows runtime failed with exit code $LASTEXITCODE."
 }
+& pwsh -NoProfile -File (Join-Path $repo "scripts\vendor-hermes-runtime.ps1")
+if ($LASTEXITCODE -ne 0) {
+  throw "Vendor Hermes runtime failed with exit code $LASTEXITCODE."
+}
 
 Push-Location (Join-Path $repo "apps\desktop")
 try {

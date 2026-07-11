@@ -122,6 +122,22 @@
 - 影响范围：阶段 2、4、5、Windows Credential Manager 验收和诊断脱敏。
 - 后续复查条件：企业 secret broker 成为正式能力时，把 keyring 实现替换为 secret reference resolver；仍不得把明文写入工作台或项目。
 
+## 2026-07-12：Windows runtime 使用锁定基础依赖加最小 API server 补包
+
+- 决策：Windows x64 runtime 使用 uv-managed CPython 3.12.8，按 Hermes `uv.lock` 执行 `uv sync --frozen --no-dev --no-editable`，不启用任何 extra；仅从锁定的 `messaging` 解析结果中约束并额外安装 API server 直接需要的 `aiohttp==3.14.1`。
+- 原因：`gateway.platforms.api_server` 直接 import `aiohttp`，但启用完整 `messaging` 会同时引入 Telegram、Discord、Slack 等桌面 MVP 不需要的渠道依赖，扩大包体、License 和攻击面。
+- 替代方案：安装 `hermes-agent[messaging]`、随首启联网安装、PyInstaller/Nuitka 单文件封装、要求用户预装 Python。
+- 影响范围：`windows-x64.manifest.json`、`vendor-hermes-runtime.ps1`、release、doctor、NSIS resources 和第三方清单。
+- 后续复查条件：锁定 Hermes 将 API server 依赖移入 core，或 BlackRain 正式决定支持某个消息渠道；任何变更都需重新生成 inventory/checksum 并跑 Windows 矩阵。
+
+## 2026-07-12：runtime 完整性使用全文件 checksum 覆盖
+
+- 决策：生成制品包含 `packages.lock.txt`、`LICENSES/`、`NOTICE.txt`、`provenance/` 和 `SHA256SUMS`；doctor 除校验 hash 外，还拒绝路径穿越、重复条目、符号链接、未被清单覆盖的额外文件和与冻结源 manifest 不一致的制品。
+- 原因：只检查几个入口文件无法证明打包目录完整，额外未登记文件也可能绕过依赖和 License 审计。
+- 替代方案：仅检查 `hermes.exe` 是否存在，或只依赖 NSIS 构建成功。
+- 影响范围：vendor 脚本、doctor、发布证据和后续上游升级回归。
+- 后续复查条件：未来引入签名制品清单时，可在 checksum 之上增加签名验证，但不能降低全文件覆盖。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

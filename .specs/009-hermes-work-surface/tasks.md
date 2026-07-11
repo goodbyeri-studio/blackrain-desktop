@@ -46,16 +46,18 @@
 
 ## 阶段 3：Windows Hermes runtime 制品
 
-- [ ] 冻结 Python 版本、Hermes commit、核心 extra 和直接/传递依赖清单
-- [ ] 排除 `messaging`、`edge-tts`、`honcho`、未核实 `hindsight` 等不允许依赖
+- [x] 冻结 Python 版本、Hermes commit、核心 extra 和直接/传递依赖清单
+- [x] 排除 `messaging`、`edge-tts`、`honcho`、未核实 `hindsight` 等不允许依赖
 - [ ] 生成 Windows x64 预构建 venv，不使用 PyInstaller/Nuitka
 - [ ] 验证 Windows 无 `uvloop` 时可靠降级 asyncio
-- [ ] 建立 runtime provenance、checksums、LICENSES 和 NOTICE
-- [ ] 实现 `vendor-hermes-runtime.ps1` 或等价可复现脚本
-- [ ] 将 runtime 加入 Tauri Windows resources 和 release script
-- [ ] 更新 doctor 检查 runtime 完整性、Python 可执行和关键 import
+- [x] 建立 runtime provenance、checksums、LICENSES 和 NOTICE
+- [x] 实现 `vendor-hermes-runtime.ps1` 或等价可复现脚本
+- [x] 将 runtime 加入 Tauri Windows resources 和 release script
+- [x] 更新 doctor 检查 runtime 完整性、Python 可执行和关键 import
 - [ ] 干净 Windows 环境验证无需系统 Python/uv/Node
 - [ ] 记录实际包体、冷启动和内存基线
+
+> 2026-07-12：上述已勾选项只证明冻结策略、生成脚本、打包声明和 doctor 门禁已经进入仓库。当前 macOS 开发机没有 `pwsh`，尚未生成 Windows venv；Windows asyncio、可搬移性、干净机和性能项保持未完成。
 
 ## 阶段 4：Hermes 进程 supervisor
 

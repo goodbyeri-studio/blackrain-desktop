@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "platform": "windows-x64",
+  "python": {
+    "version": "3.12.8",
+    "source": "uv-managed-python",
+    "requiresPython": ">=3.11,<3.14"
+  },
+  "hermes": {
+    "repository": "https://github.com/NousResearch/hermes-agent.git",
+    "tag": "v2026.7.7.2",
+    "commit": "9de9c25f620ff7f1ce0fd5457d596052d5159596",
+    "version": "0.18.2",
+    "license": "MIT",
+    "pyprojectSha256": "7f0180b23c28ea3f7a32e037bcfb1d986fa1925d0a9331112bdce82ef1bfbf45",
+    "uvLockSha256": "92d8153c76379a4d427eaf37cd77cedef9dc093c6c44c1386abd4546578f709a"
+  },
+  "install": {
+    "mode": "uv-sync-frozen-no-dev-no-editable",
+    "extras": [],
+    "additionalPackages": [
+      "aiohttp==3.14.1"
+    ],
+    "reason": "Hermes API server imports aiohttp, but BlackRain must not install the full messaging extra."
+  },
+  "excludedExtras": [
+    "messaging",
+    "edge-tts",
+    "honcho",
+    "hindsight",
+    "voice",
+    "all"
+  ],
+  "forbiddenDistributions": [
+    "python-telegram-bot",
+    "discord.py",
+    "slack-bolt",
+    "slack-sdk",
+    "edge-tts",
+    "honcho-ai",
+    "hindsight-client",
+    "supermemory",
+    "mem0ai",
+    "uvloop"
+  ],
+  "entrypoints": {
+    "hermes": "venv/Scripts/hermes.exe",
+    "python": "venv/Scripts/python.exe",
+    "gatewayArgs": ["gateway"]
+  }
+}

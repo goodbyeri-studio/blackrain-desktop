@@ -5,7 +5,8 @@
 ## 当前状态
 
 - Hermes Tauri 子进程纳管：不存在。
-- 独立 `HERMES_HOME` 产品配置写入：不存在。
+- 独立 `HERMES_HOME` 配置域：shared 实现与单元测试已存在，尚未由 supervisor/产品命令调用。
+- Windows Hermes runtime：版本/依赖策略、生成脚本、Tauri resource 和 doctor 门禁已存在；Windows venv 尚未生成和执行。
 - WORK `/v1/runs` client 和 SSE bridge：不存在。
 - WORK 前端 feature/reducer/UI：不存在。
 - 工作台激活到 WORK 的接缝：不存在。
@@ -24,6 +25,10 @@
 | 2026-07-12 | Rust 非测试构建 | Hermes contract/config/credential store 纳入 App 与 daemon shared module，`AppState` 持有 app-data 派生路径 | `cargo check` | 通过（macOS，78/83 个 dead-code 等 warning） | 新模块尚未接 adapter，warning 符合当前阶段；不替代 Windows check |
 | 2026-07-12 | TypeScript contract | shared WorkEvent fixture、raw unknown event guard、malformed event 拒绝 | `npm run test -- --run src/features/work/types.test.ts` | `4 passed`（macOS） | 与 Rust 共用 `work-event-agent-delta.json` |
 | 2026-07-12 | 前端静态检查 | 新增 WORK contract types | `npm run typecheck` | 通过（macOS） | 不替代 Windows 验证 |
+| 2026-07-12 | Windows runtime 冻结 | Python 3.12.8、Hermes tag/commit、`pyproject.toml`/`uv.lock` hash、无 extra、仅补 `aiohttp==3.14.1` | manifest 与锁文件 hash 静态核对；`uv export --frozen --no-dev --extra messaging --no-emit-project` | 通过（macOS 静态） | export 确认 aiohttp 锁为 3.14.1；只作为 constraint，不安装 messaging 全量 |
+| 2026-07-12 | Windows 依赖解析 | Hermes core 的 Windows x64 冻结解析和禁止分发包检查 | `uv sync --dry-run --frozen --no-dev --no-editable --python-platform x86_64-pc-windows-msvc --python 3.12` | 通过（64 个 core distribution，无禁止包/uvloop） | 使用本机 uv 0.11.12；dry-run 不是 Windows 安装或 import 证据 |
+| 2026-07-12 | Runtime vendor 静态检查 | inventory、JSON、Node 语法、diff whitespace | `python3 -m py_compile scripts/hermes-runtime-inventory.py`; inventory 临时 smoke；`node --check apps/desktop/scripts/doctor.mjs`; `jq empty ...`; `git diff --check` | 通过（macOS） | 本机无 `pwsh`，PowerShell 语法及 Windows runtime 生成未执行 |
+| 2026-07-12 | 前端基线 | runtime doctor 改动后的 TypeScript、全量 Vitest 和 ESLint 基线 | `npm run typecheck`; `npm run test`; `npm run lint` | 通过（146 files / 1071 tests；lint 0 error、5 个既有 hook warning） | 测试有既有 React `act(...)`/canvas stderr；lint warning 位于未修改文件 |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |
@@ -91,16 +96,17 @@ cargo check
 - Hermes 锁定版本存在 `/health`、capabilities/models、runs/SSE、approval 和 stop 接口。
 - 独立历史 spike 证明 Hermes 经 new-api 接国产模型、流式和工具调用在开发环境可行。
 - 本 spec 五件套已创建。
+- Hermes config/credential shared domain 已实现并通过 macOS 单元测试，但尚未接入 supervisor。
+- Windows runtime 的冻结 manifest、可复现 vendor 流程、License/NOTICE/provenance/checksum 生成逻辑、Tauri resource 声明和 doctor 完整性门禁已进入仓库并通过可用的静态检查。
 
 这些均不证明当前 BlackRain 客户端存在 WORK surface。
 
 ## 未验证风险
 
-- Hermes run event schema 尚未保存为 BlackRain contract fixtures。
-- Windows 预构建 venv、包体和 asyncio 降级未验证。
-- App data 下 HERMES_HOME、bearer、secret 和 config writer 未实现。
+- Windows 预构建 venv、PowerShell 实际执行、relocatable 搬移、包体和 asyncio 降级未验证。
+- App data 下 HERMES_HOME、bearer、secret 和 config writer 尚未接入 supervisor/产品命令；Windows Credential Manager 未验证。
 - Windows process tree、休眠恢复、孤儿清理和端口冲突未验证。
-- SSE replay/reconnect 和 App 重启恢复策略未定案。
+- SSE 已确认无 cursor/replay；本地 journal、断流收敛和 App 重启恢复尚未实现。
 - Hermes Desktop 组件尚未逐文件做 License/依赖审计。
 - 工作台激活 contract 尚未在 008 实现。
 - 生产 credit/new-api/BYOK 路由仍待 002/003 决策。
@@ -109,4 +115,5 @@ cargo check
 
 ## 失败记录
 
-暂无本 spec 实现，暂无 BlackRain WORK 运行失败记录。后续失败不得只留在聊天或 CI 日志中。
+- 2026-07-12：首次组合静态检查从 `apps/desktop` 错误使用仓库根相对路径，导致 `py_compile`/`node --check`/`jq` 报找不到文件；修正工作目录后全部通过。该错误不是产品实现失败，未计入通过证据。
+- 尚无真实 BlackRain WORK 运行记录。后续失败不得只留在聊天或 CI 日志中。

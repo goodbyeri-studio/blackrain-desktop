@@ -37,6 +37,8 @@ public/assets/material-icons/
 src-tauri/resources/codex/windows-x64/codex.exe
 src-tauri/resources/python/windows-x64/*
 !src-tauri/resources/python/windows-x64/.gitkeep
+src-tauri/resources/hermes-runtime/windows-x64/*
+!src-tauri/resources/hermes-runtime/windows-x64/.gitkeep
 
 # Nix
 result
