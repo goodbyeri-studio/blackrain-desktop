@@ -7,7 +7,7 @@
 - Hermes Tauri 子进程纳管：不存在。
 - 独立 `HERMES_HOME` 配置域：shared 实现与单元测试已存在，尚未由 supervisor/产品命令调用。
 - Windows Hermes runtime：版本/依赖策略、生成脚本、Tauri resource 和 doctor 门禁已存在；Windows venv 尚未生成和执行。
-- WORK `/v1/runs` client 和 SSE bridge：不存在。
+- WORK `/v1/runs` shared client 与增量 SSE decoder：已实现并通过 fake HTTP server 测试；尚未接 Tauri event bridge/任务层。
 - WORK 前端 feature/reducer/UI：不存在。
 - 工作台激活到 WORK 的接缝：不存在。
 - Windows NSIS 内 Hermes runtime：未验证。
@@ -29,6 +29,8 @@
 | 2026-07-12 | Windows 依赖解析 | Hermes core 的 Windows x64 冻结解析和禁止分发包检查 | `uv sync --dry-run --frozen --no-dev --no-editable --python-platform x86_64-pc-windows-msvc --python 3.12` | 通过（64 个 core distribution，无禁止包/uvloop） | 使用本机 uv 0.11.12；dry-run 不是 Windows 安装或 import 证据 |
 | 2026-07-12 | Runtime vendor 静态检查 | inventory、JSON、Node 语法、diff whitespace | `python3 -m py_compile scripts/hermes-runtime-inventory.py`; inventory 临时 smoke；`node --check apps/desktop/scripts/doctor.mjs`; `jq empty ...`; `git diff --check` | 通过（macOS） | 本机无 `pwsh`，PowerShell 语法及 Windows runtime 生成未执行 |
 | 2026-07-12 | 前端基线 | runtime doctor 改动后的 TypeScript、全量 Vitest 和 ESLint 基线 | `npm run typecheck`; `npm run test`; `npm run lint` | 通过（146 files / 1071 tests；lint 0 error、5 个既有 hook warning） | 测试有既有 React `act(...)`/canvas stderr；lint warning 位于未修改文件 |
+| 2026-07-12 | Hermes shared client | loopback/bearer、health/capabilities/models、run create/status/events/approval/stop、session seams、OpenAI error、request id/UA、SSE 分块/断流 | `cargo test hermes_core --lib` | `31 passed`（macOS） | fake HTTP server；不证明真实 Hermes、Windows runtime、Tauri bridge 或自动恢复 |
+| 2026-07-12 | Rust 非测试构建 | reqwest JSON/stream client 纳入 App 与 daemon shared module | `cargo check` | 通过（macOS，既有 dead-code warning） | client 尚未由 adapter 调用；不替代 Windows check |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |
@@ -98,6 +100,7 @@ cargo check
 - 本 spec 五件套已创建。
 - Hermes config/credential shared domain 已实现并通过 macOS 单元测试，但尚未接入 supervisor。
 - Windows runtime 的冻结 manifest、可复现 vendor 流程、License/NOTICE/provenance/checksum 生成逻辑、Tauri resource 声明和 doctor 完整性门禁已进入仓库并通过可用的静态检查。
+- Hermes shared client 已对所有核心 run 端点和 session 接缝完成 fake server HTTP contract 测试；SSE decoder 支持 UTF-8 跨 chunk、CRLF、comment、完整终帧和截断错误。
 
 这些均不证明当前 BlackRain 客户端存在 WORK surface。
 
@@ -107,6 +110,7 @@ cargo check
 - App data 下 HERMES_HOME、bearer、secret 和 config writer 尚未接入 supervisor/产品命令；Windows Credential Manager 未验证。
 - Windows process tree、休眠恢复、孤儿清理和端口冲突未验证。
 - SSE 已确认无 cursor/replay；本地 journal、断流收敛和 App 重启恢复尚未实现。
+- client 尚未接统一脱敏 tracing、取消 token、任务层幂等/安全重试和 Tauri event fanout。
 - Hermes Desktop 组件尚未逐文件做 License/依赖审计。
 - 工作台激活 contract 尚未在 008 实现。
 - 生产 credit/new-api/BYOK 路由仍待 002/003 决策。

@@ -138,6 +138,14 @@
 - 影响范围：vendor 脚本、doctor、发布证据和后续上游升级回归。
 - 后续复查条件：未来引入签名制品清单时，可在 checksum 之上增加签名验证，但不能降低全文件覆盖。
 
+## 2026-07-12：Hermes client 不自动重试有副作用请求
+
+- 决策：共享 client 统一限制为 `http://127.0.0.1:<managed-port>`、必需 bearer、request id、版本 User-Agent 和有限响应体；连接/超时错误标记为可重试，但 `create run`、approval、stop 和 session create 不在 client 内自动重放。
+- 原因：锁定协议没有为这些 POST 提供 BlackRain 可验证的幂等键；网络断开时自动重试可能创建重复 run、重复审批或错误停止状态。重试必须由任务层结合本地 journal 和上游状态显式决策。
+- 替代方案：对所有 5xx/timeout 做通用指数退避，或允许工作台传入任意 Hermes URL。
+- 影响范围：`client.rs`、阶段 6 task store/恢复、阶段 8 actions 和故障注入测试。
+- 后续复查条件：Hermes 提供正式 idempotency key/cursor contract，或任务层完成能证明安全的请求去重。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

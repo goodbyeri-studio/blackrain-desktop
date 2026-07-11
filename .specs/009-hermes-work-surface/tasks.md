@@ -78,17 +78,19 @@
 
 ## 阶段 5：Hermes API client
 
-- [ ] 实现 loopback + bearer HTTP client 和统一超时
-- [ ] 实现 `/health`、`/v1/capabilities`、`/v1/models`
-- [ ] 实现 `POST /v1/runs`
-- [ ] 实现 `GET /v1/runs/{run_id}`
-- [ ] 实现 `GET /v1/runs/{run_id}/events` SSE consumer
-- [ ] 实现 `POST /v1/runs/{run_id}/approval`
-- [ ] 实现 `POST /v1/runs/{run_id}/stop`
-- [ ] 实现闭环所需 session list/read/create/resume 接口
-- [ ] 将 HTTP/上游错误映射为结构化 `WorkError`
+- [x] 实现 loopback + bearer HTTP client 和统一超时
+- [x] 实现 `/health`、`/v1/capabilities`、`/v1/models`
+- [x] 实现 `POST /v1/runs`
+- [x] 实现 `GET /v1/runs/{run_id}`
+- [x] 实现 `GET /v1/runs/{run_id}/events` SSE consumer
+- [x] 实现 `POST /v1/runs/{run_id}/approval`
+- [x] 实现 `POST /v1/runs/{run_id}/stop`
+- [x] 实现闭环所需 session list/read/create/resume 接口
+- [x] 将 HTTP/上游错误映射为结构化 `WorkError`
 - [ ] 为每次请求加入 request id、版本 User-Agent 和脱敏 tracing
 - [ ] 对取消、超时、重试、幂等和 backpressure 建立测试
+
+> 2026-07-12：client 已为每个请求加入 request id 和版本 User-Agent，但尚未接统一脱敏 tracing，因此对应任务保持未完成。session resume 使用读取既有 session 后在新 run 中传回 `session_id`，锁定 Hermes 没有独立的 resume 端点。
 
 ## 阶段 6：事件 normalizer 和任务存储
 

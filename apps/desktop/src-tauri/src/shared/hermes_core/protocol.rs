@@ -134,6 +134,54 @@ pub(crate) enum HermesSseFrame {
     Comment(String),
 }
 
+const MAX_SSE_BUFFER_BYTES: usize = 1024 * 1024;
+
+#[derive(Debug, Default)]
+pub(crate) struct HermesSseDecoder {
+    buffer: Vec<u8>,
+}
+
+impl HermesSseDecoder {
+    pub(crate) fn push(&mut self, chunk: &[u8]) -> Result<Vec<HermesSseFrame>, String> {
+        self.buffer.extend_from_slice(chunk);
+
+        let mut frames = Vec::new();
+        while let Some((frame_end, separator_len)) = find_sse_separator(&self.buffer) {
+            let block = self.buffer[..frame_end].to_vec();
+            self.buffer.drain(..frame_end + separator_len);
+            let text = std::str::from_utf8(&block)
+                .map_err(|error| format!("Hermes SSE frame is not UTF-8: {error}"))?;
+            frames.extend(parse_sse_transcript(text)?);
+        }
+        if self.buffer.len() > MAX_SSE_BUFFER_BYTES {
+            return Err("Hermes SSE frame buffer exceeded 1 MiB.".into());
+        }
+        Ok(frames)
+    }
+
+    pub(crate) fn finish(self) -> Result<Vec<HermesSseFrame>, String> {
+        if self.buffer.iter().all(u8::is_ascii_whitespace) {
+            return Ok(Vec::new());
+        }
+        let text = std::str::from_utf8(&self.buffer)
+            .map_err(|_| "Hermes SSE stream ended with a truncated UTF-8 frame.".to_string())?;
+        parse_sse_transcript(text)
+            .map_err(|_| "Hermes SSE stream ended with a truncated frame.".to_string())
+    }
+}
+
+fn find_sse_separator(bytes: &[u8]) -> Option<(usize, usize)> {
+    let lf = bytes.windows(2).position(|window| window == b"\n\n");
+    let crlf = bytes.windows(4).position(|window| window == b"\r\n\r\n");
+    match (lf, crlf) {
+        (Some(left), Some(right)) if left <= right => Some((left, 2)),
+        (Some(_), Some(right)) => Some((right, 4)),
+        (Some(left), None) => Some((left, 2)),
+        (None, Some(right)) => Some((right, 4)),
+        (None, None) => None,
+    }
+}
+
 /// 解析锁定 Hermes 的 SSE framing，同时兼容 CRLF 和多行 data。
 ///
 /// 该函数只解析已收到的完整 transcript；流式增量 decoder 在 API client 阶段实现。
@@ -208,7 +256,7 @@ mod tests {
     use super::{
         parse_sse_transcript, HermesApprovalRequest, HermesApprovalResponse, HermesCapabilities,
         HermesErrorEnvelope, HermesHealth, HermesModelList, HermesRawEvent, HermesRunStarted,
-        HermesRunStatus, HermesSseFrame, HermesStopResponse,
+        HermesRunStatus, HermesSseDecoder, HermesSseFrame, HermesStopResponse,
     };
 
     const FIXTURE_ROOT: &str = "../../../test-fixtures/hermes/v2026.7.7.2";
@@ -281,6 +329,22 @@ mod tests {
             frames.last(),
             Some(&HermesSseFrame::Comment("stream closed".into()))
         );
+    }
+
+    #[test]
+    fn incremental_decoder_handles_split_utf8_and_rejects_truncation() {
+        let payload = fixture!("sse-normal.txt").as_bytes();
+        let mut decoder = HermesSseDecoder::default();
+        let mut frames = Vec::new();
+        for chunk in payload.chunks(7) {
+            frames.extend(decoder.push(chunk).unwrap());
+        }
+        frames.extend(decoder.finish().unwrap());
+        assert_eq!(frames.len(), 9);
+
+        let mut decoder = HermesSseDecoder::default();
+        decoder.push(&payload[..80]).unwrap();
+        assert!(decoder.finish().is_err());
     }
 
     #[test]
