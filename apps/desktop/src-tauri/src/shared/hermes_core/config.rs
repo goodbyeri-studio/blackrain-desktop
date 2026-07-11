@@ -13,6 +13,7 @@ pub(crate) struct HermesPaths {
     pub(crate) home: PathBuf,
     pub(crate) config: PathBuf,
     pub(crate) last_good_config: PathBuf,
+    pub(crate) desired_state: PathBuf,
 }
 
 impl HermesPaths {
@@ -21,6 +22,7 @@ impl HermesPaths {
         Self {
             config: home.join("config.yaml"),
             last_good_config: home.join("config.yaml.last-good"),
+            desired_state: home.join("desired-state.v1.json"),
             home,
         }
     }
@@ -65,6 +67,11 @@ impl HermesProviderDesiredState {
         validate_http_url(&self.base_url)?;
         validate_non_empty("model", &self.model)?;
         validate_env_key(&self.key_env)?;
+        if self.key_env != PROVIDER_API_KEY_ENV {
+            return Err(format!(
+                "Hermes provider key_env must be the App-managed {PROVIDER_API_KEY_ENV} variable."
+            ));
+        }
         if let Some(context_length) = self.context_length {
             if context_length < 1024 {
                 return Err("Hermes context length must be at least 1024 tokens.".into());
@@ -207,6 +214,9 @@ impl HermesConfigManager {
             atomic_write(&self.paths.last_good_config, &previous)?;
         }
         let rendered = render_config(desired)?;
+        // desired-state 是 App 的非敏感真源。先持久化它，确保随后 config 写入失败时
+        // repair 仍有可用输入；反向顺序会留下无法自动修复的“新 config + 旧/缺失 desired”。
+        persist_desired_state(&self.paths.desired_state, desired)?;
         atomic_write(&self.paths.config, rendered.as_bytes())?;
         if !self.paths.last_good_config.exists() {
             atomic_write(&self.paths.last_good_config, rendered.as_bytes())?;
@@ -221,6 +231,9 @@ impl HermesConfigManager {
     ) -> Result<(HermesConfigSummary, Option<PathBuf>), String> {
         desired.validate()?;
         fs::create_dir_all(&self.paths.home).map_err(|error| error.to_string())?;
+        let rendered = render_config(desired)?;
+        // repair 也先冻结可恢复的 desired-state，再移动现有 config。
+        persist_desired_state(&self.paths.desired_state, desired)?;
         let quarantined = if self.paths.config.exists() {
             let quarantine = self
                 .paths
@@ -232,10 +245,22 @@ impl HermesConfigManager {
         } else {
             None
         };
-        let rendered = render_config(desired)?;
         atomic_write(&self.paths.config, rendered.as_bytes())?;
         tighten_file_permissions(&self.paths.config)?;
         Ok((summary(desired), quarantined))
+    }
+
+    pub(crate) fn load_desired_state(&self) -> Result<HermesProviderDesiredState, String> {
+        let bytes = fs::read(&self.paths.desired_state).map_err(|error| {
+            format!(
+                "Unable to read Hermes desired state {}: {error}",
+                self.paths.desired_state.display()
+            )
+        })?;
+        let desired = serde_json::from_slice::<HermesProviderDesiredState>(&bytes)
+            .map_err(|error| format!("Hermes desired state is invalid: {error}"))?;
+        desired.validate()?;
+        Ok(desired)
     }
 
     fn repair_plan(&self, reason: String) -> HermesRepairPlan {
@@ -322,7 +347,7 @@ pub(crate) fn render_config(desired: &HermesProviderDesiredState) -> Result<Stri
     Ok(output)
 }
 
-fn summary(desired: &HermesProviderDesiredState) -> HermesConfigSummary {
+pub(crate) fn summary(desired: &HermesProviderDesiredState) -> HermesConfigSummary {
     HermesConfigSummary {
         provider_id: desired.provider_id.clone(),
         provider_identity: format!("custom:{}", desired.provider_id),
@@ -331,6 +356,13 @@ fn summary(desired: &HermesProviderDesiredState) -> HermesConfigSummary {
         key_env: desired.key_env.clone(),
         contains_inline_secret: false,
     }
+}
+
+fn persist_desired_state(path: &Path, desired: &HermesProviderDesiredState) -> Result<(), String> {
+    let body = serde_json::to_vec_pretty(desired)
+        .map_err(|error| format!("Unable to serialize Hermes desired state: {error}"))?;
+    atomic_write(path, &body)?;
+    tighten_file_permissions(path)
 }
 
 fn validate_managed_config_contents(content: &str) -> Result<(), String> {
@@ -526,10 +558,21 @@ mod tests {
     }
 
     #[test]
+    fn rejects_provider_key_env_outside_app_managed_namespace() {
+        let mut state = desired("deepseek-chat");
+        state.key_env = "USER_CONTROLLED_PROVIDER_KEY".into();
+        assert!(state.validate().unwrap_err().contains(PROVIDER_API_KEY_ENV));
+    }
+
+    #[test]
     fn paths_are_isolated_under_app_data() {
         let root = PathBuf::from("/app-data/blackrain");
         let paths = HermesPaths::from_app_data_dir(&root);
         assert_eq!(paths.home, root.join("hermes-home"));
+        assert_eq!(
+            paths.desired_state,
+            root.join("hermes-home/desired-state.v1.json")
+        );
         assert!(!paths.home.ends_with(".hermes"));
     }
 
@@ -538,6 +581,7 @@ mod tests {
         let root = temp_root();
         let manager = HermesConfigManager::new(&root);
         manager.apply(&desired("deepseek-chat")).unwrap();
+        assert_eq!(manager.load_desired_state().unwrap().model, "deepseek-chat");
         let first = fs::read_to_string(&manager.paths.config).unwrap();
         manager.apply(&desired("glm-5")).unwrap();
         let second = fs::read_to_string(&manager.paths.config).unwrap();

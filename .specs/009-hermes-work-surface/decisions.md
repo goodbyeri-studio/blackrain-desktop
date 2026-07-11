@@ -162,6 +162,14 @@
 - 影响范围：supervisor、App Windows 启动审计、repair UI、强退/系统重启测试和卸载清理。
 - 后续复查条件：Windows Job Object 可稳定覆盖 Hermes 及受控工具进程时，lease 仍保留作诊断/重启恢复，但异常退出的首要回收可转为 kill-on-job-close。
 
+## 2026-07-12：runtime commands 只消费 App-owned desired state
+
+- 决策：runtime status/start/stop/restart/repair/diagnostics 命令不接受任意 host、port、binary 或 env；Hermes 固定使用 App 管理端口 `8642`，start/repair 只从独立 `HERMES_HOME/desired-state.v1.json` 和 keyring 解析运行配置与 secret。desired state 只保存非敏感 provider/model 配置，并先于派生的 `config.yaml` 落盘，使中途写入失败仍可显式 repair。
+- 原因：允许前端或工作台直接传进程参数会绕过唯一配置写入者、loopback/bearer 和 bundled runtime 边界；固定受控端口也让 lease、冲突诊断和孤儿审计具有稳定身份。desired state 与 config 不一致时必须 fail closed，不能静默覆盖用户可见故障。
+- 替代方案：每次 start 由前端传完整 launch options、随机选择端口、把 key 写入 desired state，或发现 config 漂移后自动覆盖。
+- 影响范围：`config.rs`、`runtime.rs`、Tauri adapter、后续 Providers/工作台激活接缝和 repair UI。
+- 后续复查条件：支持多并行 Hermes profile 时，由 Core 分配受控端口和 profile namespace；仍不允许工作台或普通前端调用方指定 binary/env。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- Hermes process supervisor：shared 状态机、AppState 持有、spawn/readiness/stop/日志和正常退出清理已实现；尚无产品命令、旧 PID 恢复和 Windows 实机证据。
-- 独立 `HERMES_HOME` 配置域：shared 实现与单元测试已存在，尚未由 supervisor/产品命令调用。
+- Hermes process supervisor：shared 状态机、AppState 持有、spawn/readiness/stop/日志、PID lease/孤儿审计和正常退出清理已实现；六个本地 runtime commands 已注册，尚无前端 IPC/UI 和 Windows 实机证据。
+- 独立 `HERMES_HOME` 配置域：shared 实现与单元测试已存在，runtime start/repair 已从 App-owned desired state 和 keyring 读取配置；Providers/工作台激活尚未接入写入入口。
 - Windows Hermes runtime：版本/依赖策略、生成脚本、Tauri resource 和 doctor 门禁已存在；Windows venv 尚未生成和执行。
 - WORK `/v1/runs` shared client 与增量 SSE decoder：已实现并通过 fake HTTP server 测试；尚未接 Tauri event bridge/任务层。
 - WORK 前端 feature/reducer/UI：不存在。
@@ -33,6 +33,7 @@
 | 2026-07-12 | Rust 非测试构建 | reqwest JSON/stream client 纳入 App 与 daemon shared module | `cargo check` | 通过（macOS，既有 dead-code warning） | client 尚未由 adapter 调用；不替代 Windows check |
 | 2026-07-12 | Hermes supervisor | runtime 缺失、状态机、并发 start 单 spawn、环境隔离、滚动脱敏日志、health→capabilities→models readiness、bearer mismatch、stop、PID lease/orphan audit | `cargo test hermes_core --lib` | `39 passed`（macOS） | 使用 fixture 可执行文件和 fake HTTP server；Windows `Get-CimInstance`/`taskkill /T`、真实 runtime、睡眠恢复未验证 |
 | 2026-07-12 | App 生命周期 | `AppState` 解析 bundled/dev runtime 并持有 supervisor；Windows 启动先用 keyring bearer 审计 lease；`ExitRequested` 无论 daemon 保留设置都先 stop Hermes | `cargo check` + 静态调用链核对 | 通过（macOS 编译） | Windows cfg 分支未在本机编译；受控 MCP 清理未接入 |
+| 2026-07-12 | Runtime App commands | status/start/stop/restart/repair/diagnostics、固定 loopback 端口、desired-state/config 漂移 fail-closed、缺失/损坏 desired state、remote unsupported、结构化错误序列化和日志脱敏来源 | `cargo test hermes --lib`; `cargo check`; `npm run typecheck` | `45 passed` + check/typecheck 通过（macOS） | commands 尚未接 `src/services/tauri.ts`；keyring smoke 默认跳过；Windows runtime/编译/实机未验证 |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |
@@ -100,7 +101,7 @@ cargo check
 - Hermes 锁定版本存在 `/health`、capabilities/models、runs/SSE、approval 和 stop 接口。
 - 独立历史 spike 证明 Hermes 经 new-api 接国产模型、流式和工具调用在开发环境可行。
 - 本 spec 五件套已创建。
-- Hermes config/credential shared domain 已实现并通过 macOS 单元测试，但尚未接入 supervisor。
+- Hermes config/credential shared domain 已接入 runtime start/repair；缺失、损坏和 config 漂移会返回稳定结构化错误，普通命令不能传任意运行参数。
 - Windows runtime 的冻结 manifest、可复现 vendor 流程、License/NOTICE/provenance/checksum 生成逻辑、Tauri resource 声明和 doctor 完整性门禁已进入仓库并通过可用的静态检查。
 - Hermes shared client 已对所有核心 run 端点和 session 接缝完成 fake server HTTP contract 测试；SSE decoder 支持 UTF-8 跨 chunk、CRLF、comment、完整终帧和截断错误。
 - Hermes supervisor 已在 macOS 测试中完成 fixture 子进程从启动到 readiness 再 stop，并证明并发失败启动只 spawn 一次、stdout secret 不进入内存/磁盘日志。
@@ -110,7 +111,7 @@ cargo check
 ## 未验证风险
 
 - Windows 预构建 venv、PowerShell 实际执行、relocatable 搬移、包体和 asyncio 降级未验证。
-- App data 下 HERMES_HOME、bearer、secret 和 config writer 尚未接入 supervisor/产品命令；Windows Credential Manager 未验证。
+- Providers/工作台激活尚未提供 desired state 与 provider secret 的产品写入入口；runtime commands 已消费 App data/keyring，但 Windows Credential Manager 未验证。
 - Windows process tree、休眠恢复和孤儿清理尚无实机证据；lease/orphan、端口冲突和 bearer mismatch 目前只有 macOS/fake server 证据。
 - SSE 已确认无 cursor/replay；本地 journal、断流收敛和 App 重启恢复尚未实现。
 - client 尚未接统一脱敏 tracing、取消 token、任务层幂等/安全重试和 Tauri event fanout。
@@ -118,7 +119,7 @@ cargo check
 - 工作台激活 contract 尚未在 008 实现。
 - 生产 credit/new-api/BYOK 路由仍待 002/003 决策。
 - Office 质量基线未跑，无法证明 Hermes 能稳定完成长链任务。
-- Remote backend parity 尚未定案；首版可能明确 local-only。
+- Remote backend 首版已明确 local-only 并返回 `unsupported_in_remote_backend`；远程 WORK adapter 尚未实现。
 
 ## 失败记录
 

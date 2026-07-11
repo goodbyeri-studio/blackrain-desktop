@@ -8,6 +8,7 @@ pub(crate) mod config;
 pub(crate) mod credential_store;
 pub(crate) mod process;
 pub(crate) mod protocol;
+pub(crate) mod runtime;
 pub(crate) mod types;
 
 #[cfg(test)]
