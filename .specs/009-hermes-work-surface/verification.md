@@ -132,7 +132,7 @@ cargo check
 - Windows process tree、休眠恢复和孤儿清理尚无实机证据；lease/orphan、端口冲突和 bearer mismatch 目前只有 macOS/fake server 证据。
 - SSE 已确认无 cursor/replay；本地 journal、启动本地审计、runtime Ready 后 run status 收敛、有限自动重连和 replay 去重已实现，但真实网络抖动、休眠恢复和真实 App 重启流程尚未验证。
 - client 已有脱敏有界 trace、取消 token 和 backpressure 门禁，supervisor diagnostics 已聚合 trace并接入前端面板；真实 Tauri WebView、长流性能和 Windows 脱敏审计尚未验证。
-- Hermes Desktop 组件尚未逐文件做 License/依赖审计。
+- Hermes Desktop 候选路径、commit、License/依赖/Electron 耦合和复制/重写决定已审计；当前没有复制上游 React 文件，未来任何新增复制仍需逐文件来源头与 NOTICE/THIRD-PARTY 证据。
 - 工作台激活 contract 尚未在 008 实现。
 - 生产 credit/new-api/BYOK 路由仍待 002/003 决策。
 - Office 质量基线未跑，无法证明 Hermes 能稳定完成长链任务。
