@@ -32,6 +32,7 @@
   006-code-mode-capability-wiring/
   007-windows-client/
   008-expert-workbench-package/
+  009-hermes-work-surface/
 ```
 
 编号三位递增，slug 用英文小写短横线。创建时复制 `_template/`。
@@ -56,4 +57,4 @@
 - 历史验证要标明日期、平台和适用范围；macOS/Linux 的历史 smoke 不能当作 Windows MVP 的发布证据，旧上游 commit 的源码底账不能当作当前锁定版本的事实。
 - 后续架构推翻早期方案时，在 `decisions.md` 保留历史，在 requirements/design/tasks/verification 中统一改成当前口径；尚未拍板的分歧明确写“待决”，不要静默选边。
 - 总体战略仍以 `README.md` 和 `docs/01`~`docs/09` 为准；单功能执行以对应 spec 为准。若两者冲突，要在同一个 PR 里修正或明确标注待决。
-- 产品形态以 `docs/04` 为唯一真源；工作台包格式和生命周期以 `008-expert-workbench-package` 为执行真源；双引擎接法仍由 003 负责。
+- 产品形态以 `docs/04` 为唯一真源；工作台包格式和生命周期以 `008-expert-workbench-package` 为执行真源；双引擎接法由 003 负责；Hermes 进程、协议和 WORK surface 闭环由 `009-hermes-work-surface` 负责。

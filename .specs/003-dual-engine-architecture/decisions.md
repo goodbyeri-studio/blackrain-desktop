@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-07-12：Hermes WORK surface 实施拆到 spec 009
+
+- 决策：003 继续维护双引擎边界、路由和跨模式假设；Hermes 进程、隔离配置、runs/SSE、审批、任务状态和 WORK UI 的完整实施由 [spec 009](../009-hermes-work-surface/) 维护。
+- 原因：WORK surface 是长期跨前端/Rust/进程/协议/Windows 的大功能，继续塞进 003 会混淆架构真源与执行任务。
+- 替代方案：继续在 003 的阶段 2 维护全部 WORK UI 和 runtime checklist。
+- 影响范围：003 tasks、009 五件套、后续 Goal/PR。
+- 后续复查条件：009 完成后只把稳定边界和最终验证摘要回写 003，不把逐项实现清单搬回。
+
 ## 2026-07-12：双引擎目标锁升级到最新稳定 release，发布状态仍受 Windows 验收约束
 
 - Codex 从 `da4c8ca` 升级到 rust-v0.144.1 / `44918ea10c0f99151c6710411b4322c2f5c96bea`。

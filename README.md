@@ -93,6 +93,7 @@ BlackRain/
 - **Skill / 插件 / 工作台 / 工作室定义**：[04 产品形态](docs/04-产品形态.md)
 - **运行时拓扑**：[09 运行时架构与里程碑](docs/09-运行时架构与里程碑.md)
 - **工作台包协议**：[.specs/008](.specs/008-expert-workbench-package/)
+- **Hermes WORK surface 闭环**：[.specs/009](.specs/009-hermes-work-surface/)
 - **当前实现水位**：对应 spec 的 `verification.md` + 实际代码/配置
 
 完整地图见 [docs/README.md](docs/README.md)。
@@ -110,7 +111,7 @@ BlackRain/
 ## 当前优先级
 
 1. 修复 CODE Gateway 产品启动路径并完成 Windows 发布矩阵。
-2. 打通 Hermes WORK surface 和工作台生命周期最小闭环。
+2. 按 [.specs/009](.specs/009-hermes-work-surface/) 打通 Hermes 进程、`/v1/runs`、SSE、审批、任务恢复和 Codex 风格 WORK surface。
 3. 用 Office 参考工作台验证“安装环境 → 执行任务 → 验证结果 → 恢复失败”的完整链路。
 4. 落地 `.specs/008` 的最小工作台 manifest、依赖检查、安装、验证和卸载协议。
 5. 选择第二套真正用于市场切入的垂类工作台；市场和工作室在单工作台模型成立后再推进。

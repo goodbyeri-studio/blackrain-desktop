@@ -1,0 +1,103 @@
+# Decisions
+
+> 决策记录不证明代码或验证已完成。实现推翻决策时必须同步 requirements/design/tasks/verification，并保留被推翻方案。
+
+## 2026-07-12：WORK surface 是当前产品实现 P0
+
+- 决策：在 CODE surface 非阻塞收尾之前，优先完成 Hermes WORK surface 的真实端到端闭环。
+- 原因：普通和专家工作台默认依赖 Hermes，但当前壳内实现为零；没有 WORK surface，BlackRain 仍只是 Codex 壳，无法验证新的产品定位。
+- 替代方案：继续优先打磨 CODE GUI、市场或完整工作台安装器。
+- 影响范围：`apps/desktop`、003、007、008 和 Office 官方工作台。
+- 后续复查条件：WORK 已完成 Windows 真实闭环并能承载 Office 黄金流程。
+
+## 2026-07-12：spec 009 是长期完整闭环，不按单次 Goal 时长裁剪
+
+- 决策：tasks 覆盖从 runtime、进程、协议、UI、工作台激活到 Windows 发布的完整长期任务；Goal 每次推进可完成部分。
+- 原因：为“一晚能做完”裁剪 spec 会丢失长期边界并制造重复规划。spec 是持续真源，不是单次执行计划。
+- 替代方案：只记录最小聊天页面和短期里程碑。
+- 影响范围：tasks、verification 和后续 Goal 工作方式。
+- 后续复查条件：无；只允许按真实实现调整任务，不按时间预算删除闭环要求。
+
+## 2026-07-12：视觉统一使用 Codex/BlackRain，功能结构参考 Hermes Desktop
+
+- 决策：WORK surface 使用现有 BlackRain/Codex App 风格；Hermes Desktop 用于功能、状态和交互参考。
+- 原因：用户应感知一个产品；直接嵌入 Hermes Electron UI 会形成两套 chrome、状态和技术栈。
+- 替代方案：直接运行 Hermes Desktop、iframe/嵌入其页面、完整复制主题。
+- 影响范围：前端组件、design system、信息架构和 MIT 复用流程。
+- 后续复查条件：现有 DS 无法表达某类 Hermes 任务状态时扩展 DS，而不是引入第二套主题。
+
+## 2026-07-12：先做真实纵切，再移植高级面板
+
+- 决策：runtime→run→SSE→tool→approval→output 的真实链路优先于 Skills/Memory/Provider/Cron/MOA 等完整 Dashboard。
+- 原因：静态页面不能验证执行器；高级面板会扩大范围并掩盖核心链路缺失。
+- 替代方案：先复制 Hermes Desktop 大量页面，再接后端。
+- 影响范围：tasks 阶段顺序和 PR 拆分。
+- 后续复查条件：核心纵切稳定后按产品价值启用阶段 10/15。
+
+## 2026-07-12：产品任务主通道使用 `/v1/runs`
+
+- 决策：WORK 正式任务使用 `/v1/runs` + structured SSE + approval/stop；`/v1/chat/completions` 只用于诊断或兼容。
+- 原因：危险工具和长任务需要审批、停止、状态和恢复；无状态 chat 接口不能形成可靠产品闭环。
+- 替代方案：用 Chat Completions 模拟所有工具生命周期。
+- 影响范围：Rust client、event model、UI 和测试 fixtures。
+- 后续复查条件：Hermes 发布更稳定且等价的新任务协议。
+
+## 2026-07-12：Hermes 原始协议不进入现有 Codex thread reducer
+
+- 决策：为 WORK 建立独立 domain model/reducer，只共享 engine-neutral 展示组件。
+- 原因：两个协议的身份、生命周期和恢复语义不同；强行伪装会污染 CODE 保真链路并形成大量条件分支。
+- 替代方案：把 Hermes 事件转换成假 app-server events，完全复用 Codex 状态层。
+- 影响范围：`src/features/work`、Tauri contract 和消息组件抽取。
+- 后续复查条件：未来形成经过两个 surface 验证的统一 task model 时再上移，不提前抽象。
+
+## 2026-07-12：Hermes 是 App 纳管的本地黑盒
+
+- 决策：App spawn 锁定 Hermes gateway，使用独立 `HERMES_HOME`、loopback 和 bearer；不运行系统服务，不读用户全局 Hermes 配置。
+- 原因：符合唯一配置写入者、可卸载、可诊断和工作台隔离要求。
+- 替代方案：要求用户预装 Hermes、连接任意远程 URL、复用 `~/.hermes`、安装系统服务。
+- 影响范围：runtime packaging、process supervisor、config 和安全边界。
+- 后续复查条件：企业版明确需要受管远程 WORK backend 时新增 adapter，不改变本地默认。
+
+## 2026-07-12：首版允许 WORK local-only，但必须显式标记
+
+- 决策：共享领域逻辑落 `shared/*`；本地 Tauri App 完成 supervisor，Daemon/remote backend 可暂时返回明确 unsupported。
+- 原因：当前产品目标是 Windows 本地客户端；为了形式 parity 提前实现远程进程管理会扩大风险。
+- 替代方案：首个 PR 同时实现 App/Daemon 全 parity，或完全把逻辑写死在 App adapter。
+- 影响范围：后端 command 和远程错误处理。
+- 后续复查条件：远程 backend 成为正式产品路线或 WORK 需要远程执行。
+
+## 2026-07-12：工作台只提供激活上下文，不能写 Hermes 配置
+
+- 决策：008 输出结构化 `ActivatedWorkbenchContext`，009/Core 将其映射到 Hermes。
+- 原因：保持 App 是唯一配置写入者，避免工作台之间污染和恶意扩大权限。
+- 替代方案：每个工作台附任意脚本直接修改 `config.yaml`、`.env` 或全局 Skills/MCP。
+- 影响范围：008/009 接缝、权限和插件激活。
+- 后续复查条件：无。
+
+## 2026-07-12：复制 Hermes UI 必须逐文件存证
+
+- 决策：默认参考行为并用现有 DS 重写；复制源码时记录路径、commit、License 和修改，更新 NOTICE/THIRD-PARTY。
+- 原因：Hermes Desktop 虽为 MIT，但文件可能依赖 Electron 或其他第三方组件；整包复制会增加合规和维护风险。
+- 替代方案：认为同仓 MIT 即可无差别复制所有前端源码。
+- 影响范围：阶段 0/10、代码注释和发行 NOTICE。
+- 后续复查条件：Hermes 上游许可证或目录结构变化。
+
+## 被推翻的方案
+
+### 2026-07-12：先做一个静态 WORK 页面再说
+
+- 原方案：先复制聊天界面和侧栏，后续再接 Hermes。
+- 为什么推翻：容易形成演示性假完成，无法验证审批、工具、停止、恢复和崩溃处理。
+- 替代方案：以最薄真实纵切为第一实现目标，UI 和 runtime 同步推进。
+
+### 2026-07-12：直接使用 Hermes Desktop 作为 WORK surface
+
+- 原方案：启动或嵌入 Hermes Electron Desktop，BlackRain 只负责跳转。
+- 为什么推翻：形成双桌面壳、双配置写入者和两套品牌；无法与工作台/Core/账号/权限统一。
+- 替代方案：原装 Hermes Agent 作为黑盒，BlackRain 自建 Tauri WORK surface。
+
+### 2026-07-12：把 Hermes 事件伪造成 Codex app-server 事件
+
+- 原方案：最大化复用现有 threads reducer，把 Hermes payload 转成假的 codex payload。
+- 为什么推翻：协议语义不同，长期会在 CODE 保真核心堆积 WORK 特例并破坏上游同步。
+- 替代方案：独立 adapter/reducer，共享纯展示组件。
