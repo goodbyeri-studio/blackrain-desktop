@@ -1,10 +1,15 @@
+use std::sync::Arc;
+
 use serde_json::json;
 use tauri::State;
 
 use crate::remote_backend;
+use crate::shared::hermes_core::recovery::audit_remote_recovery;
 use crate::shared::hermes_core::runtime::{
-    repair_runtime, restart_runtime, runtime_diagnostics, start_runtime, HermesRuntimeDiagnostics,
+    repair_runtime, restart_runtime, runtime_api_client, runtime_diagnostics, start_runtime,
+    HermesRuntimeDiagnostics,
 };
+use crate::shared::hermes_core::tasks::HermesTaskRecoveryState;
 use crate::shared::hermes_core::types::{WorkError, WorkErrorKind, WorkRuntimeStatus};
 use crate::state::AppState;
 
@@ -33,6 +38,19 @@ async fn require_local(state: &AppState) -> Result<(), WorkError> {
     }
 }
 
+fn schedule_task_recovery(state: &AppState) {
+    let runtime = Arc::clone(&state.hermes_runtime);
+    let tasks = Arc::clone(&state.hermes_tasks);
+    let recovery = Arc::clone(&state.hermes_task_recovery);
+    tauri::async_runtime::spawn(async move {
+        let result = match runtime_api_client(&runtime).await {
+            Ok(client) => audit_remote_recovery(&tasks, &client).await,
+            Err(error) => Err(error),
+        };
+        *recovery.lock().await = HermesTaskRecoveryState::from_result(result);
+    });
+}
+
 #[tauri::command]
 pub(crate) async fn hermes_runtime_status(
     state: State<'_, AppState>,
@@ -46,7 +64,9 @@ pub(crate) async fn hermes_runtime_start(
     state: State<'_, AppState>,
 ) -> Result<WorkRuntimeStatus, WorkError> {
     require_local(&state).await?;
-    start_runtime(&state.hermes_paths, &state.hermes_runtime).await
+    let status = start_runtime(&state.hermes_paths, &state.hermes_runtime).await?;
+    schedule_task_recovery(&state);
+    Ok(status)
 }
 
 #[tauri::command]
@@ -62,7 +82,9 @@ pub(crate) async fn hermes_runtime_restart(
     state: State<'_, AppState>,
 ) -> Result<WorkRuntimeStatus, WorkError> {
     require_local(&state).await?;
-    restart_runtime(&state.hermes_paths, &state.hermes_runtime).await
+    let status = restart_runtime(&state.hermes_paths, &state.hermes_runtime).await?;
+    schedule_task_recovery(&state);
+    Ok(status)
 }
 
 #[tauri::command]

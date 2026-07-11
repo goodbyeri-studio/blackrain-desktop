@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use super::client::HermesApiClient;
 use super::client::HermesHttpTrace;
 use super::config::{
     render_config, summary, HermesConfigInspection, HermesConfigManager, HermesConfigSummary,
@@ -106,6 +107,13 @@ pub(crate) async fn runtime_diagnostics(
         recent_logs: supervisor.recent_logs(),
         recent_requests: supervisor.recent_http_traces(),
     }
+}
+
+pub(crate) async fn runtime_api_client(
+    supervisor: &Arc<HermesProcessSupervisor>,
+) -> Result<HermesApiClient, WorkError> {
+    let bearer = ensure_api_server_key(DEFAULT_PROFILE_ID, false).map_err(credential_error)?;
+    supervisor.api_client(&bearer).await
 }
 
 fn ensure_config_matches_desired(
