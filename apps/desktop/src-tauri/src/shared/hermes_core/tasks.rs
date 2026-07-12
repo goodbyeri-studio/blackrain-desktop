@@ -93,6 +93,12 @@ pub(crate) struct WorkEventAppendResult {
     pub(crate) appended_events: Vec<WorkEvent>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct WorkRunAttachResult {
+    pub(crate) task: WorkTask,
+    pub(crate) user_event: WorkEvent,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct HermesTaskStore {
     pub(crate) paths: HermesTaskStorePaths,
@@ -185,6 +191,101 @@ impl HermesTaskStore {
         sort_tasks(&mut tasks);
         self.write_snapshot(&tasks)?;
         Ok(result)
+    }
+
+    pub(crate) fn attach_run_with_user_message(
+        &self,
+        task_id: &str,
+        run_id: &str,
+        session_id: &str,
+        text: &str,
+        project_file_refs: &[String],
+    ) -> Result<WorkRunAttachResult, WorkError> {
+        validate_store_id("task id", task_id)?;
+        validate_store_id("run id", run_id)?;
+        validate_store_id("Hermes session id", session_id)?;
+        validate_user_message(text, project_file_refs)?;
+
+        let mut tasks = self.load_tasks()?;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))?;
+        if task
+            .active_run_id
+            .as_deref()
+            .is_some_and(|active| active != run_id)
+        {
+            return Err(persistence_error(
+                "work_task_run_already_active",
+                "WORK task already has a different active Hermes run.",
+            ));
+        }
+
+        let existing = self.load_events(task_id)?;
+        let last_sequence = existing
+            .last()
+            .map(|event| event.sequence)
+            .unwrap_or(0)
+            .max(task.last_event_sequence);
+        let timestamp = now_unix_seconds().max(task.updated_at);
+        let user_event = WorkEvent {
+            schema_version: WORK_SCHEMA_VERSION,
+            event_id: local_user_message_event_id(run_id),
+            sequence: last_sequence.saturating_add(1),
+            task_id: task_id.into(),
+            run_id: run_id.into(),
+            timestamp,
+            item_id: Some(format!("user-message:{run_id}")),
+            kind: WorkEventKind::UserMessageAdded {
+                text: text.into(),
+                project_file_refs: project_file_refs.to_vec(),
+            },
+        };
+        validate_event(task_id, &user_event)?;
+        if existing
+            .iter()
+            .any(|event| event.event_id == user_event.event_id)
+        {
+            return Err(persistence_error(
+                "work_run_user_message_already_attached",
+                "WORK run already has a persisted local user message.",
+            ));
+        }
+
+        task.hermes_session_id = Some(session_id.into());
+        task.active_run_id = Some(run_id.into());
+        task.status = WorkTaskStatus::Running;
+        task.updated_at = timestamp;
+        task.last_event_sequence = user_event.sequence;
+        task.recovery.clear();
+        let result = task.clone();
+        sort_tasks(&mut tasks);
+
+        let journal = self.event_journal_path(task_id)?;
+        if journal.exists() {
+            reject_symlink(&journal)?;
+            repair_journal_tail(&journal, task_id)?;
+        }
+        let previous_journal_len = fs::metadata(&journal).map(|value| value.len()).unwrap_or(0);
+        self.append_journal_lines(task_id, std::slice::from_ref(&user_event))?;
+        if let Err(snapshot_error) = self.write_snapshot(&tasks) {
+            if let Err(rollback_error) = rollback_journal_append(&journal, previous_journal_len) {
+                return Err(persistence_error(
+                    "work_run_attach_rollback_failed",
+                    &format!(
+                        "Unable to persist WORK run metadata and failed to roll back its user message: {}; {}",
+                        snapshot_error.message, rollback_error.message
+                    ),
+                ));
+            }
+            return Err(snapshot_error);
+        }
+
+        Ok(WorkRunAttachResult {
+            task: result,
+            user_event,
+        })
     }
 
     pub(crate) fn set_run_status(
@@ -951,7 +1052,68 @@ fn validate_event(task_id: &str, event: &WorkEvent) -> Result<(), WorkError> {
             "WORK event sequence or timestamp is invalid.",
         ));
     }
+    if let WorkEventKind::UserMessageAdded {
+        text,
+        project_file_refs,
+    } = &event.kind
+    {
+        validate_user_message(text, project_file_refs)?;
+    }
     Ok(())
+}
+
+pub(crate) fn local_user_message_event_id(run_id: &str) -> String {
+    format!("{run_id}:local-user-message")
+}
+
+fn validate_user_message(text: &str, project_file_refs: &[String]) -> Result<(), WorkError> {
+    if text.trim().is_empty() || text.chars().count() > 1_048_576 || text.contains('\0') {
+        return Err(persistence_error(
+            "work_user_message_invalid",
+            "WORK user message must be non-empty and at most 1,048,576 characters.",
+        ));
+    }
+    if project_file_refs.len() > 16 {
+        return Err(persistence_error(
+            "work_user_message_file_refs_invalid",
+            "WORK user message may reference at most 16 project files.",
+        ));
+    }
+    let mut seen = HashMap::<&str, ()>::new();
+    for path in project_file_refs {
+        if !is_absolute_project_path(path) || seen.insert(path, ()).is_some() {
+            return Err(persistence_error(
+                "work_user_message_file_refs_invalid",
+                "WORK user message file references must be unique absolute paths.",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn rollback_journal_append(path: &Path, previous_len: u64) -> Result<(), WorkError> {
+    if !path.exists() {
+        return Ok(());
+    }
+    reject_symlink(path)?;
+    let file = OpenOptions::new().write(true).open(path).map_err(|error| {
+        persistence_error(
+            "work_event_journal_rollback_failed",
+            &format!("Unable to open WORK event journal for rollback: {error}"),
+        )
+    })?;
+    file.set_len(previous_len).map_err(|error| {
+        persistence_error(
+            "work_event_journal_rollback_failed",
+            &format!("Unable to truncate WORK event journal during rollback: {error}"),
+        )
+    })?;
+    file.sync_data().map_err(|error| {
+        persistence_error(
+            "work_event_journal_rollback_failed",
+            &format!("Unable to sync WORK event journal rollback: {error}"),
+        )
+    })
 }
 
 fn events_semantically_equal(left: &WorkEvent, right: &WorkEvent) -> bool {
@@ -966,6 +1128,14 @@ fn apply_event_to_task(task: &mut WorkTask, event: &WorkEvent) {
     task.last_event_sequence = task.last_event_sequence.max(event.sequence);
     task.updated_at = task.updated_at.max(event.timestamp);
     match &event.kind {
+        WorkEventKind::UserMessageAdded { .. } => {
+            if task.hermes_session_id.is_none() {
+                task.hermes_session_id = Some(event.run_id.clone());
+            }
+            task.active_run_id = Some(event.run_id.clone());
+            task.status = WorkTaskStatus::Running;
+            task.recovery.clear();
+        }
         WorkEventKind::TaskStatusChanged { status } => {
             task.status = status.clone();
             if matches!(
@@ -1393,6 +1563,37 @@ mod tests {
                 .last_event_sequence,
             completed.len() as u64
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn local_user_event_recovers_a_run_when_snapshot_attach_was_not_persisted() {
+        let root = temp_root("user-event-recovery");
+        let store = HermesTaskStore::new(&root);
+        let mut draft = task("task-user-event", WorkTaskStatus::Draft, None);
+        draft.hermes_session_id = None;
+        store.upsert_task(&draft).unwrap();
+        store
+            .attach_run_with_user_message(
+                "task-user-event",
+                "run-user-event",
+                "run-user-event",
+                "整理季度报告",
+                &[r"C:\Users\demo\BlackRain Project\quarterly.xlsx".into()],
+            )
+            .unwrap();
+
+        store.upsert_task(&draft).unwrap();
+        let records = store.audit_local_recovery().unwrap();
+        assert_eq!(records[0].disposition, WorkRecoveryDisposition::Resumable);
+        let recovered = store.load_task("task-user-event").unwrap();
+        assert_eq!(recovered.status, WorkTaskStatus::Degraded);
+        assert_eq!(recovered.active_run_id.as_deref(), Some("run-user-event"));
+        assert_eq!(
+            recovered.hermes_session_id.as_deref(),
+            Some("run-user-event")
+        );
+        assert_eq!(recovered.last_event_sequence, 1);
         fs::remove_dir_all(root).unwrap();
     }
 

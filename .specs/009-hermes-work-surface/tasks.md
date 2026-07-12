@@ -140,7 +140,7 @@
 
 - [x] 把工作台/项目/任务路由接入现有 App 装配，不让 `App.tsx` 承担状态机
 - [x] 实现 WORK task sidebar 和空状态
-- [ ] 实现 Codex 风格消息流和 Markdown/附件显示
+- [x] 实现 Codex 风格消息流和 Markdown/附件显示
 - [ ] 实现 Composer、发送、排队/禁用、Stop 和继续任务
 - [x] 实现 reasoning/progress 呈现，避免暴露不应展示的内部内容
 - [x] 实现 tool call 卡片、参数摘要、进度、结果、错误和耗时
@@ -153,7 +153,7 @@
 - [ ] 完成键盘、焦点、ARIA、缩放和 Windows 高 DPI 检查
 - [x] WORK/CODE 切换不丢各自任务状态，不产生两套壳 chrome
 
-> 2026-07-12：Home 已提供 Office 工作台入口，`MainApp` 持有独立 `useWorkController` 并在现有主布局的 Home surface 槽位挂载 WORK；`App.tsx` 只新增样式导入。WORK surface 已连接真实 Tauri/controller actions，任务 sidebar、runtime/repair、消息 Markdown、reasoning、工具、审批、user-input 缺能力说明、输出文件、诊断和 Stop/Resume 均有组件与测试。Composer 已增加最多 16 个“项目文件引用”：picker 从已验证项目根打开，Core 对 start/continue 重新校验存在性、目录逃逸和 symlink，并把项目根/引用写入 Hermes instructions，不内联内容或伪装二进制上传。引用尚未作为独立 transcript metadata 持久化，queue、任务删除 UI、键盘/Windows 高 DPI 全矩阵也仍未完成，因此相关总项保持未勾选。浏览器 fixture 只用于可见 QA 且已删除，不替代 Tauri WebView、真实 Hermes 或 Windows 验收。
+> 2026-07-12：Home 已提供 Office 工作台入口，`MainApp` 持有独立 `useWorkController` 并在现有主布局的 Home surface 槽位挂载 WORK；`App.tsx` 只新增样式导入。WORK surface 已连接真实 Tauri/controller actions，任务 sidebar、runtime/repair、消息 Markdown、reasoning、工具、审批、user-input 缺能力说明、输出文件、诊断和 Stop/Resume 均有组件与测试。Composer 已增加最多 16 个“项目文件引用”：picker 从已验证项目根打开，Core 对 start/continue 重新校验存在性、目录逃逸和 symlink，并把项目根/引用写入 Hermes instructions，不内联内容或伪装二进制上传。每轮 prompt 和引用现已作为确定性本地 `UserMessageAdded` journal-first 持久化，Hermes 同 run 的 `user.message` 回显被抑制，重启后仍能显示文件 chip，因此“消息流和 Markdown/附件显示”已闭合。durable queue、任务删除 UI、键盘/Windows 高 DPI 全矩阵仍未完成，Composer 总项保持未勾选。浏览器 fixture 只用于可见 QA 且已删除，不替代 Tauri WebView、真实 Hermes 或 Windows 验收。
 
 ## 阶段 10：Hermes Desktop 参考能力迁移
 
@@ -168,7 +168,7 @@
 - [x] 移除 Electron、Node preload 和 Hermes 私有 dashboard runtime 依赖
 - [x] 对复制/重写后的行为补 BlackRain 测试，不沿用上游测试数量冒充覆盖
 
-> 2026-07-12：`references/hermes-desktop-ui-audit.md` 已锁定 Hermes `9de9c25` 的候选路径、依赖/Electron 耦合、License 和逐项复制/重写决定。首版没有复制任何 Hermes Desktop React 文件，因此来源头和 NOTICE/THIRD-PARTY 本阶段为“无复制文件、无需新增”；若后续复制，门禁仍然生效。`WorkRuntimeBanner`、TaskStore/recovery/resume、`WorkEventRow`、`WorkApprovalCard` 已按独立 WORK contract 重写并由 BlackRain 测试覆盖；PTY 结论是如进入产品只复用 BlackRain terminal，Skills/MCP 服从 008，model/memory 延后 002/003/阶段 15。Composer 已有 send/stop/busy/approval/user-input 缺能力说明，但 queue、附件和 active clarify response 仍未完成，所以该项保持未勾选。
+> 2026-07-12：`references/hermes-desktop-ui-audit.md` 已锁定 Hermes `9de9c25` 的候选路径、依赖/Electron 耦合、License 和逐项复制/重写决定。首版没有复制任何 Hermes Desktop React 文件，因此来源头和 NOTICE/THIRD-PARTY 本阶段为“无复制文件、无需新增”；若后续复制，门禁仍然生效。`WorkRuntimeBanner`、TaskStore/recovery/resume、`WorkEventRow`、`WorkApprovalCard` 已按独立 WORK contract 重写并由 BlackRain 测试覆盖；PTY 结论是如进入产品只复用 BlackRain terminal，Skills/MCP 服从 008，model/memory 延后 002/003/阶段 15。Composer 已有 send/stop/busy/approval、项目文件引用和 user-input 缺能力说明，但 durable queue 与 active clarify response 仍未完成，所以该项保持未勾选。
 
 ## 阶段 11：工作台激活接缝（与 spec 008 联动）
 

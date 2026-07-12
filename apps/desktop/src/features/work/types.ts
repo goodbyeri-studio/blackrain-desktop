@@ -174,7 +174,7 @@ type WorkEventBase = {
 export type WorkEvent = WorkEventBase &
   (
     | { type: "taskStatusChanged"; status: WorkTaskStatus }
-    | { type: "userMessageAdded"; text: string }
+    | { type: "userMessageAdded"; text: string; projectFileRefs: string[] }
     | { type: "agentTextDelta"; delta: string }
     | { type: "agentMessageCompleted"; text: string }
     | { type: "reasoningUpdated"; text: string }
@@ -349,6 +349,7 @@ export function isWorkEvent(value: unknown): value is WorkEvent {
     case "agentTextDelta":
       return typeof value.delta === "string";
     case "userMessageAdded":
+      return typeof value.text === "string" && isStringArray(value.projectFileRefs);
     case "agentMessageCompleted":
     case "reasoningUpdated":
       return typeof value.text === "string";

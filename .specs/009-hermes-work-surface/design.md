@@ -133,6 +133,7 @@ WorkEvent
 
 每个事件至少携带：`task_id`、`run_id`、稳定 event id/sequence、时间、可选 item id 和 schema version。Normalizer 负责：
 
+- 新 run 的 `UserMessageAdded` 由 BlackRain 在拿到真实 `run_id` 后与 run attach 一起 journal-first 生成，保存原始 prompt 和结构化 `projectFileRefs`；检测到该本地真源时抑制同 run 的 Hermes `user.message` 回显。旧 journal 没有本地真源事件时仍允许 normalizer 接收上游事件。
 - 未知事件保留诊断但不使整个 stream 崩溃。
 - 重复事件幂等。
 - text delta 聚合不重复。
@@ -219,7 +220,7 @@ apps/desktop/src/features/work/
 - `engine.preferred: work` 的已激活工作台进入 WORK surface。
 - `engine.preferred: code` 进入现有 CODE surface。
 - 尚未安装/激活工作台时停在工作台流程，不生成虚假的 WORK 会话。
-- Composer 的项目文件引用由 `src/services/tauri.ts` 打开选择器，但路径不在前端直接拼 prompt；Tauri command 把结构化 `projectFileRefs` 交给 shared `workbench_core`，由 Core 复核其位于 activation 项目根内并写入 Hermes `instructions`。锁定 `/v1/runs` 不支持真实附件上传，因此 UI 必须称为“项目文件引用”。
+- Composer 的项目文件引用由 `src/services/tauri.ts` 打开选择器，但路径不在前端直接拼 prompt；Tauri command 把结构化 `projectFileRefs` 交给 shared `workbench_core`，由 Core 复核其位于 activation 项目根内并写入 Hermes `instructions`。同一份引用还作为 `UserMessageAdded.projectFileRefs` 持久化并在用户消息下展示，App 重启后从 TaskStore journal 恢复。锁定 `/v1/runs` 不支持真实附件上传，因此 UI 必须称为“项目文件引用”。
 
 ## 视觉策略
 
