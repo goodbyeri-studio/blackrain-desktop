@@ -1,5 +1,8 @@
 # Design
 
+> 迁移状态（2026-07-12）：本文中的 `gateway/proxy.py` 是历史路径；对应代码现位于
+> `blackrain-cloud/legacy/credit-proxy/`。Desktop 不再承载该服务端实现。
+
 ## 总体方案
 
 在现有本地壳之上加一层**账号 + credit 计量**。2026-06-25 已真实验证的是 CODE 路径的过渡链路；生产项目边界现已定为私有 Cloud 负责身份/权益/商业账本，公开 Relay 基于 New API 负责模型中转与原始 usage，执行真源见 [010](../010-three-project-platform/)。
@@ -22,8 +25,8 @@ BYOK(待实现):     Plus+ 权益门禁 + 路由待定；不消耗平台 credit
 
 - 属于 `apps/desktop`（前端）：登录/注册 UI、会话态持久、首页/设置展示 plan 与 credit、模型选择器显示倍率、BYOK 入口的 Plus 门禁。
 - 属于 `apps/desktop`（Tauri 后端）：Supabase 会话 token 的安全存取（钥匙串）、把「当前模式（credit/BYOK）」翻译成网关 provider 配置。
-- 属于**过渡代理 `gateway/proxy.py`**（已部署验证）：历史 CODE 可行性链路；不再作为目标生产入口，新云端实现归 `blackrain-cloud`/`blackrain-relay`。
-- 属于 **Supabase**：用户认证、`profiles`（plan + credits）、`credit_ledger`（流水）、RLS 策略。
+- 属于**历史过渡代理**（现归档于 `blackrain-cloud/legacy/credit-proxy/`）：历史 CODE 可行性链路；不再作为目标生产入口。
+- 属于 **BlackRain Cloud `supabase/`**：用户认证、`profiles`（plan + credits）、`credit_ledger`（流水）、RLS 策略与 migration 真源。
 - 属于 **BlackRain Cloud**：验证 Supabase 身份、套餐/权益、商业 credit ledger、Relay 企业客户凭据、model token broker 和对账。
 - 属于 **BlackRain Relay**：New API 模型渠道、路由、scoped token、原始 usage、限流与批发结算；不直接写 Supabase。
 - 明确不改 `codex-upstream`：内核只发 Responses，仍只连本地网关。

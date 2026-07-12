@@ -31,7 +31,7 @@ blackrain-desktop（private）
 | 项目 | 所有权与可见性 | 负责 | 不负责 |
 |---|---|---|---|
 | `blackrain-desktop` | BlackRain 私有 | 桌面 UI/Core、双引擎、本地 sidecar、工作台、项目文件、系统凭据、云端 API client | service-role、平台模型 key、支付 webhook、Relay 管理面 |
-| `blackrain-cloud` | BlackRain 私有 | Supabase、账号、套餐、商业 credit ledger、支付、工作台市场、创作者结算、account broker、Relay 对账 | 模型协议翻译、高吞吐内容转发、New API 源码 |
+| `blackrain-cloud` | BlackRain 私有 | `supabase/` 真源、账号、套餐、商业 credit ledger、支付、工作台市场、创作者结算、account broker、Relay 对账 | 模型协议翻译、高吞吐内容转发、New API 源码；迁入的历史 proxy 只留档 |
 | `blackrain-relay` | 独立公开 AGPL 产品 | 模型渠道、协议中转、token、模型限制、usage、限流、渠道成本、独立客户和开放 API | BlackRain 工作台业务、Desktop 用户项目、Cloud 商业账本 |
 
 ## 控制面与数据面

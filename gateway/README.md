@@ -126,66 +126,12 @@ curl -s http://127.0.0.1:8899/v1/models
 
 > 本目录的 `gateway.py` 是 sidecar 路线的种子。下一步若走 sidecar，优先补 streaming + 模型元数据注册 + 错误处理。
 
-## `proxy.py` —— 平台 credit 代理（M-A2，独立组件）
+## 云端代理历史资产
 
-与 `gateway.py` **不同职责、不同协议**。见 [`.specs/002-accounts-credits/`](../.specs/002-accounts-credits/) 和 [`.specs/010`](../.specs/010-three-project-platform/)。它是已经跑通过 Supabase/DeepSeek 计量闭环的历史过渡实现；目标生产形态已改为私有 BlackRain Cloud 负责身份/商业账本，公开 BlackRain Relay 基于 New API 负责中转/原始 usage。本目录不再新增生产 Cloud/Relay 服务代码。
+历史 `proxy.py`、credit 计算、测试和镜像文件已迁入私有
+`blackrain-cloud/legacy/credit-proxy/`，只用于行为回归和合同提取，不再是 Desktop
+生产组件。本目录只保留 CODE 模式本地 Responses 到 Chat 的 `gateway.py` sidecar。
 
-- `gateway.py`：本地翻译层，说 **Responses**（codex 专用），跑在用户机器上。
-- `proxy.py`：平台 credit 代理，说 **Chat Completions**（OpenAI 兼容），跑在**服务端常驻主机**，持平台 DeepSeek key、按 usage 扣 credit。
-
-**为什么分开**：翻译只留 `gateway.py` 一份（铁律 2）；代理说 Chat Completions 才能与未来 new-api 同形态、零改动顶替。代理**不做翻译**。
-
-### credit 模式数据流
-
-```
-内核(Responses) → 本地 gateway.py(翻译成 Chat, base_url=代理, Bearer=用户 Supabase JWT)
-    → proxy.py(校验 JWT + 查余额 + 注平台 key + 转发 + 计量扣 credit) → DeepSeek
-```
-
-BYOK 模式则不经代理：`gateway.py` 直连 `api.deepseek.com`、用用户自己的 key。
-
-### 运行（本地调试）
-
-```bash
-# 从仓库根 .env 载入 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY / DEEPSEEK_API_KEY
-set -a; source .env; set +a
-PROXY_PORT=8800 python3 gateway/proxy.py        # 监听 127.0.0.1:8800
-#   PROXY_LOG=/tmp/proxy.log  DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
-```
-
-接口：`POST /v1/chat/completions`（Bearer=用户 JWT）、`GET /v1/models`（带倍率）、`GET /health`。
-
-### 已验证（2026-06-25，真实 DeepSeek + 真实 Supabase）
-
-- 转发：用户对话经代理 → DeepSeek，SSE 流式透传成功。
-- 计量：flash 0.5x，33 token → 扣 0.00165 credit，与 `credit_math` 锚定分毫不差；`credit_ledger` 落账含 token 明细。
-- 门禁：余额耗尽 → 402 `insufficient_credits`；无效 JWT → 401；未知模型 → 400。
-- 脱敏：日志无平台 key / JWT / 用户内容 / 完整 user_id。
-
-单测：`cd gateway && python3 -m unittest test_proxy test_credit_math -v`（纯逻辑，不连网）。
-
-### 计量口径
-
-`credit_math.py`：`credits = (input+output) × 模型倍率 / 10000`（混合单价占位）。倍率 flash 0.5x / pro 1.5x，比值钉死 DeepSeek 真实价 3:1，与前端 `creditPricing.ts` 一致。正式定价改 `TOKENS_PER_CREDIT_AT_1X` 一处。
-
-### 部署（常驻服务）
-
-`proxy.py` 纯 stdlib，`Dockerfile` 极简（仅 `credit_math.py` + `proxy.py`）。**密钥一律运行时注入，绝不烤进镜像/入库。** 容器内设 `PROXY_HOST=0.0.0.0`（Dockerfile 已默认），平台注入 `PROXY_PORT`。
-
-需运行时注入的环境变量：`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_ANON_KEY`、`DEEPSEEK_API_KEY`。
-
-本地容器冒烟（已验证）：
-
-```bash
-cd gateway
-docker build -t blackrain-proxy .
-docker run -d --name p -p 8801:8080 \
-  -e SUPABASE_URL=... -e SUPABASE_SERVICE_ROLE_KEY=... \
-  -e SUPABASE_ANON_KEY=... -e DEEPSEEK_API_KEY=... blackrain-proxy
-curl -s http://127.0.0.1:8801/health
-```
-
-**Fly.io**（推荐，起步基本免费）：`fly launch --no-deploy` → `fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... SUPABASE_ANON_KEY=... DEEPSEEK_API_KEY=...` → `fly deploy`。Fly 边缘自动 TLS（HTTPS）。
-**Railway**：连仓库选 `gateway/` 目录，Variables 里设上述四个 secret，自动构建部署。
-
-历史设想是 new-api 按 `base_url + Bearer <jwt>` 直接顶替本代理。当前定稿改为 Supabase JWT 只向 BlackRain Cloud 证明身份，Cloud 向 BlackRain Relay 兑换 model token；Relay 记录原始 usage，Cloud 维护商业 credit ledger 并对账。该决策不代表 broker、对账或生产迁移已经实现。
+目标生产路径是 Desktop 从 BlackRain Cloud 获取权益与受限 model token，再由 WORK
+直连 BlackRain Relay、CODE 经本地 `gateway.py` 进入 Relay。Cloud/Relay 正式接口和
+Desktop 客户端接线仍以对应 living spec 的实现与验证为准。

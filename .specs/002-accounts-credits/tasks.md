@@ -41,6 +41,7 @@
 
 - [x] 在 design/decisions 记录桌面侧 `base_url + Bearer <jwt>` 接缝目标。
 - [x] 决定生产边界：Cloud 验证 Supabase 身份并维护商业账本；Relay 基于 New API 中转和记录原始 usage；`proxy.py` 只保留为历史过渡实现。
+- [x] 将 Supabase 服务端资产与历史 proxy 行为基线迁入 Cloud，并从 Desktop 删除对应服务端文件。
   - [x] 冻结 WORK 凭据边界：短期 Supabase access JWT 只可用于服务端身份兑换，不直接注入常驻 Hermes `key_env`
   - [ ] 在 Cloud 实现并部署 Supabase 身份到长期、可撤销、可限额 Relay model token 的 account broker；Supabase 是 BlackRain 商业 ledger 真源，Relay 是 usage/执行额度真源
 - [ ] 为 WORK/Hermes 接入同一 credit 余额与结构化错误链路。
@@ -51,7 +52,7 @@
 - [x] `npm run typecheck` / 相关前端测试 / `npm run lint`。（2026-06-25，最高记录 1055 前端用例）
 - [x] 改 Rust 后 `cargo check` + 相关模块检查。
 - [x] credit 费率换算单测（3:1 比值）。
-- [ ] 后续代码改动时清理 `gateway/credit_math.py`、`gateway/test_credit_math.py`、Supabase migration 注释与前端类型注释中的旧“1M pro-等效”措辞；不得只改注释而不核对公式。
+- [x] 将 `gateway/credit_math.py`、代理测试和 Supabase migration 迁出 Desktop；Cloud legacy 与前端类型中的旧“1M pro-等效”措辞仍须在定价重验时统一清理。
 - [x] 代理：JWT 校验 / 扣余额原子性 / ledger 落账真实集成验证。
 - [x] RLS：前端改不动 credits。
 - [ ] 人工：注册→登录→看余额→对话→余额下降；Plus BYOK 不扣；耗尽被拦。

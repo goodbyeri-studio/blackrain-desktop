@@ -61,7 +61,7 @@ BlackRain（Tauri，subtree 自 CodexMonitor）= 工作台 Core + 双 surface + 
 | `workbenches/` | 专家工作台包；目标包含 Manifest、Skills、插件依赖、环境、模板、任务和验证。 | 当前 `office-agent` 只是内容/注入骨架；完整生命周期按 008 落地，不能再写成“纯 Markdown 即完整工作台”。 |
 | `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–010。 | 只给大功能/架构功能建，随实现同步更新。 |
 
-仓库托管在 `goodbyeri-studio/blackrain-desktop`（私有）。BlackRain 另有私有 `blackrain-cloud` 与公开 AGPL `blackrain-relay`；三项目边界以 `.specs/010-three-project-platform/` 为真源。本仓只承载桌面产品和历史迁移资产。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
+仓库托管在 `goodbyeri-studio/blackrain-desktop`（私有）。BlackRain 另有私有 `blackrain-cloud` 与公开 AGPL `blackrain-relay`；三项目边界以 `.specs/010-three-project-platform/` 为真源。本仓只承载桌面产品、客户端账户层和本地运行时；Supabase 服务端资产与历史 credit proxy 已迁至 Cloud。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
 
 ## Living Spec 纪律
 
