@@ -126,6 +126,7 @@ Desktop/Cloud 保持严格闭源来源边界；普通 AGPL/GPL 参考项目仍�
 - 前端/Rust 基线命令仍是 `npm run typecheck`、`npm run test`、`npm run lint`、`npm run lint:ds`、`npm run codemod:ds:dry` 与 `cargo check`；具体工作目录和顺序见 `docs/commands.md`。
 - Windows MVP 环境、NSIS、Credential Manager、真实对话、Office 自动化和安装/卸载必须在 Windows 实机验证；CI 不能替代这些验收。
 - 当前 CI 按 PR diff 路由：前端相关改动在 Ubuntu 跑 JS typecheck/test/lint/DS/codemod，Rust/WORK 相关改动才在 Windows 用同一 test profile 编译并跑 Hermes/workbench/plugin 专项；文档改动不占用 Windows runner，同一 PR 的旧 run 自动取消。普通 `main` push 不重复跑，只有 Cargo 依赖文件变化时为默认分支预热 Windows cache；不含 GUI、Hermes runtime、NSIS、真实双引擎或 macOS 验证。
+- Windows Rust/WORK job 由 repository variable `WINDOWS_RUNNER` 选择 runner；未设置时回退 `windows-latest`，设置为 `blackrain-windows` 时使用受控 self-hosted 开发机。fork PR 不进入开发机；NSIS、签名材料和发布实机矩阵不属于普通 PR CI。
 - 非 Windows 跨平台开发边界见 [docs/cross-platform-dev.md](docs/cross-platform-dev.md)；Windows 验证矩阵见 [.specs/007-windows-client/verification.md](.specs/007-windows-client/verification.md)。
 
 ## 协作流程（GitHub Flow）

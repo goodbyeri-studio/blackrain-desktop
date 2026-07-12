@@ -10,6 +10,7 @@
 - [构建 CODE 内核](#构建-code-内核)
 - [启动 Windows 客户端](#启动-windows-客户端)
 - [前端与 Rust 验证](#前端与-rust-验证)
+- [GitHub Actions 与 self-hosted Windows](#github-actions-与-self-hosted-windows)
 - [Windows 本机发布](#windows-本机发布)
 - [单独调试模型网关](#单独调试模型网关)
 - [协议探针](#协议探针)
@@ -165,15 +166,13 @@ npm run lint
 npm run lint:ds
 npm run codemod:ds:dry
 
-Push-Location src-tauri
-cargo check
-# Hermes WORK shared contract/client/supervisor 专项
-cargo test hermes --lib
-# 工作台 verified plugin runtime/MCP 路径门禁专项
-cargo test plugin_core --lib
-Pop-Location
+Set-Location ..\..
+
+# 与 Windows CI、正式发布入口完全相同的 Rust/WORK 检查
+pwsh scripts/check-windows-rust.ps1
 
 # Windows 专用入口
+Set-Location apps\desktop
 npm run doctor:win
 npm run tauri:dev:win
 npm run tauri:build:win
@@ -181,7 +180,23 @@ npm run tauri:build:win
 Set-Location ..\..
 ```
 
-按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；Rust 后端跑 `cargo check`。发布级结论还必须完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 中适用的 Windows 实机项。
+按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；Rust/WORK 改动跑统一的 `check-windows-rust.ps1`。发布级结论还必须完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 中适用的 Windows 实机项。
+
+## GitHub Actions 与 self-hosted Windows
+
+CI 默认把 JS 检查放在 `ubuntu-latest`，Windows Rust/WORK 检查在未配置变量时回退到 `windows-latest`。Windows 开发机稳定在线后，可在仓库 `Settings -> Actions -> Runners -> New self-hosted runner` 注册 runner，并添加唯一自定义 label `blackrain-windows`；随后执行：
+
+```bash
+gh variable set WINDOWS_RUNNER --body blackrain-windows
+```
+
+此变量只切换 Rust/WORK job，不改变检查覆盖。需要临时恢复 GitHub-hosted Windows 时删除变量：
+
+```bash
+gh variable delete WINDOWS_RUNNER
+```
+
+self-hosted runner 只接受本仓库内的可信分支 PR；workflow 会跳过 fork PR 的 Windows job。runner 应使用非管理员专用服务账号，只开放构建目录，不复用日常登录账号，不保存 Supabase `service_role`、模型平台密钥、代码签名私钥或 EV USB token。开发机离线时，先删除 `WINDOWS_RUNNER`，否则 job 会排队等待而不会自动换回 hosted runner。
 
 ## Windows 本机发布
 
@@ -194,13 +209,15 @@ Copy-Item .env.production.example .env.production.local
 pwsh scripts/release-client-win.ps1
 ```
 
-脚本会先执行 Hermes static contract，再 vendor Windows/Hermes runtime；常规 checks 覆盖 `typecheck`、`test`、`lint`、`lint:ds`、`codemod:ds:dry`、`doctor:win`、Rust `cargo check` 及 Hermes/workbench/plugin 专项，最后运行 `tauri:build:win`。产物在：
+脚本会先执行 Hermes static contract，再 vendor Windows/Hermes runtime；常规 checks 覆盖 `typecheck`、`test`、`lint`、`lint:ds`、`codemod:ds:dry`、`doctor:win` 及统一 Rust/WORK 检查，最后运行 `tauri:build:win`。产物在：
 
 ```text
 apps\desktop\src-tauri\target\release\bundle\
 ```
 
 发布前还要在 Windows 实机完成 `.exe` 安装、开始菜单启动、真实对话、Credential Manager、Office（如涉及）和卸载验证；仅生成 bundle 不算发布闭环。
+
+签名方案拍板后，OV/EV 签名仍只在受控 Windows 机器或专用签名 runner 上执行。普通 PR runner 不持有长期 `.pfx`、私钥或 USB token。签名并验证 `Get-AuthenticodeSignature` 后记录 SHA-256，再创建 Draft Release 并上传已签名产物；人工确认安装矩阵前不得转为正式 Release。未来自动发布必须单独使用 GitHub Environment 人工审批，不得扩张现有 PR CI。
 
 ## 单独调试模型网关
 

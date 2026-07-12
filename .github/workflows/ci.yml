@@ -52,7 +52,7 @@ jobs:
                   ;;
               esac
               case "$file" in
-                .gitattributes|.github/workflows/ci.yml|apps/desktop/src-tauri/*|gateway/*|plugins/*|workbenches/*|scripts/check-hermes-contract.py|scripts/hermes-runtime-inventory.py|scripts/release-client-win.ps1|scripts/test-hermes-live-probe.py|scripts/test-mcp-router.py|scripts/vendor-hermes-runtime.ps1)
+                .gitattributes|.github/workflows/ci.yml|apps/desktop/src-tauri/*|gateway/*|plugins/*|workbenches/*|scripts/check-hermes-contract.py|scripts/check-windows-rust.ps1|scripts/hermes-runtime-inventory.py|scripts/release-client-win.ps1|scripts/test-hermes-live-probe.py|scripts/test-mcp-router.py|scripts/vendor-hermes-runtime.ps1)
                   rust=true
                   ;;
               esac
@@ -87,14 +87,13 @@ jobs:
   windows-rust-checks:
     name: Windows Rust checks (WORK)
     needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    runs-on: windows-latest
+    if: >-
+      needs.changes.outputs.rust == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ${{ vars.WINDOWS_RUNNER || 'windows-latest' }}
     timeout-minutes: 35
     env:
       CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-    defaults:
-      run:
-        working-directory: apps/desktop/src-tauri
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -102,8 +101,6 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
           cache-on-failure: true
-      - name: Compile all Rust test targets once
-        run: cargo test --no-run --locked
-      - run: cargo test hermes --lib --locked
-      - run: cargo test workbench_core --lib --locked
-      - run: cargo test plugin_core --lib --locked
+      - name: Run Windows Rust checks
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/check-windows-rust.ps1
