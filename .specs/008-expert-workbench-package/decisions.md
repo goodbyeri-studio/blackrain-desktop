@@ -74,6 +74,13 @@
 - 影响范围：阶段 2 install/verify/activate、插件卸载 ownership、009 MCP binding 和未来 CODE surface。
 - 后续复查条件：正式 installer 实现时补齐 hash/signature/License/permission/rollback/uninstall 事务，并让 store 只由该事务写入。
 
+## 2026-07-12：deactivate 不等于 uninstall，且绝不删除用户项目
+
+- 决策：首个 009 消费侧 deactivate 接缝只移除 activation 和引擎 binding，并停止该运行实例的受控任务/进程；不删除工作台安装版本、插件 runtime 或用户项目。activation 记录最后删除，使前序失败可重试。完整 uninstall 仍需未来 installer 根据资源 ownership 和共享引用单独执行。
+- 原因：停用是运行状态变化，卸载是受控制品所有权变化；混为一个命令会误删共享插件或用户资产，也破坏升级/回滚。
+- 影响范围：阶段 2 deactivate、阶段 3 uninstall、009 WORK command 和 UI 文案。
+- 后续复查条件：正式 lifecycle state machine 接通后，deactivate 先写入 generation/audit；uninstall 仅清理明确归 Core 所有且引用为零的资源。
+
 ## 被推翻的方案
 
 ### 2026-07-12：工作台主要是纯 Markdown

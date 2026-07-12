@@ -11,6 +11,7 @@ import {
   hermesTaskRecoveryStatus,
   hermesTaskResume,
   hermesTaskStop,
+  workbenchActivationDeactivate,
   workbenchActivationList,
 } from "@/services/tauri";
 import type { WorkEvent, WorkRuntimeStatus, WorkTask } from "../types";
@@ -36,6 +37,7 @@ vi.mock("@/services/tauri", () => ({
   hermesTaskResume: vi.fn(),
   hermesTaskStart: vi.fn(),
   hermesTaskStop: vi.fn(),
+  workbenchActivationDeactivate: vi.fn(),
   workbenchActivationList: vi.fn(),
 }));
 
@@ -113,6 +115,33 @@ describe("useWorkController", () => {
     await waitFor(() => expect(result.current.state.bootstrapping).toBe(false));
     expect(result.current.state.runtime).toEqual(runtime);
     expect(result.current.state.tasks["task-1"].task).toEqual(task);
+  });
+
+  it("deactivates through Core and reconciles runtime tasks recovery and activations", async () => {
+    vi.mocked(hermesRuntimeStatus).mockResolvedValue(runtime);
+    vi.mocked(hermesTaskList).mockResolvedValue([task]);
+    vi.mocked(hermesTaskRecoveryStatus).mockResolvedValue({ records: [], error: null });
+    vi.mocked(workbenchActivationDeactivate).mockResolvedValue({
+      activationId: "activation-office-demo",
+      stoppedTaskIds: ["task-1"],
+      projectPath: task.projectPath,
+      projectPreserved: true,
+    });
+
+    const { result } = renderHook(() => useWorkController());
+    await waitFor(() => expect(result.current.state.bootstrapping).toBe(false));
+
+    await act(async () => {
+      await result.current.deactivateActivation("activation-office-demo");
+    });
+
+    expect(workbenchActivationDeactivate).toHaveBeenCalledWith(
+      "activation-office-demo",
+    );
+    expect(hermesRuntimeStatus).toHaveBeenCalledTimes(2);
+    expect(hermesTaskList).toHaveBeenCalledTimes(2);
+    expect(hermesTaskRecoveryStatus).toHaveBeenCalledTimes(2);
+    expect(workbenchActivationList).toHaveBeenCalledTimes(2);
   });
 
   it("rejects duplicate stop actions before another render is required", async () => {

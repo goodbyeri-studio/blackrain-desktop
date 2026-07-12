@@ -43,11 +43,24 @@
   -webkit-app-region: no-drag;
 }
 
-.work-surface-header > div {
+.work-surface-title {
   min-width: 0;
   display: flex;
   align-items: baseline;
   gap: 10px;
+}
+
+.work-deactivate-button {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.work-deactivate-button svg {
+  width: 13px;
+  height: 13px;
 }
 
 .work-surface-header strong {

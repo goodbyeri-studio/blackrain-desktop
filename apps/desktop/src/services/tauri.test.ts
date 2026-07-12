@@ -29,6 +29,7 @@ import {
   hermesTaskStop,
   workbenchActivationList,
   workbenchActivationRead,
+  workbenchActivationDeactivate,
   listThreads,
   listMcpServerStatus,
   modelGatewayDaemonStart,
@@ -552,6 +553,7 @@ describe("tauri invoke wrappers", () => {
     await hermesRuntimeDiagnostics();
     await workbenchActivationList();
     await workbenchActivationRead("activation-office-demo");
+    await workbenchActivationDeactivate("activation-office-demo");
     await hermesTaskList();
     await hermesTaskRead("task-1");
     await hermesTaskStart(input);
@@ -566,6 +568,9 @@ describe("tauri invoke wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("hermes_runtime_diagnostics");
     expect(invokeMock).toHaveBeenCalledWith("workbench_activation_list");
     expect(invokeMock).toHaveBeenCalledWith("workbench_activation_read", {
+      activationId: "activation-office-demo",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("workbench_activation_deactivate", {
       activationId: "activation-office-demo",
     });
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_list");

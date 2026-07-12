@@ -33,6 +33,7 @@ import type {
   HermesTaskStartInput,
   WorkRuntimeStatus,
   WorkTask,
+  WorkbenchDeactivationResult,
 } from "@/features/work/types";
 import type {
   GitFileDiff,
@@ -1852,6 +1853,14 @@ export async function workbenchActivationRead(
   activationId: string,
 ): Promise<ActivatedWorkbenchContext> {
   return invoke<ActivatedWorkbenchContext>("workbench_activation_read", { activationId });
+}
+
+export async function workbenchActivationDeactivate(
+  activationId: string,
+): Promise<WorkbenchDeactivationResult> {
+  return invoke<WorkbenchDeactivationResult>("workbench_activation_deactivate", {
+    activationId,
+  });
 }
 
 export async function hermesTaskList(): Promise<WorkTask[]> {

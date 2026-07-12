@@ -287,6 +287,23 @@ impl ActivatedWorkbenchStore {
         Ok(context)
     }
 
+    /// 仅供 Core 生命周期命令在受控任务和引擎资源已收敛后调用。
+    pub(crate) fn deactivate_verified(
+        &self,
+        activation_id: &str,
+    ) -> Result<ActivatedWorkbenchContext, String> {
+        validate_identifier("activation id", activation_id)?;
+        let mut envelope = self.load()?;
+        let index = envelope
+            .activations
+            .iter()
+            .position(|context| context.activation_id == activation_id)
+            .ok_or_else(|| format!("Activated workbench {activation_id} was not found."))?;
+        let context = envelope.activations.remove(index);
+        self.persist(&envelope)?;
+        Ok(context)
+    }
+
     fn load(&self) -> Result<ActivatedWorkbenchEnvelope, String> {
         self.ensure_root()?;
         if !self.path.exists() {
@@ -544,6 +561,30 @@ mod tests {
         replacement.verified_at += 1.0;
         store.persist_verified(replacement.clone()).unwrap();
         assert_eq!(store.list().unwrap(), vec![replacement]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn deactivates_only_the_activation_record_and_preserves_the_user_project() {
+        let root = temp_root();
+        let store = ActivatedWorkbenchStore::new(&root);
+        let mut context = fixture();
+        let project = root.join("user-project");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("report.docx"), "user asset").unwrap();
+        context.project.path = project.to_string_lossy().to_string();
+        context.permissions.files[0].path = context.project.path.clone();
+        store.persist_verified(context.clone()).unwrap();
+
+        assert_eq!(
+            store.deactivate_verified(&context.activation_id).unwrap(),
+            context
+        );
+        assert!(store.list().unwrap().is_empty());
+        assert_eq!(
+            fs::read_to_string(project.join("report.docx")).unwrap(),
+            "user asset"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

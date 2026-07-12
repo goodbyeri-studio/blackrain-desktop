@@ -146,6 +146,14 @@
 - 影响范围：阶段 4/11、task start/continue、App exit、Windows process tree 和 deactivate。
 - 后续复查条件：上游提供稳定且可鉴权的动态 server 生命周期 API，并完成运行中无事件丢失的真实验证后，可去掉 restart；在此之前“动态挂拔不重启进程”仍未完成。Windows 还必须故障注入验证新旧 MCP 子进程都随对应 process tree 收敛。
 
+## 2026-07-12：deactivate 先收敛执行资源，最后移除 activation
+
+- 决策：`workbench_activation_deactivate` 为 local-only Core 生命周期命令，并与 task start/continue 共用 activation 串行锁。它先拒绝任何不同 activation 或 legacy active run；对目标 activation 的 run 尽力请求 upstream stop，随后停止单 Hermes supervisor process tree、取消受控 SSE，把仍挂载的 task run 持久收敛为 cancelled；再把 Hermes config 恢复为 provider-only、删除 workbench binding，最后从 activation store 移除记录。命令返回被停止的 task id 和原项目路径，并明确 `projectPreserved=true`。WORK UI 必须通过现有 DS ModalShell 二次确认。
+- 原因：先删 activation 会让重试失去资源身份，先解绑但不停止进程又会留下旧 MCP/Skills。项目是用户资产，生命周期命令只能删除 Core-owned activation/binding，不能递归触碰项目目录。
+- 替代方案：前端直接删除 activation JSON、只隐藏入口、停用时删除项目、或在另一个 activation 仍运行时停止共享 supervisor。
+- 影响范围：008 deactivate 接缝、`workbench_core`、TaskStore、Tauri command、WORK controller/surface 和 Windows process tree 验收。
+- 后续复查条件：多 profile supervisor 落地后按 profile 精确停止；正式 008 lifecycle state 还需增加 generation/audit/installer ownership。Windows 必须验证 `taskkill /T` 覆盖真实 MCP 子进程，本地单测不能替代。
+
 ## 2026-07-12：runtime 完整性使用全文件 checksum 覆盖
 
 - 决策：生成制品包含 `packages.lock.txt`、`LICENSES/`、`NOTICE.txt`、`provenance/` 和 `SHA256SUMS`；doctor 除校验 hash 外，还拒绝路径穿越、重复条目、符号链接、未被清单覆盖的额外文件和与冻结源 manifest 不一致的制品。
