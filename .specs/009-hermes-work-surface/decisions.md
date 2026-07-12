@@ -171,6 +171,14 @@
 - 影响范围：Hermes spawn/stop、App exit、MCP server 变更、deactivate 和 Windows process-tree 验收。
 - 后续复查条件：Windows 实机需用真实 Hermes+MCP 注入正常退出、超时和强退故障；若引入 Windows Job Object，可将其作为首要生命周期所有权机制，但保留 lease 审计。
 
+## 2026-07-12：Ready 后任意非受控进程退出都属于 crash
+
+- 决策：supervisor 仅在 `stop()` 已持有 start gate、取走 child 并主动终止进程时进入 `Stopped`。仍由 supervisor 持有的 Ready child 被 `try_wait()` 发现退出时，无论 exit code 是否为 0，一律进入 `Crashed`，保存 retryable `hermes_process_exited`、清空 pid/port 并移除 runtime lease。
+- 原因：Hermes 自行以 0 退出也会让 WORK surface、活跃 SSE 和受控 MCP 突然消失；把它当正常停止会隐藏故障、让 UI 不展示 repair/restart，并误导恢复策略。
+- 替代方案：exit 0 视为 stopped、只在非零退出时记录错误，或等下一次任务请求失败再更新 runtime。
+- 影响范围：`process.rs`、runtime status/diagnostics、前台恢复对账和阶段 13 Hermes 强退矩阵。
+- 后续复查条件：Windows 实机注入 Console close、taskkill、进程崩溃和系统重启；当前 Unix fixture 证明状态机与 lease 收敛，不证明 Windows 退出通知时序或子进程树行为。
+
 ## 2026-07-12：deactivate 先收敛执行资源，最后移除 activation
 
 - 决策：`workbench_activation_deactivate` 为 local-only Core 生命周期命令，并与 task start/continue 共用 activation 串行锁。它先拒绝任何不同 activation 或 legacy active run；对目标 activation 的 run 尽力请求 upstream stop，随后停止单 Hermes supervisor process tree、取消受控 SSE，把仍挂载的 task run 持久收敛为 cancelled；再把 Hermes config 恢复为 provider-only、删除 workbench binding，最后从 activation store 移除记录。命令返回被停止的 task id 和原项目路径，并明确 `projectPreserved=true`。WORK UI 必须通过现有 DS ModalShell 二次确认。
