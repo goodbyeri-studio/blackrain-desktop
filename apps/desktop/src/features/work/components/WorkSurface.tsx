@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import Copy from "lucide-react/dist/esm/icons/copy";
 import Power from "lucide-react/dist/esm/icons/power";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import X from "lucide-react/dist/esm/icons/x";
 
 import { pickWorkProjectFiles, revealPathInFileManager } from "@/services/tauri";
@@ -59,6 +60,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [copiedDiagnostics, setCopiedDiagnostics] = useState(false);
   const [deactivationOpen, setDeactivationOpen] = useState(false);
+  const [taskDeletionOpen, setTaskDeletionOpen] = useState(false);
   const pending = Object.keys(state.pendingOperations).length > 0;
   const busy = state.bootstrapping || pending;
   const selectedActivation =
@@ -202,6 +204,20 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     setDeactivationOpen(false);
   };
 
+  const handleDeleteTask = async () => {
+    if (!selectedTask) {
+      return;
+    }
+    const removed = await controller.deleteTaskMetadata(selectedTask.taskId);
+    if (removed) {
+      setDraft("");
+      setProjectFileRefs([]);
+      setAttachmentError(null);
+      setEditingFollowUpId(null);
+      setTaskDeletionOpen(false);
+    }
+  };
+
   return (
     <main className="work-surface">
       <header className="work-surface-header">
@@ -212,17 +228,30 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
           <strong>Office 工作台</strong>
           <span>{selectedTask ? selectedTask.projectPath : "由 Hermes Agent 执行"}</span>
         </div>
-        {deactivationActivation ? (
-          <button
-            type="button"
-            className="ghost work-deactivate-button"
-            disabled={busy}
-            onClick={() => setDeactivationOpen(true)}
-          >
-            <Power aria-hidden />
-            停用
-          </button>
-        ) : null}
+        <div className="work-surface-header-actions">
+          {selectedTask && isSettled(selectedTask.status) ? (
+            <button
+              type="button"
+              className="ghost work-delete-task-button"
+              disabled={busy}
+              onClick={() => setTaskDeletionOpen(true)}
+            >
+              <Trash2 aria-hidden />
+              删除记录
+            </button>
+          ) : null}
+          {deactivationActivation ? (
+            <button
+              type="button"
+              className="ghost work-deactivate-button"
+              disabled={busy}
+              onClick={() => setDeactivationOpen(true)}
+            >
+              <Power aria-hidden />
+              停用
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <div className="work-surface-body">
@@ -391,6 +420,11 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
               setDeactivationOpen(false);
             }
           }}
+          onEscapeKeyDown={() => {
+            if (!busy) {
+              setDeactivationOpen(false);
+            }
+          }}
         >
           <div id="work-deactivation-title" className="ds-modal-title">
             停用 Office 工作台？
@@ -416,6 +450,49 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
               onClick={() => void handleDeactivate()}
             >
               {busy ? "正在停用…" : "确认停用"}
+            </button>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {taskDeletionOpen && selectedTask ? (
+        <ModalShell
+          ariaLabelledBy="work-task-deletion-title"
+          ariaDescribedBy="work-task-deletion-description"
+          onBackdropClick={() => {
+            if (!busy) {
+              setTaskDeletionOpen(false);
+            }
+          }}
+          onEscapeKeyDown={() => {
+            if (!busy) {
+              setTaskDeletionOpen(false);
+            }
+          }}
+        >
+          <div id="work-task-deletion-title" className="ds-modal-title">
+            删除本地任务记录？
+          </div>
+          <div id="work-task-deletion-description" className="ds-modal-subtitle">
+            只会删除 BlackRain 保存的任务元数据、消息日志和后续任务队列。不会删除项目目录
+            {` ${selectedTask.projectPath}`} 或其中的输出文件，也不会停用工作台。
+          </div>
+          <div className="ds-modal-actions">
+            <button
+              type="button"
+              className="ghost ds-modal-button"
+              disabled={busy}
+              onClick={() => setTaskDeletionOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="primary ds-modal-button"
+              disabled={busy}
+              onClick={() => void handleDeleteTask()}
+            >
+              {busy ? "正在删除…" : "确认删除记录"}
             </button>
           </div>
         </ModalShell>

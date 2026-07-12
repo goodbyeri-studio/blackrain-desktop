@@ -50,15 +50,23 @@
   gap: 10px;
 }
 
-.work-deactivate-button {
+.work-surface-header-actions {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.work-deactivate-button,
+.work-delete-task-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   color: var(--text-muted);
 }
 
-.work-deactivate-button svg {
+.work-deactivate-button svg,
+.work-delete-task-button svg {
   width: 13px;
   height: 13px;
 }
