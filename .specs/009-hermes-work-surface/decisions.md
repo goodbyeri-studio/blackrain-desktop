@@ -331,6 +331,14 @@
 - 影响范围：`useWorkController`、WORK reducer/tests、长任务 UI 性能和阶段 13 性能基线。
 - 后续复查条件：Windows WebView 长会话性能数据证明 256/16ms 不合适时可调整批大小/节奏；不得降低事件幂等和持久化顺序。
 
+## 2026-07-12：性能门禁区分代码级防退化与 Windows 产品基线
+
+- 决策：代码级常驻 guardrail 使用生产批大小 256 连续归并 10,000 个事件、投影长消息、统计序列化状态体积，并对 5,000 个任务执行 hydration/排序选择；Rust supervisor fixture 记录 spawn 到 health/capabilities/models Ready 的冷启动。阈值刻意宽松，只阻止数量级退化；本机实测值写入 verification。真实 Hermes、Windows WebView heap/CPU、包体和冷启动另建产品基线，不用 fixture/Node 数字替代。
+- 原因：没有可重复支架时性能结论只是一组容易失效的手工数字；但把 macOS debug fixture 或 Node object serialization 当作 Windows 产品 SLA 同样会制造虚假完成。两层证据必须分开。
+- 替代方案：只写一次性 stopwatch 结果、在普通单测里设置紧凑毫秒阈值、用 serialized JSON 直接声称真实 heap 占用、或等到 Windows 发布前才发现 reducer/任务列表数量级退化。
+- 影响范围：WORK reducer/selectors、Hermes supervisor test、阶段 13 性能分析和阶段 14 Windows 发布验收。
+- 后续复查条件：Windows 实机必须测冷启动 P50/P95、Hermes/受控 MCP RSS、WebView 长会话 heap、事件积压/掉帧和 5,000 任务可交互性；获得三轮稳定数据后再制定产品 SLA，并据此调整当前宽松 guardrail。
+
 ## 2026-07-12：系统恢复、前台或网络在线时只重新对账并挂接已有 run
 
 - 决策：Tauri 在 `RunEvent::Resumed` 发出唯一 `work-environment-reconcile` 事件；WORK controller 将它与 window focus、document visible 和 browser online 合并，250ms 去抖后并行刷新 runtime/tasks/recovery/activations。只有 runtime Ready 且 TaskStore 返回 `degraded + activeRunId` 时才调用现有 resume command。多个同时到达的环境事件合并成一次对账，组件卸载时清理 Tauri/browser listener 和 timer。
