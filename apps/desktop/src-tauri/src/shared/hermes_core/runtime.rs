@@ -9,7 +9,8 @@ use super::client::HermesHttpTrace;
 use super::config::{
     render_config_with_workbench, summary, HermesConfigInspection, HermesConfigManager,
     HermesConfigSummary, HermesLaunchEnvironment, HermesMcpServerDesiredState, HermesPaths,
-    HermesProviderDesiredState, HermesWorkbenchBindResult, WorkbenchHermesDesiredState,
+    HermesProviderDesiredState, HermesWorkbenchBindResult, HermesWorkbenchBindRollback,
+    WorkbenchHermesDesiredState,
 };
 use super::credential_store::{ensure_api_server_key, provider_secret_get};
 use super::process::HermesProcessSupervisor;
@@ -52,6 +53,17 @@ pub(crate) fn bind_runtime_workbench(
     manager
         .bind_workbench(&provider, workbench, mcp_servers, allow_mcp_change)
         .map_err(config_error)
+}
+
+pub(crate) fn rollback_runtime_workbench(
+    paths: &HermesPaths,
+    rollback: &HermesWorkbenchBindRollback,
+) -> Result<(), WorkError> {
+    HermesConfigManager {
+        paths: paths.clone(),
+    }
+    .rollback_workbench_binding(rollback)
+    .map_err(config_error)
 }
 
 pub(crate) async fn start_runtime(

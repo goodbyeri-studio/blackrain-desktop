@@ -225,6 +225,14 @@ pub(crate) struct HermesConfigSummary {
 pub(crate) struct HermesWorkbenchBindResult {
     pub(crate) config_summary: HermesConfigSummary,
     pub(crate) mcp_changed: bool,
+    pub(crate) rollback: HermesWorkbenchBindRollback,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HermesWorkbenchBindRollback {
+    workbench_binding: Option<Vec<u8>>,
+    config: Option<Vec<u8>>,
+    last_good_config: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -351,27 +359,73 @@ impl HermesConfigManager {
                 self.paths.home.display()
             )
         })?;
-        if self.paths.config.is_file() {
-            let previous = fs::read(&self.paths.config)
-                .map_err(|error| format!("Unable to read previous Hermes config: {error}"))?;
-            atomic_write(&self.paths.last_good_config, &previous)?;
-        }
+        let rollback = self.capture_workbench_bind_rollback()?;
         let binding = HermesWorkbenchBinding {
             schema_version: HERMES_WORKBENCH_BINDING_SCHEMA_VERSION,
             workbench: workbench.clone(),
             mcp_servers: mcp_servers.to_vec(),
         };
-        persist_workbench_binding(&self.paths.workbench_desired_state, &binding)?;
-        persist_desired_state(&self.paths.desired_state, provider)?;
-        let rendered = render_config_with_binding(provider, Some(&binding))?;
-        atomic_write(&self.paths.config, rendered.as_bytes())?;
-        if !self.paths.last_good_config.exists() {
-            atomic_write(&self.paths.last_good_config, rendered.as_bytes())?;
+        let apply_result = (|| {
+            if let Some(previous) = rollback.config.as_deref() {
+                atomic_write(&self.paths.last_good_config, previous)?;
+            }
+            persist_workbench_binding(&self.paths.workbench_desired_state, &binding)?;
+            persist_desired_state(&self.paths.desired_state, provider)?;
+            let rendered = render_config_with_binding(provider, Some(&binding))?;
+            atomic_write(&self.paths.config, rendered.as_bytes())?;
+            if !self.paths.last_good_config.exists() {
+                atomic_write(&self.paths.last_good_config, rendered.as_bytes())?;
+            }
+            tighten_file_permissions(&self.paths.config)
+        })();
+        if let Err(error) = apply_result {
+            return match self.rollback_workbench_binding(&rollback) {
+                Ok(()) => Err(error),
+                Err(rollback_error) => Err(format!(
+                    "{error}; unable to roll back Hermes workbench binding: {rollback_error}"
+                )),
+            };
         }
-        tighten_file_permissions(&self.paths.config)?;
         Ok(HermesWorkbenchBindResult {
             config_summary: summary(provider),
             mcp_changed,
+            rollback,
+        })
+    }
+
+    pub(crate) fn rollback_workbench_binding(
+        &self,
+        rollback: &HermesWorkbenchBindRollback,
+    ) -> Result<(), String> {
+        restore_optional_file(
+            &self.paths.workbench_desired_state,
+            rollback.workbench_binding.as_deref(),
+            "Hermes workbench binding",
+        )?;
+        restore_optional_file(
+            &self.paths.config,
+            rollback.config.as_deref(),
+            "Hermes config",
+        )?;
+        restore_optional_file(
+            &self.paths.last_good_config,
+            rollback.last_good_config.as_deref(),
+            "Hermes last-good config",
+        )?;
+        Ok(())
+    }
+
+    fn capture_workbench_bind_rollback(&self) -> Result<HermesWorkbenchBindRollback, String> {
+        Ok(HermesWorkbenchBindRollback {
+            workbench_binding: read_optional_file(
+                &self.paths.workbench_desired_state,
+                "Hermes workbench binding",
+            )?,
+            config: read_optional_file(&self.paths.config, "Hermes config")?,
+            last_good_config: read_optional_file(
+                &self.paths.last_good_config,
+                "Hermes last-good config",
+            )?,
         })
     }
 
@@ -628,6 +682,34 @@ fn persist_workbench_binding(path: &Path, binding: &HermesWorkbenchBinding) -> R
         .map_err(|error| format!("Unable to serialize Hermes workbench binding: {error}"))?;
     atomic_write(path, &body)?;
     tighten_file_permissions(path)
+}
+
+fn read_optional_file(path: &Path, label: &str) -> Result<Option<Vec<u8>>, String> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    reject_symlink(path, label)?;
+    if !path.is_file() {
+        return Err(format!("{label} must be a regular file."));
+    }
+    fs::read(path)
+        .map(Some)
+        .map_err(|error| format!("Unable to read {label} {}: {error}", path.display()))
+}
+
+fn restore_optional_file(path: &Path, bytes: Option<&[u8]>, label: &str) -> Result<(), String> {
+    match bytes {
+        Some(bytes) => atomic_write(path, bytes),
+        None if !path.exists() => Ok(()),
+        None => {
+            reject_symlink(path, label)?;
+            if !path.is_file() {
+                return Err(format!("{label} must be a regular file."));
+            }
+            fs::remove_file(path)
+                .map_err(|error| format!("Unable to remove {label} {}: {error}", path.display()))
+        }
+    }
 }
 
 fn validate_mcp_binding(
@@ -1085,6 +1167,13 @@ mod tests {
         assert!(!fs::read_to_string(&manager.paths.config)
             .unwrap()
             .contains("mcp_servers:"));
+
+        manager
+            .rollback_workbench_binding(&removed.rollback)
+            .unwrap();
+        let restored = fs::read_to_string(&manager.paths.config).unwrap();
+        assert!(restored.contains("mcp_servers:\n"));
+        assert!(restored.contains("\"com.blackrain.office-files\":\n"));
         let _ = fs::remove_dir_all(root);
     }
 

@@ -140,11 +140,11 @@
 
 ## 2026-07-12：整体 MCP server 变更使用空闲态受控重启
 
-- 决策：已注册 server 内部的工具增删交给锁定 Hermes 原生 `notifications/tools/list_changed`；新增、删除或改变整个 server 时，Core 只在不存在 active WORK run 时替换版本化 workbench binding。若 Hermes 已 Ready，则取消受控 stream、重启 Hermes 并重新做 task recovery；session/task metadata 保留。任一 active run 存在时在写 config 前 fail closed。Skills-only 变化不触发重启。
+- 决策：已注册 server 内部的工具增删交给锁定 Hermes 原生 `notifications/tools/list_changed`；新增、删除或改变整个 server 时，Core 只在不存在 active WORK run 时替换版本化 workbench binding。若 Hermes 已 Ready，则取消受控 stream、重启 Hermes 并重新做 task recovery；session/task metadata 保留。binding 变更前保存旧 binding/config/last-good 的内存回滚快照；新 runtime readiness 失败时恢复旧文件并尝试重新拉起旧 runtime，返回结构化 `hermes_mcp_transition_failed` 和回滚/恢复状态。任一 active run 存在时在写 config 前 fail closed。Skills-only 变化不触发重启。
 - 原因：锁定 `/v1` surface 没有 server register/unregister/reload endpoint，而直接在对话执行中杀进程会丢失不可重放的 SSE。空闲态重启能复用原装 Hermes 的启动注册路径，并确保旧 stdio 子进程随 Windows process tree 收敛。
 - 替代方案：修改 Hermes Agent loop、伪造 registry、运行中直接改 config 并假设生效、或调用未进入锁定 HTTP contract 的 CLI `/reload-mcp`。
 - 影响范围：阶段 4/11、task start/continue、App exit、Windows process tree 和 deactivate。
-- 后续复查条件：上游提供稳定且可鉴权的动态 server 生命周期 API，并完成运行中无事件丢失的真实验证后，可去掉 restart；在此之前“动态挂拔不重启进程”仍未完成。
+- 后续复查条件：上游提供稳定且可鉴权的动态 server 生命周期 API，并完成运行中无事件丢失的真实验证后，可去掉 restart；在此之前“动态挂拔不重启进程”仍未完成。Windows 还必须故障注入验证新旧 MCP 子进程都随对应 process tree 收敛。
 
 ## 2026-07-12：runtime 完整性使用全文件 checksum 覆盖
 
