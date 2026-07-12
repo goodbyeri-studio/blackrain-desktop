@@ -110,6 +110,7 @@ pub(crate) async fn install_and_activate_official_office(
             OFFICIAL_OFFICE_DEPENDENCY_VERSION, observed_version
         ));
     }
+    run_officecli_smoke(&installed_binary, &workbench_root).await?;
 
     let installed_inspection = inspect_workbench_package(&version_root)?;
     validate_official_office_manifest(&installed_inspection.manifest)?;
@@ -122,7 +123,11 @@ pub(crate) async fn install_and_activate_official_office(
         activation: persisted,
         install_root: version_root.to_string_lossy().to_string(),
         officecli_root: officecli_root.to_string_lossy().to_string(),
-        health_checks: vec![format!("OfficeCLI {observed_version}")],
+        health_checks: vec![
+            format!("OfficeCLI {observed_version}"),
+            "OfficeCLI create smoke passed".into(),
+            "OfficeCLI validate smoke passed".into(),
+        ],
         project_preserved: true,
     })
 }
@@ -291,6 +296,74 @@ async fn probe_officecli_version(binary: &Path) -> Result<String, String> {
         return Err("OfficeCLI health check returned an invalid version string.".into());
     }
     Ok(stdout)
+}
+
+async fn run_officecli_smoke(binary: &Path, workbench_root: &Path) -> Result<(), String> {
+    let smoke_parent = ensure_managed_subdirectory(workbench_root, Path::new("smoke"))?;
+    let smoke_root = smoke_parent.join(format!("run-{}", uuid::Uuid::new_v4().simple()));
+    ensure_directory(&smoke_root)?;
+    let output_name = "smoke-output.docx";
+    let result = async {
+        run_smoke_command(
+            binary,
+            &smoke_root,
+            &[
+                "create",
+                output_name,
+                "--force",
+                "--locale",
+                "en-US",
+                "--json",
+            ],
+            "create",
+        )
+        .await?;
+        let output = smoke_root.join(output_name);
+        validate_regular_file_without_symlink(&output, "OfficeCLI smoke output")?;
+        run_smoke_command(
+            binary,
+            &smoke_root,
+            &["validate", output_name, "--json"],
+            "validate",
+        )
+        .await
+    }
+    .await;
+    let cleanup = fs::remove_dir_all(&smoke_root).map_err(|error| {
+        format!(
+            "Unable to clean OfficeCLI smoke directory {}: {error}",
+            smoke_root.display()
+        )
+    });
+    match (result, cleanup) {
+        (Err(error), _) => Err(error),
+        (Ok(()), Err(error)) => Err(error),
+        (Ok(()), Ok(())) => Ok(()),
+    }
+}
+
+async fn run_smoke_command(
+    binary: &Path,
+    current_dir: &Path,
+    args: &[&str],
+    phase: &str,
+) -> Result<(), String> {
+    let mut command = tokio_command(binary);
+    command.args(args);
+    command.current_dir(current_dir);
+    command.stdout(Stdio::null());
+    command.stderr(Stdio::null());
+    let output = timeout(Duration::from_secs(30), command.output())
+        .await
+        .map_err(|_| format!("OfficeCLI {phase} smoke timed out after 30 seconds."))?
+        .map_err(|error| format!("Unable to run OfficeCLI {phase} smoke: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "OfficeCLI {phase} smoke failed with exit code {:?}.",
+            output.status.code()
+        ));
+    }
+    Ok(())
 }
 
 fn build_activation_context(
@@ -620,7 +693,11 @@ uninstall: {{ preserve_user_projects: true }}
         fs::create_dir_all(&project).unwrap();
         fs::create_dir_all(&app_data).unwrap();
         let binary = root.join("officecli");
-        fs::write(&binary, "#!/bin/sh\necho 1.0.117\n").unwrap();
+        fs::write(
+            &binary,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1.0.117; exit 0; fi\nif [ \"$1\" = \"create\" ]; then touch \"$2\"; exit 0; fi\nif [ \"$1\" = \"validate\" ] && [ -f \"$2\" ]; then exit 0; fi\nexit 1\n",
+        )
+        .unwrap();
         let mut permissions = fs::metadata(&binary).unwrap().permissions();
         permissions.set_mode(0o755);
         fs::set_permissions(&binary, permissions).unwrap();
@@ -672,6 +749,10 @@ uninstall: {{ preserve_user_projects: true }}
         let active = fs::read_to_string(active_path).unwrap();
         assert!(!active.contains("activationId"));
         assert!(!active.contains("projectPath"));
+        assert!(result
+            .health_checks
+            .iter()
+            .any(|check| check.contains("validate smoke passed")));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -706,6 +787,48 @@ uninstall: {{ preserve_user_projects: true }}
         .unwrap_err();
 
         assert!(error.contains("expected version 1.0.117"));
+        assert!(store.list().unwrap().is_empty());
+        assert!(!app_data
+            .join("workbenches/com.blackrain.office/active.json")
+            .exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn failed_officecli_smoke_never_issues_an_activation() {
+        let root = temp_root("smoke-failure");
+        let package = root.join("package");
+        let project = root.join("project");
+        let app_data = root.join("app-data");
+        fs::create_dir_all(&package).unwrap();
+        fs::create_dir_all(&project).unwrap();
+        fs::create_dir_all(&app_data).unwrap();
+        let binary = root.join("officecli");
+        fs::write(
+            &binary,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1.0.117; exit 0; fi\nexit 7\n",
+        )
+        .unwrap();
+        let mut permissions = fs::metadata(&binary).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&binary, permissions).unwrap();
+        let checksum = format!("{:x}", Sha256::digest(fs::read(&binary).unwrap()));
+        write_fixture_package(&package, &checksum);
+        let store = ActivatedWorkbenchStore::new(&app_data);
+
+        let error = install_and_activate_official_office(
+            OfficialOfficeActivationRequest {
+                app_data_dir: app_data.clone(),
+                package_root: package,
+                officecli_source: binary,
+                project_path: project,
+            },
+            &store,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(error.contains("create smoke failed"));
         assert!(store.list().unwrap().is_empty());
         assert!(!app_data
             .join("workbenches/com.blackrain.office/active.json")

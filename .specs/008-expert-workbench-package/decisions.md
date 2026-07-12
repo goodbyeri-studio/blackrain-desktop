@@ -99,7 +99,7 @@
 
 ## 2026-07-12：首个 Office lifecycle 使用显式权限确认和确定性项目 activation
 
-- 决策：官方 Office v0.1.0 只接受 `workbenchId + 用户通过系统目录选择器选中的既有项目目录`。Core 从 App allowlist 解析包和 Windows x64 OfficeCLI，先复制到受控 staging/版本目录、校验 SHA-256 与 `--version`，再以规范化项目路径的稳定摘要生成 activation/project/grant ID。`active.json`/`state.json` 只记录已验证安装版本，多个项目实例分别持久化为 `ActivatedWorkbenchContext`，互不覆盖。前端必须通过 DS modal 展示项目读写、OfficeCLI 进程、网络声明和项目保留语义后才调用。App 启动不再自动准备 OfficeCLI。
+- 决策：官方 Office v0.1.0 只接受 `workbenchId + 用户通过系统目录选择器选中的既有项目目录`。Core 从 App allowlist 解析包和 Windows x64 OfficeCLI，先复制到受控 staging/版本目录、校验 SHA-256 与 `--version`，再在 App-data 临时目录执行 create→文件存在→validate smoke；不在用户项目制造安装探针文件。只有全部通过，才以规范化项目路径的稳定摘要生成 activation/project/grant ID。`active.json`/`state.json` 只记录已验证安装版本，多个项目实例分别持久化为 `ActivatedWorkbenchContext`，互不覆盖。前端必须通过 DS modal 展示项目读写、OfficeCLI 进程、网络声明和项目保留语义后才调用。App 启动不再自动准备 OfficeCLI。
 - 原因：项目路径是首版唯一必须由用户提供的运行实例输入；其他安装路径、二进制和权限上限都应来自 Core/Manifest。稳定 ID 让同一包与项目的失败重试保持幂等，同时避免普通前端获得 activation store 写权限。
 - 替代方案：App 启动即复制 OfficeCLI、让前端传 Skill/二进制路径、随机创建重复 activation、在未跑 health 时直接写 store，或继续把 Office 交给 CODE 临时注入。
 - 影响范围：shared lifecycle、App command、WORK controller/surface、Office 资源准备和 009 阶段 11。
