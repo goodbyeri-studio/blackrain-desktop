@@ -6,8 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   subscribeWorkEnvironmentReconcile,
   subscribeWorkEvents,
+  subscribeWorkFollowUpsChanged,
 } from "@/services/events";
 import {
+  hermesFollowUpCancel,
+  hermesFollowUpEdit,
+  hermesFollowUpEnqueue,
+  hermesFollowUpRetry,
+  hermesFollowUpDispatchReady,
   hermesRuntimeStatus,
   hermesTaskContinue,
   hermesTaskList,
@@ -17,15 +23,21 @@ import {
   workbenchActivationDeactivate,
   workbenchActivationList,
 } from "@/services/tauri";
-import type { WorkEvent, WorkRuntimeStatus, WorkTask } from "../types";
+import type { WorkEvent, WorkFollowUp, WorkRuntimeStatus, WorkTask } from "../types";
 import { useWorkController } from "./useWorkController";
 
 vi.mock("@/services/events", () => ({
   subscribeWorkEnvironmentReconcile: vi.fn(() => vi.fn()),
   subscribeWorkEvents: vi.fn(() => vi.fn()),
+  subscribeWorkFollowUpsChanged: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("@/services/tauri", () => ({
+  hermesFollowUpCancel: vi.fn(),
+  hermesFollowUpEdit: vi.fn(),
+  hermesFollowUpEnqueue: vi.fn(),
+  hermesFollowUpRetry: vi.fn(),
+  hermesFollowUpDispatchReady: vi.fn(),
   hermesRuntimeDiagnostics: vi.fn(),
   hermesRuntimeRepair: vi.fn(),
   hermesRuntimeRestart: vi.fn(),
@@ -71,6 +83,21 @@ const task: WorkTask = {
   recovery: {},
 };
 
+const followUp: WorkFollowUp = {
+  schemaVersion: 1,
+  followUpId: "follow-up-1",
+  taskId: "task-1",
+  prompt: "继续整理",
+  projectFileRefs: [],
+  instructions: null,
+  model: null,
+  status: "queued",
+  attemptId: null,
+  createdAt: 2,
+  updatedAt: 2,
+  lastError: null,
+};
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((resolver) => {
@@ -84,7 +111,9 @@ describe("useWorkController", () => {
     vi.clearAllMocks();
     vi.mocked(subscribeWorkEnvironmentReconcile).mockReturnValue(vi.fn());
     vi.mocked(subscribeWorkEvents).mockReturnValue(vi.fn());
+    vi.mocked(subscribeWorkFollowUpsChanged).mockReturnValue(vi.fn());
     vi.mocked(workbenchActivationList).mockResolvedValue([]);
+    vi.mocked(hermesFollowUpDispatchReady).mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -120,6 +149,7 @@ describe("useWorkController", () => {
     await waitFor(() => expect(result.current.state.bootstrapping).toBe(false));
     expect(result.current.state.runtime).toEqual(runtime);
     expect(result.current.state.tasks["task-1"].task).toEqual(task);
+    expect(hermesFollowUpDispatchReady).toHaveBeenCalledTimes(1);
   });
 
   it("deactivates through Core and reconciles runtime tasks recovery and activations", async () => {
@@ -193,6 +223,43 @@ describe("useWorkController", () => {
     expect(result.current.state.tasks["task-1"].task.activeRunId).toBe("run-2");
   });
 
+  it("persists follow-up queue mutations through Tauri wrappers", async () => {
+    vi.mocked(hermesRuntimeStatus).mockResolvedValue(runtime);
+    vi.mocked(hermesTaskList).mockResolvedValue([task]);
+    vi.mocked(hermesTaskRecoveryStatus).mockResolvedValue({ records: [], error: null });
+    vi.mocked(hermesFollowUpEnqueue).mockResolvedValue([followUp]);
+    vi.mocked(hermesFollowUpEdit).mockResolvedValue([
+      { ...followUp, prompt: "修改后继续" },
+    ]);
+    vi.mocked(hermesFollowUpCancel).mockResolvedValue([]);
+    vi.mocked(hermesFollowUpRetry).mockResolvedValue([followUp]);
+    const { result } = renderHook(() => useWorkController());
+    await waitFor(() => expect(result.current.state.bootstrapping).toBe(false));
+
+    await act(async () => {
+      await result.current.enqueueFollowUp({ taskId: "task-1", prompt: "继续整理" });
+    });
+    expect(result.current.state.tasks["task-1"].followUps).toEqual([followUp]);
+    await act(async () => {
+      await result.current.editFollowUp({
+        taskId: "task-1",
+        followUpId: "follow-up-1",
+        prompt: "修改后继续",
+      });
+    });
+    expect(result.current.state.tasks["task-1"].followUps[0].prompt).toBe(
+      "修改后继续",
+    );
+    await act(async () => {
+      await result.current.cancelFollowUp("task-1", "follow-up-1");
+    });
+    expect(result.current.state.tasks["task-1"].followUps).toEqual([]);
+    await act(async () => {
+      await result.current.retryFollowUp("task-1", "follow-up-1");
+    });
+    expect(result.current.state.tasks["task-1"].followUps).toEqual([followUp]);
+  });
+
   it("cleans up the single WORK event subscription", () => {
     vi.mocked(hermesRuntimeStatus).mockResolvedValue(runtime);
     vi.mocked(hermesTaskList).mockResolvedValue([]);
@@ -202,6 +269,30 @@ describe("useWorkController", () => {
 
     const { unmount } = renderHook(() => useWorkController());
     expect(subscribeWorkEvents).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies durable follow-up events and cleans up their subscription", async () => {
+    vi.mocked(hermesRuntimeStatus).mockResolvedValue(runtime);
+    vi.mocked(hermesTaskList).mockResolvedValue([task]);
+    vi.mocked(hermesTaskRecoveryStatus).mockResolvedValue({ records: [], error: null });
+    let onFollowUpsChanged:
+      | ((payload: { taskId: string; followUps: WorkFollowUp[] }) => void)
+      | null = null;
+    const unsubscribe = vi.fn();
+    vi.mocked(subscribeWorkFollowUpsChanged).mockImplementation((listener) => {
+      onFollowUpsChanged = listener;
+      return unsubscribe;
+    });
+
+    const { result, unmount } = renderHook(() => useWorkController());
+    await waitFor(() => expect(result.current.state.bootstrapping).toBe(false));
+    act(() => {
+      onFollowUpsChanged?.({ taskId: task.taskId, followUps: [followUp] });
+    });
+    expect(result.current.state.tasks[task.taskId].followUps).toEqual([followUp]);
+
     unmount();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });

@@ -322,6 +322,14 @@
 - 影响范围：TaskStore run attach、runner SSE 门禁、Rust↔TypeScript `WorkEvent` contract、WORK 消息 UI 和 App 重启恢复。
 - 后续复查条件：durable follow-up queue 也必须复用 Core-owned 持久化语义；不得退回仅存在 React state 的队列。若上游未来提供事件 cursor/idempotency，应继续保留单一 transcript 真源并升级去重依据。
 
+## 2026-07-12：follow-up 使用 Core 持久队列，starting 不自动重放
+
+- 决策：每个 task 使用独立版本化 follow-up envelope，最多 32 项；队列项保存 prompt、已验证项目文件引用、可选 instructions/model、状态、attempt id 和脱敏错误。active run 期间只执行 enqueue/edit/cancel；当前 run 终态后 Core 将队首先标记 `starting`，再创建同 session 新 run，成功后移除，失败则标 `failed` 并暂停后续项。App 启动、runtime 远端恢复和前台对账只派发明确 `queued` 的队首；遗留 `starting` 若没有派发凭证转为失败，绝不自动 POST replay。
+- 原因：锁定 Hermes `/v1` 没有 active-run steer/user-input endpoint，也没有 create-run 幂等键。React 内存 queue 会在重启时丢失；网络重连自动 POST 会重复执行工具；跳过失败队首会破坏用户顺序。`UserMessageAdded.sourceFollowUpId` 将成功 attach 的 run 与队列项关联，App 即使在 run 创建后、队列删除前退出，恢复审计也能识别已派发项而不制造可重试副本。
+- 替代方案：复用 CODE 的内存 `useQueuedSend`、把 follow-up 当 active steer、SSE 重连时重发、失败后自动跳到下一项、或只在 UI 乐观删除队列项。
+- 影响范围：TaskStore follow-up envelope、AppState 恢复、runner terminal 收敛、Hermes Tauri commands、独立 queue event fanout、WORK reducer/controller/Composer 和停用流程。
+- 后续复查条件：真实 Hermes/Tauri/Windows 需验证两条以上队列、App 在 create/attach/queue-remove 各窗口强退、模型 5xx 后 retry、Stop 后队列、工作台停用和输出文件顺序；上游若增加正式 steer/idempotency，先更新 contract 再决定是否改变队列语义。
+
 ## 2026-07-12：Skills 使用 Hermes 原生 external_dirs，单 runtime 切换时 fail closed
 
 - 决策：不复制 Skills 到 Hermes 自有目录，也不修改 Agent loop。Core 在创建或继续新 run 前，将 activation 的受控 `skillRoots` 写入专属 `HERMES_HOME/config.yaml` 的原生 `skills.external_dirs`，并把非敏感 binding 持久化为 `workbench-desired-state.v1.json`。绑定前递归拒绝不存在、无 `SKILL.md`、重复、超过 50,000 项/32 层或包含 symlink 的技能树；provider credential ref 必须匹配当前 App-owned provider。provider 更新、runtime restart 和 repair 都保留并重新验证该 binding。

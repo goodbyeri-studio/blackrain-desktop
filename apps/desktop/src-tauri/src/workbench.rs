@@ -1,6 +1,6 @@
 use serde::Serialize;
 use serde_json::json;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::remote_backend;
 use crate::shared::hermes_core::runtime::{runtime_api_client, unbind_runtime_workbench};
@@ -110,6 +110,7 @@ pub(crate) async fn workbench_activation_read(
 #[tauri::command]
 pub(crate) async fn workbench_activation_deactivate(
     activation_id: String,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<WorkbenchDeactivationResult, WorkError> {
     require_local(&state).await?;
@@ -127,6 +128,11 @@ pub(crate) async fn workbench_activation_deactivate(
             )
         })?;
     let tasks = state.hermes_tasks.lock().await.load_tasks()?;
+    let activation_task_ids = tasks
+        .iter()
+        .filter(|task| task.activation_id.as_deref() == Some(&activation_id))
+        .map(|task| task.task_id.clone())
+        .collect::<Vec<_>>();
     let active_tasks = active_tasks_for_deactivation(&tasks, &activation_id)?;
 
     if let Ok(client) = runtime_api_client(&state.hermes_runtime).await {
@@ -153,6 +159,14 @@ pub(crate) async fn workbench_activation_deactivate(
         stopped_task_ids.push(task.task_id);
     }
     stopped_task_ids.sort();
+    for task_id in activation_task_ids {
+        let follow_ups = state
+            .hermes_tasks
+            .lock()
+            .await
+            .fail_follow_ups_for_deactivation(&task_id)?;
+        crate::hermes::emit_follow_ups(&app, &task_id, follow_ups);
+    }
 
     unbind_runtime_workbench(&state.hermes_paths)?;
     let removed = state

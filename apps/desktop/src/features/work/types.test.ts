@@ -4,10 +4,12 @@ import rawMessageDelta from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2
 import rawUnknown from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/event-unknown.json";
 import workAgentDelta from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/work-event-agent-delta.json";
 import workUserMessage from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/work-event-user-message.json";
+import workFollowUp from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/work-follow-up.json";
 import activatedWorkbench from "../../../src-tauri/test-fixtures/workbench/v1/activated-workbench-context.json";
 import {
   isActivatedWorkbenchContext,
   isHermesRawEvent,
+  isWorkFollowUp,
   isWorkEvent,
   WORK_SCHEMA_VERSION,
   type WorkEvent,
@@ -38,6 +40,11 @@ describe("Hermes WORK contracts", () => {
         "C:\\Users\\demo\\Office Project\\reports\\quarterly.xlsx",
       ]);
     }
+  });
+
+  it("accepts the Rust-shared durable follow-up fixture", () => {
+    expect(isWorkFollowUp(workFollowUp)).toBe(true);
+    expect(isWorkFollowUp({ ...workFollowUp, status: "sent" })).toBe(false);
   });
 
   it("rejects unknown normalized event types", () => {

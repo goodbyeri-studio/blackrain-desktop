@@ -11,6 +11,7 @@ import {
   subscribeTerminalOutput,
   subscribeWorkEnvironmentReconcile,
   subscribeWorkEvents,
+  subscribeWorkFollowUpsChanged,
 } from "./events";
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -104,6 +105,24 @@ describe("events subscriptions", () => {
     });
     expect(onEvent).toHaveBeenCalledTimes(1);
 
+    cleanup();
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("fans out durable WORK follow-up queue changes", async () => {
+    let listener: EventCallback<{ taskId: string; followUps: [] }> = () => {};
+    const unlisten = vi.fn();
+    vi.mocked(listen).mockImplementation((eventName, handler) => {
+      expect(eventName).toBe("work-follow-ups-changed");
+      listener = handler as EventCallback<{ taskId: string; followUps: [] }>;
+      return Promise.resolve(unlisten);
+    });
+    const onEvent = vi.fn();
+    const cleanup = subscribeWorkFollowUpsChanged(onEvent);
+    const payload = { taskId: "task-1", followUps: [] as [] };
+    listener({ event: "work-follow-ups-changed", id: 4, payload });
+    expect(onEvent).toHaveBeenCalledWith(payload);
     cleanup();
     await Promise.resolve();
     expect(unlisten).toHaveBeenCalledTimes(1);

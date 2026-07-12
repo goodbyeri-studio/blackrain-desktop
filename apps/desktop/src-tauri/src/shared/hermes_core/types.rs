@@ -67,6 +67,32 @@ pub(crate) struct WorkTask {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) enum WorkFollowUpStatus {
+    Queued,
+    Starting,
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorkFollowUp {
+    pub(crate) schema_version: u32,
+    pub(crate) follow_up_id: String,
+    pub(crate) task_id: String,
+    pub(crate) prompt: String,
+    #[serde(default)]
+    pub(crate) project_file_refs: Vec<String>,
+    pub(crate) instructions: Option<String>,
+    pub(crate) model: Option<String>,
+    pub(crate) status: WorkFollowUpStatus,
+    pub(crate) attempt_id: Option<String>,
+    pub(crate) created_at: f64,
+    pub(crate) updated_at: f64,
+    pub(crate) last_error: Option<WorkError>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) enum WorkErrorKind {
     Connection,
     Authentication,
@@ -119,6 +145,8 @@ pub(crate) enum WorkEventKind {
         text: String,
         #[serde(default, rename = "projectFileRefs", alias = "project_file_refs")]
         project_file_refs: Vec<String>,
+        #[serde(default, rename = "sourceFollowUpId", alias = "source_follow_up_id")]
+        source_follow_up_id: Option<String>,
     },
     AgentTextDelta {
         delta: String,
@@ -172,7 +200,7 @@ pub(crate) enum WorkEventKind {
 
 #[cfg(test)]
 mod tests {
-    use super::{WorkEvent, WorkEventKind, WORK_SCHEMA_VERSION};
+    use super::{WorkEvent, WorkEventKind, WorkFollowUp, WorkFollowUpStatus, WORK_SCHEMA_VERSION};
 
     #[test]
     fn rust_serialization_matches_shared_work_event_fixture() {
@@ -211,6 +239,7 @@ mod tests {
                 project_file_refs: vec![
                     r"C:\Users\demo\Office Project\reports\quarterly.xlsx".into()
                 ],
+                source_follow_up_id: None,
             },
         };
         let actual = serde_json::to_value(event).unwrap();
@@ -243,5 +272,29 @@ mod tests {
                 ..
             } if project_file_refs.is_empty()
         ));
+    }
+
+    #[test]
+    fn rust_serialization_matches_shared_follow_up_fixture() {
+        let item = WorkFollowUp {
+            schema_version: WORK_SCHEMA_VERSION,
+            follow_up_id: "follow-up-demo-001".into(),
+            task_id: "task_demo_001".into(),
+            prompt: "生成管理层摘要".into(),
+            project_file_refs: vec![r"C:\Users\demo\Office Project\reports\quarterly.xlsx".into()],
+            instructions: None,
+            model: Some("office-fast".into()),
+            status: WorkFollowUpStatus::Queued,
+            attempt_id: None,
+            created_at: 1_783_814_401.0,
+            updated_at: 1_783_814_401.0,
+            last_error: None,
+        };
+        let actual = serde_json::to_value(item).unwrap();
+        let expected: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../test-fixtures/hermes/v2026.7.7.2/work-follow-up.json"
+        ))
+        .unwrap();
+        assert_eq!(actual, expected);
     }
 }

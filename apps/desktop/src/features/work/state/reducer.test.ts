@@ -84,12 +84,32 @@ describe("workReducer", () => {
       type: "taskLoaded",
       task: task({ lastEventSequence: 2 }),
       events: [first, second],
+      followUps: [],
     });
 
     expect(selectTaskEvents(state, "task-1").map((entry) => entry.eventId)).toEqual([
       "event-1",
       "event-2",
     ]);
+  });
+
+  it("projects an automatically dispatched follow-up user event into a running task", () => {
+    let state = workReducer(initialWorkState, {
+      type: "taskUpserted",
+      task: task({ status: "completed", activeRunId: null }),
+    });
+    state = workReducer(state, {
+      type: "workEventReceived",
+      event: event("follow-up-user", 3, {
+        runId: "run-follow-up",
+        type: "userMessageAdded",
+        text: "继续生成摘要",
+        projectFileRefs: [],
+        sourceFollowUpId: "follow-up-1",
+      }),
+    });
+    expect(state.tasks["task-1"].task.status).toBe("running");
+    expect(state.tasks["task-1"].task.activeRunId).toBe("run-follow-up");
   });
 
   it("applies a high-frequency batch with one task projection", () => {
