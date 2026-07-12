@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { useWorkController } from "../hooks/useWorkController";
@@ -95,6 +95,12 @@ function controller(stateOverrides: Partial<WorkState> = {}) {
     loadDiagnostics: vi.fn(),
     refreshTasks: vi.fn(),
     refreshActivations: vi.fn(),
+    deactivateActivation: vi.fn().mockResolvedValue({
+      activationId: activation.activationId,
+      stoppedTaskIds: [],
+      projectPath: activation.project.path,
+      projectPreserved: true,
+    }),
     loadTask: vi.fn(),
     startTask: vi.fn().mockResolvedValue(task),
     continueTask: vi.fn().mockResolvedValue(task),
@@ -140,6 +146,30 @@ describe("WorkSurface", () => {
         activationId: activation.activationId,
         prompt: "整理季度报告",
       });
+    });
+  });
+
+  it("deactivates through a design-system confirmation and states project retention", async () => {
+    const workController = controller();
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "停用" }));
+    const dialog = screen.getByRole("dialog", { name: "停用 Office 工作台？" });
+    expect(dialog).toBeTruthy();
+    expect(
+      within(dialog).getByText((_, element) =>
+        Boolean(
+          element?.classList.contains("ds-modal-subtitle") &&
+            element.textContent?.includes(activation.project.path),
+        ),
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "确认停用" }));
+
+    await waitFor(() => {
+      expect(workController.deactivateActivation).toHaveBeenCalledWith(
+        activation.activationId,
+      );
     });
   });
 

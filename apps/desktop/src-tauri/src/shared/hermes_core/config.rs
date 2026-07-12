@@ -353,6 +353,42 @@ impl HermesConfigManager {
                 plan.reason, plan.config_path
             ));
         }
+        let binding = HermesWorkbenchBinding {
+            schema_version: HERMES_WORKBENCH_BINDING_SCHEMA_VERSION,
+            workbench: workbench.clone(),
+            mcp_servers: mcp_servers.to_vec(),
+        };
+        self.apply_workbench_binding(provider, Some(&binding), mcp_changed)
+    }
+
+    pub(crate) fn unbind_workbench(
+        &self,
+        provider: &HermesProviderDesiredState,
+        allow_mcp_change: bool,
+    ) -> Result<HermesWorkbenchBindResult, String> {
+        provider.validate()?;
+        let previous_binding = self.load_workbench_binding()?;
+        let mcp_changed = previous_binding
+            .as_ref()
+            .is_some_and(|binding| !binding.mcp_servers.is_empty());
+        if mcp_changed && !allow_mcp_change {
+            return Err("Hermes MCP binding cannot change while any WORK run is active.".into());
+        }
+        if let HermesConfigInspection::RepairRequired(plan) = self.inspect()? {
+            return Err(format!(
+                "Hermes config requires repair before unbinding a workbench: {} ({})",
+                plan.reason, plan.config_path
+            ));
+        }
+        self.apply_workbench_binding(provider, None, mcp_changed)
+    }
+
+    fn apply_workbench_binding(
+        &self,
+        provider: &HermesProviderDesiredState,
+        binding: Option<&HermesWorkbenchBinding>,
+        mcp_changed: bool,
+    ) -> Result<HermesWorkbenchBindResult, String> {
         fs::create_dir_all(&self.paths.home).map_err(|error| {
             format!(
                 "Unable to create isolated HERMES_HOME {}: {error}",
@@ -360,18 +396,22 @@ impl HermesConfigManager {
             )
         })?;
         let rollback = self.capture_workbench_bind_rollback()?;
-        let binding = HermesWorkbenchBinding {
-            schema_version: HERMES_WORKBENCH_BINDING_SCHEMA_VERSION,
-            workbench: workbench.clone(),
-            mcp_servers: mcp_servers.to_vec(),
-        };
         let apply_result = (|| {
             if let Some(previous) = rollback.config.as_deref() {
                 atomic_write(&self.paths.last_good_config, previous)?;
             }
-            persist_workbench_binding(&self.paths.workbench_desired_state, &binding)?;
+            match binding {
+                Some(binding) => {
+                    persist_workbench_binding(&self.paths.workbench_desired_state, binding)?;
+                }
+                None => restore_optional_file(
+                    &self.paths.workbench_desired_state,
+                    None,
+                    "Hermes workbench binding",
+                )?,
+            }
             persist_desired_state(&self.paths.desired_state, provider)?;
-            let rendered = render_config_with_binding(provider, Some(&binding))?;
+            let rendered = render_config_with_binding(provider, binding)?;
             atomic_write(&self.paths.config, rendered.as_bytes())?;
             if !self.paths.last_good_config.exists() {
                 atomic_write(&self.paths.last_good_config, rendered.as_bytes())?;
@@ -1174,6 +1214,15 @@ mod tests {
         let restored = fs::read_to_string(&manager.paths.config).unwrap();
         assert!(restored.contains("mcp_servers:\n"));
         assert!(restored.contains("\"com.blackrain.office-files\":\n"));
+
+        let unbound = manager
+            .unbind_workbench(&desired("deepseek-chat"), true)
+            .unwrap();
+        assert!(unbound.mcp_changed);
+        let base_config = fs::read_to_string(&manager.paths.config).unwrap();
+        assert!(!base_config.contains("skills:\n"));
+        assert!(!base_config.contains("mcp_servers:\n"));
+        assert!(!manager.paths.workbench_desired_state.exists());
         let _ = fs::remove_dir_all(root);
     }
 

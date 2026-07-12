@@ -66,6 +66,18 @@ pub(crate) fn rollback_runtime_workbench(
     .map_err(config_error)
 }
 
+pub(crate) fn unbind_runtime_workbench(
+    paths: &HermesPaths,
+) -> Result<HermesWorkbenchBindResult, WorkError> {
+    let manager = HermesConfigManager {
+        paths: paths.clone(),
+    };
+    let provider = manager.load_desired_state().map_err(config_error)?;
+    manager
+        .unbind_workbench(&provider, true)
+        .map_err(config_error)
+}
+
 pub(crate) async fn start_runtime(
     paths: &HermesPaths,
     supervisor: &Arc<HermesProcessSupervisor>,

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import Copy from "lucide-react/dist/esm/icons/copy";
+import Power from "lucide-react/dist/esm/icons/power";
 import X from "lucide-react/dist/esm/icons/x";
 
 import { revealPathInFileManager } from "@/services/tauri";
+import { ModalShell } from "@/features/design-system/components/modal/ModalShell";
 import { PanelFrame } from "@/features/design-system/components/panel/PanelPrimitives";
 import type { useWorkController } from "../hooks/useWorkController";
 import {
@@ -51,6 +53,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   const [diagnostics, setDiagnostics] = useState<HermesRuntimeDiagnostics | null>(null);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [copiedDiagnostics, setCopiedDiagnostics] = useState(false);
+  const [deactivationOpen, setDeactivationOpen] = useState(false);
   const pending = Object.keys(state.pendingOperations).length > 0;
   const busy = state.bootstrapping || pending;
   const selectedActivation =
@@ -58,6 +61,11 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     state.activations[0] ??
     null;
   const selectedProjectPath = selectedTask?.projectPath ?? selectedActivation?.project.path ?? "";
+  const deactivationActivation = selectedTask?.activationId
+    ? state.activations.find(
+        (activation) => activation.activationId === selectedTask.activationId,
+      ) ?? null
+    : selectedActivation;
   const running = Boolean(selectedTask && !isSettled(selectedTask.status));
   const canStop = selectCanStop(selectedTask);
   const canResume = selectedTask?.status === "degraded" && selectCanResume(selectedTask);
@@ -122,16 +130,36 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     window.setTimeout(() => setCopiedDiagnostics(false), 1200);
   };
 
+  const handleDeactivate = async () => {
+    if (!deactivationActivation) {
+      return;
+    }
+    await controller.deactivateActivation(deactivationActivation.activationId);
+    setActivationId("");
+    setDeactivationOpen(false);
+  };
+
   return (
     <main className="work-surface">
       <header className="work-surface-header">
         <button type="button" className="ghost icon-button" onClick={onClose} aria-label="返回首页">
           <ArrowLeft aria-hidden />
         </button>
-        <div>
+        <div className="work-surface-title">
           <strong>Office 工作台</strong>
           <span>{selectedTask ? selectedTask.projectPath : "由 Hermes Agent 执行"}</span>
         </div>
+        {deactivationActivation ? (
+          <button
+            type="button"
+            className="ghost work-deactivate-button"
+            disabled={busy}
+            onClick={() => setDeactivationOpen(true)}
+          >
+            <Power aria-hidden />
+            停用
+          </button>
+        ) : null}
       </header>
 
       <div className="work-surface-body">
@@ -248,6 +276,45 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
           </header>
           <pre>{diagnosticsText || "正在读取诊断…"}</pre>
         </PanelFrame>
+      ) : null}
+
+      {deactivationOpen && deactivationActivation ? (
+        <ModalShell
+          ariaLabelledBy="work-deactivation-title"
+          ariaDescribedBy="work-deactivation-description"
+          onBackdropClick={() => {
+            if (!busy) {
+              setDeactivationOpen(false);
+            }
+          }}
+        >
+          <div id="work-deactivation-title" className="ds-modal-title">
+            停用 Office 工作台？
+          </div>
+          <div id="work-deactivation-description" className="ds-modal-subtitle">
+            BlackRain 会停止该激活的运行中任务、关闭 Hermes 与受控 MCP
+            进程，并解除 Skills/MCP 注册。你的项目文件会保留在
+            {` ${deactivationActivation.project.path}`}。
+          </div>
+          <div className="ds-modal-actions">
+            <button
+              type="button"
+              className="ghost ds-modal-button"
+              disabled={busy}
+              onClick={() => setDeactivationOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="primary ds-modal-button"
+              disabled={busy}
+              onClick={() => void handleDeactivate()}
+            >
+              {busy ? "正在停用…" : "确认停用"}
+            </button>
+          </div>
+        </ModalShell>
       ) : null}
     </main>
   );

@@ -374,6 +374,7 @@ pub fn run() {
             hermes::hermes_task_recovery_status,
             workbench::workbench_activation_list,
             workbench::workbench_activation_read,
+            workbench::workbench_activation_deactivate,
             codex::experimental_feature_list,
             codex::set_codex_feature_flag,
             codex::get_agents_settings,

@@ -214,6 +214,48 @@ impl HermesTaskStore {
         Ok(result)
     }
 
+    pub(crate) fn cancel_run_for_deactivation(
+        &self,
+        task_id: &str,
+        activation_id: &str,
+        run_id: &str,
+    ) -> Result<WorkTask, WorkError> {
+        validate_store_id("task id", task_id)?;
+        validate_store_id("activation id", activation_id)?;
+        validate_store_id("run id", run_id)?;
+        let mut tasks = self.load_tasks()?;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))?;
+        if task.activation_id.as_deref() != Some(activation_id)
+            || task.active_run_id.as_deref() != Some(run_id)
+        {
+            return Err(persistence_error(
+                "work_task_deactivation_identity_mismatch",
+                "WORK task activation or active run changed during deactivation.",
+            ));
+        }
+        task.active_run_id = None;
+        task.status = WorkTaskStatus::Cancelled;
+        task.updated_at = now_unix_seconds().max(task.updated_at);
+        task.recovery.insert(
+            "source".into(),
+            Value::String("workbenchDeactivation".into()),
+        );
+        task.recovery.insert(
+            "upstreamStatus".into(),
+            Value::String("runtimeStopped".into()),
+        );
+        task.recovery
+            .insert("auditedAt".into(), Value::from(now_unix_seconds()));
+        task.recovery.remove("lastError");
+        let result = task.clone();
+        sort_tasks(&mut tasks);
+        self.write_snapshot(&tasks)?;
+        Ok(result)
+    }
+
     pub(crate) fn remove_task_metadata(&self, task_id: &str) -> Result<bool, WorkError> {
         validate_store_id("task id", task_id)?;
         let mut tasks = self.load_tasks()?;
@@ -1211,6 +1253,31 @@ mod tests {
         let value: serde_json::Value =
             serde_json::from_slice(&fs::read(&store.paths.snapshot).unwrap()).unwrap();
         assert_eq!(value["schemaVersion"], TASK_SNAPSHOT_SCHEMA_VERSION);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn deactivation_cancels_only_the_matching_active_run_and_preserves_session() {
+        let root = temp_root("deactivation");
+        let store = HermesTaskStore::new(&root);
+        let active = task("task-office", WorkTaskStatus::Running, Some("run-office"));
+        store.upsert_task(&active).unwrap();
+
+        let cancelled = store
+            .cancel_run_for_deactivation("task-office", "activation-office-demo", "run-office")
+            .unwrap();
+        assert_eq!(cancelled.status, WorkTaskStatus::Cancelled);
+        assert_eq!(cancelled.active_run_id, None);
+        assert_eq!(cancelled.hermes_session_id, active.hermes_session_id);
+        assert_eq!(
+            cancelled.recovery["source"],
+            serde_json::Value::String("workbenchDeactivation".into())
+        );
+        assert!(store
+            .cancel_run_for_deactivation("task-office", "activation-other", "run-office",)
+            .unwrap_err()
+            .code
+            .contains("identity_mismatch"));
         fs::remove_dir_all(root).unwrap();
     }
 

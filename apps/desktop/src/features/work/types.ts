@@ -25,6 +25,13 @@ export type ActivatedWorkbenchContext = {
   verifiedAt: number;
 };
 
+export type WorkbenchDeactivationResult = {
+  activationId: string;
+  stoppedTaskIds: string[];
+  projectPath: string;
+  projectPreserved: boolean;
+};
+
 export type WorkTaskStatus =
   | "draft"
   | "queued"

@@ -18,6 +18,7 @@ import {
   hermesTaskStart,
   hermesTaskStop,
   workbenchActivationList,
+  workbenchActivationDeactivate,
 } from "@/services/tauri";
 import type {
   HermesRuntimeDiagnostics,
@@ -205,6 +206,25 @@ export function useWorkController() {
     return activations;
   }, [runExclusive]);
 
+  const deactivateActivation = useCallback(
+    (activationId: string) =>
+      runExclusive(`activation:${activationId}:deactivate`, async () => {
+        const result = await workbenchActivationDeactivate(activationId);
+        const [runtime, tasks, recovery, activations] = await Promise.all([
+          hermesRuntimeStatus(),
+          hermesTaskList(),
+          hermesTaskRecoveryStatus(),
+          workbenchActivationList(),
+        ]);
+        dispatch({ type: "runtimeUpdated", runtime });
+        dispatch({ type: "tasksLoaded", tasks });
+        dispatch({ type: "recoveryUpdated", recovery });
+        dispatch({ type: "activationsLoaded", activations });
+        return result;
+      }),
+    [runExclusive],
+  );
+
   const loadTask = useCallback(
     async (taskId: string) => {
       const result = await runExclusive(`task:${taskId}:read`, () =>
@@ -361,6 +381,7 @@ export function useWorkController() {
     loadDiagnostics,
     refreshTasks,
     refreshActivations,
+    deactivateActivation,
     loadTask,
     startTask,
     continueTask,
