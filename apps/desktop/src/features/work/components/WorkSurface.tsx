@@ -4,7 +4,7 @@ import Copy from "lucide-react/dist/esm/icons/copy";
 import Power from "lucide-react/dist/esm/icons/power";
 import X from "lucide-react/dist/esm/icons/x";
 
-import { revealPathInFileManager } from "@/services/tauri";
+import { pickWorkProjectFiles, revealPathInFileManager } from "@/services/tauri";
 import { ModalShell } from "@/features/design-system/components/modal/ModalShell";
 import { PanelFrame } from "@/features/design-system/components/panel/PanelPrimitives";
 import type { useWorkController } from "../hooks/useWorkController";
@@ -12,6 +12,7 @@ import {
   selectCanResume,
   selectCanStop,
   buildVisibleWorkEvents,
+  resolveProjectOutputPath,
   selectOrderedTasks,
   selectPendingApproval,
   selectSelectedTask,
@@ -47,6 +48,8 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   const visibleEvents = useMemo(() => buildVisibleWorkEvents(events), [events]);
   const approval = selectPendingApproval(state, state.selectedTaskId);
   const [draft, setDraft] = useState("");
+  const [projectFileRefs, setProjectFileRefs] = useState<string[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [activationId, setActivationId] = useState(
     () => state.activations[0]?.activationId ?? "",
   );
@@ -83,12 +86,41 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
 
   const handleSelectTask = async (taskId: string) => {
     controller.selectTask(taskId);
+    setProjectFileRefs([]);
+    setAttachmentError(null);
     await controller.loadTask(taskId).catch(() => undefined);
   };
 
   const handleNewTask = () => {
     controller.selectTask(null);
     setDraft("");
+    setProjectFileRefs([]);
+    setAttachmentError(null);
+  };
+
+  const handleAddProjectFiles = async () => {
+    if (!selectedProjectPath) {
+      return;
+    }
+    const selected = await pickWorkProjectFiles(selectedProjectPath).catch(() => {
+      setAttachmentError("无法打开项目文件选择器，请稍后重试。");
+      return [];
+    });
+    if (selected.length === 0) {
+      return;
+    }
+    const accepted = selected.filter((path) =>
+      Boolean(resolveProjectOutputPath(selectedProjectPath, path)),
+    );
+    const merged = Array.from(new Set([...projectFileRefs, ...accepted]));
+    setAttachmentError(
+      accepted.length !== selected.length
+        ? "只能引用当前已验证项目目录内的文件。"
+        : merged.length > 16
+          ? "每次任务最多引用 16 个项目文件。"
+          : null,
+    );
+    setProjectFileRefs(merged.slice(0, 16));
   };
 
   const handleSubmit = async () => {
@@ -100,7 +132,11 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
       await controller.startRuntime();
     }
     if (selectedTask && isTerminal(selectedTask.status)) {
-      await controller.continueTask({ taskId: selectedTask.taskId, prompt });
+      await controller.continueTask({
+        taskId: selectedTask.taskId,
+        prompt,
+        projectFileRefs,
+      });
     } else if (!selectedTask) {
       if (!selectedActivation) {
         return;
@@ -108,11 +144,14 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
       await controller.startTask({
         activationId: selectedActivation.activationId,
         prompt,
+        projectFileRefs,
       });
     } else {
       return;
     }
     setDraft("");
+    setProjectFileRefs([]);
+    setAttachmentError(null);
   };
 
   const handleDiagnostics = async () => {
@@ -210,7 +249,15 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
                 {!selectedTask ? (
                   <label className="work-project-picker">
                     <span>已激活工作台项目</span>
-                    <select value={activationId} onChange={(event) => setActivationId(event.target.value)} disabled={state.activations.length === 0}>
+                    <select
+                      value={activationId}
+                      onChange={(event) => {
+                        setActivationId(event.target.value);
+                        setProjectFileRefs([]);
+                        setAttachmentError(null);
+                      }}
+                      disabled={state.activations.length === 0}
+                    >
                       <option value="" disabled>选择一个已激活项目</option>
                       {state.activations.map((activation) => (
                         <option key={activation.activationId} value={activation.activationId}>
@@ -249,7 +296,14 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
             running={running}
             canStop={canStop}
             canResume={canResume}
+            projectFileRefs={projectFileRefs}
+            canAttach={Boolean(selectedProjectPath) && projectFileRefs.length < 16}
+            attachmentError={attachmentError}
             onChange={setDraft}
+            onAddFiles={() => void handleAddProjectFiles()}
+            onRemoveFile={(path) =>
+              setProjectFileRefs((current) => current.filter((item) => item !== path))
+            }
             onSubmit={() => void handleSubmit()}
             onStop={() => selectedTask && void controller.stopTask(selectedTask.taskId)}
             onResume={() => selectedTask && void controller.resumeTask(selectedTask.taskId)}

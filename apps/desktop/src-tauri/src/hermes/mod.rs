@@ -64,6 +64,8 @@ fn schedule_task_recovery(state: &AppState) {
 pub(crate) struct HermesTaskStartInput {
     activation_id: String,
     prompt: String,
+    #[serde(default)]
+    project_file_refs: Vec<String>,
     instructions: Option<String>,
     model: Option<String>,
 }
@@ -73,6 +75,8 @@ pub(crate) struct HermesTaskStartInput {
 pub(crate) struct HermesTaskContinueInput {
     task_id: String,
     prompt: String,
+    #[serde(default)]
+    project_file_refs: Vec<String>,
     instructions: Option<String>,
     model: Option<String>,
 }
@@ -347,6 +351,9 @@ pub(crate) async fn hermes_task_start(
             &activation.environment_refs,
         )
         .map_err(|message| command_error("workbench_plugin_runtime_invalid", &message, false))?;
+    let run_instructions = activation
+        .build_run_instructions(&input.project_file_refs, input.instructions.as_deref())
+        .map_err(|message| command_error("workbench_project_file_invalid", &message, false))?;
     let tasks = state.hermes_tasks.lock().await.load_tasks()?;
     ensure_no_conflicting_activation(&tasks, &activation.activation_id, None)?;
     let has_active_runs = tasks.iter().any(|task| task.active_run_id.is_some());
@@ -383,7 +390,7 @@ pub(crate) async fn hermes_task_start(
         &task_id,
         &HermesRunCreateRequest {
             input: Value::String(input.prompt),
-            instructions: input.instructions,
+            instructions: Some(run_instructions),
             session_id: None,
             model: input.model,
             conversation_history: Vec::new(),
@@ -503,6 +510,9 @@ pub(crate) async fn hermes_task_continue(
             &activation.environment_refs,
         )
         .map_err(|message| command_error("workbench_plugin_runtime_invalid", &message, false))?;
+    let run_instructions = activation
+        .build_run_instructions(&input.project_file_refs, input.instructions.as_deref())
+        .map_err(|message| command_error("workbench_project_file_invalid", &message, false))?;
     let tasks = state.hermes_tasks.lock().await.load_tasks()?;
     ensure_no_conflicting_activation(&tasks, activation_id, Some(&input.task_id))?;
     let has_active_runs = tasks.iter().any(|task| task.active_run_id.is_some());
@@ -528,7 +538,7 @@ pub(crate) async fn hermes_task_continue(
         &input.task_id,
         &HermesRunCreateRequest {
             input: Value::String(input.prompt),
-            instructions: input.instructions,
+            instructions: Some(run_instructions),
             session_id: Some(session_id),
             model: input.model,
             conversation_history: Vec::new(),
@@ -711,6 +721,24 @@ mod tests {
             "env": {"HERMES_HOME": "C:\\escape"}
         });
         assert!(serde_json::from_value::<HermesTaskStartInput>(value).is_err());
+    }
+
+    #[test]
+    fn task_start_contract_accepts_only_structured_project_file_references() {
+        let value = serde_json::json!({
+            "activationId": "activation-office-demo",
+            "prompt": "整理季度报告",
+            "projectFileRefs": ["C:\\Users\\demo\\Office Project\\quarterly.xlsx"]
+        });
+        let input = serde_json::from_value::<HermesTaskStartInput>(value).unwrap();
+        assert_eq!(input.project_file_refs.len(), 1);
+
+        let raw_attachment = serde_json::json!({
+            "activationId": "activation-office-demo",
+            "prompt": "整理季度报告",
+            "attachments": [{"path": "C:\\escape", "bytes": "secret"}]
+        });
+        assert!(serde_json::from_value::<HermesTaskStartInput>(raw_attachment).is_err());
     }
 
     #[test]

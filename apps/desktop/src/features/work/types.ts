@@ -126,6 +126,7 @@ export type HermesTaskRecoveryState = {
 export type HermesTaskStartInput = {
   activationId: string;
   prompt: string;
+  projectFileRefs?: string[];
   instructions?: string | null;
   model?: string | null;
 };
@@ -133,6 +134,7 @@ export type HermesTaskStartInput = {
 export type HermesTaskContinueInput = {
   taskId: string;
   prompt: string;
+  projectFileRefs?: string[];
   instructions?: string | null;
   model?: string | null;
 };
