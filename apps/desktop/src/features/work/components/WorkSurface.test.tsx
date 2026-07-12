@@ -315,6 +315,33 @@ describe("WorkSurface", () => {
     expect(screen.getByLabelText("取消后续任务 2")).toBeTruthy();
   });
 
+  it("deletes only settled local task metadata after an explicit confirmation", async () => {
+    const workController = controller({
+      tasks: {
+        "task-1": { task, events: [], eventIds: {}, followUps: [followUp] },
+      },
+      taskOrder: ["task-1"],
+      selectedTaskId: "task-1",
+    });
+    vi.mocked(workController.deleteTaskMetadata).mockResolvedValue(true);
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    expect(
+      screen.getByRole("button", { name: "Office Project，已完成" }).getAttribute(
+        "aria-current",
+      ),
+    ).toBe("page");
+    fireEvent.click(screen.getByRole("button", { name: "删除记录" }));
+    const dialog = screen.getByRole("dialog", { name: "删除本地任务记录？" });
+    expect(dialog.textContent).toContain("不会删除项目目录");
+    expect(dialog.textContent).toContain(task.projectPath);
+    fireEvent.click(screen.getByRole("button", { name: "确认删除记录" }));
+
+    await waitFor(() => {
+      expect(workController.deleteTaskMetadata).toHaveBeenCalledWith(task.taskId);
+    });
+  });
+
   it("deactivates through a design-system confirmation and states project retention", async () => {
     const workController = controller();
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);

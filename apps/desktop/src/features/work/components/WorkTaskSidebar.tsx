@@ -72,6 +72,8 @@ export function WorkTaskSidebar({
             <PanelNavItem
               key={task.taskId}
               active={task.taskId === selectedTaskId}
+              aria-current={task.taskId === selectedTaskId ? "page" : undefined}
+              aria-label={`${taskTitle(task)}，${statusLabel[task.status]}`}
               icon={<FileText />}
               onClick={() => onSelectTask(task.taskId)}
             >

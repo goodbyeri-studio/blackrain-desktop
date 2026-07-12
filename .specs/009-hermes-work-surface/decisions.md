@@ -330,6 +330,14 @@
 - 影响范围：TaskStore follow-up envelope、AppState 恢复、runner terminal 收敛、Hermes Tauri commands、独立 queue event fanout、WORK reducer/controller/Composer 和停用流程。
 - 后续复查条件：真实 Hermes/Tauri/Windows 需验证两条以上队列、App 在 create/attach/queue-remove 各窗口强退、模型 5xx 后 retry、Stop 后队列、工作台停用和输出文件顺序；上游若增加正式 steer/idempotency，先更新 contract 再决定是否改变队列语义。
 
+## 2026-07-12：任务删除只清理 Core-owned 本地记录
+
+- 决策：WORK surface 只在终态或 orphaned task 上显示“删除记录”，通过 DS ModalShell 二次确认后调用现有 `hermes_task_delete_local_metadata`。删除范围限于 task snapshot、event journal 和 follow-up envelope；项目目录、用户输出、activation、Hermes session 上游数据均不删除。ModalShell 统一把焦点移入对话框、约束 Tab 环并在卸载后归还焦点；是否响应 Escape 由调用方显式决定。
+- 原因：任务历史是 Core-owned 可清理元数据，项目与输出是用户资产；把两者混成“删除任务”会制造不可逆误删。运行中 task 需要先 Stop/收敛，不能让 UI 用删除动作绕过受控 run 生命周期。焦点规则进入共享 DS 后，停用与删除确认保持同一产品行为。
+- 替代方案：侧栏直接无确认删除、递归删除项目目录、同时删除 activation、运行中强制删除、或每个 WORK modal 自己实现一套焦点逻辑。
+- 影响范围：WORK header/action、TaskStore 既有 metadata removal、共享 ModalShell 可访问性、阶段 9 键盘/焦点验证。
+- 后续复查条件：Windows Tauri WebView 需人工验证屏幕阅读器、Escape、Tab/Shift+Tab、200% 缩放和删除后的下一任务焦点；在这些证据完成前不勾选阶段 9 无障碍总项。
+
 ## 2026-07-12：Skills 使用 Hermes 原生 external_dirs，单 runtime 切换时 fail closed
 
 - 决策：不复制 Skills 到 Hermes 自有目录，也不修改 Agent loop。Core 在创建或继续新 run 前，将 activation 的受控 `skillRoots` 写入专属 `HERMES_HOME/config.yaml` 的原生 `skills.external_dirs`，并把非敏感 binding 持久化为 `workbench-desired-state.v1.json`。绑定前递归拒绝不存在、无 `SKILL.md`、重复、超过 50,000 项/32 层或包含 symlink 的技能树；provider credential ref 必须匹配当前 App-owned provider。provider 更新、runtime restart 和 repair 都保留并重新验证该 binding。
