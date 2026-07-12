@@ -318,6 +318,13 @@ pub(crate) async fn workbench_activation_migrate_task(
         }
     };
     if let Err(error) =
+        crate::hermes::sync_router_for_workbench_binding(&state, &binding, &target.activation_id)
+            .await
+    {
+        record_migration_failure_best_effort(&state, &prepared, &error.code).await;
+        return Err(error);
+    }
+    if let Err(error) =
         crate::hermes::restart_runtime_for_workbench_change(&state, &app, &binding).await
     {
         record_migration_failure_best_effort(&state, &prepared, &error.code).await;
@@ -389,7 +396,9 @@ pub(crate) async fn workbench_activation_deactivate(
             }
         }
     }
-    state.hermes_runtime.stop().await?;
+    let hermes_stop = state.hermes_runtime.stop().await;
+    state.mcp_router.stop().await;
+    hermes_stop?;
     state.hermes_runs.cancel_all().await;
 
     let mut stopped_task_ids = Vec::with_capacity(active_tasks.len());

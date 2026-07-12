@@ -7,6 +7,7 @@ use tokio::sync::Mutex;
 
 use crate::dictation::DictationState;
 use crate::shared::codex_core::CodexLoginCancelState;
+use crate::shared::hermes_core::mcp_router::McpRouterSupervisor;
 use crate::shared::hermes_core::process::{HermesProcessSupervisor, HermesRuntimeLayout};
 use crate::shared::hermes_core::runner::HermesRunRegistry;
 use crate::shared::hermes_core::tasks::{HermesTaskRecoveryState, HermesTaskStore};
@@ -86,6 +87,7 @@ pub(crate) struct AppState {
     pub(crate) tcp_daemon: Mutex<TcpDaemonRuntime>,
     pub(crate) model_gateway: Mutex<ModelGatewayRuntime>,
     pub(crate) hermes_runtime: Arc<HermesProcessSupervisor>,
+    pub(crate) mcp_router: Arc<McpRouterSupervisor>,
     pub(crate) hermes_tasks: Arc<Mutex<HermesTaskStore>>,
     pub(crate) hermes_task_recovery: Arc<Mutex<HermesTaskRecoveryState>>,
     pub(crate) hermes_runs: Arc<HermesRunRegistry>,
@@ -116,10 +118,15 @@ impl AppState {
                     .join("hermes-runtime")
                     .join("windows-x64")
             });
+        let hermes_runtime_layout = HermesRuntimeLayout::from_root(hermes_runtime_root);
         let hermes_runtime = Arc::new(HermesProcessSupervisor::new(
-            HermesRuntimeLayout::from_root(hermes_runtime_root),
+            hermes_runtime_layout.clone(),
             hermes_paths.home.clone(),
             data_dir.join("hermes-runtime.log"),
+        ));
+        let mcp_router = Arc::new(McpRouterSupervisor::new(
+            hermes_runtime_layout,
+            hermes_paths.home.join("mcp-router"),
         ));
         let hermes_tasks = HermesTaskStore::new(&data_dir);
         let hermes_task_recovery = HermesTaskRecoveryState::from_result(
@@ -149,6 +156,7 @@ impl AppState {
             tcp_daemon: Mutex::new(TcpDaemonRuntime::default()),
             model_gateway: Mutex::new(ModelGatewayRuntime::new(data_dir, gateway_port)),
             hermes_runtime,
+            mcp_router,
             hermes_tasks: Arc::new(Mutex::new(hermes_tasks)),
             hermes_task_recovery: Arc::new(Mutex::new(hermes_task_recovery)),
             hermes_runs: Arc::new(HermesRunRegistry::default()),

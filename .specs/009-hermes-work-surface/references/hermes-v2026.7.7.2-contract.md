@@ -232,26 +232,27 @@ BlackRain 只把 008 已验证且运行时再次检查的 roots 写入该字段�
 
 ## MCP config、注册和工具变更 contract
 
-锁定 commit `9de9c25` 的 `tools/mcp_tool.py` 原生读取 `config.yaml` 顶层 `mcp_servers`。BlackRain 首版只使用 stdio transport，受控配置字段为：
+锁定 commit `9de9c25` 的 `tools/mcp_tool.py` 原生读取 `config.yaml` 顶层 `mcp_servers`。BlackRain 给 Hermes 的受控配置始终只有一个 Streamable HTTP router：
 
 ```yaml
 mcp_servers:
-  "com.blackrain.office-files":
-    command: "C:\\...\\plugins\\installed\\...\\office-mcp.exe"
-    args: ["--stdio"]
-    timeout: 300
-    connect_timeout: 30
-    supports_parallel_tool_calls: false
+  blackrain-router:
+    url: "http://127.0.0.1:<random>/mcp"
+    headers:
+      Authorization: "Bearer ${BLACKRAIN_MCP_ROUTER_BEARER}"
+    timeout: 3600
+    connect_timeout: 20
+    skip_preflight: true
 ```
 
 边界：
 
 - `register_mcp_servers()` 在 Hermes agent build 时按当前配置注册 server，并把 server tools 加入原生 registry；BlackRain 不修改 Agent loop。
-- stdio `command` 支持绝对路径。BlackRain 不使用 Hermes 的 `cwd`、任意明文 `env`、HTTP/SSE transport 或 OAuth 配置；命令、参数和 child env key/reference 只能来自 Core 的 verified plugin runtime store。
-- 锁定 Hermes 会递归解析 MCP config 中的 `${VAR}` / `${env:VAR}`，优先使用 active secret scope，再回退到当前进程环境；`_build_safe_env()` 只把安全基线变量和 config 显式声明的 env 传给 stdio child。BlackRain 因此只在 config 写 `${BLACKRAIN_MCP_SECRET_*}` 占位符，把实际值从系统凭据注入专属 Hermes 进程，既不落盘也不继承用户 shell 的任意 secret。
+- Hermes 只获得 MCP endpoint bearer，不获得 router control bearer。锁定 Hermes 会递归解析 `${VAR}`，因此 config 无明文 bearer；真实值仅注入专属 Hermes 进程。
+- router 下游只使用 managed stdio；command、args、child env key/reference 来自 Core verified plugin runtime store，实际 child env value 由 App 从 credential store 解析后只存在 control request、router 内存和目标子进程环境。
 - server 自己发出 `notifications/tools/list_changed` 后，上游后台重新执行 `tools/list`，原子刷新该 server 的工具集合并移除 stale tools；不需要 BlackRain 重建或伪造 tool registry。
 - `tools/list_changed` 只覆盖“已注册 server 内部的工具集合变化”，不等于新增或删除整个 server。锁定版本没有供 BlackRain HTTP surface 调用的 server unregister/reload API。
-- 因此首版整体 server 注册/注销采用 idle-only config replacement + Hermes 受控 restart：有任何 active WORK run 时 fail closed；空闲时停止旧 Hermes（Windows 使用 process-tree 回收）、写入新 binding、重启并恢复 task/session metadata。Skills-only binding 变化不触发 restart。
+- 整体 server 注册/注销由 router connect-before-swap；纯 MCP generation 变化不重启 Hermes。project safe root 等 Hermes 进程环境变化仍需受控 restart。
 - runtime 必须安装锁定的 `mcp` extra；否则 `tools.mcp_tool` 的 SDK import 不完整，配置存在也不能作为 MCP 可用证据。
 
 本仓锁定上游验证：

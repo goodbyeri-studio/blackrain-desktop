@@ -67,6 +67,7 @@ async fn stop_managed_daemons_for_exit(app_handle: tauri::AppHandle, keep_daemon
     let state = app_handle.state::<state::AppState>();
     state.hermes_runs.cancel_all().await;
     let _ = state.hermes_runtime.stop().await;
+    state.mcp_router.stop().await;
     if keep_daemon {
         return;
     }
@@ -154,6 +155,10 @@ pub fn run() {
             {
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
+                    {
+                        let state = app_handle.state::<state::AppState>();
+                        let _ = state.mcp_router.audit_orphaned_process().await;
+                    }
                     #[cfg(target_os = "windows")]
                     if let Ok(bearer) =
                         crate::shared::hermes_core::credential_store::ensure_api_server_key(
