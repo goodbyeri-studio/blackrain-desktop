@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import mcp.types as types
@@ -17,6 +18,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 REPO = Path(__file__).resolve().parents[1]
+HERMES_ROOT = REPO / "hermes-upstream"
 ROUTER_PATH = REPO / "apps/desktop/src-tauri/resources/mcp-router/blackrain_mcp_router.py"
 SPEC = importlib.util.spec_from_file_location("blackrain_mcp_router", ROUTER_PATH)
 assert SPEC and SPEC.loader
@@ -144,7 +146,10 @@ class RouterContractTests(unittest.IsolatedAsyncioTestCase):
         summary = await state.summary(changed=False)
         self.assertEqual(summary["generationId"], "generation-1")
         self.assertFalse(old.stopped)
-        self.assertEqual([tool.name for tool in await state.list_tools()], ["office__echo"])
+        self.assertEqual(
+            [tool.name for tool in await state.list_tools()],
+            [router.ROUTER_STATUS_TOOL, "office__echo"],
+        )
         await state.close()
 
     async def test_failed_worker_stop_does_not_rethrow_transport_error(self) -> None:
@@ -167,9 +172,21 @@ class RouterContractTests(unittest.IsolatedAsyncioTestCase):
         old = FakeWorker.instances[0]
         result = await state.call_tool("office__echo", {"value": "ok"})
         self.assertEqual(result.content[0].text, "echo:ok")
+        status = await state.call_tool(router.ROUTER_STATUS_TOOL, {})
+        self.assertEqual(
+            json.loads(status.content[0].text),
+            {
+                "generationId": "generation-1",
+                "serverIds": ["office"],
+                "toolNames": ["office__echo"],
+            },
+        )
         await state.replace(desired("generation-2", [server("finance")]))
         self.assertTrue(old.stopped)
-        self.assertEqual([tool.name for tool in await state.list_tools()], ["finance__echo"])
+        self.assertEqual(
+            [tool.name for tool in await state.list_tools()],
+            [router.ROUTER_STATUS_TOOL, "finance__echo"],
+        )
         self.assertEqual(session.notifications, 2)
         await state.close()
 
@@ -180,7 +197,10 @@ class RouterContractTests(unittest.IsolatedAsyncioTestCase):
         await state.replace(desired("generation-1", [server("office")]))
         worker = FakeWorker.instances[0]
         await worker.change_tools()
-        self.assertEqual([tool.name for tool in await state.list_tools()], ["office__changed"])
+        self.assertEqual(
+            [tool.name for tool in await state.list_tools()],
+            [router.ROUTER_STATUS_TOOL, "office__changed"],
+        )
         self.assertEqual(session.notifications, 2)
         await state.close()
 
@@ -242,7 +262,10 @@ if __name__ == "__main__":
             summary = await state.replace(desired("generation-real", [payload]))
             self.assertEqual(summary["toolCount"], 1)
             tools = await state.list_tools()
-            self.assertEqual(tools[0].name, "fixture__echo")
+            self.assertEqual(
+                [tool.name for tool in tools],
+                [router.ROUTER_STATUS_TOOL, "fixture__echo"],
+            )
             result = await state.call_tool("fixture__echo", {"value": "ok"})
             self.assertFalse(result.isError)
             self.assertIn("fixture:ok", result.content[0].text)
@@ -328,7 +351,10 @@ if __name__ == "__main__":
                     ) as session:
                         await session.initialize()
                         tools = await session.list_tools()
-                        self.assertEqual([tool.name for tool in tools.tools], ["fixture__echo"])
+                        self.assertEqual(
+                            [tool.name for tool in tools.tools],
+                            [router.ROUTER_STATUS_TOOL, "fixture__echo"],
+                        )
                         result = await session.call_tool("fixture__echo", {"value": "ok"})
                         self.assertFalse(result.isError)
                         self.assertIn("http-fixture:ok", result.content[0].text)
@@ -341,8 +367,197 @@ if __name__ == "__main__":
                         )
                         self.assertIn(b"200 OK", response)
                         await asyncio.wait_for(notification.wait(), 3)
-                        self.assertEqual((await session.list_tools()).tools, [])
+                        self.assertEqual(
+                            [tool.name for tool in (await session.list_tools()).tools],
+                            [router.ROUTER_STATUS_TOOL],
+                        )
             finally:
+                process.terminate()
+                try:
+                    await asyncio.wait_for(process.wait(), 5)
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.wait()
+
+    async def test_locked_hermes_refreshes_same_agent_snapshot_on_next_turn(self) -> None:
+        if not HERMES_ROOT.is_dir():
+            self.skipTest("locked Hermes checkout is unavailable")
+        sys.path.insert(0, str(HERMES_ROOT))
+        try:
+            from agent.turn_context import build_turn_context
+            from tools import mcp_tool
+            from tools.registry import registry
+        finally:
+            sys.path.remove(str(HERMES_ROOT))
+
+        class EndPrologue(Exception):
+            pass
+
+        def next_turn(agent: Any) -> None:
+            def stop_after_refresh(_value: str) -> str:
+                raise EndPrologue
+
+            with self.assertRaises(EndPrologue):
+                build_turn_context(
+                    agent,
+                    "next turn",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    restore_or_build_system_prompt=lambda *_args, **_kwargs: "",
+                    install_safe_stdio=lambda: None,
+                    sanitize_surrogates=stop_after_refresh,
+                    summarize_user_message_for_log=lambda value: value,
+                    set_session_context=lambda _value: None,
+                    set_current_write_origin=lambda _value: None,
+                    ra=SimpleNamespace(logger=None),
+                )
+
+        def names(agent: Any) -> set[str]:
+            return {
+                tool["function"]["name"]
+                for tool in agent.tools
+                if isinstance(tool, dict) and isinstance(tool.get("function"), dict)
+            }
+
+        async def wait_for_registry(tool_name: str, present: bool) -> None:
+            for _ in range(150):
+                if (tool_name in registry.get_all_tool_names()) is present:
+                    return
+                await asyncio.sleep(0.02)
+            self.fail(f"Hermes registry did not converge for {tool_name}: present={present}")
+
+        with tempfile.TemporaryDirectory(prefix="blackrain-hermes-next-turn-") as temp:
+            child = Path(temp) / "fake_mcp.py"
+            child.write_text(
+                """
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("fixture")
+@mcp.tool()
+def echo(value: str) -> str:
+    return "hermes-fixture:" + value
+if __name__ == "__main__":
+    mcp.run()
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            control_port = free_port()
+            mcp_port = free_port()
+            while mcp_port == control_port:
+                mcp_port = free_port()
+            control_bearer = "h" * 48
+            mcp_bearer = "r" * 48
+            environment = {
+                **os.environ,
+                "BLACKRAIN_MCP_ROUTER_CONTROL_PORT": str(control_port),
+                "BLACKRAIN_MCP_ROUTER_CONTROL_BEARER": control_bearer,
+                "BLACKRAIN_MCP_ROUTER_MCP_PORT": str(mcp_port),
+                "BLACKRAIN_MCP_ROUTER_MCP_BEARER": mcp_bearer,
+            }
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                str(ROUTER_PATH),
+                env=environment,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            hermes_server_name = "blackrain-router-next-turn-test"
+            anchor_name = (
+                "mcp__blackrain_router_next_turn_test__blackrain_workbench_status"
+            )
+            fixture_name = "mcp__blackrain_router_next_turn_test__fixture__echo"
+            try:
+                for _ in range(100):
+                    try:
+                        response = await control_request(
+                            control_port, control_bearer, "GET", "/health"
+                        )
+                        if b"200 OK" in response:
+                            break
+                    except OSError:
+                        pass
+                    await asyncio.sleep(0.03)
+                else:
+                    stderr = await process.stderr.read() if process.stderr else b""
+                    self.fail(f"router did not become ready: {stderr.decode(errors='replace')}")
+
+                response = await control_request(
+                    control_port,
+                    control_bearer,
+                    "PUT",
+                    "/v1/servers",
+                    {"generationId": "generation-empty-1", "servers": []},
+                )
+                self.assertIn(b"200 OK", response)
+                registered = mcp_tool.register_mcp_servers(
+                    {
+                        hermes_server_name: {
+                            "url": f"http://127.0.0.1:{mcp_port}/mcp",
+                            "headers": {"Authorization": f"Bearer {mcp_bearer}"},
+                            "connect_timeout": 5,
+                            "timeout": 5,
+                            "keepalive_interval": 60,
+                            "skip_preflight": True,
+                        }
+                    }
+                )
+                self.assertIn(anchor_name, registered)
+                agent = SimpleNamespace(
+                    tools=[],
+                    valid_tool_names=set(),
+                    enabled_toolsets=[f"mcp-{hermes_server_name}"],
+                    disabled_toolsets=[],
+                    _memory_manager=None,
+                    context_compressor=None,
+                    _context_engine_tool_names=set(),
+                    _tool_snapshot_generation=-1,
+                    _skip_mcp_refresh=False,
+                    session_id="blackrain-next-turn-session",
+                    provider="fixture",
+                    model="fixture",
+                    base_url="",
+                    api_key="",
+                    api_mode="",
+                    _memory_write_origin="assistant_tool",
+                    _restore_primary_runtime=lambda: None,
+                )
+                mcp_tool.refresh_agent_mcp_tools(agent)
+                self.assertEqual(names(agent), {anchor_name})
+
+                payload = server("fixture")
+                payload["args"] = [str(child)]
+                response = await control_request(
+                    control_port,
+                    control_bearer,
+                    "PUT",
+                    "/v1/servers",
+                    {"generationId": "generation-tools-2", "servers": [payload]},
+                )
+                self.assertIn(b"200 OK", response)
+                await wait_for_registry(fixture_name, True)
+                self.assertNotIn(fixture_name, names(agent))
+                next_turn(agent)
+                self.assertEqual(names(agent), {anchor_name, fixture_name})
+                dispatched = registry.dispatch(fixture_name, {"value": "ok"})
+                self.assertIn("hermes-fixture:ok", dispatched)
+
+                response = await control_request(
+                    control_port,
+                    control_bearer,
+                    "PUT",
+                    "/v1/servers",
+                    {"generationId": "generation-empty-3", "servers": []},
+                )
+                self.assertIn(b"200 OK", response)
+                await wait_for_registry(fixture_name, False)
+                self.assertIn(fixture_name, names(agent))
+                next_turn(agent)
+                self.assertEqual(names(agent), {anchor_name})
+            finally:
+                mcp_tool.shutdown_mcp_servers()
                 process.terminate()
                 try:
                     await asyncio.wait_for(process.wait(), 5)

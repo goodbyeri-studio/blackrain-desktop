@@ -166,7 +166,15 @@
 - 原因：锁定 Hermes `/v1` 没有整个 server reload API，直接重启会打断当前对话；让 Hermes 长期连接稳定 router 可以在不 fork Agent loop、不调用私有 API 的前提下动态改变工具集合。双 bearer 避免 Hermes 获得 App control 权限；下游 secret 不再进入 Hermes config、Hermes process env、项目或 lease。
 - 替代方案：继续 idle-only restart、让 Hermes 直接连接全部下游、给 Hermes control bearer、把 generation/secret 落盘、调用 TUI reload，或 fork Hermes MCP registry。
 - 影响范围：Hermes runtime resource/vendor/doctor、config/launch environment、App supervisor/exit/startup audit、verified plugin runtime、task start/continue、activation migration 与 Windows process tree。
-- 后续复查条件：Python 与 Rust 自动化已覆盖真实 stdio/HTTP client、connect-before-swap、失败保留、remove cleanup、notification、双 bearer、无 secret lease 和 supervisor 生命周期；仍需锁定 Hermes 真实下一 turn、Windows bundled runtime/NSIS/强退/process tree 与 Office 工具验证。完成这些证据前不勾选阶段 11 总项。
+- 后续复查条件：Python 与 Rust 自动化已覆盖真实 stdio/HTTP client、connect-before-swap、失败保留、remove cleanup、notification、双 bearer、无 secret lease 和 supervisor 生命周期；锁定 Hermes 真实 next-turn 已补证，仍需 Windows bundled runtime/NSIS/强退/process tree 与 Office 工具验证。完成这些证据前不勾选阶段 11 总项。
+
+## 2026-07-12：router 保留只读状态工具作为 Hermes next-turn 刷新锚点
+
+- 决策：App-managed router 始终发布 `blackrain_workbench_status`。它不代理任何下游能力，只返回当前 generation id、server id 和公开工具名；输入为空对象，结果不含 bearer、环境值、路径、credential reference 或 secret。下游工具总量上限包含该锚点。
+- 原因：锁定 Hermes 收到 `tools/list_changed` 后会立即更新全局 registry，但 `build_turn_context` 的下一轮刷新先调用 `has_registered_mcp_tools()`。移除最后一个下游工具会使该检查为 false，旧 agent snapshot 因而无法删除最后一个工具。稳定锚点让 registry 始终非空，同时保持 Hermes 原装黑盒；真实集成探针已证明同一 agent/session 在下一 turn 完成空集合→新增→真实调用→再次空集合的快照收敛。
+- 替代方案：修改 Hermes 的 `has_registered_mcp_tools`、调用私有 reload、重启 Hermes、保留已经移除的下游假工具、或假设每个工作台永远至少有两个 MCP 工具。
+- 影响范围：router 公开工具 contract、总工具数量门禁、Hermes prompt 工具表、阶段 11 集成测试与 Windows runtime hash。
+- 后续复查条件：若上游稳定版本允许已连接零工具 server 触发 agent snapshot rebuild，可评估移除锚点；在此之前不得删除。Windows 仍需验证 bundled Python/MCP SDK、最后一个 child process tree 回收和 App 强退。
 
 ## 2026-07-12：run 创建失败按“未附着”收敛，超时不猜测上游结果
 

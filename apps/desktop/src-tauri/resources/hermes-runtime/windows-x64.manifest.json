@@ -33,7 +33,7 @@
   },
   "blackrainMcpRouter": {
     "source": "resources/mcp-router/blackrain_mcp_router.py",
-    "sha256": "0039d0507c1006362d34195e583c11b6867c3e88aaf42bbd3d0fc441c024016a",
+    "sha256": "e0398cdbb72b0f04388567f1586fe709ef6bf5b6c24ce93ad38fbfd4cd4001dd",
     "runtimePath": "blackrain-mcp-router.py",
     "schemaVersion": 1
   },

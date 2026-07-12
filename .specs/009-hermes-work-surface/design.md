@@ -303,7 +303,7 @@ ActivatedWorkbenchContext
 
 资源变化不在 WORK 内改写该 context。spec 008 以新 `activationId` 签发不可变 generation，并在 run 边界执行 task migration；WORK 只读取迁移后的任务身份。active run、pending approval 或 stop/recovery 中的任务拒绝迁移。Hermes session 可以跨 generation 保留，但下一次 `/v1/runs` 必须使用目标 activation 重新生成 Skills/MCP/environment binding。
 
-完整 MCP server 热挂拔的目标接缝是始终注册的 App-managed MCP router。Core 先验证目标 activation 与 plugin runtime，再通过 loopback bearer 内存控制面执行 connect-before-swap；新 server readiness 或 `tools/list_changed` 刷新失败时保留旧集合，并由 008 migration transaction 恢复旧 task activation。router 不读取工作台任意命令，不把 secret 写入 desired-state 文件，也不调用 Hermes TUI/消息 gateway 私有 reload 接口。
+完整 MCP server 热挂拔的目标接缝是始终注册的 App-managed MCP router。Core 先验证目标 activation 与 plugin runtime，再通过 loopback bearer 内存控制面执行 connect-before-swap；新 server readiness 或 `tools/list_changed` 刷新失败时保留旧集合，并由 008 migration transaction 恢复旧 task activation。router 始终发布只读 `blackrain_workbench_status` 锚点工具，因为锁定 Hermes 的 next-turn hook 在 registry 完全没有 MCP 工具时会跳过刷新；该锚点确保移除最后一个插件后，当前 agent 仍会在下一 turn 重建快照并删除旧工具。状态结果只含 generation id、server id 和工具名，不含 bearer、环境值或 secret。router 不读取工作台任意命令，不把 secret 写入 desired-state 文件，也不调用 Hermes TUI/消息 gateway 私有 reload 接口。
 
 Core 将它转成 Hermes 可读状态。工作台不能自己修改 `config.yaml`，也不能把任意环境变量注入全局进程。
 
