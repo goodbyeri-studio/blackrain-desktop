@@ -356,6 +356,14 @@
 - 影响范围：spec 007/009 Windows verification、release script、Hermes runtime vendor 与 NSIS 构建前置条件。
 - 后续复查条件：首次 Windows 实跑需记录耗时和失败点；若专项总时长不可接受，只能通过缓存/CI 复用证据优化，不得静默删除发布门禁。
 
+## 2026-07-12：Windows CI 先覆盖代码级 WORK contract，不冒充 runtime E2E
+
+- 决策：现有 Windows runner 扩充前端 typecheck/test/lint/DS/codemod 与 Rust check/Hermes/workbench/plugin 专项；不在普通 PR job vendor Hermes runtime、启动 `/v1`、打 NSIS 或宣称真实 WORK 可用。
+- 原因：这能让 Windows cfg、文件语义和 WORK contract 在合并前至少编译/测试，同时保持“CI 不能替代 runtime/GUI/安装实测”的证据边界。
+- 替代方案：只保留 macOS/Ubuntu 共享测试、每个 PR 构建完整胖包、或把 workflow 配置存在直接勾成 Windows 产品通过。
+- 影响范围：`.github/workflows/ci.yml`、spec 007/009 verification 和根 agent 规则。
+- 后续复查条件：首次 workflow run 后才能填写 Windows 通过证据；runtime/NSIS 未来进入 CI 时必须单列 job/制品与失败边界。
+
 ## 2026-07-12：系统恢复、前台或网络在线时只重新对账并挂接已有 run
 
 - 决策：Tauri 在 `RunEvent::Resumed` 发出唯一 `work-environment-reconcile` 事件；WORK controller 将它与 window focus、document visible 和 browser online 合并，250ms 去抖后并行刷新 runtime/tasks/recovery/activations。只有 runtime Ready 且 TaskStore 返回 `degraded + activeRunId` 时才调用现有 resume command。多个同时到达的环境事件合并成一次对账，组件卸载时清理 Tauri/browser listener 和 timer。
