@@ -287,6 +287,29 @@
   line-height: 1.6;
 }
 
+.work-package-plan {
+  width: min(100%, 560px);
+  margin-top: 16px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-panel);
+  text-align: left;
+}
+
+.work-package-plan strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.work-package-plan span,
+.work-package-plan small {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 .work-project-picker {
   width: min(100%, 420px);
   margin-top: 12px;

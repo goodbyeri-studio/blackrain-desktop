@@ -1,0 +1,16 @@
+schema_version: 1
+id: com.blackrain.invalid-path
+name: Invalid Path
+version: 0.1.0
+publisher: blackrain-tests
+description: Invalid traversal fixture.
+license: MIT
+target: { domains: [fixture], roles: [tester], platforms: [{ os: windows, arch: x86_64 }], blackrain: ">=0.7.68" }
+engine: { preferred: work, allowed: [work] }
+skills: [{ path: ../outside }]
+plugins: []
+dependencies: []
+permissions: { files: { mode: user-selected-folders }, network: { domains: [] }, processes: { spawn: [] } }
+tasks: { source: tasks/tasks.yaml }
+validation: { health: validation/health.yaml, smoke: validation/smoke/basic.yaml }
+uninstall: { preserve_user_projects: true }

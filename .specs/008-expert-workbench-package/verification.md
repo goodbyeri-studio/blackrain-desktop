@@ -11,8 +11,7 @@
 | 2026-07-12 | activation 持久化接缝 | App-data `activations.v1.json` list/read/persist_verified、原子替换、容量/schema/重复 ID/symlink 门禁、同 ID 资源不可变；前端仅 list/read | `cargo test workbench_core --lib`; `cargo check`; `npm run test -- --run src/features/work/types.test.ts src/features/work/hooks/useWorkController.test.tsx src/features/work/components/WorkSurface.test.tsx src/services/tauri.test.ts`; `npm run typecheck` | `7 passed`（Rust）+ `80 passed`（TS targeted）+ check/typecheck 通过（macOS） | 只证明 store 与只读消费接缝；`persist_verified` 未接 install/verify pipeline，无正式 Office activation，Windows 未验证 |
 | 2026-07-12 | verified plugin runtime 接缝 | App-data store、plugin/version 资源不可变、managed install root、祖先链/command symlink 与路径逃逸门禁、MCP/typed environment ref 解析、child env key 与 App placeholder 生成；legacy ref、system capability 和同 ID 不同 kind 均 fail closed | `cargo test plugin_core --lib` | `5 passed`（macOS） | 只证明 009 可消费的底层执行制品 contract；没有 Manifest/install/verify/credential producer，没有真实插件或 Windows 运行证据 |
 | 2026-07-12 | deactivate 消费侧接缝 | 009 Core command 停止运行资源、移除 binding/activation、保留项目；冲突和身份门禁 | `cargo test workbench_core --lib`; `cargo test hermes --lib`; targeted TS tests | Rust `8 + 83 passed` + TS `82 passed`（macOS） | 只实现已有 activation 的消费侧停用；008 install/health/activate producer、安装资源卸载和 Windows process tree 仍未实现 |
-| YYYY-MM-DD | Manifest schema | schema 单测 | 未跑 | 尚无 schema 实现 |
-| YYYY-MM-DD | Office manifest | parse/inspect | 未跑 | 尚未迁移 |
+| 2026-07-12 | Manifest v1 与 Office 只读 inspect | strict YAML/unknown field、Windows x64/WORK 边界、依赖 checksum/scope、包内路径、Skill、symlink/穿越、Office 真实 Manifest；official allowlist App command、TS wrapper/controller、未激活安装计划 UI | `cargo test workbench_core --lib`; `cargo check`; targeted Vitest；`npm run test`; `npm run typecheck`; `npm run lint`; `npm run lint:ds`; `npm run codemod:ds:dry`; `git diff --check` | Rust `13 passed` + check；targeted TS `4 files / 91 passed`；全量 `149 files / 1106 tests` + typecheck；lint/DS 0 error、5 条既有 warning；codemod 仅提示既有 `SettingsView.tsx` modal（macOS/jsdom） | `serde_yaml_ng 0.10.0`；只读 inspect，不含空间/签名/semver/Daemon/install/health 执行/activation；Windows 未验证 |
 | YYYY-MM-DD | Windows 安装 | 干净 Windows x64 VM | 未跑 | 尚无安装器 |
 | YYYY-MM-DD | 健康检查与任务 | Office smoke | 未跑 | 尚无生命周期闭环 |
 | YYYY-MM-DD | 升级与回滚 | 失败注入 | 未跑 | 尚无实现 |
@@ -32,9 +31,8 @@ activation contract/store 是已实现的底层接缝，但仍没有 Manifest/in
 
 ## 未验证风险
 
-- Manifest 格式和 schema 库未选定。
-- App/Daemon 尚无工作台 inspect/install/activate/uninstall RPC；当前只有 App local-only activation list/read，Daemon 明确 unsupported。
-- Office 骨架尚未迁移到目标包格式。
+- App 已有 official bundled inspect；Daemon parity 与 install/activate/uninstall RPC 尚无，当前 activation list/read/deactivate 仍为 local-only。
+- Manifest v1 已冻结最小字段，但空间、签名、BlackRain semver、系统依赖探针和安装事务未实现。
 - 受控路径、共享依赖、升级回滚和用户项目隔离未实现。
 - 第三方包签名、恶意包防护和权限模型未实现。
 - Windows 干净环境没有任何工作台生命周期实测。
@@ -42,4 +40,8 @@ activation contract/store 是已实现的底层接缝，但仍没有 Manifest/in
 
 ## 失败记录
 
-暂无实现，暂无运行失败记录。
+- 2026-07-12：首次给平台结构补 `Hash` 时误加到整个 `WorkbenchManifest`，随后平台本身仍缺 `Hash`，导致两轮 Rust 编译失败；移除错误 derive 并只给 `WorkbenchPlatform` 补 `Hash` 后通过。
+- 2026-07-12：首轮 manifest 测试发现 `rename_all="kebab-case"` 会把 `X86_64` 解析为 `x86-64`，与冻结字段 `x86_64` 不符，并连带让路径/symlink fixture 提前解析失败；改为显式 `#[serde(rename="x86_64")]` 后 13 项通过。
+- 2026-07-12：最初短暂引入 deprecated `serde_yaml 0.9`，审计后在提交前切换到 maintained `serde_yaml_ng 0.10.0`。OfficeCLI 临时版本探针已输出 `1.0.117`，但 shell 尾部误用了 zsh 只读变量 `status`；该尾部错误不影响版本输出，未修改仓库二进制。
+- 2026-07-12：对 `src/lib.rs` 运行 leaf `rustfmt` 时触发 module 递归格式化，产生多处无关 Rust diff；提交前按文件精确反向应用这些机械变化，只保留本阶段 `lib.rs` command 注册和 `office.rs` allowlist 资源定位改动。未使用 `cargo fmt --all`，未触碰用户 docx。
+- 2026-07-12：补充正例 fixture 后，从 `apps/desktop/src-tauri` 误用 `git -C ../../../.. diff --check`，路径越过仓库根导致 Git 报“Not a git repository”；Rust 13 项已先通过，随后回到仓库根重新执行 diff check。

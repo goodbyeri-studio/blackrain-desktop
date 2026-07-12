@@ -1,0 +1,6 @@
+schema_version: 1
+checks:
+  - id: officecli-version
+    dependency: com.blackrain.office-cli
+    command: ["--version"]
+    expect_stdout_contains: "1.0.117"

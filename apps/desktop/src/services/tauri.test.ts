@@ -35,6 +35,7 @@ import {
   workbenchActivationList,
   workbenchActivationRead,
   workbenchActivationDeactivate,
+  workbenchBundledInspect,
   listThreads,
   listMcpServerStatus,
   modelGatewayDaemonStart,
@@ -574,6 +575,7 @@ describe("tauri invoke wrappers", () => {
     await workbenchActivationList();
     await workbenchActivationRead("activation-office-demo");
     await workbenchActivationDeactivate("activation-office-demo");
+    await workbenchBundledInspect("com.blackrain.office");
     await hermesTaskList();
     await hermesTaskRead("task-1");
     await hermesFollowUpEnqueue({ taskId: "task-1", prompt: "排队继续" });
@@ -601,6 +603,9 @@ describe("tauri invoke wrappers", () => {
     });
     expect(invokeMock).toHaveBeenCalledWith("workbench_activation_deactivate", {
       activationId: "activation-office-demo",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("workbench_bundled_inspect", {
+      workbenchId: "com.blackrain.office",
     });
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_list");
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_read", { taskId: "task-1" });

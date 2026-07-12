@@ -5,20 +5,22 @@
 - [x] 确认正式产品关系：`Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室`
 - [x] 确认工作台是核心商品，双引擎是执行实现
 - [x] 创建本 spec 五件套
-- [ ] 盘点 Office 参考工作台当前所有资源、注入路径和 License
-- [ ] 确认首版只支持 Windows x64 和官方签名/随包工作台
-- [ ] 决定 Manifest 格式、schema 校验库和版本策略
+- [x] 盘点 Office 参考工作台当前所有资源、注入路径和 License
+- [x] 确认首版只支持 Windows x64 和官方签名/随包工作台
+- [x] 决定 Manifest 格式、schema 校验库和版本策略
 - [ ] 决定受控安装路径、用户项目路径和共享依赖策略
 
 ## 阶段 1：最小 Manifest 与只读检查
 
-- [ ] 定义 `workbench.yaml` v1 schema
-- [ ] 为 schema 提供正反例 fixtures
-- [ ] 实现 shared core 的 manifest parse/validate
+- [x] 定义 `workbench.yaml` v1 schema
+- [x] 为 schema 提供正反例 fixtures
+- [x] 实现 shared core 的 manifest parse/validate
 - [ ] 实现依赖、权限、License、空间和兼容性 inspect
-- [ ] 前端展示工作台详情和安装计划，只读不安装
+- [x] 前端展示工作台详情和安装计划，只读不安装
 - [ ] App 与 Daemon 提供一致的 inspect RPC
-- [ ] 将 Office 骨架迁移成首个 v1 manifest
+- [x] 将 Office 骨架迁移成首个 v1 manifest
+
+> 2026-07-12：v1 使用 UTF-8 YAML + `serde_yaml_ng` 严格反序列化（所有对象 `deny_unknown_fields`），当前只接受 Windows x64、`preferred/allowed=[work]`、安全包内相对路径、最多 256 项列表和 `sha256:` 完整性声明。Core inspect 会拒绝 manifest/资源 symlink、路径穿越、重复身份、非法依赖 scope/checksum，并要求每个 Skill 目录含 `SKILL.md`。App 只允许 inspect 官方 allowlist 中的 `com.blackrain.office`，前端仅展示声明，不提供 install/activate 写入口；Daemon parity、空间/BlackRain semver/签名/系统依赖探针仍未完成，因此相关总项保持未勾选。
 
 ## 阶段 2：官方工作台安装与激活
 

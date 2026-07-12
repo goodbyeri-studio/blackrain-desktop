@@ -7,6 +7,7 @@ import type {
   WorkRuntimeStatus,
   WorkTask,
   WorkTaskStatus,
+  WorkbenchPackageInspection,
 } from "../types";
 
 const MAX_ORPHAN_TASKS = 100;
@@ -21,6 +22,7 @@ export type WorkTaskState = {
 
 export type WorkState = {
   activations: ActivatedWorkbenchContext[];
+  bundledOffice: WorkbenchPackageInspection | null;
   runtime: WorkRuntimeStatus | null;
   recovery: HermesTaskRecoveryState | null;
   tasks: Record<string, WorkTaskState>;
@@ -34,6 +36,7 @@ export type WorkState = {
 
 export const initialWorkState: WorkState = {
   activations: [],
+  bundledOffice: null,
   runtime: null,
   recovery: null,
   tasks: {},
@@ -52,6 +55,7 @@ export type WorkAction =
       recovery: HermesTaskRecoveryState | null;
       tasks: WorkTask[];
       activations: ActivatedWorkbenchContext[];
+      bundledOffice: WorkbenchPackageInspection | null;
       error: WorkError | null;
     }
   | { type: "runtimeUpdated"; runtime: WorkRuntimeStatus }
@@ -252,6 +256,7 @@ export function workReducer(state: WorkState, action: WorkAction): WorkState {
         runtime: action.runtime,
         recovery: action.recovery,
         activations: action.activations,
+        bundledOffice: action.bundledOffice,
         bootstrapping: false,
         lastError: action.error,
       };

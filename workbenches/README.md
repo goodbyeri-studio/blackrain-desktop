@@ -30,7 +30,7 @@ Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室
 ```text
 workbenches/
 └── <workbench-id>/
-    ├── workbench.yaml       # 目标 Manifest；当前尚未实现 schema
+    ├── workbench.yaml       # v1 Manifest；当前只冻结官方 Windows x64 最小 schema
     ├── README.md
     ├── AGENTS.md            # 可选：角色和工作规则
     ├── skills/
@@ -57,13 +57,13 @@ workbenches/
 当前只有 `office-agent/`：
 
 - 人设/规则和三个 Skills 已存在
+- `workbench.yaml v1`、tasks/health/smoke 声明和 strict Core inspect 已存在
 - OfficeCLI 插件和资源注入骨架已存在
 - Windows NSIS resource mapping 已存在
 
 但以下均未完成：
 
-- `workbench.yaml` schema 和解析器
-- inspect/install/activate/verify/uninstall 生命周期
+- install/activate/verify/uninstall 生命周期（当前只有只读 inspect）
 - Hermes WORK surface 产品接入
 - Windows NSIS 构建、解包、安装和首启验证
 - Office 5 场景 × 10 次质量基线

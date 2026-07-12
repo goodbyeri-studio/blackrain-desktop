@@ -27,6 +27,7 @@ import {
   hermesTaskStart,
   hermesTaskStop,
   workbenchActivationList,
+  workbenchBundledInspect,
   workbenchActivationDeactivate,
 } from "@/services/tauri";
 import type {
@@ -129,13 +130,24 @@ export function useWorkController() {
       hermesTaskList(),
       hermesTaskRecoveryStatus(),
       workbenchActivationList(),
-    ]).then(([runtimeResult, tasksResult, recoveryResult, activationsResult]) => {
+      workbenchBundledInspect("com.blackrain.office"),
+    ]).then(([
+      runtimeResult,
+      tasksResult,
+      recoveryResult,
+      activationsResult,
+      bundledOfficeResult,
+    ]) => {
       if (!active) {
         return;
       }
-      const rejected = [runtimeResult, tasksResult, recoveryResult, activationsResult].find(
-        (result) => result.status === "rejected",
-      );
+      const rejected = [
+        runtimeResult,
+        tasksResult,
+        recoveryResult,
+        activationsResult,
+        bundledOfficeResult,
+      ].find((result) => result.status === "rejected");
       dispatch({
         type: "bootstrapCompleted",
         runtime: runtimeResult.status === "fulfilled" ? runtimeResult.value : null,
@@ -144,6 +156,10 @@ export function useWorkController() {
           recoveryResult.status === "fulfilled" ? recoveryResult.value : null,
         activations:
           activationsResult.status === "fulfilled" ? activationsResult.value : [],
+        bundledOffice:
+          bundledOfficeResult.status === "fulfilled"
+            ? bundledOfficeResult.value
+            : null,
         error: rejected?.status === "rejected" ? unknownError(rejected.reason) : null,
       });
       if (runtimeResult.status === "fulfilled" && runtimeResult.value.state === "ready") {
