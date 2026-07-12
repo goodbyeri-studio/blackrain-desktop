@@ -279,7 +279,7 @@
 - [x] 评估 Memory provider UI 与外置共享记忆策略；首版关闭跨工作台持久记忆与 session search，不提供 provider UI
 - [x] 评估 session export 是否成为交付/审计能力；首版不进入交付/审计闭环，未来以 TaskStore 单任务导出另建合同
 - [x] 评估 PTY、Cron、MOA、自验证的真实垂类价值；首版关闭 Hermes Cron，不接 PTY/MOA，自验证服从 008 验证合同
-- [ ] WhatsApp/Telegram/Discord 等渠道另行决策，不默认进入桌面 MVP
+- [x] WhatsApp/Telegram/Discord 等渠道另行决策；不进入桌面 WORK MVP，未来按工作室级外部入口另建 spec
 
 ## 收口纪律
 

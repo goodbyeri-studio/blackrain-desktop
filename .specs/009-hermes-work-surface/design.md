@@ -319,6 +319,8 @@ Core 将它转成 Hermes 可读状态。工作台不能自己修改 `config.yaml
 
 首版不接入上游 PTY、Cron 或 MoA 产品面。交互终端若未来进入 WORK，只复用 BlackRain 现有 terminal 能力并服从 activation 权限；不运行 Hermes Desktop 的 POSIX PTY。managed config 显式禁用 `cronjob`，防止 gateway 在 BlackRain task 生命周期外创建和执行持久后台任务；定时任务未来属于工作室级 Core 调度。MoA 会把每次主模型调用扩展为多个 reference call 加 aggregator call，在 account broker、model allowlist、credit 预算和质量基线完成前不生成 preset。自验证不是可选 UI：包/环境/领域三层验证继续以 008 为真源，运行中输出验证由工作台声明的受控工具和断言执行，不能让模型自评替代证据。
 
+桌面 WORK MVP 的 Hermes gateway 只启用 loopback API Server，不接 WhatsApp、Telegram、Discord 或其他外部消息平台。managed process 以 `env_clear()` 启动，不能继承用户机器已有的 bot token；Windows runtime 不安装完整 `messaging` extra。外部渠道会引入独立身份/allowlist、群组 session、附件、恶意输入、主动推送、持久在线、平台条款和额外依赖，未来应作为工作室级“外部任务入口与交付渠道”另建 spec，并复用 BlackRain task/activation/credit/approval 账本，而不是直接开放 Hermes gateway 配置。
+
 目标 Windows 布局由实际 Tauri resources 配置冻结，概念上包括：
 
 ```text

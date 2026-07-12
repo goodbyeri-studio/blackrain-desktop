@@ -512,6 +512,14 @@
 - 影响范围：managed config/repair、WORK tool surface、未来工作室 scheduler、terminal 复用、002 credit/model catalog、008 validation 和阶段 12 Office 黄金流程。
 - 后续复查条件：定时任务需另建工作室级 spec，至少包含 schedule owner、activation pin、权限/审批、模型与预算、离线/休眠、幂等、输出和审计；PTY 需真实 Windows 垂类用例；MoA 需 broker 返回允许模型并建立多调用 credit/质量基线。008 领域验证仍必须在 Office 黄金流程中落真实输出断言。
 
+## 2026-07-12：外部消息渠道不进入桌面 WORK MVP
+
+- 决策：首版只运行 loopback Hermes API Server，不启用或配置 WhatsApp、Telegram、Discord、Slack 等外部消息 platform，不提供 bot token/QR/webhook/allowlist UI，也不安装完整 `messaging` extra。外部渠道未来定位为工作室级“外部任务入口与交付渠道”，必须另建 spec 后由 BlackRain Core 接入，不允许工作台直接写 Hermes platform config。
+- 原因：消息渠道不仅是另一种聊天 UI，还引入远程身份、群组 session、附件下载、prompt injection、主动推送、持久在线、速率限制、平台条款与额外依赖。WhatsApp Baileys 还要求 Node bridge 并有非官方协议封禁风险；Telegram/Discord 需要 token、allowlist 和群组隐私策略。直接开启会绕过当前桌面用户、activation、项目选择、审批和 credit 的单一入口，扩大 Windows 包体与攻击面。
+- 替代方案：完整安装 Hermes `messaging` extra、检测到父进程 bot token 就自动启用、嵌入 Hermes gateway setup、让每个工作台自带渠道凭据，或把渠道视为 WORK surface 发布条件。
+- 影响范围：runtime inventory 保持只从 messaging 锁文件提取 `aiohttp` 约束；supervisor `env_clear()` 不继承渠道变量；WORK UI/008 Manifest 不增加 platform 字段；003 的 Hermes 多渠道能力只保留为 post-MVP 上游资产。
+- 后续复查条件：工作室需要从企业微信/飞书/Telegram 等接单或推送成果时，按具体平台单独评估官方 API、License、数据地域、身份映射、allowlist、附件隔离、幂等、审批、credit、离线服务、撤销和审计；不得用一个“启用 messaging”总开关替代。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
