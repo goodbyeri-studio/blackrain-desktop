@@ -39,7 +39,7 @@
 
 ## 已验证
 
-- 暂无(本 spec 无实现)。
+- Core 已存在供 009 消费的 verified plugin runtime store 与 managed stdio MCP 路径门禁；这只是执行接缝，不代表本目录任一候选插件已经实现、安装或可发行。
 
 ## 未验证风险
 

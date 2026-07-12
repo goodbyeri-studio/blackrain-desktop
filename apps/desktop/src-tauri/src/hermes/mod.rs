@@ -16,8 +16,8 @@ use crate::shared::hermes_core::runtime::{
 };
 use crate::shared::hermes_core::tasks::HermesTaskRecoveryState;
 use crate::shared::hermes_core::types::{
-    WorkError, WorkErrorKind, WorkEvent, WorkRuntimeStatus, WorkTask, WorkTaskStatus,
-    WORK_SCHEMA_VERSION,
+    WorkError, WorkErrorKind, WorkEvent, WorkRuntimeState, WorkRuntimeStatus, WorkTask,
+    WorkTaskStatus, WORK_SCHEMA_VERSION,
 };
 use crate::state::AppState;
 
@@ -117,6 +117,19 @@ fn ensure_no_conflicting_activation(
             .insert("conflictingTaskId".into(), json!(task.task_id));
         return Err(error);
     }
+    Ok(())
+}
+
+async fn restart_runtime_for_mcp_change(
+    state: &AppState,
+    mcp_changed: bool,
+) -> Result<(), WorkError> {
+    if !mcp_changed || state.hermes_runtime.status().await.state != WorkRuntimeState::Ready {
+        return Ok(());
+    }
+    state.hermes_runs.cancel_all().await;
+    restart_runtime(&state.hermes_paths, &state.hermes_runtime).await?;
+    schedule_task_recovery(state);
     Ok(())
 }
 
@@ -272,9 +285,26 @@ pub(crate) async fn hermes_task_start(
     let workbench_desired = activation
         .to_hermes_desired_state()
         .map_err(|message| command_error("workbench_activation_invalid", &message, false))?;
+    let mcp_servers = state
+        .plugin_runtimes
+        .lock()
+        .await
+        .resolve_mcp_servers(
+            &activation.plugins,
+            &activation.mcp_servers,
+            &activation.environment_refs,
+        )
+        .map_err(|message| command_error("workbench_plugin_runtime_invalid", &message, false))?;
     let tasks = state.hermes_tasks.lock().await.load_tasks()?;
     ensure_no_conflicting_activation(&tasks, &activation.activation_id, None)?;
-    bind_runtime_workbench(&state.hermes_paths, &workbench_desired)?;
+    let has_active_runs = tasks.iter().any(|task| task.active_run_id.is_some());
+    let binding = bind_runtime_workbench(
+        &state.hermes_paths,
+        &workbench_desired,
+        &mcp_servers,
+        !has_active_runs,
+    )?;
+    restart_runtime_for_mcp_change(&state, binding.mcp_changed).await?;
     let now = now_unix_seconds();
     let task_id = format!("task-{}", uuid::Uuid::new_v4().simple());
     let task = WorkTask {
@@ -411,9 +441,26 @@ pub(crate) async fn hermes_task_continue(
     let workbench_desired = activation
         .to_hermes_desired_state()
         .map_err(|message| command_error("workbench_activation_invalid", &message, false))?;
+    let mcp_servers = state
+        .plugin_runtimes
+        .lock()
+        .await
+        .resolve_mcp_servers(
+            &activation.plugins,
+            &activation.mcp_servers,
+            &activation.environment_refs,
+        )
+        .map_err(|message| command_error("workbench_plugin_runtime_invalid", &message, false))?;
     let tasks = state.hermes_tasks.lock().await.load_tasks()?;
     ensure_no_conflicting_activation(&tasks, activation_id, Some(&input.task_id))?;
-    bind_runtime_workbench(&state.hermes_paths, &workbench_desired)?;
+    let has_active_runs = tasks.iter().any(|task| task.active_run_id.is_some());
+    let binding = bind_runtime_workbench(
+        &state.hermes_paths,
+        &workbench_desired,
+        &mcp_servers,
+        !has_active_runs,
+    )?;
+    restart_runtime_for_mcp_change(&state, binding.mcp_changed).await?;
     let session_id = task.hermes_session_id.ok_or_else(|| {
         command_error(
             "work_task_session_missing",

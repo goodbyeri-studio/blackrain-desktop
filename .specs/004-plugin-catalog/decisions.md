@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-07-12：verified runtime store 是执行接缝，不是插件目录实现
+
+- 决策：009 为 WORK MCP 接入建立的 `plugins/runtimes.v1.json` 只保存未来 008 installer 已验证的本机执行制品，并作为 activation id 引用到 Hermes config 的安全解析层；它不提供 catalog、下载、安装、更新、卸载或候选包发布能力，也不改变本 spec 的 post-MVP 状态。
+- 原因：执行器必须先有受控 command 真源才能避免 activation/前端启动任意进程，但把底层 store 计作 ~34 个插件目录已落地会混淆协议存在与产品供给完成度。
+- 影响范围：009 MCP 接入、008 install/verify producer 和本 spec 状态口径。
+- 后续复查条件：首个真实 Office 插件进入 installer、完成 License/权限/hash/Windows 验证后，再为对应包记录实现证据。
+
 ## 2026-07-11:目录是 post-MVP 终局参考,Windows office MVP 不实现全目录
 
 - 决策：~34 打包单元只作长期插件供给账本；MVP 只发行 Windows 客户端，并用 Office 参考工作台验证工作台底座，不启动全目录实现。

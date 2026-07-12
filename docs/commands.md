@@ -137,6 +137,8 @@ Push-Location src-tauri
 cargo check
 # Hermes WORK shared contract/client/supervisor 专项
 cargo test hermes --lib
+# 工作台 verified plugin runtime/MCP 路径门禁专项
+cargo test plugin_core --lib
 Pop-Location
 
 # Windows 专用入口

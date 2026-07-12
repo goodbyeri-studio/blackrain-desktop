@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 const MANAGED_HEADER: &str = "# BlackRain managed Hermes config v1";
+const HERMES_WORKBENCH_BINDING_SCHEMA_VERSION: u32 = 1;
 const MAX_SKILL_TREE_ENTRIES: usize = 50_000;
 const MAX_SKILL_TREE_DEPTH: usize = 32;
 pub(crate) const PROVIDER_API_KEY_ENV: &str = "BLACKRAIN_HERMES_PROVIDER_API_KEY";
@@ -99,6 +100,28 @@ pub(crate) struct WorkbenchHermesDesiredState {
     pub(crate) permission_grant_id: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HermesMcpServerDesiredState {
+    pub(crate) id: String,
+    pub(crate) command: PathBuf,
+    #[serde(default)]
+    pub(crate) args: Vec<String>,
+    pub(crate) timeout_seconds: u64,
+    pub(crate) connect_timeout_seconds: u64,
+    #[serde(default)]
+    pub(crate) supports_parallel_tool_calls: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct HermesWorkbenchBinding {
+    schema_version: u32,
+    workbench: WorkbenchHermesDesiredState,
+    #[serde(default)]
+    mcp_servers: Vec<HermesMcpServerDesiredState>,
+}
+
 impl WorkbenchHermesDesiredState {
     pub(crate) fn validate(&self) -> Result<(), String> {
         validate_non_empty("workbench id", &self.workbench_id)?;
@@ -124,6 +147,29 @@ impl WorkbenchHermesDesiredState {
             secret_ref.validate()?;
         }
         validate_unique_paths(&self.skill_roots)?;
+        Ok(())
+    }
+}
+
+impl HermesMcpServerDesiredState {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        validate_non_empty("MCP server id", &self.id)?;
+        if !is_safe_absolute_path(&self.command) {
+            return Err("Hermes MCP command must be an absolute safe path.".into());
+        }
+        if self.args.len() > 128
+            || self
+                .args
+                .iter()
+                .any(|argument| argument.len() > 4096 || argument.contains('\0'))
+        {
+            return Err("Hermes MCP arguments are invalid or exceed bounded limits.".into());
+        }
+        if !(1..=3600).contains(&self.timeout_seconds)
+            || !(1..=300).contains(&self.connect_timeout_seconds)
+        {
+            return Err("Hermes MCP timeout values are outside the allowed range.".into());
+        }
         Ok(())
     }
 }
@@ -173,6 +219,12 @@ pub(crate) struct HermesConfigSummary {
     pub(crate) model: String,
     pub(crate) key_env: String,
     pub(crate) contains_inline_secret: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HermesWorkbenchBindResult {
+    pub(crate) config_summary: HermesConfigSummary,
+    pub(crate) mcp_changed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -227,7 +279,7 @@ impl HermesConfigManager {
         desired: &HermesProviderDesiredState,
     ) -> Result<HermesConfigSummary, String> {
         desired.validate()?;
-        let workbench = self.load_workbench_desired_state()?;
+        let binding = self.load_workbench_binding()?;
         if let HermesConfigInspection::RepairRequired(plan) = self.inspect()? {
             return Err(format!(
                 "Hermes config requires repair before update: {} ({})",
@@ -245,7 +297,7 @@ impl HermesConfigManager {
                 .map_err(|error| format!("Unable to read previous Hermes config: {error}"))?;
             atomic_write(&self.paths.last_good_config, &previous)?;
         }
-        let rendered = render_config_with_workbench(desired, workbench.as_ref())?;
+        let rendered = render_config_with_binding(desired, binding.as_ref())?;
         // desired-state 是 App 的非敏感真源。先持久化它，确保随后 config 写入失败时
         // repair 仍有可用输入；反向顺序会留下无法自动修复的“新 config + 旧/缺失 desired”。
         persist_desired_state(&self.paths.desired_state, desired)?;
@@ -261,9 +313,21 @@ impl HermesConfigManager {
         &self,
         provider: &HermesProviderDesiredState,
         workbench: &WorkbenchHermesDesiredState,
-    ) -> Result<HermesConfigSummary, String> {
+        mcp_servers: &[HermesMcpServerDesiredState],
+        allow_mcp_change: bool,
+    ) -> Result<HermesWorkbenchBindResult, String> {
         provider.validate()?;
         workbench.validate()?;
+        validate_mcp_binding(workbench, mcp_servers)?;
+        let previous_binding = self.load_workbench_binding()?;
+        let previous_mcp = previous_binding
+            .as_ref()
+            .map(|binding| binding.mcp_servers.as_slice())
+            .unwrap_or(&[]);
+        let mcp_changed = previous_mcp != mcp_servers;
+        if mcp_changed && !allow_mcp_change {
+            return Err("Hermes MCP binding cannot change while any WORK run is active.".into());
+        }
         if let Some(HermesSecretReference::ProviderCredential { provider_id }) =
             &workbench.provider_secret_ref
         {
@@ -292,15 +356,23 @@ impl HermesConfigManager {
                 .map_err(|error| format!("Unable to read previous Hermes config: {error}"))?;
             atomic_write(&self.paths.last_good_config, &previous)?;
         }
-        persist_workbench_desired_state(&self.paths.workbench_desired_state, workbench)?;
+        let binding = HermesWorkbenchBinding {
+            schema_version: HERMES_WORKBENCH_BINDING_SCHEMA_VERSION,
+            workbench: workbench.clone(),
+            mcp_servers: mcp_servers.to_vec(),
+        };
+        persist_workbench_binding(&self.paths.workbench_desired_state, &binding)?;
         persist_desired_state(&self.paths.desired_state, provider)?;
-        let rendered = render_config_with_workbench(provider, Some(workbench))?;
+        let rendered = render_config_with_binding(provider, Some(&binding))?;
         atomic_write(&self.paths.config, rendered.as_bytes())?;
         if !self.paths.last_good_config.exists() {
             atomic_write(&self.paths.last_good_config, rendered.as_bytes())?;
         }
         tighten_file_permissions(&self.paths.config)?;
-        Ok(summary(provider))
+        Ok(HermesWorkbenchBindResult {
+            config_summary: summary(provider),
+            mcp_changed,
+        })
     }
 
     pub(crate) fn repair(
@@ -308,9 +380,9 @@ impl HermesConfigManager {
         desired: &HermesProviderDesiredState,
     ) -> Result<(HermesConfigSummary, Option<PathBuf>), String> {
         desired.validate()?;
-        let workbench = self.load_workbench_desired_state()?;
+        let binding = self.load_workbench_binding()?;
         fs::create_dir_all(&self.paths.home).map_err(|error| error.to_string())?;
-        let rendered = render_config_with_workbench(desired, workbench.as_ref())?;
+        let rendered = render_config_with_binding(desired, binding.as_ref())?;
         // repair 也先冻结可恢复的 desired-state，再移动现有 config。
         persist_desired_state(&self.paths.desired_state, desired)?;
         let quarantined = if self.paths.config.exists() {
@@ -345,6 +417,12 @@ impl HermesConfigManager {
     pub(crate) fn load_workbench_desired_state(
         &self,
     ) -> Result<Option<WorkbenchHermesDesiredState>, String> {
+        Ok(self
+            .load_workbench_binding()?
+            .map(|binding| binding.workbench))
+    }
+
+    fn load_workbench_binding(&self) -> Result<Option<HermesWorkbenchBinding>, String> {
         if !self.paths.workbench_desired_state.exists() {
             return Ok(None);
         }
@@ -358,11 +436,36 @@ impl HermesConfigManager {
                 self.paths.workbench_desired_state.display()
             )
         })?;
-        let desired = serde_json::from_slice::<WorkbenchHermesDesiredState>(&bytes)
-            .map_err(|error| format!("Hermes workbench desired state is invalid: {error}"))?;
-        desired.validate()?;
-        validate_skill_roots_for_binding(&desired.skill_roots)?;
-        Ok(Some(desired))
+        let value: serde_json::Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("Hermes workbench binding is invalid: {error}"))?;
+        let binding = match serde_json::from_value::<HermesWorkbenchBinding>(value.clone()) {
+            Ok(binding) => binding,
+            Err(binding_error) => {
+                let legacy = serde_json::from_value::<WorkbenchHermesDesiredState>(value)
+                    .map_err(|_| format!("Hermes workbench binding is invalid: {binding_error}"))?;
+                if !legacy.mcp_server_ids.is_empty() {
+                    return Err(
+                        "Legacy Hermes workbench binding contains unresolved MCP servers and must be rebound."
+                            .into(),
+                    );
+                }
+                HermesWorkbenchBinding {
+                    schema_version: HERMES_WORKBENCH_BINDING_SCHEMA_VERSION,
+                    workbench: legacy,
+                    mcp_servers: Vec::new(),
+                }
+            }
+        };
+        if binding.schema_version != HERMES_WORKBENCH_BINDING_SCHEMA_VERSION {
+            return Err(format!(
+                "Unsupported Hermes workbench binding schema version {}.",
+                binding.schema_version
+            ));
+        }
+        binding.workbench.validate()?;
+        validate_skill_roots_for_binding(&binding.workbench.skill_roots)?;
+        validate_mcp_binding(&binding.workbench, &binding.mcp_servers)?;
+        Ok(Some(binding))
     }
 
     fn repair_plan(&self, reason: String) -> HermesRepairPlan {
@@ -434,9 +537,22 @@ pub(crate) fn render_config_with_workbench(
     desired: &HermesProviderDesiredState,
     workbench: Option<&WorkbenchHermesDesiredState>,
 ) -> Result<String, String> {
+    let binding = workbench.map(|workbench| HermesWorkbenchBinding {
+        schema_version: HERMES_WORKBENCH_BINDING_SCHEMA_VERSION,
+        workbench: workbench.clone(),
+        mcp_servers: Vec::new(),
+    });
+    render_config_with_binding(desired, binding.as_ref())
+}
+
+fn render_config_with_binding(
+    desired: &HermesProviderDesiredState,
+    binding: Option<&HermesWorkbenchBinding>,
+) -> Result<String, String> {
     desired.validate()?;
-    if let Some(workbench) = workbench {
-        workbench.validate()?;
+    if let Some(binding) = binding {
+        binding.workbench.validate()?;
+        validate_mcp_binding(&binding.workbench, &binding.mcp_servers)?;
     }
     let provider_identity = format!("custom:{}", desired.provider_id);
     let mut output = format!(
@@ -456,10 +572,34 @@ pub(crate) fn render_config_with_workbench(
             yaml_quote(&desired.model)
         ));
     }
-    if let Some(workbench) = workbench {
+    if let Some(binding) = binding {
         output.push_str("skills:\n  external_dirs:\n");
-        for root in &workbench.skill_roots {
+        for root in &binding.workbench.skill_roots {
             output.push_str(&format!("    - {}\n", yaml_quote(&root.to_string_lossy())));
+        }
+        if !binding.mcp_servers.is_empty() {
+            output.push_str("mcp_servers:\n");
+            for server in &binding.mcp_servers {
+                output.push_str(&format!("  {}:\n", yaml_quote(&server.id)));
+                output.push_str(&format!(
+                    "    command: {}\n",
+                    yaml_quote(&server.command.to_string_lossy())
+                ));
+                output.push_str(&format!(
+                    "    args: {}\n",
+                    serde_json::to_string(&server.args)
+                        .map_err(|error| format!("Unable to serialize MCP args: {error}"))?
+                ));
+                output.push_str(&format!("    timeout: {}\n", server.timeout_seconds));
+                output.push_str(&format!(
+                    "    connect_timeout: {}\n",
+                    server.connect_timeout_seconds
+                ));
+                output.push_str(&format!(
+                    "    supports_parallel_tool_calls: {}\n",
+                    server.supports_parallel_tool_calls
+                ));
+            }
         }
     }
     Ok(output)
@@ -483,14 +623,32 @@ fn persist_desired_state(path: &Path, desired: &HermesProviderDesiredState) -> R
     tighten_file_permissions(path)
 }
 
-fn persist_workbench_desired_state(
-    path: &Path,
-    desired: &WorkbenchHermesDesiredState,
-) -> Result<(), String> {
-    let body = serde_json::to_vec_pretty(desired)
-        .map_err(|error| format!("Unable to serialize Hermes workbench desired state: {error}"))?;
+fn persist_workbench_binding(path: &Path, binding: &HermesWorkbenchBinding) -> Result<(), String> {
+    let body = serde_json::to_vec_pretty(binding)
+        .map_err(|error| format!("Unable to serialize Hermes workbench binding: {error}"))?;
     atomic_write(path, &body)?;
     tighten_file_permissions(path)
+}
+
+fn validate_mcp_binding(
+    workbench: &WorkbenchHermesDesiredState,
+    mcp_servers: &[HermesMcpServerDesiredState],
+) -> Result<(), String> {
+    let mut desired_ids = workbench.mcp_server_ids.clone();
+    desired_ids.sort();
+    let mut resolved_ids = Vec::with_capacity(mcp_servers.len());
+    for server in mcp_servers {
+        server.validate()?;
+        resolved_ids.push(server.id.clone());
+    }
+    resolved_ids.sort();
+    resolved_ids.dedup();
+    if resolved_ids.len() != mcp_servers.len() || resolved_ids != desired_ids {
+        return Err(
+            "Hermes MCP binding must resolve every activated MCP server exactly once.".into(),
+        );
+    }
+    Ok(())
 }
 
 fn validate_unique_paths(paths: &[PathBuf]) -> Result<(), String> {
@@ -730,7 +888,8 @@ pub(crate) fn tighten_file_permissions(_path: &Path) -> Result<(), String> {
 mod tests {
     use super::{
         render_config, HermesConfigInspection, HermesConfigManager, HermesLaunchEnvironment,
-        HermesPaths, HermesProviderDesiredState, WorkbenchHermesDesiredState, PROVIDER_API_KEY_ENV,
+        HermesMcpServerDesiredState, HermesPaths, HermesProviderDesiredState,
+        WorkbenchHermesDesiredState, PROVIDER_API_KEY_ENV,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -762,6 +921,17 @@ mod tests {
                 provider_id: "blackrain-new-api".into(),
             }),
             permission_grant_id: "grant-office-demo".into(),
+        }
+    }
+
+    fn mcp_server(command: PathBuf) -> HermesMcpServerDesiredState {
+        HermesMcpServerDesiredState {
+            id: "com.blackrain.office-files".into(),
+            command,
+            args: vec!["--stdio".into()],
+            timeout_seconds: 300,
+            connect_timeout_seconds: 30,
+            supports_parallel_tool_calls: false,
         }
     }
 
@@ -837,7 +1007,12 @@ mod tests {
         let manager = HermesConfigManager::new(&root);
         manager.apply(&desired("deepseek-chat")).unwrap();
         manager
-            .bind_workbench(&desired("deepseek-chat"), &workbench(skill_root.clone()))
+            .bind_workbench(
+                &desired("deepseek-chat"),
+                &workbench(skill_root.clone()),
+                &[],
+                true,
+            )
             .unwrap();
 
         let bound = fs::read_to_string(&manager.paths.config).unwrap();
@@ -849,6 +1024,105 @@ mod tests {
         let updated = fs::read_to_string(&manager.paths.config).unwrap();
         assert!(updated.contains("glm-5"));
         assert!(updated.contains(&serde_json::to_string(&skill_root.to_string_lossy()).unwrap()));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn renders_resolved_mcp_servers_and_requires_idle_for_registration_changes() {
+        let root = temp_root();
+        let skill_root = root.join("installed-workbench").join("skills");
+        fs::create_dir_all(skill_root.join("office-author")).unwrap();
+        fs::write(
+            skill_root.join("office-author").join("SKILL.md"),
+            "---\nname: office-author\n---\n",
+        )
+        .unwrap();
+        let command = root.join("plugins").join("office-mcp");
+        fs::create_dir_all(command.parent().unwrap()).unwrap();
+        fs::write(&command, "fixture").unwrap();
+        let mut workbench = workbench(skill_root);
+        workbench.mcp_server_ids = vec!["com.blackrain.office-files".into()];
+        let mcp_servers = vec![mcp_server(command)];
+        let manager = HermesConfigManager::new(&root);
+        manager.apply(&desired("deepseek-chat")).unwrap();
+
+        let error = manager
+            .bind_workbench(&desired("deepseek-chat"), &workbench, &mcp_servers, false)
+            .unwrap_err();
+        assert!(error.contains("while any WORK run is active"));
+
+        let result = manager
+            .bind_workbench(&desired("deepseek-chat"), &workbench, &mcp_servers, true)
+            .unwrap();
+        assert!(result.mcp_changed);
+        assert_eq!(result.config_summary.model, "deepseek-chat");
+        let rendered = fs::read_to_string(&manager.paths.config).unwrap();
+        assert!(rendered.contains("mcp_servers:\n"));
+        assert!(rendered.contains("\"com.blackrain.office-files\":\n"));
+        assert!(rendered.contains("args: [\"--stdio\"]\n"));
+
+        let unchanged = manager
+            .bind_workbench(&desired("deepseek-chat"), &workbench, &mcp_servers, false)
+            .unwrap();
+        assert!(!unchanged.mcp_changed);
+
+        let mut without_mcp = workbench.clone();
+        without_mcp.mcp_server_ids.clear();
+        let before_blocked_removal = fs::read_to_string(&manager.paths.config).unwrap();
+        let error = manager
+            .bind_workbench(&desired("deepseek-chat"), &without_mcp, &[], false)
+            .unwrap_err();
+        assert!(error.contains("while any WORK run is active"));
+        assert_eq!(
+            fs::read_to_string(&manager.paths.config).unwrap(),
+            before_blocked_removal
+        );
+
+        let removed = manager
+            .bind_workbench(&desired("deepseek-chat"), &without_mcp, &[], true)
+            .unwrap();
+        assert!(removed.mcp_changed);
+        assert!(!fs::read_to_string(&manager.paths.config)
+            .unwrap()
+            .contains("mcp_servers:"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn loads_legacy_skills_only_binding_but_rejects_unresolved_legacy_mcp() {
+        let root = temp_root();
+        let skill_root = root.join("installed-workbench").join("skills");
+        fs::create_dir_all(skill_root.join("office-author")).unwrap();
+        fs::write(
+            skill_root.join("office-author").join("SKILL.md"),
+            "---\nname: office-author\n---\n",
+        )
+        .unwrap();
+        let manager = HermesConfigManager::new(&root);
+        manager.apply(&desired("deepseek-chat")).unwrap();
+        let legacy = workbench(skill_root);
+        fs::write(
+            &manager.paths.workbench_desired_state,
+            serde_json::to_vec_pretty(&legacy).unwrap(),
+        )
+        .unwrap();
+
+        manager.apply(&desired("glm-5")).unwrap();
+        assert!(fs::read_to_string(&manager.paths.config)
+            .unwrap()
+            .contains("skills:\n"));
+
+        let mut unresolved = legacy;
+        unresolved.mcp_server_ids = vec!["com.blackrain.office-files".into()];
+        fs::write(
+            &manager.paths.workbench_desired_state,
+            serde_json::to_vec_pretty(&unresolved).unwrap(),
+        )
+        .unwrap();
+        assert!(manager
+            .apply(&desired("glm-5"))
+            .unwrap_err()
+            .contains("unresolved MCP servers"));
         let _ = fs::remove_dir_all(root);
     }
 
@@ -873,7 +1147,7 @@ mod tests {
         manager.apply(&desired("deepseek-chat")).unwrap();
 
         let error = manager
-            .bind_workbench(&desired("deepseek-chat"), &workbench(skill_root))
+            .bind_workbench(&desired("deepseek-chat"), &workbench(skill_root), &[], true)
             .unwrap_err();
         assert!(error.contains("cannot contain symbolic links"));
         let _ = fs::remove_dir_all(root);
