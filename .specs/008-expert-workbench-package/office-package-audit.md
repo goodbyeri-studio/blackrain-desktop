@@ -25,7 +25,7 @@
 
 - Windows bundle mapping 已包含 OfficeCLI 二进制、License、VENDOR 和 checksum。
 - 历史 CODE 路径仍会把 Office Skill/工作台内容同步到 App-owned `CODEX_HOME`；它不是 008 生命周期实现。
-- `workbench.yaml v1` 已接首个 official-only lifecycle：复制到 App-data 版本目录、校验 OfficeCLI SHA/version、确认项目权限并签发 activation；领域 smoke 尚未执行。
+- `workbench.yaml v1` 已接首个 official-only lifecycle：复制到 App-data 版本目录、校验 OfficeCLI SHA/version、在临时项目执行 create/validate smoke、确认项目权限并签发 activation；Windows 真实二进制 smoke 尚未执行。
 - WORK/Hermes 已能将正式 activation 中的 `SystemCapability: officecli-1.0.117` 解析到 App-data 受控工具根并前置到自身子进程 `PATH`；真实 Windows Hermes 工具发现尚未验证，因此仍不能声称 Office 黄金流程可用。
 
 ## 仍未关闭的发布缺口

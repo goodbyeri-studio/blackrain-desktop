@@ -31,9 +31,9 @@
 - [x] 实现 install / health / activate / deactivate
 - [x] 将工作台 Skills、插件和项目路径映射给 Hermes WORK surface
 - [x] 保持 App 是唯一引擎配置写入者
-- [ ] 完成 Office 参考工作台安装后 smoke
+- [x] 完成 Office 参考工作台安装后 smoke
 
-> 2026-07-12：官方 Office v0.1.0 已形成首个 local-only Core lifecycle：仅 Windows x64 command 可从 App allowlist 资源进入；工作台包复制到 `workbenches/com.blackrain.office/versions/0.1.0`，OfficeCLI 经 SHA-256 和 `--version` 后安装到 `tools/officecli`，再依据用户选择的既有项目目录签发 read-write permission grant、`SystemCapability: officecli-1.0.117` 和 `ActivatedWorkbenchContext`。staging/版本目录、`active.json`/`state.json`、前端项目选择与 DS 权限确认已接通；App 启动不再无条件复制 OfficeCLI。当前只覆盖首个 bundled 依赖与版本 health，不含 Windows 实测、领域 smoke、升级/回滚、共享引用计数、签名、空间检查、system/user-provided 依赖或 Daemon parity，不能写成完整 008 生命周期完成。
+> 2026-07-12：官方 Office v0.1.0 已形成首个 local-only Core lifecycle：仅 Windows x64 command 可从 App allowlist 资源进入；工作台包复制到 `workbenches/com.blackrain.office/versions/0.1.0`，OfficeCLI 经 SHA-256 和 `--version` 后安装到 `tools/officecli`，随后在 App-data 临时 smoke 项目执行 `create smoke-output.docx --locale en-US --json`、确认输出存在并执行 `validate --json`，任一失败都不签发 activation，临时输出随后清理。通过后才依据用户选择的既有项目目录签发 read-write permission grant、`SystemCapability: officecli-1.0.117` 和 `ActivatedWorkbenchContext`。staging/版本目录、`active.json`/`state.json`、前端项目选择与 DS 权限确认已接通；App 启动不再无条件复制 OfficeCLI。当前 smoke 仅由可执行 fixture 自动验证，未在 Windows 真实 OfficeCLI 上运行；升级/回滚、共享引用计数、签名、空间检查、system/user-provided 依赖和 Daemon parity 仍未完成，不能写成完整 008 生命周期完成。
 
 ## 阶段 3：升级、回滚和卸载
 
