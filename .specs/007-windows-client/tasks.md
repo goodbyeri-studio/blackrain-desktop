@@ -47,8 +47,8 @@
 
 ## 阶段 4:CI(已有部分检查,发布矩阵待补)
 
-- [x] `.github/workflows/ci.yml` 已存在：Ubuntu runner 跑 JS typecheck/test；Windows runner 已配置 JS typecheck/test/lint/DS/codemod + Rust `cargo check`/Hermes/workbench/plugin 专项。此勾选只表示 workflow 接线存在。
-- [x] Windows 同 runner 扩充为前端检查 + Rust WORK 专项；暂不加入 Tauri/NSIS build，避免把未签名制品和实机验收混入普通 PR CI。
+- [x] `.github/workflows/ci.yml` 已存在：Ubuntu 先按 diff 分流，前端相关改动跑 JS typecheck/test/lint/DS/codemod；Rust/WORK 相关改动才启用 Windows Hermes/workbench/plugin 专项。此勾选只表示 workflow 接线存在。
+- [x] Windows runner 只承担无法由 Ubuntu 替代的 Rust/WORK 代码级回归；同一 PR 旧 run 自动取消，普通 `main` push 不重复跑，Cargo 依赖变化才预热默认分支 cache。暂不加入 Tauri/NSIS build，避免把未签名制品和实机验收混入普通 PR CI。
 - [ ] NSIS 正式包仍只在 Windows 本机构建;若未来改为 CI 出包,需单独处理制品签名与密钥。
 - [ ] **明确不建 macos-latest runner**——decisions 已锁,CI 与代码库节奏同步。
 

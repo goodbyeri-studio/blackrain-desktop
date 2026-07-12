@@ -2,13 +2,70 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.docx"
+  workflow_dispatch:
   push:
     branches:
       - main
+    paths:
+      - apps/desktop/src-tauri/Cargo.toml
+      - apps/desktop/src-tauri/Cargo.lock
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect relevant changes
+    runs-on: ubuntu-latest
+    outputs:
+      js: ${{ steps.filter.outputs.js }}
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: filter
+        name: Route checks by changed paths
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          js=false
+          rust=false
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            js=true
+            rust=true
+          else
+            while IFS= read -r file; do
+              case "$file" in
+                .github/workflows/ci.yml|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/tsconfig*.json|apps/desktop/vite.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/*|apps/desktop/scripts/*)
+                  js=true
+                  ;;
+              esac
+              case "$file" in
+                .gitattributes|.github/workflows/ci.yml|apps/desktop/src-tauri/*|gateway/*|plugins/*|workbenches/*|scripts/check-hermes-contract.py|scripts/hermes-runtime-inventory.py|scripts/release-client-win.ps1|scripts/test-hermes-live-probe.py|scripts/test-mcp-router.py|scripts/vendor-hermes-runtime.ps1)
+                  rust=true
+                  ;;
+              esac
+            done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          fi
+
+          echo "js=$js" >> "$GITHUB_OUTPUT"
+          echo "rust=$rust" >> "$GITHUB_OUTPUT"
+
   js-checks:
-    name: JS checks (typecheck + test)
+    name: JS checks (Ubuntu)
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -23,41 +80,30 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
+      - run: npm run lint
+      - run: npm run lint:ds
+      - run: npm run codemod:ds:dry
 
-  windows-checks:
-    name: Windows checks (JS + Rust WORK)
+  windows-rust-checks:
+    name: Windows Rust checks (WORK)
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 35
     env:
       CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+    defaults:
+      run:
+        working-directory: apps/desktop/src-tauri
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/desktop/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
-      - run: npm ci
-        working-directory: apps/desktop
-      - run: npm run typecheck
-        working-directory: apps/desktop
-      - run: npm run test
-        working-directory: apps/desktop
-      - run: npm run lint
-        working-directory: apps/desktop
-      - run: npm run lint:ds
-        working-directory: apps/desktop
-      - run: npm run codemod:ds:dry
-        working-directory: apps/desktop
-      - run: cargo check
-        working-directory: apps/desktop/src-tauri
-      - run: cargo test hermes --lib
-        working-directory: apps/desktop/src-tauri
-      - run: cargo test workbench_core --lib
-        working-directory: apps/desktop/src-tauri
-      - run: cargo test plugin_core --lib
-        working-directory: apps/desktop/src-tauri
+          cache-on-failure: true
+      - name: Compile all Rust test targets once
+        run: cargo test --no-run --locked
+      - run: cargo test hermes --lib --locked
+      - run: cargo test workbench_core --lib --locked
+      - run: cargo test plugin_core --lib --locked
