@@ -154,9 +154,11 @@
 - 原因：锁定 `9de9c25` 的 `tools/list_changed` 只刷新已建立 MCP connection 内的工具；API Server `/v1` 没有 reload endpoint，`/v1/runs` 直接构造 AIAgent，不经过 GatewayRunner slash-command 分发。与此同时，008 activation 不可变且资源变化必须签发新 ID，现有 task continuation 又必须匹配旧 activation；没有 generation 迁移合同就热改工具会破坏任务来源证据。
 - 替代方案：调用 `tui_gateway reload.mcp`、把 `/reload-mcp now` 当用户 run、让工作台直接改 `config.yaml`、把新 secret 写入 router desired-state 文件，或静默改写旧 activation。
 - 影响范围：spec 008 activation upgrade、009 task/session identity、Hermes config、plugin runtime、router 制品与 Windows process tree/secret 验证。
-- 后续复查条件：008 已冻结 `old activation → new generation` 的用户授权、task/session 迁移和回滚语义；下一步实现 migration shared Core 与 router 的 authenticated control plane、connect-before-swap、失败保留旧集合、子进程回收和真实 `tools/list_changed` E2E。完成前继续使用当前空闲态 restart，不把同 server 内工具变化冒充整插件热挂拔。
+- 后续复查条件：008 已冻结并实现 `old activation → new generation` 的 shared Core、task/session 迁移和补偿接缝；下一步实现 router 的 authenticated control plane、connect-before-swap、失败保留旧集合、子进程回收和真实 `tools/list_changed` E2E，并验证真实 runtime/Windows 回滚。完成前继续使用当前空闲态 restart，不把同 server 内工具变化冒充整插件热挂拔。
 
-> 008 已冻结前置合同：新 `activationId` 表达不可变 generation；task 默认 pinned，只能在无 active run、同 workbench/project 且目标资源完整验证时显式迁移；session 可保留但下一 run 使用新 generation；runtime/router 失败必须恢复旧 task activation 与工具集合。该更新只关闭合同子项，不代表 migration Core 或 router 已实现。
+> 008 已冻结前置合同：新 `activationId` 表达不可变 generation；task 默认 pinned，只能在终态、无 active run、同 workbench/project 且目标资源完整验证时显式迁移；session 可保留但下一 run 使用新 generation；runtime/router 失败必须恢复旧 task activation 与工具集合。合同冻结检查点当时不代表 migration Core 或 router 已实现；当前代码水位见下方实现更新。
+
+> 实现更新：generation migration Core、task snapshot audit 与 local-only Tauri/TS 接缝已落地；命令只接受 task、target activation 和 reason enum，并在 runtime binding/readiness 后 commit。router 仍未实现，真实 runtime/Windows 补偿回滚也未验证，因此动态热挂拔总项仍不完成。
 
 ## 2026-07-12：run 创建失败按“未附着”收敛，超时不猜测上游结果
 

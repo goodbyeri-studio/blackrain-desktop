@@ -431,6 +431,7 @@ mod tests {
             created_at: 1.0,
             updated_at: 1.0,
             recovery: Default::default(),
+            activation_migrations: Vec::new(),
         }
     }
 

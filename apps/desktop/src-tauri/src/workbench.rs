@@ -3,14 +3,21 @@ use serde_json::json;
 use tauri::{AppHandle, Manager, State};
 
 use crate::remote_backend;
-use crate::shared::hermes_core::runtime::{runtime_api_client, unbind_runtime_workbench};
-use crate::shared::hermes_core::types::{WorkError, WorkErrorKind, WorkTask};
+use crate::shared::hermes_core::runtime::{
+    bind_runtime_workbench, runtime_api_client, unbind_runtime_workbench,
+};
+use crate::shared::hermes_core::types::{
+    WorkActivationMigrationReason, WorkError, WorkErrorKind, WorkTask,
+};
 use crate::shared::workbench_core::lifecycle::{
     install_and_activate_official_office, OfficialOfficeActivationRequest,
     OfficialOfficeActivationResult, OFFICIAL_OFFICE_WORKBENCH_ID,
 };
 use crate::shared::workbench_core::manifest::{
     inspect_workbench_package, WorkbenchPackageInspection,
+};
+use crate::shared::workbench_core::migration::{
+    commit_activation_migration, prepare_activation_migration, record_activation_migration_failure,
 };
 use crate::shared::workbench_core::ActivatedWorkbenchContext;
 use crate::state::AppState;
@@ -31,6 +38,14 @@ pub(crate) struct OfficialWorkbenchActivationInput {
     project_path: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct WorkbenchActivationMigrationInput {
+    task_id: String,
+    target_activation_id: String,
+    reason: WorkActivationMigrationReason,
+}
+
 fn workbench_error(kind: WorkErrorKind, code: &str, message: String) -> WorkError {
     WorkError {
         kind,
@@ -41,6 +56,15 @@ fn workbench_error(kind: WorkErrorKind, code: &str, message: String) -> WorkErro
         request_id: None,
         details: Default::default(),
     }
+}
+
+async fn record_migration_failure_best_effort(
+    state: &AppState,
+    prepared: &crate::shared::workbench_core::migration::PreparedActivationMigration,
+    failure_code: &str,
+) {
+    let tasks = state.hermes_tasks.lock().await;
+    let _ = record_activation_migration_failure(&tasks, prepared, failure_code);
 }
 
 async fn require_local(state: &AppState) -> Result<(), WorkError> {
@@ -216,6 +240,121 @@ pub(crate) async fn workbench_official_activate(
 }
 
 #[tauri::command]
+pub(crate) async fn workbench_activation_migrate_task(
+    input: WorkbenchActivationMigrationInput,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<WorkTask, WorkError> {
+    require_local(&state).await?;
+    let _activation_guard = state.hermes_activation_gate.lock().await;
+    let prepared = {
+        let activations = state.workbench_activations.lock().await;
+        let tasks = state.hermes_tasks.lock().await;
+        prepare_activation_migration(
+            &activations,
+            &tasks,
+            &input.task_id,
+            &input.target_activation_id,
+            input.reason,
+            crate::hermes::now_unix_seconds(),
+        )?
+    };
+    let target = prepared.target_activation();
+    let desired = match target.to_hermes_desired_state() {
+        Ok(desired) => desired,
+        Err(message) => {
+            let error = workbench_error(
+                WorkErrorKind::InvalidRequest,
+                "work_activation_migration_target_invalid",
+                message,
+            );
+            record_migration_failure_best_effort(&state, &prepared, &error.code).await;
+            return Err(error);
+        }
+    };
+    let mcp_servers = match state.plugin_runtimes.lock().await.resolve_mcp_servers(
+        &target.plugins,
+        &target.mcp_servers,
+        &target.environment_refs,
+    ) {
+        Ok(servers) => servers,
+        Err(message) => {
+            let error = workbench_error(
+                WorkErrorKind::InvalidRequest,
+                "work_activation_migration_runtime_invalid",
+                message,
+            );
+            record_migration_failure_best_effort(&state, &prepared, &error.code).await;
+            return Err(error);
+        }
+    };
+    let tasks = state.hermes_tasks.lock().await.load_tasks()?;
+    let has_active_runs = tasks.iter().any(|task| task.active_run_id.is_some());
+    if let Some(conflict) = tasks.iter().find(|task| {
+        task.active_run_id.is_some()
+            && task.activation_id.as_deref() != Some(target.activation_id.as_str())
+    }) {
+        let mut error = workbench_error(
+            WorkErrorKind::InvalidRequest,
+            "work_activation_migration_runtime_conflict",
+            "Another activation owns an active Hermes run; stop it before migration.".into(),
+        );
+        error
+            .details
+            .insert("conflictingTaskId".into(), json!(conflict.task_id));
+        record_migration_failure_best_effort(&state, &prepared, &error.code).await;
+        return Err(error);
+    }
+    let binding = match bind_runtime_workbench(
+        &state.hermes_paths,
+        &desired,
+        &mcp_servers,
+        !has_active_runs,
+    ) {
+        Ok(binding) => binding,
+        Err(error) => {
+            record_migration_failure_best_effort(&state, &prepared, &error.code).await;
+            return Err(error);
+        }
+    };
+    if let Err(error) =
+        crate::hermes::restart_runtime_for_workbench_change(&state, &app, &binding).await
+    {
+        record_migration_failure_best_effort(&state, &prepared, &error.code).await;
+        return Err(error);
+    }
+    let commit = {
+        let activations = state.workbench_activations.lock().await;
+        let tasks = state.hermes_tasks.lock().await;
+        commit_activation_migration(&activations, &tasks, &prepared)
+    };
+    match commit {
+        Ok(task) => Ok(task),
+        Err(commit_error) => {
+            let rollback =
+                crate::hermes::restore_runtime_after_workbench_change(&state, &app, &binding).await;
+            record_migration_failure_best_effort(&state, &prepared, &commit_error.code).await;
+            if let Err(rollback_error) = rollback {
+                let mut error = workbench_error(
+                    WorkErrorKind::Runtime,
+                    "work_activation_migration_rollback_failed",
+                    "WORK activation migration could not persist and the previous runtime binding could not be restored; runtime repair is required."
+                        .into(),
+                );
+                error
+                    .details
+                    .insert("commitErrorCode".into(), json!(commit_error.code));
+                error
+                    .details
+                    .insert("rollbackErrorCode".into(), json!(rollback_error.code));
+                return Err(error);
+            }
+            Err(commit_error)
+        }
+    }
+}
+
+#[tauri::command]
 pub(crate) async fn workbench_activation_deactivate(
     activation_id: String,
     app: AppHandle,
@@ -300,7 +439,7 @@ pub(crate) async fn workbench_activation_deactivate(
 
 #[cfg(test)]
 mod tests {
-    use super::active_tasks_for_deactivation;
+    use super::{active_tasks_for_deactivation, WorkbenchActivationMigrationInput};
     use crate::shared::hermes_core::types::{WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION};
 
     fn task(task_id: &str, activation_id: Option<&str>, active: bool) -> WorkTask {
@@ -322,6 +461,7 @@ mod tests {
             created_at: 1.0,
             updated_at: 1.0,
             recovery: Default::default(),
+            activation_migrations: Vec::new(),
         }
     }
 
@@ -341,6 +481,27 @@ mod tests {
                 .unwrap_err()
                 .code,
             "workbench_deactivation_conflict"
+        );
+    }
+
+    #[test]
+    fn migration_input_accepts_only_task_target_and_reason() {
+        let parsed: WorkbenchActivationMigrationInput = serde_json::from_value(serde_json::json!({
+            "taskId": "task-office",
+            "targetActivationId": "activation-office-v2",
+            "reason": "pluginChange"
+        }))
+        .unwrap();
+        assert_eq!(parsed.task_id, "task-office");
+        assert_eq!(parsed.target_activation_id, "activation-office-v2");
+        assert!(
+            serde_json::from_value::<WorkbenchActivationMigrationInput>(serde_json::json!({
+                "taskId": "task-office",
+                "targetActivationId": "activation-office-v2",
+                "reason": "pluginChange",
+                "env": { "SECRET": "forbidden" }
+            }))
+            .is_err()
         );
     }
 }

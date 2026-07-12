@@ -380,6 +380,7 @@ pub fn run() {
             workbench::workbench_activation_read,
             workbench::workbench_bundled_inspect,
             workbench::workbench_official_activate,
+            workbench::workbench_activation_migrate_task,
             workbench::workbench_activation_deactivate,
             codex::experimental_feature_list,
             codex::set_codex_feature_flag,

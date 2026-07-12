@@ -10,8 +10,8 @@ use serde_json::Value;
 use super::config::{atomic_write, tighten_file_permissions};
 use super::protocol::HermesRunStatus;
 use super::types::{
-    WorkError, WorkErrorKind, WorkEvent, WorkEventKind, WorkFollowUp, WorkFollowUpStatus, WorkTask,
-    WorkTaskStatus, WORK_SCHEMA_VERSION,
+    WorkActivationMigration, WorkActivationMigrationStatus, WorkError, WorkErrorKind, WorkEvent,
+    WorkEventKind, WorkFollowUp, WorkFollowUpStatus, WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION,
 };
 
 const TASK_SNAPSHOT_SCHEMA_VERSION: u32 = 1;
@@ -19,6 +19,7 @@ const FOLLOW_UP_QUEUE_SCHEMA_VERSION: u32 = 1;
 const MAX_JOURNAL_EVENT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_APPEND_EVENTS: usize = 1024;
 const MAX_FOLLOW_UPS_PER_TASK: usize = 32;
+const MAX_ACTIVATION_MIGRATIONS_PER_TASK: usize = 128;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct HermesTaskStorePaths {
@@ -168,6 +169,73 @@ impl HermesTaskStore {
             .into_iter()
             .find(|task| task.task_id == task_id)
             .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))
+    }
+
+    pub(crate) fn commit_activation_migration(
+        &self,
+        task_id: &str,
+        target_workbench_version: &str,
+        migration: WorkActivationMigration,
+    ) -> Result<WorkTask, WorkError> {
+        validate_store_id("task id", task_id)?;
+        validate_non_empty("target workbench version", target_workbench_version)?;
+        validate_activation_migration(&migration)?;
+        if migration.status != WorkActivationMigrationStatus::Completed
+            || migration.failure_code.is_some()
+        {
+            return Err(persistence_error(
+                "work_activation_migration_commit_invalid",
+                "A completed activation migration must not contain a failure code.",
+            ));
+        }
+        let mut tasks = self.load_tasks()?;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))?;
+        ensure_task_can_migrate(task, &migration.source_activation_id)?;
+        append_activation_migration(task, migration.clone())?;
+        task.activation_id = Some(migration.target_activation_id);
+        task.workbench_version = target_workbench_version.into();
+        task.updated_at = task.updated_at.max(migration.timestamp);
+        let result = task.clone();
+        sort_tasks(&mut tasks);
+        self.write_snapshot(&tasks)?;
+        Ok(result)
+    }
+
+    pub(crate) fn record_activation_migration_failure(
+        &self,
+        task_id: &str,
+        migration: WorkActivationMigration,
+    ) -> Result<WorkTask, WorkError> {
+        validate_store_id("task id", task_id)?;
+        validate_activation_migration(&migration)?;
+        if migration.status != WorkActivationMigrationStatus::Failed
+            || migration.failure_code.is_none()
+        {
+            return Err(persistence_error(
+                "work_activation_migration_failure_invalid",
+                "A failed activation migration must contain a bounded failure code.",
+            ));
+        }
+        let mut tasks = self.load_tasks()?;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))?;
+        if task.activation_id.as_deref() != Some(&migration.source_activation_id) {
+            return Err(persistence_error(
+                "work_activation_migration_source_changed",
+                "WORK task activation changed before the migration failure could be recorded.",
+            ));
+        }
+        append_activation_migration(task, migration.clone())?;
+        task.updated_at = task.updated_at.max(migration.timestamp);
+        let result = task.clone();
+        sort_tasks(&mut tasks);
+        self.write_snapshot(&tasks)?;
+        Ok(result)
     }
 
     pub(crate) fn attach_run(
@@ -1537,6 +1605,75 @@ fn is_terminal_task_status(status: &WorkTaskStatus) -> bool {
     )
 }
 
+fn ensure_task_can_migrate(task: &WorkTask, source_activation_id: &str) -> Result<(), WorkError> {
+    if task.activation_id.as_deref() != Some(source_activation_id) {
+        return Err(persistence_error(
+            "work_activation_migration_source_changed",
+            "WORK task activation changed before migration commit.",
+        ));
+    }
+    if task.active_run_id.is_some() || !is_terminal_task_status(&task.status) {
+        return Err(persistence_error(
+            "work_activation_migration_task_active",
+            "WORK task must be terminal with no active run before activation migration.",
+        ));
+    }
+    Ok(())
+}
+
+fn append_activation_migration(
+    task: &mut WorkTask,
+    migration: WorkActivationMigration,
+) -> Result<(), WorkError> {
+    if task.activation_migrations.len() >= MAX_ACTIVATION_MIGRATIONS_PER_TASK {
+        return Err(persistence_error(
+            "work_activation_migration_history_full",
+            "WORK task activation migration history reached its bounded capacity.",
+        ));
+    }
+    if task
+        .activation_migrations
+        .iter()
+        .any(|entry| entry.migration_id == migration.migration_id)
+    {
+        return Err(persistence_error(
+            "work_activation_migration_duplicate",
+            "WORK task activation migration id already exists.",
+        ));
+    }
+    task.activation_migrations.push(migration);
+    Ok(())
+}
+
+fn validate_activation_migration(migration: &WorkActivationMigration) -> Result<(), WorkError> {
+    validate_store_id("activation migration id", &migration.migration_id)?;
+    validate_store_id("source activation id", &migration.source_activation_id)?;
+    validate_store_id("target activation id", &migration.target_activation_id)?;
+    if migration.source_activation_id == migration.target_activation_id {
+        return Err(persistence_error(
+            "work_activation_migration_same_generation",
+            "WORK activation migration requires a different target generation.",
+        ));
+    }
+    if !migration.timestamp.is_finite() || migration.timestamp <= 0.0 {
+        return Err(persistence_error(
+            "work_activation_migration_timestamp_invalid",
+            "WORK activation migration timestamp is invalid.",
+        ));
+    }
+    if let Some(code) = &migration.failure_code {
+        validate_store_id("activation migration failure code", code)?;
+    }
+    match (&migration.status, &migration.failure_code) {
+        (WorkActivationMigrationStatus::Completed, None)
+        | (WorkActivationMigrationStatus::Failed, Some(_)) => Ok(()),
+        _ => Err(persistence_error(
+            "work_activation_migration_status_invalid",
+            "WORK activation migration status and failure code are inconsistent.",
+        )),
+    }
+}
+
 fn validate_task(task: &WorkTask) -> Result<(), WorkError> {
     if task.schema_version != WORK_SCHEMA_VERSION {
         return Err(persistence_error(
@@ -1571,6 +1708,52 @@ fn validate_task(task: &WorkTask) -> Result<(), WorkError> {
     }
     if let Some(run_id) = &task.active_run_id {
         validate_store_id("Hermes run id", run_id)?;
+    }
+    if task.activation_migrations.len() > MAX_ACTIVATION_MIGRATIONS_PER_TASK {
+        return Err(persistence_error(
+            "work_activation_migration_history_invalid",
+            "WORK task activation migration history exceeds its bounded capacity.",
+        ));
+    }
+    let mut migration_ids = std::collections::HashSet::new();
+    let mut migration_generation: Option<&str> = None;
+    let mut previous_migration_timestamp = 0.0_f64;
+    for migration in &task.activation_migrations {
+        validate_activation_migration(migration)?;
+        if !migration_ids.insert(migration.migration_id.as_str()) {
+            return Err(persistence_error(
+                "work_activation_migration_duplicate",
+                "WORK task activation migration ids must be unique.",
+            ));
+        }
+        let expected_source =
+            migration_generation.get_or_insert(migration.source_activation_id.as_str());
+        if *expected_source != migration.source_activation_id {
+            return Err(persistence_error(
+                "work_activation_migration_chain_invalid",
+                "WORK task activation migration history does not form a continuous generation chain.",
+            ));
+        }
+        if migration.timestamp < previous_migration_timestamp {
+            return Err(persistence_error(
+                "work_activation_migration_order_invalid",
+                "WORK task activation migration timestamps are out of order.",
+            ));
+        }
+        previous_migration_timestamp = migration.timestamp;
+        if migration.status == WorkActivationMigrationStatus::Completed {
+            migration_generation = Some(migration.target_activation_id.as_str());
+        }
+    }
+    if let Some(expected_activation_id) = migration_generation {
+        if task.activation_id.as_deref() != Some(expected_activation_id)
+            || task.updated_at < previous_migration_timestamp
+        {
+            return Err(persistence_error(
+                "work_activation_migration_chain_invalid",
+                "WORK task identity does not match its activation migration history.",
+            ));
+        }
     }
     Ok(())
 }
@@ -1924,6 +2107,7 @@ mod tests {
             created_at: 1.0,
             updated_at: 1.0,
             recovery: Default::default(),
+            activation_migrations: Vec::new(),
         }
     }
 

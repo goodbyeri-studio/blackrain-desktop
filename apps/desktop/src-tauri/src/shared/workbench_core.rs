@@ -11,6 +11,7 @@ use crate::shared::hermes_core::config::{
 
 pub(crate) mod lifecycle;
 pub(crate) mod manifest;
+pub(crate) mod migration;
 
 pub(crate) const ACTIVATED_WORKBENCH_SCHEMA_VERSION: u32 = 1;
 const ACTIVATION_STORE_SCHEMA_VERSION: u32 = 1;

@@ -35,6 +35,7 @@ import {
   workbenchActivationList,
   workbenchActivationRead,
   workbenchActivationDeactivate,
+  workbenchActivationMigrateTask,
   workbenchOfficialActivate,
   workbenchBundledInspect,
   listThreads,
@@ -580,6 +581,11 @@ describe("tauri invoke wrappers", () => {
       "C:\\Users\\demo\\Office Project",
     );
     await workbenchActivationDeactivate("activation-office-demo");
+    await workbenchActivationMigrateTask(
+      "task-1",
+      "activation-office-v2",
+      "workbenchUpgrade",
+    );
     await workbenchBundledInspect("com.blackrain.office");
     await hermesTaskList();
     await hermesTaskRead("task-1");
@@ -614,6 +620,13 @@ describe("tauri invoke wrappers", () => {
     });
     expect(invokeMock).toHaveBeenCalledWith("workbench_activation_deactivate", {
       activationId: "activation-office-demo",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("workbench_activation_migrate_task", {
+      input: {
+        taskId: "task-1",
+        targetActivationId: "activation-office-v2",
+        reason: "workbenchUpgrade",
+      },
     });
     expect(invokeMock).toHaveBeenCalledWith("workbench_bundled_inspect", {
       workbenchId: "com.blackrain.office",

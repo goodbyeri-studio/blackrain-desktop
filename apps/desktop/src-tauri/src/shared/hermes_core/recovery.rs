@@ -74,6 +74,7 @@ mod tests {
             created_at,
             updated_at: created_at,
             recovery: Default::default(),
+            activation_migrations: Vec::new(),
         }
     }
 

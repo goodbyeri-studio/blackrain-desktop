@@ -48,7 +48,7 @@ async fn require_local(state: &AppState) -> Result<(), WorkError> {
     }
 }
 
-fn schedule_task_recovery(state: &AppState, app: AppHandle, dispatch_follow_ups: bool) {
+pub(crate) fn schedule_task_recovery(state: &AppState, app: AppHandle, dispatch_follow_ups: bool) {
     let runtime = Arc::clone(&state.hermes_runtime);
     let tasks = Arc::clone(&state.hermes_tasks);
     let recovery = Arc::clone(&state.hermes_task_recovery);
@@ -161,7 +161,7 @@ fn ensure_no_conflicting_activation(
     Ok(())
 }
 
-async fn restart_runtime_for_workbench_change(
+pub(crate) async fn restart_runtime_for_workbench_change(
     state: &AppState,
     app: &AppHandle,
     binding: &crate::shared::hermes_core::config::HermesWorkbenchBindResult,
@@ -228,6 +228,23 @@ async fn restart_runtime_for_workbench_change(
     }
 }
 
+pub(crate) async fn restore_runtime_after_workbench_change(
+    state: &AppState,
+    app: &AppHandle,
+    binding: &crate::shared::hermes_core::config::HermesWorkbenchBindResult,
+) -> Result<(), WorkError> {
+    rollback_runtime_workbench(&state.hermes_paths, &binding.rollback)?;
+    if !(binding.mcp_changed || binding.process_environment_changed)
+        || state.hermes_runtime.status().await.state != WorkRuntimeState::Ready
+    {
+        return Ok(());
+    }
+    state.hermes_runs.cancel_all().await;
+    restart_runtime(&state.hermes_paths, &state.hermes_runtime).await?;
+    schedule_task_recovery(state, app.clone(), false);
+    Ok(())
+}
+
 fn command_error(code: &str, message: &str, retryable: bool) -> WorkError {
     WorkError {
         kind: WorkErrorKind::InvalidRequest,
@@ -240,7 +257,7 @@ fn command_error(code: &str, message: &str, retryable: bool) -> WorkError {
     }
 }
 
-fn now_unix_seconds() -> f64 {
+pub(crate) fn now_unix_seconds() -> f64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -675,6 +692,7 @@ pub(crate) async fn hermes_task_start(
         created_at: now,
         updated_at: now,
         recovery: Default::default(),
+        activation_migrations: Vec::new(),
     };
     state.hermes_tasks.lock().await.upsert_task(&task)?;
     let client = runtime_api_client(&state.hermes_runtime).await?;
@@ -1016,6 +1034,7 @@ mod tests {
             created_at: 1.0,
             updated_at: 1.0,
             recovery: Default::default(),
+            activation_migrations: Vec::new(),
         }
     }
 
