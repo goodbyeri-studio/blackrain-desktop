@@ -317,6 +317,8 @@ Core 将它转成 Hermes 可读状态。工作台不能自己修改 `config.yaml
 
 首版不把 Hermes session export 当作用户交付或合规审计。锁定 `/v1` 只提供 session list/read/messages，没有版本化 export 端点；BlackRain 也不得读取 Hermes 内部 SQLite `SessionDB`。用户交付物必须是工作台在已验证项目根生成的真实文件。TaskStore 的 normalized event journal 是 WORK surface 显示与恢复真源，但因主动脱敏、丢弃 raw payload 且未做签名，只能称为任务记录。未来若增加导出，应从单个 task/activation 生成用户主动触发的 Markdown/版本化 JSON，并另行定义字段白名单、reasoning/tool 参数处理、附件、完整性、权限、保留和删除合同。
 
+首版不接入上游 PTY、Cron 或 MoA 产品面。交互终端若未来进入 WORK，只复用 BlackRain 现有 terminal 能力并服从 activation 权限；不运行 Hermes Desktop 的 POSIX PTY。managed config 显式禁用 `cronjob`，防止 gateway 在 BlackRain task 生命周期外创建和执行持久后台任务；定时任务未来属于工作室级 Core 调度。MoA 会把每次主模型调用扩展为多个 reference call 加 aggregator call，在 account broker、model allowlist、credit 预算和质量基线完成前不生成 preset。自验证不是可选 UI：包/环境/领域三层验证继续以 008 为真源，运行中输出验证由工作台声明的受控工具和断言执行，不能让模型自评替代证据。
+
 目标 Windows 布局由实际 Tauri resources 配置冻结，概念上包括：
 
 ```text
