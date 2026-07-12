@@ -22,8 +22,15 @@ import {
   hermesTaskStop,
   workbenchActivationDeactivate,
   workbenchActivationList,
+  workbenchBundledInspect,
 } from "@/services/tauri";
-import type { WorkEvent, WorkFollowUp, WorkRuntimeStatus, WorkTask } from "../types";
+import type {
+  WorkEvent,
+  WorkFollowUp,
+  WorkRuntimeStatus,
+  WorkTask,
+  WorkbenchPackageInspection,
+} from "../types";
 import { useWorkController } from "./useWorkController";
 
 vi.mock("@/services/events", () => ({
@@ -55,6 +62,7 @@ vi.mock("@/services/tauri", () => ({
   hermesTaskStop: vi.fn(),
   workbenchActivationDeactivate: vi.fn(),
   workbenchActivationList: vi.fn(),
+  workbenchBundledInspect: vi.fn(),
 }));
 
 const runtime: WorkRuntimeStatus = {
@@ -98,6 +106,47 @@ const followUp: WorkFollowUp = {
   lastError: null,
 };
 
+const bundledOffice: WorkbenchPackageInspection = {
+  packageRoot: "C:\\Program Files\\BlackRain\\workbenches\\office-agent",
+  manifestPath:
+    "C:\\Program Files\\BlackRain\\workbenches\\office-agent\\workbench.yaml",
+  manifest: {
+    schemaVersion: 1,
+    id: "com.blackrain.office",
+    name: "Office 办公工作台",
+    version: "0.1.0",
+    publisher: "blackrain-official",
+    description: "Office fixture",
+    license: "BlackRain-Commercial",
+    target: {
+      domains: ["office"],
+      roles: ["office-generalist"],
+      platforms: [{ os: "windows", arch: "x86_64" }],
+      blackrain: ">=0.7.68",
+    },
+    engine: { preferred: "work", allowed: ["work"] },
+    skills: [{ path: "skills/generate-office-deliverable" }],
+    plugins: [],
+    dependencies: [],
+    permissions: {
+      files: { mode: "user-selected-folders" },
+      network: { domains: [] },
+      processes: { spawn: [] },
+    },
+    tasks: { source: "tasks/tasks.yaml" },
+    validation: {
+      health: "validation/health.yaml",
+      smoke: "validation/smoke/basic.yaml",
+    },
+    uninstall: { preserveUserProjects: true },
+  },
+  skillRoots: [],
+  taskSource: "tasks/tasks.yaml",
+  healthSource: "validation/health.yaml",
+  smokeSource: "validation/smoke/basic.yaml",
+  installableOnWindowsX64: true,
+};
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((resolver) => {
@@ -113,6 +162,7 @@ describe("useWorkController", () => {
     vi.mocked(subscribeWorkEvents).mockReturnValue(vi.fn());
     vi.mocked(subscribeWorkFollowUpsChanged).mockReturnValue(vi.fn());
     vi.mocked(workbenchActivationList).mockResolvedValue([]);
+    vi.mocked(workbenchBundledInspect).mockResolvedValue(bundledOffice);
     vi.mocked(hermesFollowUpDispatchReady).mockResolvedValue(false);
   });
 
@@ -134,6 +184,7 @@ describe("useWorkController", () => {
     expect(hermesTaskList).toHaveBeenCalledTimes(1);
     expect(hermesTaskRecoveryStatus).toHaveBeenCalledTimes(1);
     expect(workbenchActivationList).toHaveBeenCalledTimes(1);
+    expect(workbenchBundledInspect).toHaveBeenCalledWith("com.blackrain.office");
     expect(result.current.state.bootstrapping).toBe(true);
 
     await act(async () => {
@@ -149,6 +200,7 @@ describe("useWorkController", () => {
     await waitFor(() => expect(result.current.state.bootstrapping).toBe(false));
     expect(result.current.state.runtime).toEqual(runtime);
     expect(result.current.state.tasks["task-1"].task).toEqual(task);
+    expect(result.current.state.bundledOffice).toEqual(bundledOffice);
     expect(hermesFollowUpDispatchReady).toHaveBeenCalledTimes(1);
   });
 

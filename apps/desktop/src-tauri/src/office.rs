@@ -200,7 +200,7 @@ fn bundled_plugin_dir(app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
-fn bundled_workbench_dir(app: &AppHandle) -> Option<PathBuf> {
+pub(crate) fn bundled_workbench_dir(app: &AppHandle) -> Option<PathBuf> {
     if let Ok(resource_dir) = app.path().resource_dir() {
         let candidate = resource_dir.join(RESOURCE_WORKBENCH_DIR);
         if candidate.exists() {

@@ -32,6 +32,52 @@ export type WorkbenchDeactivationResult = {
   projectPreserved: boolean;
 };
 
+export type WorkbenchPackageInspection = {
+  packageRoot: string;
+  manifestPath: string;
+  manifest: {
+    schemaVersion: 1;
+    id: string;
+    name: string;
+    version: string;
+    publisher: string;
+    description: string;
+    license: string;
+    target: {
+      domains: string[];
+      roles: string[];
+      platforms: Array<{ os: "windows"; arch: "x86_64" }>;
+      blackrain: string;
+    };
+    engine: { preferred: "work"; allowed: ["work"] };
+    skills: Array<{ path: string }>;
+    plugins: Array<{ id: string; version: string }>;
+    dependencies: Array<{
+      id: string;
+      kind: "bundled" | "managed" | "system" | "user_provided";
+      version: string;
+      source: string;
+      checksum: string | null;
+      license: string;
+      installScope: "app_managed" | "system" | "user_provided";
+      uninstall: "remove_if_unused" | "preserve" | "user_managed";
+    }>;
+    permissions: {
+      files: { mode: "user-selected-folders" };
+      network: { domains: string[] };
+      processes: { spawn: string[] };
+    };
+    tasks: { source: string };
+    validation: { health: string; smoke: string };
+    uninstall: { preserveUserProjects: boolean };
+  };
+  skillRoots: string[];
+  taskSource: string;
+  healthSource: string;
+  smokeSource: string;
+  installableOnWindowsX64: boolean;
+};
+
 export type WorkTaskStatus =
   | "draft"
   | "queued"

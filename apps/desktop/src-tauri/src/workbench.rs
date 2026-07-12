@@ -5,6 +5,9 @@ use tauri::{AppHandle, State};
 use crate::remote_backend;
 use crate::shared::hermes_core::runtime::{runtime_api_client, unbind_runtime_workbench};
 use crate::shared::hermes_core::types::{WorkError, WorkErrorKind, WorkTask};
+use crate::shared::workbench_core::manifest::{
+    inspect_workbench_package, WorkbenchPackageInspection,
+};
 use crate::shared::workbench_core::ActivatedWorkbenchContext;
 use crate::state::AppState;
 
@@ -105,6 +108,36 @@ pub(crate) async fn workbench_activation_read(
                 error,
             )
         })
+}
+
+#[tauri::command]
+pub(crate) async fn workbench_bundled_inspect(
+    workbench_id: String,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<WorkbenchPackageInspection, WorkError> {
+    require_local(&state).await?;
+    if workbench_id != "com.blackrain.office" {
+        return Err(workbench_error(
+            WorkErrorKind::InvalidRequest,
+            "workbench_bundled_not_found",
+            "Bundled workbench is not in the official allowlist.".into(),
+        ));
+    }
+    let package_root = crate::office::bundled_workbench_dir(&app).ok_or_else(|| {
+        workbench_error(
+            WorkErrorKind::Persistence,
+            "workbench_bundled_resource_missing",
+            "Bundled Office workbench resource was not found.".into(),
+        )
+    })?;
+    inspect_workbench_package(&package_root).map_err(|error| {
+        workbench_error(
+            WorkErrorKind::InvalidRequest,
+            "workbench_manifest_invalid",
+            error,
+        )
+    })
 }
 
 #[tauri::command]

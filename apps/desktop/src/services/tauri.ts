@@ -37,6 +37,7 @@ import type {
   WorkFollowUp,
   WorkTask,
   WorkbenchDeactivationResult,
+  WorkbenchPackageInspection,
 } from "@/features/work/types";
 import type {
   GitFileDiff,
@@ -1862,6 +1863,14 @@ export async function hermesRuntimeDiagnostics(): Promise<HermesRuntimeDiagnosti
 
 export async function workbenchActivationList(): Promise<ActivatedWorkbenchContext[]> {
   return invoke<ActivatedWorkbenchContext[]>("workbench_activation_list");
+}
+
+export async function workbenchBundledInspect(
+  workbenchId: string,
+): Promise<WorkbenchPackageInspection> {
+  return invoke<WorkbenchPackageInspection>("workbench_bundled_inspect", {
+    workbenchId,
+  });
 }
 
 export async function workbenchActivationRead(

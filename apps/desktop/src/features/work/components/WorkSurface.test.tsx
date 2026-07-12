@@ -10,6 +10,7 @@ import type {
   WorkFollowUp,
   WorkRuntimeStatus,
   WorkTask,
+  WorkbenchPackageInspection,
 } from "../types";
 import { buildVisibleWorkEvents, resolveProjectOutputPath } from "../state/selectors";
 import { WorkSurface } from "./WorkSurface";
@@ -82,6 +83,63 @@ const followUp: WorkFollowUp = {
   lastError: null,
 };
 
+const bundledOffice: WorkbenchPackageInspection = {
+  packageRoot: "C:\\Program Files\\BlackRain\\workbenches\\office-agent",
+  manifestPath:
+    "C:\\Program Files\\BlackRain\\workbenches\\office-agent\\workbench.yaml",
+  manifest: {
+    schemaVersion: 1,
+    id: "com.blackrain.office",
+    name: "Office 办公工作台",
+    version: "0.1.0",
+    publisher: "blackrain-official",
+    description: "批量办公文件生成、整理和校验。",
+    license: "BlackRain-Commercial",
+    target: {
+      domains: ["office"],
+      roles: ["office-generalist"],
+      platforms: [{ os: "windows", arch: "x86_64" }],
+      blackrain: ">=0.7.68",
+    },
+    engine: { preferred: "work", allowed: ["work"] },
+    skills: [
+      { path: "skills/generate-office-deliverable" },
+      { path: "skills/fix-office-formatting" },
+      { path: "skills/render-office-preview" },
+    ],
+    plugins: [],
+    dependencies: [
+      {
+        id: "com.blackrain.office-cli",
+        kind: "bundled",
+        version: "1.0.117",
+        source: "app-resource:office-cli/windows-x64/officecli.exe",
+        checksum:
+          "sha256:ff4a790637bcd4fdaf046727752e9e44207425d5ceafe36131516d37500d9ebd",
+        license: "Apache-2.0",
+        installScope: "app_managed",
+        uninstall: "remove_if_unused",
+      },
+    ],
+    permissions: {
+      files: { mode: "user-selected-folders" },
+      network: { domains: [] },
+      processes: { spawn: ["com.blackrain.office-cli"] },
+    },
+    tasks: { source: "tasks/tasks.yaml" },
+    validation: {
+      health: "validation/health.yaml",
+      smoke: "validation/smoke/basic.yaml",
+    },
+    uninstall: { preserveUserProjects: true },
+  },
+  skillRoots: [],
+  taskSource: "tasks/tasks.yaml",
+  healthSource: "validation/health.yaml",
+  smokeSource: "validation/smoke/basic.yaml",
+  installableOnWindowsX64: true,
+};
+
 function event(overrides: Partial<WorkEvent> & Pick<WorkEvent, "type">): WorkEvent {
   return {
     schemaVersion: 1,
@@ -140,13 +198,16 @@ afterEach(() => cleanup());
 
 describe("WorkSurface", () => {
   it("blocks formal task creation until a verified activation exists", () => {
-    const workController = controller({ activations: [] });
+    const workController = controller({ activations: [], bundledOffice });
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
     expect(screen.getByText("Office 工作台尚未激活")).toBeTruthy();
     expect((screen.getByLabelText("Office 任务指令") as HTMLTextAreaElement).disabled).toBe(true);
     expect((screen.getByLabelText("发送任务") as HTMLButtonElement).disabled).toBe(true);
     expect(workController.startTask).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Office 工作台安装计划").textContent).toContain(
+      "3 个 Skills",
+    );
   });
 
   it("starts a real Office task through the controller", async () => {

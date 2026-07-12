@@ -9,6 +9,8 @@ use crate::shared::hermes_core::config::{
     HermesSecretReference, WorkbenchHermesDesiredState,
 };
 
+pub(crate) mod manifest;
+
 pub(crate) const ACTIVATED_WORKBENCH_SCHEMA_VERSION: u32 = 1;
 const ACTIVATION_STORE_SCHEMA_VERSION: u32 = 1;
 const MAX_ACTIVATIONS: usize = 1024;

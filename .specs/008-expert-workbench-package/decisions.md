@@ -50,6 +50,14 @@
 - 影响范围：Manifest、安装计划、License 和卸载。
 - 后续复查条件：第二垂类出现无法表达的依赖类型。
 
+## 2026-07-12：Manifest v1 使用严格 YAML contract，首版只 inspect 官方 Windows x64 包
+
+- 决策：`workbench.yaml` v1 使用 UTF-8 YAML，由 maintained `serde_yaml_ng` 解析；每层结构拒绝未知字段。v1 只接受 Windows x64 与 WORK engine，包内文件必须是无 symlink、无 `..` 的相对路径，bundled/managed 依赖必须提供 SHA-256 且安装范围为 App-managed。首个 App command 只按官方 allowlist id 定位随包资源，不接受前端任意 package path；当前只读 inspect，不签发 activation。
+- 原因：YAML 适合专家/封装者维护，但宽松解析、任意路径和前端传包根都会直接扩大执行面。先冻结可审计的官方包最小 schema，可在不伪造 installer 的前提下让 UI 展示真实依赖、权限和保留策略。`serde_yaml` 原包已 deprecated，因此不用它作为新长期真源。
+- 替代方案：JSON-only Manifest、手写 YAML 解析、直接把 YAML 透传引擎、接受任意本地路径、或在 schema/health 尚未验证时直接写 activation store。
+- 影响范围：shared workbench manifest core、Office 包结构、bundled inspect Tauri command、WORK 未激活空状态和后续 install plan。
+- 后续复查条件：进入 install PR 前补 BlackRain semver、磁盘空间、签名/信任根、dependency resolver、Daemon RPC 和正式 permission approval；第二垂类验证后才允许扩展平台/engine 枚举。
+
 ## 2026-07-12：激活产物与 Manifest 分离为受限运行 contract
 
 - 决策：Manifest 仍描述工作台最大声明；Core 在 install/verify/permission 全部通过后，另行签发版本化 `ActivatedWorkbenchContext v1` 给执行 surface。context 只包含身份、受控路径、资源引用、无值 environment ref 和 permission grant，不包含 secret、环境值或任意命令。

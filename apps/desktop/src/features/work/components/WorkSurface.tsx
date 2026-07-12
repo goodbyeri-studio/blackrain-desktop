@@ -299,6 +299,19 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
                     ? "选择已验证的工作台项目，描述目标。BlackRain 会启动隔离的 Hermes runtime，并在执行高影响操作前请求你的确认。"
                     : "需要先通过工作台安装、权限审批和健康验证，才能创建正式 WORK 任务。"}
                 </p>
+                {!selectedActivation && state.bundledOffice ? (
+                  <div className="work-package-plan" aria-label="Office 工作台安装计划">
+                    <strong>
+                      {state.bundledOffice.manifest.name}@
+                      {state.bundledOffice.manifest.version}
+                    </strong>
+                    <span>{state.bundledOffice.manifest.description}</span>
+                    <small>
+                      Windows x64 · {state.bundledOffice.manifest.skills.length} 个 Skills ·{" "}
+                      {state.bundledOffice.manifest.dependencies.length} 个受控依赖 · 卸载保留项目
+                    </small>
+                  </div>
+                ) : null}
                 {!selectedTask ? (
                   <label className="work-project-picker">
                     <span>已激活工作台项目</span>
