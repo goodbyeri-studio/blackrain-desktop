@@ -338,6 +338,11 @@ impl HermesProcessSupervisor {
         }
 
         let mut command = tokio_command(&self.layout.executable);
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.as_std_mut().process_group(0);
+        }
         command
             .arg("gateway")
             .current_dir(&self.home)
@@ -1122,11 +1127,22 @@ async fn terminate_child_gracefully(child: &mut Child, graceful_timeout: Duratio
     }
     #[cfg(unix)]
     unsafe {
-        libc::kill(pid as i32, libc::SIGTERM);
+        // Hermes 独占进程组；stdio MCP server 会继承该组。向整个组发信号，
+        // 避免父进程先退出后留下无法由 Child handle 回收的 MCP 孤儿进程。
+        libc::kill(-(pid as i32), libc::SIGTERM);
     }
 
     if timeout(graceful_timeout, child.wait()).await.is_ok() {
+        #[cfg(unix)]
+        unsafe {
+            // 父进程已退出时仍可能有忽略 SIGTERM 的后代留在原进程组。
+            libc::kill(-(pid as i32), libc::SIGKILL);
+        }
         return;
+    }
+    #[cfg(unix)]
+    unsafe {
+        libc::kill(-(pid as i32), libc::SIGKILL);
     }
     kill_child_process_tree(child).await;
     let _ = child.wait().await;
@@ -1506,13 +1522,15 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn reaches_ready_only_after_health_capabilities_and_models_then_stops() {
+    fn reaches_ready_only_after_health_capabilities_and_models_then_stops_process_group() {
         run_async(async {
             let root = temp_dir("ready");
-            let layout = create_layout(
-                &root.join("runtime"),
-                b"#!/bin/sh\necho runtime-started\nsleep 5\n",
+            let child_pid_path = root.join("mcp-child.pid");
+            let script = format!(
+                "#!/bin/sh\necho runtime-started\nsleep 30 &\necho $! > '{}'\nwhile true; do sleep 1; done\n",
+                child_pid_path.display()
             );
+            let layout = create_layout(&root.join("runtime"), script.as_bytes());
             let home = root.join("home");
             let supervisor = Arc::new(HermesProcessSupervisor::with_options(
                 layout,
@@ -1575,11 +1593,24 @@ mod tests {
             let server = server_task.await.unwrap();
             assert_eq!(server.finish().await.unwrap().len(), 3);
             assert!(supervisor.lease_path.is_file());
+            let mcp_child_pid = fs::read_to_string(&child_pid_path)
+                .unwrap()
+                .trim()
+                .parse::<i32>()
+                .unwrap();
+            assert_eq!(unsafe { libc::kill(mcp_child_pid, 0) }, 0);
             assert_eq!(
                 supervisor.stop().await.unwrap().state,
                 WorkRuntimeState::Stopped
             );
             assert!(!supervisor.lease_path.exists());
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+            while unsafe { libc::kill(mcp_child_pid, 0) } == 0
+                && tokio::time::Instant::now() < deadline
+            {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            assert_ne!(unsafe { libc::kill(mcp_child_pid, 0) }, 0);
             fs::remove_dir_all(root).unwrap();
         });
     }
