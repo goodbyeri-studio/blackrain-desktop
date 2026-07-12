@@ -504,6 +504,14 @@
 - 影响范围：首版 WORK UI 不增加导出入口；阶段 12 仍以项目输出文件验收；未来 enterprise audit、支持诊断和用户数据导出必须分开设计。
 - 后续复查条件：真实客户需要任务交接或监管留痕时，另建 living spec，从 Core-owned 单 task/activation 生成显式用户触发的 Markdown 与版本化 JSON；必须冻结字段白名单、reasoning/tool 参数与文件引用策略、脱敏预览、权限、导出位置、hash/signature、保留/删除和 schema migration，并证明不会越过 activation 或混入其他 session。
 
+## 2026-07-12：首版关闭 Hermes Cron，不接 PTY/MoA，自验证归 008
+
+- 决策：managed Hermes config 在 `agent.disabled_toolsets` 中禁用 `cronjob`；首版不接 Hermes Desktop/TUI PTY，不生成 MoA preset 或选择器。自验证继续服从 008 的包验证、环境验证、领域验证三层合同；运行时只有来自 verified activation 的工具/断言可以产出验证结果，模型文字自评不能把任务或工作台标成已验证。
+- 原因：锁定 `hermes-api-server` 默认工具集含 `cronjob`，可把 schedule 写入共享 `HERMES_HOME/cron`，由 gateway ticker 在新的 agent session 中无人值守执行并向文件/渠道投递；这会绕过 BlackRain task、activation generation、approval、Stop、credit 和恢复账本。Hermes Desktop 的嵌入终端依赖 PTY，Windows 原生能力与 WSL/POSIX 行为不同，且 BlackRain 已有 terminal 槽位。MoA 每次 agent iteration 都先调用多个 reference model 再调用 aggregator，当前 broker/model allowlist/统一 credit 尚未完成，无法做预算和模型权限承诺。相反，垂类输出验证正是 BlackRain 核心资产，不能延期为通用上游功能。
+- 替代方案：直接开放 `cronjob` 工具、复用 Hermes gateway scheduler、嵌入上游 PTY、把 MoA 当高阶套餐默认打开、或让 agent 在最终回答中声称“已验证”。这些方案分别引入生命周期旁路、Windows 运行时分叉、不可控多倍计费和伪验证。
+- 影响范围：managed config/repair、WORK tool surface、未来工作室 scheduler、terminal 复用、002 credit/model catalog、008 validation 和阶段 12 Office 黄金流程。
+- 后续复查条件：定时任务需另建工作室级 spec，至少包含 schedule owner、activation pin、权限/审批、模型与预算、离线/休眠、幂等、输出和审计；PTY 需真实 Windows 垂类用例；MoA 需 broker 返回允许模型并建立多调用 credit/质量基线。008 领域验证仍必须在 Office 黄金流程中落真实输出断言。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

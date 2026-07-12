@@ -878,7 +878,7 @@ fn render_config_with_binding_and_router(
     }
     let provider_identity = format!("custom:{}", desired.provider_id);
     let mut output = format!(
-        "{MANAGED_HEADER}\nagent:\n  disabled_toolsets:\n    - memory\n    - session_search\nmemory:\n  memory_enabled: false\n  user_profile_enabled: false\n  provider: \"\"\nmodel:\n  default: {}\n  provider: {}\nproviders:\n  {}:\n    name: {}\n    base_url: {}\n    key_env: {}\n    api_mode: \"chat_completions\"\n    default_model: {}\n    discover_models: {}\n",
+        "{MANAGED_HEADER}\nagent:\n  disabled_toolsets:\n    - memory\n    - session_search\n    - cronjob\nmemory:\n  memory_enabled: false\n  user_profile_enabled: false\n  provider: \"\"\nmodel:\n  default: {}\n  provider: {}\nproviders:\n  {}:\n    name: {}\n    base_url: {}\n    key_env: {}\n    api_mode: \"chat_completions\"\n    default_model: {}\n    discover_models: {}\n",
         yaml_quote(&desired.model),
         yaml_quote(&provider_identity),
         desired.provider_id,
@@ -1093,8 +1093,12 @@ fn validate_managed_config_contents(content: &str) -> Result<(), String> {
     if !content.starts_with(MANAGED_HEADER) {
         return Err("missing BlackRain managed header".into());
     }
-    if !content.contains("\nagent:\n  disabled_toolsets:\n    - memory\n    - session_search\n") {
-        return Err("Hermes memory and session recall toolsets must be disabled".into());
+    if !content.contains(
+        "\nagent:\n  disabled_toolsets:\n    - memory\n    - session_search\n    - cronjob\n",
+    ) {
+        return Err(
+            "Hermes memory, session recall, and unattended cron toolsets must be disabled".into(),
+        );
     }
     if !content.contains(
         "\nmemory:\n  memory_enabled: false\n  user_profile_enabled: false\n  provider: \"\"\n",
@@ -1388,12 +1392,20 @@ mod tests {
     fn renders_cross_workbench_memory_and_session_recall_disabled() {
         let rendered = render_config(&desired("deepseek-chat")).unwrap();
 
-        assert!(
-            rendered.contains("agent:\n  disabled_toolsets:\n    - memory\n    - session_search\n")
-        );
+        assert!(rendered.contains(
+            "agent:\n  disabled_toolsets:\n    - memory\n    - session_search\n    - cronjob\n"
+        ));
         assert!(rendered.contains(
             "memory:\n  memory_enabled: false\n  user_profile_enabled: false\n  provider: \"\"\n"
         ));
+        validate_managed_config_contents(&rendered).unwrap();
+    }
+
+    #[test]
+    fn renders_unattended_cron_disabled() {
+        let rendered = render_config(&desired("deepseek-chat")).unwrap();
+
+        assert!(rendered.contains("    - cronjob\n"));
         validate_managed_config_contents(&rendered).unwrap();
     }
 
