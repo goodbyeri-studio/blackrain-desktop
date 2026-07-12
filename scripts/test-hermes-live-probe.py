@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import signal
+import shlex
 import socket
 import subprocess
 import sys
@@ -36,7 +37,11 @@ FIXED_MODEL_URL = "http://127.0.0.1:18765/v1"
 API_BEARER = "blackrain-live-probe-api-bearer-0000000000000001"
 MODEL_BEARER = "blackrain-live-probe-model-bearer"
 EXPECTED_OUTPUT = "BlackRain locked Hermes live probe completed."
+EXPECTED_APPROVAL_OUTPUT = "BlackRain approved terminal tool completed."
+EXPECTED_DENIAL_OUTPUT = "BlackRain denied terminal tool was not executed."
 EXPECTED_FILE_CONTENT = "blackrain-read-tool-result-verified"
+APPROVED_MARKER_CONTENT = "blackrain-approved-tool-executed"
+DENIED_MARKER_CONTENT = "blackrain-denied-tool-must-not-execute"
 DISALLOWED_TOOLS = {"memory", "session_search", "cronjob"}
 
 
@@ -46,8 +51,14 @@ class ProbeFailure(RuntimeError):
 
 class ModelState:
     def __init__(self) -> None:
-        self.requests: list[dict[str, Any]] = []
+        self.requests: dict[str, list[dict[str, Any]]] = {
+            "read": [],
+            "approve": [],
+            "deny": [],
+        }
+        self.active_scenario = "read"
         self.read_path: str | None = None
+        self.terminal_commands: dict[str, str] = {}
         self.lock = threading.Lock()
 
 
@@ -93,14 +104,16 @@ class ModelHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": str(error)})
             return
         with self.server.state.lock:
-            self.server.state.requests.append(request)
-            request_index = len(self.server.state.requests)
+            scenario = self.server.state.active_scenario
+            scenario_requests = self.server.state.requests[scenario]
+            scenario_requests.append(request)
+            request_index = len(scenario_requests)
         if request.get("stream"):
-            self._send_stream(request_index)
+            self._send_stream(scenario, request_index)
         else:
-            self._send_json(200, self._completion(request_index))
+            self._send_json(200, self._completion(scenario, request_index))
 
-    def _completion(self, request_index: int) -> dict[str, Any]:
+    def _completion(self, scenario: str, request_index: int) -> dict[str, Any]:
         if request_index == 1:
             return {
                 "id": "chatcmpl-blackrain-live-probe-tool",
@@ -113,7 +126,7 @@ class ModelHandler(BaseHTTPRequestHandler):
                         "message": {
                             "role": "assistant",
                             "content": None,
-                            "tool_calls": [self._tool_call()],
+                            "tool_calls": [self._tool_call(scenario)],
                         },
                         "finish_reason": "tool_calls",
                     }
@@ -128,28 +141,48 @@ class ModelHandler(BaseHTTPRequestHandler):
             "choices": [
                 {
                     "index": 0,
-                    "message": {"role": "assistant", "content": EXPECTED_OUTPUT},
+                    "message": {
+                        "role": "assistant",
+                        "content": self._expected_output(scenario),
+                    },
                     "finish_reason": "stop",
                 }
             ],
             "usage": {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18},
         }
 
-    def _tool_call(self) -> dict[str, Any]:
-        read_path = self.server.state.read_path
-        if not read_path:
-            raise ProbeFailure("Live probe read path was not configured")
+    def _tool_call(self, scenario: str) -> dict[str, Any]:
+        if scenario == "read":
+            read_path = self.server.state.read_path
+            if not read_path:
+                raise ProbeFailure("Live probe read path was not configured")
+            name = "read_file"
+            arguments = {"path": read_path}
+        else:
+            command = self.server.state.terminal_commands.get(scenario)
+            if not command:
+                raise ProbeFailure(f"Live probe terminal command was not configured: {scenario}")
+            name = "terminal"
+            arguments = {"command": command, "timeout": 10}
         return {
             "index": 0,
-            "id": "call_blackrain_read_probe",
+            "id": f"call_blackrain_{scenario}_probe",
             "type": "function",
             "function": {
-                "name": "read_file",
-                "arguments": json.dumps({"path": read_path}, separators=(",", ":")),
+                "name": name,
+                "arguments": json.dumps(arguments, separators=(",", ":")),
             },
         }
 
-    def _send_stream(self, request_index: int) -> None:
+    @staticmethod
+    def _expected_output(scenario: str) -> str:
+        return {
+            "read": EXPECTED_OUTPUT,
+            "approve": EXPECTED_APPROVAL_OUTPUT,
+            "deny": EXPECTED_DENIAL_OUTPUT,
+        }[scenario]
+
+    def _send_stream(self, scenario: str, request_index: int) -> None:
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -164,7 +197,10 @@ class ModelHandler(BaseHTTPRequestHandler):
                     "choices": [
                         {
                             "index": 0,
-                            "delta": {"role": "assistant", "tool_calls": [self._tool_call()]},
+                            "delta": {
+                                "role": "assistant",
+                                "tool_calls": [self._tool_call(scenario)],
+                            },
                             "finish_reason": None,
                         }
                     ],
@@ -199,7 +235,7 @@ class ModelHandler(BaseHTTPRequestHandler):
                 "choices": [
                     {
                         "index": 0,
-                        "delta": {"content": EXPECTED_OUTPUT},
+                        "delta": {"content": self._expected_output(scenario)},
                         "finish_reason": None,
                     }
                 ],
@@ -289,12 +325,17 @@ def wait_ready(base_url: str, process: subprocess.Popen[str]) -> dict[str, Any]:
     raise ProbeFailure(f"Hermes readiness timed out: {last_error}")
 
 
-def stream_events(base_url: str, run_id: str) -> list[dict[str, Any]]:
+def stream_events(
+    base_url: str,
+    run_id: str,
+    approval_choice: str | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     request = urllib.request.Request(
         f"{base_url}/v1/runs/{run_id}/events",
         headers={"Authorization": f"Bearer {API_BEARER}", "Accept": "text/event-stream"},
     )
     events: list[dict[str, Any]] = []
+    approval_response: dict[str, Any] | None = None
     with urllib.request.urlopen(request, timeout=30) as response:
         for raw_line in response:
             line = raw_line.decode("utf-8").strip()
@@ -305,9 +346,96 @@ def stream_events(base_url: str, run_id: str) -> list[dict[str, Any]]:
                 continue
             event = json.loads(payload)
             events.append(event)
+            if event.get("event") == "approval.request" and approval_choice:
+                if approval_response is not None:
+                    raise ProbeFailure("Live probe received more than one approval request")
+                status, approval_response = request_json(
+                    "POST",
+                    f"{base_url}/v1/runs/{run_id}/approval",
+                    API_BEARER,
+                    {"choice": approval_choice, "resolve_all": False},
+                )
+                if (
+                    status != 200
+                    or approval_response.get("choice") != approval_choice
+                    or approval_response.get("resolved") != 1
+                ):
+                    raise ProbeFailure(
+                        f"Approval resolution failed: HTTP {status}: {approval_response}"
+                    )
             if event.get("event") in {"run.completed", "run.failed", "run.cancelled"}:
                 break
-    return events
+    return events, approval_response
+
+
+def marker_command(path: Path, content: str) -> str:
+    if os.name == "nt":
+        escaped_path = str(path).replace("'", "''")
+        escaped_content = content.replace("'", "''")
+        disposable = str(path.with_suffix(".disposable")).replace("'", "''")
+        return (
+            "powershell.exe -NoProfile -Command \""
+            f"Remove-Item -LiteralPath '{disposable}' -ErrorAction SilentlyContinue; "
+            f"Set-Content -LiteralPath '{escaped_path}' -Value '{escaped_content}' -NoNewline\""
+        )
+    script = f"printf %s {shlex.quote(content)} > {shlex.quote(str(path))}"
+    return f"bash -c {shlex.quote(script)}"
+
+
+def run_scenario(
+    base_url: str,
+    state: ModelState,
+    scenario: str,
+    prompt: str,
+    expected_output: str,
+    approval_choice: str | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    with state.lock:
+        state.active_scenario = scenario
+    status, started = request_json(
+        "POST",
+        f"{base_url}/v1/runs",
+        API_BEARER,
+        {"input": prompt, "model": "blackrain-fixture"},
+    )
+    if status != 202 or not started.get("run_id"):
+        raise ProbeFailure(f"{scenario} run creation failed: HTTP {status}: {started}")
+    run_id = str(started["run_id"])
+    events, approval_response = stream_events(base_url, run_id, approval_choice)
+    event_names = [str(event.get("event")) for event in events]
+    required_events = {"tool.started", "tool.completed", "message.delta", "run.completed"}
+    if approval_choice:
+        required_events.update({"approval.request", "approval.responded"})
+        if approval_response is None:
+            raise ProbeFailure(f"{scenario} run did not expose an approval request")
+        responded = next(
+            (event for event in events if event.get("event") == "approval.responded"),
+            None,
+        )
+        if (
+            responded is None
+            or responded.get("choice") != approval_choice
+            or responded.get("resolved") != 1
+        ):
+            raise ProbeFailure(f"{scenario} run emitted an invalid approval response event")
+    if not required_events.issubset(event_names):
+        terminal = events[-1] if events else {}
+        raise ProbeFailure(
+            f"Incomplete {scenario} run events: {event_names}; terminal={terminal}"
+        )
+    completed = next(event for event in events if event.get("event") == "run.completed")
+    if completed.get("output") != expected_output:
+        raise ProbeFailure(f"{scenario} output did not match the deterministic response")
+    status, run_status = request_json("GET", f"{base_url}/v1/runs/{run_id}", API_BEARER)
+    if status != 200 or run_status.get("status") != "completed":
+        raise ProbeFailure(f"{scenario} run did not converge to completed: {run_status}")
+    with state.lock:
+        model_requests = list(state.requests[scenario])
+    if len(model_requests) != 2:
+        raise ProbeFailure(
+            f"Expected two {scenario} model requests, received {len(model_requests)}"
+        )
+    return events, model_requests
 
 
 def stop_process(process: subprocess.Popen[str]) -> tuple[str, str]:
@@ -357,7 +485,13 @@ def run_probe(python: Path) -> None:
             project.mkdir()
             read_fixture = project / "read-probe.txt"
             read_fixture.write_text(EXPECTED_FILE_CONTENT + "\n", encoding="utf-8")
+            approved_marker = project / "approved-marker.txt"
+            denied_marker = project / "denied-marker.txt"
             state.read_path = str(read_fixture)
+            state.terminal_commands = {
+                "approve": marker_command(approved_marker, APPROVED_MARKER_CONTENT),
+                "deny": marker_command(denied_marker, DENIED_MARKER_CONTENT),
+            }
             rendered = CONFIG_FIXTURE.read_text(encoding="utf-8").replace(
                 FIXED_MODEL_URL, f"http://127.0.0.1:{model_port}/v1"
             )
@@ -402,40 +536,48 @@ def run_probe(python: Path) -> None:
             )
             if status != 200 or not capabilities.get("features", {}).get("run_submission"):
                 raise ProbeFailure(f"Unexpected capabilities: HTTP {status}")
-            status, started = request_json(
-                "POST",
-                f"{base_url}/v1/runs",
-                API_BEARER,
-                {"input": "Return the fixed live-probe completion.", "model": "blackrain-fixture"},
+            read_events, read_requests = run_scenario(
+                base_url,
+                state,
+                "read",
+                "Run the BlackRain READ_PROBE scenario.",
+                EXPECTED_OUTPUT,
             )
-            if status != 202 or not started.get("run_id"):
-                raise ProbeFailure(f"Run creation failed: HTTP {status}: {started}")
-            run_id = str(started["run_id"])
-            events = stream_events(base_url, run_id)
-            event_names = [str(event.get("event")) for event in events]
-            required_events = {"tool.started", "tool.completed", "message.delta", "run.completed"}
-            if not required_events.issubset(event_names):
-                terminal = events[-1] if events else {}
-                raise ProbeFailure(
-                    f"Incomplete run events: {event_names}; terminal={terminal}"
-                )
-            completed = next(event for event in events if event.get("event") == "run.completed")
-            if completed.get("output") != EXPECTED_OUTPUT:
-                raise ProbeFailure("Completed output did not match the deterministic model response")
-            status, run_status = request_json(
-                "GET", f"{base_url}/v1/runs/{run_id}", API_BEARER
-            )
-            if status != 200 or run_status.get("status") != "completed":
-                raise ProbeFailure(f"Run did not converge to completed: {run_status}")
-            with state.lock:
-                model_requests = list(state.requests)
-            if len(model_requests) != 2:
-                raise ProbeFailure(f"Expected two model requests, received {len(model_requests)}")
-            if EXPECTED_FILE_CONTENT not in json.dumps(model_requests[1]):
+            if EXPECTED_FILE_CONTENT not in json.dumps(read_requests[1]):
                 raise ProbeFailure("read_file result did not return to the second model iteration")
+
+            approve_events, approve_requests = run_scenario(
+                base_url,
+                state,
+                "approve",
+                "Run the BlackRain APPROVE_PROBE scenario.",
+                EXPECTED_APPROVAL_OUTPUT,
+                "once",
+            )
+            if not approved_marker.is_file():
+                raise ProbeFailure("Approved terminal command did not create its marker")
+            if approved_marker.read_text(encoding="utf-8") != APPROVED_MARKER_CONTENT:
+                raise ProbeFailure("Approved terminal command wrote unexpected marker content")
+            if APPROVED_MARKER_CONTENT not in json.dumps(approve_requests[1]):
+                raise ProbeFailure("Approved terminal result did not reach the second model iteration")
+
+            deny_events, deny_requests = run_scenario(
+                base_url,
+                state,
+                "deny",
+                "Run the BlackRain DENY_PROBE scenario.",
+                EXPECTED_DENIAL_OUTPUT,
+                "deny",
+            )
+            if denied_marker.exists():
+                raise ProbeFailure("Denied terminal command produced a filesystem side effect")
+            denial_context = json.dumps(deny_requests[1])
+            if "BLOCKED" not in denial_context or "NOT consented" not in denial_context:
+                raise ProbeFailure("Approval denial did not reach the second model iteration")
+
             request_tools = {
                 str(tool.get("function", {}).get("name"))
-                for tool in model_requests[0].get("tools", [])
+                for tool in read_requests[0].get("tools", [])
                 if isinstance(tool, dict)
             }
             exposed = sorted(DISALLOWED_TOOLS & request_tools)
@@ -443,8 +585,10 @@ def run_probe(python: Path) -> None:
                 raise ProbeFailure(f"Managed-disabled tools reached the model: {exposed}")
             print(
                 "OK: pinned Hermes live probe completed "
-                f"({health.get('version')}, {len(events)} events, "
-                f"{len(model_requests)} model calls, {len(request_tools)} tools)"
+                f"({health.get('version')}, "
+                f"{len(read_events) + len(approve_events) + len(deny_events)} events, "
+                f"{len(read_requests) + len(approve_requests) + len(deny_requests)} model calls, "
+                f"{len(request_tools)} tools, approval once+deny)"
             )
     finally:
         if process is not None:

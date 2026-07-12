@@ -208,7 +208,11 @@
   - [x] 锁定 Hermes 真进程由本地确定性模型桩调用 `read_file`，结果回到第二次模型迭代并产生结构化 tool events
   - [ ] 在 Windows 产品链经真实 new-api/国产模型和 verified activation 完成安全只读工具调用
 - [ ] 完成一个需要审批的写/执行工具调用
+  - [x] 锁定 Hermes 真进程由本地确定性模型桩调用受审批的 `terminal`，用户选择 `once` 后只在临时项目生成固定 marker，工具结果回到第二次模型迭代并完成 run
+  - [ ] 在 Windows 产品链经真实 new-api/国产模型和 verified activation 完成相同审批纵切
 - [ ] 完成用户拒绝审批后的可解释收敛
+  - [x] 锁定 Hermes 真进程收到 `deny` 后不产生临时项目副作用，把 `BLOCKED`/未同意结果交给第二次模型迭代并完成解释性 run
+  - [ ] 在 Windows 产品链经真实 new-api/国产模型和 WORK UI 完成拒绝审批纵切
 - [ ] 完成运行中 Stop 和后续继续/重试
 - [ ] 完成输出文件写入用户项目并在 UI 打开
 - [ ] 完成 App 重启后恢复任务
