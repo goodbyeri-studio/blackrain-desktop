@@ -1410,6 +1410,26 @@ mod tests {
     }
 
     #[test]
+    fn rendered_live_probe_config_matches_versioned_fixture() {
+        let desired = HermesProviderDesiredState::blackrain_new_api(
+            "http://127.0.0.1:18765/v1".into(),
+            "blackrain-fixture".into(),
+            Some(128_000),
+        );
+        let desired = HermesProviderDesiredState {
+            provider_id: "blackrain-live-probe".into(),
+            display_name: "BlackRain live probe".into(),
+            discover_models: false,
+            ..desired
+        };
+
+        assert_eq!(
+            render_config(&desired).unwrap(),
+            include_str!("../../../test-fixtures/hermes/v2026.7.7.2/blackrain-managed-config.yaml")
+        );
+    }
+
+    #[test]
     fn rejects_bare_custom_provider_ids() {
         let mut state = desired("deepseek-chat");
         state.provider_id = "custom".into();

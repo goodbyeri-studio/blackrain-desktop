@@ -16,3 +16,4 @@
 - raw decoder 必须容忍新增字段、未知事件和未知状态。
 - `sse-normal.txt` 保留真实 SSE framing，包括 comment/keepalive/close。
 - `sse-approval-*`、`sse-failures.txt`、`sse-duplicates-unknown-out-of-order.txt` 是用锁定版本合法 payload 组合的 BlackRain 故障注入场景，不声称上游一定按该顺序产生事件；真实上游行为仍以源码和后续集成测试为准。
+- `blackrain-managed-config.yaml` 由 Rust renderer 精确测试锁定，并作为真 Hermes + 本地确定性 Chat Completions 探针的配置模板；脚本运行时只替换固定 loopback 模型端口。

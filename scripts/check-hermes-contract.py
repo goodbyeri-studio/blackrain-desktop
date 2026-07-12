@@ -57,6 +57,7 @@ REQUIRED_FEATURES = {
 }
 
 REQUIRED_FIXTURES = {
+    "blackrain-managed-config.yaml",
     "health.json",
     "capabilities.json",
     "models.json",
