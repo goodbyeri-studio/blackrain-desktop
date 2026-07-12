@@ -40,9 +40,20 @@ Set-Location ..\..
 
 ## 拉取并对齐双引擎
 
-### Windows 推荐：显式 clone + checkout
+### 有 POSIX shell：自动锁定入口
 
-`scripts/fetch-references.sh` 当前只克隆默认分支，不会强制 checkout 目标锁定版本。Windows 构建/验证前使用下面的显式流程：
+Git for Windows 自带 Git Bash 时，优先使用仓库脚本。脚本会 clone/fetch 精确 tag、校验 tag 解引用后的完整 SHA，并 detached checkout；上游有已跟踪改动时会 fail closed：
+
+```powershell
+sh scripts/fetch-references.sh
+python scripts/check-hermes-contract.py --static-only
+```
+
+第二条只做 Hermes 锁、LICENSE/lockfile hash、AST 路由和 fixtures 静态审计，不安装依赖。
+
+### 纯 PowerShell 回退：显式 clone + checkout
+
+纯 PowerShell 环境没有 `sh` 时，Windows 构建/验证前使用下面的显式流程：
 
 ```powershell
 if (-not (Test-Path codex-upstream)) {
@@ -68,17 +79,38 @@ git -C hermes-upstream checkout --detach 9de9c25f620ff7f1ce0fd5457d596052d515959
 git -C codex-upstream rev-parse --short HEAD
 git -C hermes-upstream rev-parse --short HEAD
 # 预期分别为 44918ea10c0f99151c6710411b4322c2f5c96bea、9de9c25f620ff7f1ce0fd5457d596052d5159596
+
+python scripts/check-hermes-contract.py --static-only
 ```
 
-目标锁定值与脚本风险见 [REFERENCES](REFERENCES.md)。不要把本机 gitignored 克隆的 `HEAD` 当成仓库已完成状态。
+目标锁定值与边界见 [REFERENCES](REFERENCES.md)。不要把本机 gitignored 克隆的 `HEAD` 当成仓库已完成状态。
 
-### 已有 POSIX shell 时的便利入口
+### Hermes 上游升级 contract regression
 
 ```powershell
-sh scripts/fetch-references.sh
+Set-Location hermes-upstream
+uv sync --frozen --extra dev --extra mcp
+Set-Location ..
+
+python scripts/check-hermes-contract.py
+
+# 启动锁定 Hermes 真进程，以本地确定性 Chat Completions 桩验证
+# managed config → runs/SSE → tool/approval → stop/cancel → same-session continue
+python scripts/test-hermes-live-probe.py
 ```
 
-这条命令只准备目录；仍必须执行上面的 fetch / checkout / `rev-parse` 校验。纯 PowerShell 环境没有 `sh` 时直接使用推荐流程。
+完整入口依次验证：
+
+- runtime manifest、`fetch-references.sh`、上游 exact tag/commit 一致；
+- 上游工作树干净，`LICENSE`、`pyproject.toml`、`uv.lock` SHA-256 与存证一致；
+- 从 `api_server.py` AST 提取的必需 `/v1`/session 路由仍存在；
+- 当前 tag 的 capabilities/SSE/run/approval/stop fixtures 完整；
+- 锁定上游 API/Windows/Skills/file safety/approval 专项 pytest；
+- BlackRain Hermes Rust contract 与前端 types/events/Tauri wrapper tests。
+
+`test-hermes-live-probe.py` 不读取 `.env` 或用户凭据，使用随机 loopback 端口、固定测试文本和临时项目。它连续验证真实 `read_file`、受审批 `terminal` 的 `once` 执行与 `deny` 零副作用、阻塞模型流的 Stop/cancel，以及同 `session_id` 携带显式历史的新 run 继续，并检查 `memory`、`session_search`、`cronjob` 未进入模型工具列表。它证明锁定 Hermes 真进程可消费 BlackRain managed config 并完成结构化 run/SSE/approval/stop/continue，不证明真实 new-api、国产模型、Tauri 或 Windows 产品闭环。
+
+升级 Hermes 时先更新 `scripts/fetch-references.sh` 与 Windows runtime manifest 的 tag、完整 commit、版本及三个 hash；重新生成并审阅新 tag fixture 目录，更新 spec 003/009 存证，再运行完整入口。最后仍须在 Windows 执行 runtime vendor、NSIS 和 spec 007/009 产品矩阵；该脚本不替代 Windows 实机验收。
 
 ## 构建 CODE 内核
 
@@ -135,6 +167,10 @@ npm run codemod:ds:dry
 
 Push-Location src-tauri
 cargo check
+# Hermes WORK shared contract/client/supervisor 专项
+cargo test hermes --lib
+# 工作台 verified plugin runtime/MCP 路径门禁专项
+cargo test plugin_core --lib
 Pop-Location
 
 # Windows 专用入口
@@ -158,7 +194,7 @@ Copy-Item .env.production.example .env.production.local
 pwsh scripts/release-client-win.ps1
 ```
 
-脚本会 vendoring Windows runtime，并依次运行 `typecheck`、`test`、Rust `cargo check` 和 `tauri:build:win`。产物在：
+脚本会先执行 Hermes static contract，再 vendor Windows/Hermes runtime；常规 checks 覆盖 `typecheck`、`test`、`lint`、`lint:ds`、`codemod:ds:dry`、`doctor:win`、Rust `cargo check` 及 Hermes/workbench/plugin 专项，最后运行 `tauri:build:win`。产物在：
 
 ```text
 apps\desktop\src-tauri\target\release\bundle\

@@ -122,15 +122,18 @@ uninstall:
   → 保留用户项目 → 报告残留
 ```
 
-## 本地路径草案
+## 首个 Office v1 受控路径
 
 ```text
 %APPDATA%/BlackRain/
 ├── workbenches/
+│   ├── activations.v1.json
 │   └── com.blackrain.office/
-│       ├── versions/0.1.0/
-│       ├── active.json
-│       └── state.json
+│       ├── versions/0.1.0/       # 安装后的完整声明包与 Skills
+│       ├── active.json           # 当前已验证安装版本，不绑定具体项目
+│       └── state.json            # 已验证安装状态
+├── tools/
+│   └── officecli/officecli.exe   # SHA-256 + --version 通过后启用
 ├── plugins/
 ├── runtimes/
 ├── cache/
@@ -138,11 +141,10 @@ uninstall:
 
 用户选择目录/
 └── 某个项目/
-    ├── .blackrain/project.yaml
-    └── 用户文件...
+    └── 用户文件...               # 不复制工作台资源，不因停用/卸载删除
 ```
 
-最终 Windows 路径必须使用 Tauri App data API，不在文档中硬编码猜测。
+实际根目录必须由 Tauri App data API 解析；上图只表达相对布局。首版同一 OfficeCLI 依赖为单一 Core-owned 资源，升级/卸载前仍需补共享引用计数，不能据此直接删除。
 
 ## 架构边界
 
@@ -200,6 +202,33 @@ Core 根据 `engine.preferred` 选择 surface：
 - 未来如允许 `allowed: [work, code]`，也必须由 Core 在任务边界选择，不在单轮会话中热切。
 
 工作台只是声明者，Core 仍是唯一配置写入者。
+
+## Activation generation 与任务迁移
+
+`ActivatedWorkbenchContext v1` 以 `activationId` 表达一次不可变的运行 generation。资源集合变化不增加“可变 revision”，而是签发新 activation；旧 activation 在仍被任务引用或可能用于回滚时继续保留。
+
+```text
+安装/验证新资源并确认权限
+  → 签发 new activationId（不改 old activation）
+  → 用户或 Core lifecycle 显式选择待迁移 task
+  → 校验同 workbench + 同 project + 无 active run
+  → 写入 pending migration audit
+  → 准备新引擎 binding / plugin runtime / router 集合
+  → readiness 成功：原子切换 task activation，下一 run 使用新 generation
+  → readiness 失败：恢复旧 binding、旧 task activation 和旧 active generation
+```
+
+迁移约束：
+
+- active run、pending approval、stop/恢复中的 task 一律不得迁移；必须先收敛为无 active run 的稳定状态。
+- task 的 `workbenchId` 和规范化 `projectRoot` 必须与新 activation 一致；不能借迁移换工作台或跨项目。
+- 新 activation 引用的 Skills、插件、环境、权限和 system capability 必须已完成 install / verify / permission，不接受 surface 或工作台临时补资源。
+- task 的 Hermes session 可以保留，因为迁移发生在 run 边界；新 run 必须用新 activation 生成 binding，并在审计中关联旧/新 activation。
+- 旧任务默认保持 pinned，不允许后台静默跟随 active version，也不允许工作台脚本自行迁移。
+- migration audit 至少记录 task id、旧/新 activation id、时间、发起原因、状态和失败码；不得记录 secret。
+- runtime/router 准备采用 connect-before-swap。新集合 readiness 未通过时旧集合继续服务，失败不能改变 task 或 active activation。
+
+该合同是 009 动态 MCP router 的前置条件，但不代表 router、升级事务或 task migration API 已经实现。
 
 ## 权限模型
 

@@ -1,0 +1,24 @@
+# BlackRain managed Hermes config v1
+agent:
+  disabled_toolsets:
+    - memory
+    - session_search
+    - cronjob
+memory:
+  memory_enabled: false
+  user_profile_enabled: false
+  provider: ""
+model:
+  default: "blackrain-fixture"
+  provider: "custom:blackrain-live-probe"
+providers:
+  "blackrain-live-probe":
+    name: "BlackRain live probe"
+    base_url: "http://127.0.0.1:18765/v1"
+    key_env: "BLACKRAIN_HERMES_PROVIDER_API_KEY"
+    api_mode: "chat_completions"
+    default_model: "blackrain-fixture"
+    discover_models: false
+    models:
+      "blackrain-fixture":
+        context_length: 128000

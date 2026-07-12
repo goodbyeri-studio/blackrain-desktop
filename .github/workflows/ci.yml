@@ -24,16 +24,40 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
 
-  rust-check:
-    name: Rust check (Windows)
+  windows-checks:
+    name: Windows checks (JS + Rust WORK)
     runs-on: windows-latest
+    timeout-minutes: 45
     env:
       CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
+      - run: npm ci
+        working-directory: apps/desktop
+      - run: npm run typecheck
+        working-directory: apps/desktop
+      - run: npm run test
+        working-directory: apps/desktop
+      - run: npm run lint
+        working-directory: apps/desktop
+      - run: npm run lint:ds
+        working-directory: apps/desktop
+      - run: npm run codemod:ds:dry
+        working-directory: apps/desktop
       - run: cargo check
+        working-directory: apps/desktop/src-tauri
+      - run: cargo test hermes --lib
+        working-directory: apps/desktop/src-tauri
+      - run: cargo test workbench_core --lib
+        working-directory: apps/desktop/src-tauri
+      - run: cargo test plugin_core --lib
         working-directory: apps/desktop/src-tauri

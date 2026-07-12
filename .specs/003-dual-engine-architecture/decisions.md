@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-07-12：Hermes WORK surface 实施拆到 spec 009
+
+- 决策：003 继续维护双引擎边界、路由和跨模式假设；Hermes 进程、隔离配置、runs/SSE、审批、任务状态和 WORK UI 的完整实施由 [spec 009](../009-hermes-work-surface/) 维护。
+- 原因：WORK surface 是长期跨前端/Rust/进程/协议/Windows 的大功能，继续塞进 003 会混淆架构真源与执行任务。
+- 替代方案：继续在 003 的阶段 2 维护全部 WORK UI 和 runtime checklist。
+- 影响范围：003 tasks、009 五件套、后续 Goal/PR。
+- 后续复查条件：009 完成后只把稳定边界和最终验证摘要回写 003，不把逐项实现清单搬回。
+
 ## 2026-07-12：双引擎目标锁升级到最新稳定 release，发布状态仍受 Windows 验收约束
 
 - Codex 从 `da4c8ca` 升级到 rust-v0.144.1 / `44918ea10c0f99151c6710411b4322c2f5c96bea`。
@@ -32,6 +40,14 @@
 - 替代方案：让 codex 直连中转——不可行，Responses 在中转层无计量。
 - 影响范围：`gateway` 定位收窄为「仅 CODE 路径」；关联 spec `001`、`002`。
 - 后续复查条件：new-api 若正式支持 Responses 计量，可重新评估 CODE 路径是否还需网关。
+
+## 2026-07-12：WORK 直连 new-api 使用模型凭据，不使用短期账号 JWT
+
+- 决策：目标 WORK 路径仍是 Hermes→Chat Completions→new-api，不经过 CODE 翻译网关。Hermes `key_env` 接收的是 account broker 签发的长期、可撤销 model token；Supabase access JWT 只用于 broker 身份兑换，不能充当常驻 Hermes provider key。
+- 原因：协议路径是否零翻译与账号凭据是否适合长任务是两个问题。Supabase JWT 自动刷新，但 Hermes 在 agent 创建时解析 provider credential；强行直塞会让运行中任务继续持旧 token。new-api 原生 token 支持额度、模型限制、过期和撤销，更符合模型调用凭据语义。
+- 替代方案：WORK 复用 CODE 本地网关、每次 JWT 刷新重启运行中的 Hermes、或由工作台包持有 model token。
+- 影响范围：002 account broker/credit 真源、009 provider producer、Hermes config/keyring 和 Windows 长任务验证；不改变 WORK 零翻译铁律。
+- 后续复查条件：broker 尚未实现；在真实签发、撤销、余额同步与 Windows 长任务跨刷新验证完成前，WORK 生产 credit 仍未闭环。
 
 ## 2026-06-25：GUI = 留 CodexMonitor/Tauri 壳，借 Hermes Desktop 的 MIT 组件，不 fork 其壳
 
@@ -172,6 +188,14 @@
 - 待决：new-api 是否直接承担 Supabase credit、是否保留 `proxy.py` 适配层、WORK/Hermes 的鉴权接法、Plus BYOK 是否允许绕过 new-api。
 - 决策：本次文档治理只消除“已经定案/已经完成”的错误表述，不替产品选择最终拓扑。
 - 影响范围：002/003 requirements/design/tasks/verification。
+
+## 2026-07-12：new-api 从内部组件提升为独立 BlackRain Relay 产品
+
+- 决策：模型数据面统一称为 `blackrain-relay`，它是基于 New API 的独立公开 AGPL 产品；`blackrain-cloud` 作为企业客户购买 Relay API。WORK 仍零翻译直连 Relay，CODE 仍经本地 Responses 翻译网关进入 Relay，直到 New API Responses 通过 codex 严格协议探针。
+- 原因：Relay 要独立盈利并服务第三方，具有独立许可证、账本、密钥、部署和故障域；Cloud 只负责 BlackRain 身份、权益、broker 和商业账本。
+- 替代方案：把 New API 内嵌 Cloud；让 Desktop 直接持 Relay 管理 token；现在就删除 CODE 翻译网关。
+- 影响范围：002、003、005、009、010、模型路由、部署与运营。
+- 后续复查条件：New API 当前已有 `/v1/responses` 路由与转换代码；只有通过 codex app-server 的 streaming/tool/reasoning/错误协议矩阵后，才可重议 CODE 本地网关。
 
 ## 被推翻的方案
 

@@ -77,7 +77,7 @@
 
 - 决策：MVP 最小代理是一个**独立的 OpenAI Chat Completions 转发器**（`gateway/proxy.py`），职责 = 校验 JWT + 查/扣 credit + 注入平台 DeepSeek key + usage 计量；部署到轻量常驻主机（Fly.io / Railway / 小 VPS），不重写为 Supabase Edge Function。
 - 协议边界（关键）：**代理入站/出站都说 Chat Completions**。`responses⇄chat` 翻译**只留在本地网关 `gateway.py` 一份**（铁律 2）。credit 模式下数据流为：内核(Responses) → 本地网关(翻译成 Chat) → 平台代理(Chat：鉴权+计量+注平台 key) → DeepSeek。代理**不做翻译**，故无「最危险代码」需要重写——铁律 2 天然满足。
-- 修正：早前表述「最小代理 = 复用 gateway.py / 同一份两处部署」**不准确**。本地网关说 Responses（codex 专用），若代理也说 Responses，则 new-api（只懂 Chat Completions）无法顶替，迁移接缝作废。故代理改为独立 Chat 转发器；与 gateway.py 仅共享小工具（日志脱敏、流式读取惯例），不共享翻译。
+- 修正：早前表述「最小代理 = 复用 gateway.py / 同一份两处部署」**不准确**。当时锁定的中转计量证据只有 Chat Completions，未验证 New API Responses 可驱动 codex，因此代理改为独立 Chat 转发器；与 gateway.py 仅共享小工具，不共享翻译。2026-07-12 New API 已出现 `/v1/responses` 路由与转换代码，但仍需 codex 严格协议探针，不能倒推旧证据或现在就删除本地网关。
 - 原因：① 翻译留一份，最易碎代码零改动；② 计量须看完整流（usage 在流末尾 `chunk.usage`），agent 任务长，Edge Function 执行时限会掐断长流，LLM 这一跳需常驻进程；③ 代理入站/出站皆 Chat Completions，与 new-api **同形态**，以后零改动顶替。
 - 替代方案：(a) 代理说 Responses（复用整份 gateway.py）；(b) Supabase Edge Function 重写。
 - 为什么不用替代方案：(a) 破坏 new-api 迁移接缝；(b) edge 时限扛不住长 agent 流、且无必要重写。
@@ -123,6 +123,30 @@
 - 状态：2026-06-25 已完成代码检查和云端/代理验证，但桌面重启恢复、JWT 刷新、CODE credit GUI、402 提示、WORK credit 和 Plus BYOK 均未完成 Windows 实机闭环。
 - 影响范围：`tasks.md` 和 `verification.md` 不再把“服务端通过”概括成“账号计费交付完成”。
 - 后续复查条件：007 Windows 环境准备完成并跑通双引擎 credit/BYOK 矩阵。
+
+## 2026-07-12：WORK 不把自动刷新的 Supabase access JWT 直接注入 Hermes
+
+- 决策：Supabase access JWT 只用于向 BlackRain account broker 证明用户身份；broker 必须返回长期、可撤销、可限额的 model token，App 将该 token 存入 WORK 独立系统凭据 namespace，并仅在 Hermes 启动时注入 `key_env`。未完成 broker、撤销、quota/ledger 单一真源和 token 轮换合同前，不把现有 CODE `api_key_file` 方案复制到 WORK。
+- 原因：CODE 本地网关每次请求读取 JWT 文件，所以 SDK 静默刷新可立即生效；锁定 Hermes 则在进程/agent 创建时读取 provider `key_env`，运行中的长任务继续持有旧 JWT。把一小时级 access JWT 直接接入会产生“钥匙串已刷新但活着的 Hermes 仍鉴权失败”的隐蔽漂移。new-api 当前上游提供长期、可撤销、带过期/额度/模型限制的 token，形态与 Hermes 更匹配，但 BlackRain 尚无 Supabase→new-api 的签发 broker。
+- 替代方案：每次 Supabase 刷新强杀 Hermes、把 refresh token 当模型 bearer、让 WORK 经过 CODE 翻译网关、或继续假设 new-api 原生识别 Supabase JWT。
+- 影响范围：WORK provider producer、账号 broker、new-api 用户/token 映射、余额展示、登出撤销、Windows Credential Manager 和 009 真实模型纵切。
+- 后续复查条件：必须先决定 new-api quota 还是 Supabase `profiles.credits`/`credit_ledger` 为计费真源，并部署可真实验证的 broker；届时补登录、刷新、登出、撤销、长任务跨 JWT 刷新和双引擎同余额测试。
+
+## 2026-07-12：生产 credit 项目边界收敛为 Cloud 购买 Relay 服务
+
+- 决策：`blackrain-cloud` 是 `blackrain-relay` 的企业客户。Supabase JWT 只向 Cloud 证明身份；Cloud 检查套餐/余额后向 Relay 兑换长期、可撤销、可限额的 model token。WORK 直连 Relay，CODE 经本地翻译网关进入 Relay。现有 `gateway/proxy.py` 退为历史过渡实现，不再是目标生产入口。
+- 原因：Relay 要独立经营并服务第三方，Cloud 不应与其共享数据库或进入高吞吐模型内容路径；短期 Supabase JWT 也不适合常驻 Hermes。
+- 替代方案：Relay 直接识别 Supabase JWT；Cloud 代理全部模型请求；继续把 `proxy.py` 作为最终服务；Cloud 与 Relay 共库。
+- 影响范围：account broker、provider producer、系统凭据、credit 错误、usage 对账、`proxy.py` 迁移和 010。
+- 后续复查条件：实现前冻结 token exchange、撤销、过期、usage idempotency、日终对账和退款补偿合同。
+
+## 2026-07-12：Supabase 是 BlackRain 商业账本真源
+
+- 决策：Supabase 记录 BlackRain 套餐、充值、赠送、消费、退款和未来创作者收益；Relay 记录原始模型 usage、渠道成本、执行额度和批发结算。两边通过 API/Webhook 幂等对账，不共享表。
+- 原因：New API quota 无法表达 BlackRain 全部商业事件；Supabase 也不适合承担模型路由和 token 限流。双边都维护“最终余额”会产生不可解释漂移。
+- 替代方案：以 Relay quota 为唯一商业余额；Relay 直接调用 `spend_credits`；Cloud 直接修改 Relay 数据库。
+- 影响范围：ledger schema、request/usage id、余额展示、退款和财务报表。
+- 后续复查条件：Cloud/Relay 合同测试必须覆盖重复、迟到、缺失 usage 和差错补偿。
 
 ## 被推翻的方案
 

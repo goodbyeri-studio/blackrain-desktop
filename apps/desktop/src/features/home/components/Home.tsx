@@ -33,6 +33,7 @@ type HomeProps = {
   reasoningSupported: boolean;
   onAddWorkspace: () => void;
   onAddWorkspaceFromUrl: () => void;
+  onOpenWorkSurface: () => void;
   // — 以下为仪表盘旧 props,保留以维持上游 homeProps 组装不变(首页不再渲染) —
   latestAgentRuns: LatestAgentRun[];
   isLoadingLatestAgents: boolean;
@@ -65,6 +66,7 @@ export function Home({
   reasoningSupported,
   onAddWorkspace,
   onAddWorkspaceFromUrl,
+  onOpenWorkSurface,
 }: HomeProps) {
   const { tx } = useI18n();
   const [draft, setDraft] = useState("");
@@ -193,6 +195,10 @@ export function Home({
             />
           </div>
         </div>
+        <button type="button" className="home-workbench-entry" onClick={onOpenWorkSurface}>
+          <span>Office 工作台</span>
+          <small>使用 Hermes Agent 处理文档、表格与演示文稿</small>
+        </button>
       </div>
     </div>
   );

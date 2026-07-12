@@ -2,7 +2,7 @@
 
 Office 是 BlackRain 第一套参考工作台，用于验证“专家环境如何被声明、安装、激活、执行、验证和卸载”。它不是 BlackRain 最终只做办公助手的产品定位。
 
-> **当前状态**：本目录只有内容和注入骨架，尚未迁移到 [.specs/008](../../.specs/008-expert-workbench-package/) 的目标 Manifest。资源已进入 Windows bundle mapping，但 NSIS 尚未 build/unpack/install 验证；WORK/Hermes surface、工作台生命周期和 Office 质量基线均未完成。
+> **当前状态**：本目录已迁移到 `workbench.yaml v1`，并可被 Core 严格只读 inspect；这只证明声明、包内路径和基础依赖元数据可解析。尚无 install/health 执行/权限审批/activate/upgrade/uninstall 生命周期，NSIS 也未 build/unpack/install 验证；Office 质量基线仍未完成。
 
 ## 想复制的专家环境
 
@@ -38,7 +38,7 @@ Office 是 BlackRain 第一套参考工作台，用于验证“专家环境如�
 
 ## 进入可发布状态前必须补齐
 
-- 工作台 Manifest 和依赖/权限声明
+- 工作台 install/permission/activate 生命周期
 - OfficeCLI 来源、License、checksum 和 NOTICE
 - Windows 安装后健康检查
 - 用户项目模板和任务入口

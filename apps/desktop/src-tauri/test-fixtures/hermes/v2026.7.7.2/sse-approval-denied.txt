@@ -1,0 +1,7 @@
+data: {"event":"approval.responded","run_id":"run_demo_denied","timestamp":1783814400.6,"choice":"deny","resolved":1}
+
+data: {"event":"message.delta","run_id":"run_demo_denied","timestamp":1783814400.65,"delta":"用户拒绝执行写入操作。"}
+
+data: {"event":"run.cancelled","run_id":"run_demo_denied","timestamp":1783814400.7}
+
+: stream closed

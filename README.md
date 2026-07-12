@@ -4,6 +4,8 @@
 
 BlackRain 是一个由 AI 驱动的垂类工作环境平台。它不和大厂正面争夺“最全能的通用助手”，而是提供工作台的封装、安装、运行和分发底座，让每个可电脑化领域都能快速拥有自己的“Codex”。
 
+BlackRain 采用桌面端 SaaS 形态，由三个独立项目运营：私有 `blackrain-desktop`（本仓）、私有 `blackrain-cloud`（账号/权益/商业账本）和公开 AGPL `blackrain-relay`（基于 New API 的模型中转站）。Cloud 是 Relay 的企业客户，不与其共享数据库；详细边界以 [.specs/010](.specs/010-three-project-platform/) 为准。
+
 `BlackRain` 是当前规范产品名。历史文档、提交和少数尚未迁移的产物名里可能仍出现 `2049 App` / `2049`；它们只表示旧称。
 
 ## 一句话理解
@@ -72,7 +74,7 @@ Skill + 插件 + 环境 + 资源 + 验证
 ## 目录结构
 
 ```text
-BlackRain/
+blackrain-desktop/
 ├── README.md              全仓入口、产品定位和当前状态
 ├── docs/                  产品战略、架构、市场和运行手册
 ├── .specs/                跨层功能的 living specs
@@ -93,6 +95,8 @@ BlackRain/
 - **Skill / 插件 / 工作台 / 工作室定义**：[04 产品形态](docs/04-产品形态.md)
 - **运行时拓扑**：[09 运行时架构与里程碑](docs/09-运行时架构与里程碑.md)
 - **工作台包协议**：[.specs/008](.specs/008-expert-workbench-package/)
+- **Hermes WORK surface 闭环**：[.specs/009](.specs/009-hermes-work-surface/)
+- **三项目平台与 Cloud/Relay 边界**：[.specs/010](.specs/010-three-project-platform/)
 - **当前实现水位**：对应 spec 的 `verification.md` + 实际代码/配置
 
 完整地图见 [docs/README.md](docs/README.md)。
@@ -102,7 +106,7 @@ BlackRain/
 - 产品定位已在 2026-07-12 重构为“专家数字工作环境平台”；现有代码尚未因此自动获得工作台安装、升级和市场能力。
 - `apps/desktop/` 已有 CODE 主链和大量 codex app-server 能力接线；CODE 功能水位不等于 WORK/工作台产品已经完成。
 - `gateway/` 已证明 DeepSeek 可经翻译驱动 codex 工具调用，但 App 托管 spawn 尚未显式设置 `STRIP_TOOLS=0`，普通产品路径仍会剥除工具，是发布阻塞项。
-- Hermes→new-api→国产模型已有独立 spike 证据；Hermes 进程纳管、Tauri WORK surface 和工作台生命周期尚未形成产品闭环。
+- Hermes Desktop 到 WORK surface 的现有合同范围迁移已在 macOS 完成代码级收口；Windows Tauri、Hermes/new-api 和 Office 产品验收仍未完成。
 - `workbenches/office-agent/`、OfficeCLI 资源和注入骨架存在，但 Windows NSIS 构建、安装、首启、Office 质量基线尚未完成。
 - `.specs/008` 当前只定义目标工作台包格式，尚无完整 manifest、安装器、升级/回滚和签名验证实现。
 - 专家工作台市场属于 post-MVP，当前没有上传、审核、分发、结算实现。
@@ -110,7 +114,7 @@ BlackRain/
 ## 当前优先级
 
 1. 修复 CODE Gateway 产品启动路径并完成 Windows 发布矩阵。
-2. 打通 Hermes WORK surface 和工作台生命周期最小闭环。
+2. 将 [.specs/009](.specs/009-hermes-work-surface/) 已完成的 macOS 代码级迁移转入 Windows Tauri、Hermes/new-api、PTY 和高 DPI 实机验收。
 3. 用 Office 参考工作台验证“安装环境 → 执行任务 → 验证结果 → 恢复失败”的完整链路。
 4. 落地 `.specs/008` 的最小工作台 manifest、依赖检查、安装、验证和卸载协议。
 5. 选择第二套真正用于市场切入的垂类工作台；市场和工作室在单工作台模型成立后再推进。

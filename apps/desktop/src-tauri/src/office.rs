@@ -200,7 +200,7 @@ fn bundled_plugin_dir(app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
-fn bundled_workbench_dir(app: &AppHandle) -> Option<PathBuf> {
+pub(crate) fn bundled_workbench_dir(app: &AppHandle) -> Option<PathBuf> {
     if let Ok(resource_dir) = app.path().resource_dir() {
         let candidate = resource_dir.join(RESOURCE_WORKBENCH_DIR);
         if candidate.exists() {
@@ -222,6 +222,43 @@ fn bundled_workbench_dir(app: &AppHandle) -> Option<PathBuf> {
         return Some(dev);
     }
     None
+}
+
+pub(crate) fn bundled_officecli_windows_binary(app: &AppHandle) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(
+            resource_dir
+                .join(RESOURCE_OFFICE_DIR)
+                .join("windows-x64")
+                .join("officecli.exe"),
+        );
+    }
+    if let Ok(current_exe) = env::current_exe() {
+        if let Some(exe_dir) = current_exe.parent() {
+            candidates.push(
+                exe_dir
+                    .join(RESOURCE_OFFICE_DIR)
+                    .join("windows-x64")
+                    .join("officecli.exe"),
+            );
+            candidates.push(
+                exe_dir
+                    .join("resources")
+                    .join(RESOURCE_OFFICE_DIR)
+                    .join("windows-x64")
+                    .join("officecli.exe"),
+            );
+        }
+    }
+    candidates.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join(RESOURCE_OFFICE_DIR)
+            .join("windows-x64")
+            .join("officecli.exe"),
+    );
+    candidates.into_iter().find(|candidate| candidate.is_file())
 }
 
 #[cfg(unix)]

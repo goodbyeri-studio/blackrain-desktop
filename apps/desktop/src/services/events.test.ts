@@ -2,12 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Event, EventCallback, UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import type { AppServerEvent } from "../types";
+import type { WorkEvent } from "@/features/work/types";
 import {
   subscribeAppServerEvents,
   subscribeMenuCycleCollaborationMode,
   subscribeMenuCycleModel,
   subscribeMenuNewAgent,
   subscribeTerminalOutput,
+  subscribeWorkEnvironmentReconcile,
+  subscribeWorkEvents,
+  subscribeWorkFollowUpsChanged,
 } from "./events";
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -43,6 +47,82 @@ describe("events subscriptions", () => {
     listener(event);
     expect(onEvent).toHaveBeenCalledWith(payload);
 
+    cleanup();
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("fans out WORK events through one Tauri listener", async () => {
+    let listener: EventCallback<WorkEvent> = () => {};
+    const unlisten = vi.fn();
+    vi.mocked(listen).mockImplementation((eventName, handler) => {
+      expect(eventName).toBe("work-event");
+      listener = handler as EventCallback<WorkEvent>;
+      return Promise.resolve(unlisten);
+    });
+    const first = vi.fn();
+    const second = vi.fn();
+    const cleanupFirst = subscribeWorkEvents(first);
+    const cleanupSecond = subscribeWorkEvents(second);
+    const payload: WorkEvent = {
+      schemaVersion: 1,
+      eventId: "event-1",
+      sequence: 1,
+      taskId: "task-1",
+      runId: "run-1",
+      timestamp: 1,
+      itemId: null,
+      type: "agentTextDelta",
+      delta: "完成",
+    };
+
+    listener({ event: "work-event", id: 2, payload });
+    expect(first).toHaveBeenCalledWith(payload);
+    expect(second).toHaveBeenCalledWith(payload);
+    expect(listen).toHaveBeenCalledTimes(1);
+
+    cleanupFirst();
+    cleanupSecond();
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("delivers native WORK environment reconcile signals", async () => {
+    let listener: EventCallback<void> = () => {};
+    const unlisten = vi.fn();
+    vi.mocked(listen).mockImplementation((eventName, handler) => {
+      expect(eventName).toBe("work-environment-reconcile");
+      listener = handler as EventCallback<void>;
+      return Promise.resolve(unlisten);
+    });
+    const onEvent = vi.fn();
+    const cleanup = subscribeWorkEnvironmentReconcile(onEvent);
+
+    listener({
+      event: "work-environment-reconcile",
+      id: 3,
+      payload: undefined,
+    });
+    expect(onEvent).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("fans out durable WORK follow-up queue changes", async () => {
+    let listener: EventCallback<{ taskId: string; followUps: [] }> = () => {};
+    const unlisten = vi.fn();
+    vi.mocked(listen).mockImplementation((eventName, handler) => {
+      expect(eventName).toBe("work-follow-ups-changed");
+      listener = handler as EventCallback<{ taskId: string; followUps: [] }>;
+      return Promise.resolve(unlisten);
+    });
+    const onEvent = vi.fn();
+    const cleanup = subscribeWorkFollowUpsChanged(onEvent);
+    const payload = { taskId: "task-1", followUps: [] as [] };
+    listener({ event: "work-follow-ups-changed", id: 4, payload });
+    expect(onEvent).toHaveBeenCalledWith(payload);
     cleanup();
     await Promise.resolve();
     expect(unlisten).toHaveBeenCalledTimes(1);

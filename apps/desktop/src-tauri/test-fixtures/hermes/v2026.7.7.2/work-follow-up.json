@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "followUpId": "follow-up-demo-001",
+  "taskId": "task_demo_001",
+  "prompt": "生成管理层摘要",
+  "projectFileRefs": [
+    "C:\\Users\\demo\\Office Project\\reports\\quarterly.xlsx"
+  ],
+  "instructions": null,
+  "model": "office-fast",
+  "status": "queued",
+  "attemptId": null,
+  "createdAt": 1783814401.0,
+  "updatedAt": 1783814401.0,
+  "lastError": null
+}

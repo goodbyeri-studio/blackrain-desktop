@@ -5,6 +5,12 @@ import type {
   DictationModelStatus,
   TrayOpenThreadPayload,
 } from "../types";
+import type { WorkEvent, WorkFollowUp } from "@/features/work/types";
+
+export type WorkFollowUpsChanged = {
+  taskId: string;
+  followUps: WorkFollowUp[];
+};
 
 export type Unsubscribe = () => void;
 
@@ -87,6 +93,13 @@ function createEventHub<T>(eventName: string) {
 }
 
 const appServerHub = createEventHub<AppServerEvent>("app-server-event");
+const workEventHub = createEventHub<WorkEvent>("work-event");
+const workFollowUpsChangedHub = createEventHub<WorkFollowUpsChanged>(
+  "work-follow-ups-changed",
+);
+const workEnvironmentReconcileHub = createEventHub<void>(
+  "work-environment-reconcile",
+);
 const dictationDownloadHub = createEventHub<DictationModelStatus>("dictation-download");
 const dictationEventHub = createEventHub<DictationEvent>("dictation-event");
 const terminalOutputHub = createEventHub<TerminalOutputEvent>("terminal-output");
@@ -123,6 +136,29 @@ export function subscribeAppServerEvents(
   options?: SubscriptionOptions,
 ): Unsubscribe {
   return appServerHub.subscribe(onEvent, options);
+}
+
+export function subscribeWorkEvents(
+  onEvent: (event: WorkEvent) => void,
+  options?: SubscriptionOptions,
+): Unsubscribe {
+  return workEventHub.subscribe(onEvent, options);
+}
+
+export function subscribeWorkFollowUpsChanged(
+  onEvent: (event: WorkFollowUpsChanged) => void,
+  options?: SubscriptionOptions,
+): Unsubscribe {
+  return workFollowUpsChangedHub.subscribe(onEvent, options);
+}
+
+export function subscribeWorkEnvironmentReconcile(
+  onEvent: () => void,
+  options?: SubscriptionOptions,
+): Unsubscribe {
+  return workEnvironmentReconcileHub.subscribe(() => {
+    onEvent();
+  }, options);
 }
 
 export function subscribeDictationDownload(

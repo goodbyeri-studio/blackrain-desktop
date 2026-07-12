@@ -11,14 +11,14 @@
 
 ## 当前 CI 真相
 
-`.github/workflows/ci.yml` 目前只有两类检查：
+`.github/workflows/ci.yml` 目前有两类检查：
 
 | Job | Runner | 覆盖 |
 |---|---|---|
 | `js-checks` | `ubuntu-latest` | `npm ci`、`npm run typecheck`、`npm run test` |
-| `rust-check` | `windows-latest` | `apps/desktop/src-tauri` 的 `cargo check` |
+| `windows-checks` | `windows-latest` | JS typecheck/test/lint/DS/codemod + Rust `cargo check`、Hermes/workbench/plugin 专项 |
 
-CI **不包含** macOS runner，也不包含 lint、GUI、Tauri dev、NSIS、Credential Manager、真实模型对话、Hermes、Office 或安装/卸载验证。PR 中不能写“CI 绿 = Windows 客户端已验证”。
+CI **不包含** macOS runner，也不包含 GUI、Tauri dev、Hermes runtime vendor/启动、NSIS、Credential Manager、真实模型对话、Office 或安装/卸载验证。PR 中不能写“CI 绿 = Windows 客户端已验证”。
 
 ## 代码边界矩阵
 
