@@ -1356,7 +1356,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::process::Stdio;
     use std::sync::Arc;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     use super::{
         classify_port_conflict, isolated_user_environment, read_runtime_lease, redact_log_line,
@@ -1671,9 +1671,16 @@ mod tests {
                 .await
                 .unwrap()
             });
+            let cold_start = Instant::now();
             let ready = supervisor.start(environment).await.unwrap();
+            let cold_start_ms = cold_start.elapsed().as_secs_f64() * 1_000.0;
+            eprintln!("[work-perf] fake-supervisor-cold-start-ms={cold_start_ms:.1}");
             assert_eq!(ready.state, WorkRuntimeState::Ready);
             assert_eq!(ready.version.as_deref(), Some("0.18.2"));
+            assert!(
+                cold_start_ms < 1_500.0,
+                "fake supervisor cold start regressed to {cold_start_ms:.1}ms"
+            );
             let traces = supervisor.recent_http_traces();
             assert!(traces.len() >= 3);
             let successful = &traces[traces.len() - 3..];
