@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use super::client::{HermesApiClient, HermesRunCreateRequest, HermesStreamCancellation};
 use super::events::HermesEventNormalizer;
 use super::protocol::HermesSseFrame;
-use super::tasks::HermesTaskStore;
+use super::tasks::{local_user_message_event_id, HermesTaskStore};
 use super::types::{WorkError, WorkErrorKind, WorkEvent, WorkTask, WorkTaskStatus};
 
 #[derive(Clone)]
@@ -26,6 +26,12 @@ pub(crate) struct StartedTaskRun {
     pub(crate) task: WorkTask,
     pub(crate) run_id: String,
     pub(crate) cancellation: HermesStreamCancellation,
+    pub(crate) initial_events: Vec<WorkEvent>,
+}
+
+pub(crate) struct WorkRunPresentation {
+    pub(crate) user_text: String,
+    pub(crate) project_file_refs: Vec<String>,
 }
 
 pub(crate) async fn start_task_run(
@@ -34,6 +40,7 @@ pub(crate) async fn start_task_run(
     client: &HermesApiClient,
     task_id: &str,
     request: &HermesRunCreateRequest,
+    presentation: WorkRunPresentation,
 ) -> Result<StartedTaskRun, WorkError> {
     registry.reserve(task_id).await?;
     let started = match client.create_run(request).await {
@@ -44,18 +51,6 @@ pub(crate) async fn start_task_run(
         }
     };
     let session_id = request.session_id.as_deref().unwrap_or(&started.run_id);
-    let task = match store
-        .lock()
-        .await
-        .attach_run(task_id, &started.run_id, session_id)
-    {
-        Ok(task) => task,
-        Err(error) => {
-            let _ = client.stop_run(&started.run_id).await;
-            registry.release(task_id, None).await;
-            return Err(error);
-        }
-    };
     let cancellation = match registry.activate(task_id, &started.run_id).await {
         Ok(cancellation) => cancellation,
         Err(error) => {
@@ -64,10 +59,26 @@ pub(crate) async fn start_task_run(
             return Err(error);
         }
     };
+    let attached = match store.lock().await.attach_run_with_user_message(
+        task_id,
+        &started.run_id,
+        session_id,
+        &presentation.user_text,
+        &presentation.project_file_refs,
+    ) {
+        Ok(attached) => attached,
+        Err(error) => {
+            cancellation.cancel();
+            let _ = client.stop_run(&started.run_id).await;
+            registry.release(task_id, Some(&started.run_id)).await;
+            return Err(error);
+        }
+    };
     Ok(StartedTaskRun {
-        task,
+        task: attached.task,
         run_id: started.run_id,
         cancellation,
+        initial_events: vec![attached.user_event],
     })
 }
 
@@ -211,6 +222,12 @@ where
         ));
     }
     let mut normalizer = HermesEventNormalizer::new(task_id, run_id, task.last_event_sequence)?;
+    let suppress_upstream_user_message = store
+        .lock()
+        .await
+        .load_events(task_id)?
+        .iter()
+        .any(|event| event.event_id == local_user_message_event_id(run_id));
     let mut reconnect_attempt = 0_usize;
     loop {
         let mut stream = match client
@@ -238,6 +255,9 @@ where
             match frame {
                 Ok(HermesSseFrame::Comment(_)) => {}
                 Ok(HermesSseFrame::Event(raw)) => {
+                    if suppress_upstream_user_message && raw.event == "user.message" {
+                        continue;
+                    }
                     let normalized = normalizer.normalize(&raw)?;
                     if normalized.is_empty() {
                         continue;
@@ -370,6 +390,7 @@ mod tests {
 
     use super::{
         consume_run_events_with_policy, start_task_run, HermesRunRegistry, RunnerRetryPolicy,
+        WorkRunPresentation,
     };
     use crate::shared::hermes_core::client::{
         HermesApiClient, HermesRunCreateRequest, HermesStreamCancellation,
@@ -451,6 +472,10 @@ mod tests {
                 model: Some("office-fast".into()),
                 conversation_history: Vec::new(),
             },
+            WorkRunPresentation {
+                user_text: "整理季度报告".into(),
+                project_file_refs: vec![r"C:\Users\demo\BlackRain Project\quarterly.xlsx".into()],
+            },
         )
         .await
         .unwrap();
@@ -462,6 +487,17 @@ mod tests {
             Some("run_demo_001")
         );
         assert_eq!(started.task.active_run_id.as_deref(), Some("run_demo_001"));
+        assert_eq!(started.task.last_event_sequence, 1);
+        let events = store.lock().await.load_events("task-runner").unwrap();
+        assert_eq!(events, started.initial_events);
+        assert!(matches!(
+            &events[0].kind,
+            crate::shared::hermes_core::types::WorkEventKind::UserMessageAdded {
+                text,
+                project_file_refs,
+            } if text == "整理季度报告"
+                && project_file_refs == &[r"C:\Users\demo\BlackRain Project\quarterly.xlsx"]
+        ));
         let requests = server.finish().await.unwrap();
         let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
         assert_eq!(body["input"], "整理季度报告");
@@ -470,6 +506,9 @@ mod tests {
         assert!(body.get("host").is_none());
         assert!(body.get("port").is_none());
         assert!(body.get("env").is_none());
+        let restored = HermesTaskStore::new(&root);
+        let restored_events = restored.load_events("task-runner").unwrap();
+        assert_eq!(restored_events, started.initial_events);
         registry.release("task-runner", Some("run_demo_001")).await;
         fs::remove_dir_all(root).unwrap();
     }
@@ -508,6 +547,10 @@ mod tests {
                 session_id: Some("session-original".into()),
                 model: None,
                 conversation_history: Vec::new(),
+            },
+            WorkRunPresentation {
+                user_text: "继续处理".into(),
+                project_file_refs: Vec::new(),
             },
         )
         .await
@@ -676,6 +719,66 @@ mod tests {
             WorkTaskStatus::Completed
         );
         assert_eq!(server.finish().await.unwrap().len(), 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn local_user_message_suppresses_upstream_echo_for_the_same_run() {
+        let root = temp_root();
+        let store = Arc::new(Mutex::new(HermesTaskStore::new(&root)));
+        {
+            let guard = store.lock().await;
+            guard.upsert_task(&task()).unwrap();
+            guard
+                .attach_run_with_user_message(
+                    "task-runner",
+                    "run_demo_001",
+                    "run_demo_001",
+                    "检查季度报告",
+                    &[r"C:\Users\demo\BlackRain Project\quarterly.xlsx".into()],
+                )
+                .unwrap();
+        }
+        let sse = concat!(
+            "data: {\"event\":\"user.message\",\"run_id\":\"run_demo_001\",\"timestamp\":1783814400.1,\"text\":\"检查季度报告\"}\n\n",
+            "data: {\"event\":\"run.completed\",\"run_id\":\"run_demo_001\",\"timestamp\":1783814401.0,\"output\":\"检查完成。\"}\n\n"
+        );
+        let server =
+            FakeHermesServer::spawn(vec![FakeExchange::sse("/v1/runs/run_demo_001/events", sse)])
+                .await
+                .unwrap();
+        let client = HermesApiClient::new(
+            &server.base_url,
+            "blackrain-test-bearer-runner-user-echo-123456789",
+        )
+        .unwrap();
+
+        consume_run_events_with_policy(
+            &store,
+            &client,
+            "task-runner",
+            "run_demo_001",
+            &HermesStreamCancellation::new(),
+            &RunnerRetryPolicy { backoff: vec![] },
+            |_| {},
+        )
+        .await
+        .unwrap();
+
+        let events = store.lock().await.load_events("task-runner").unwrap();
+        let user_messages = events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event.kind,
+                    crate::shared::hermes_core::types::WorkEventKind::UserMessageAdded { .. }
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(user_messages.len(), 1);
+        assert_eq!(user_messages[0].event_id, "run_demo_001:local-user-message");
+        assert_eq!(events.last().unwrap().sequence, 3);
+        assert_eq!(server.finish().await.unwrap().len(), 1);
         fs::remove_dir_all(root).unwrap();
     }
 

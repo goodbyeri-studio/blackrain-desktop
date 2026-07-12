@@ -2,6 +2,7 @@ import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
 import FileOutput from "lucide-react/dist/esm/icons/file-output";
 import LoaderCircle from "lucide-react/dist/esm/icons/loader-circle";
+import Paperclip from "lucide-react/dist/esm/icons/paperclip";
 import TerminalSquare from "lucide-react/dist/esm/icons/square-terminal";
 
 import { Markdown } from "@/features/messages/components/Markdown";
@@ -42,7 +43,23 @@ export function WorkEventRow({ event, projectPath, onOpenOutput }: WorkEventRowP
     case "userMessageAdded":
       return (
         <article className="work-message-row is-user">
-          <div className="work-message-bubble">{event.text}</div>
+          <div className="work-message-bubble">
+            <span>{event.text}</span>
+            {event.projectFileRefs.length > 0 ? (
+              <div className="work-message-files" aria-label="本轮项目文件引用">
+                {event.projectFileRefs.map((path) => {
+                  const parts = path.split(/[\\/]/).filter(Boolean);
+                  const name = parts[parts.length - 1] ?? path;
+                  return (
+                    <span key={path} className="work-composer-file" title={path}>
+                      <Paperclip aria-hidden />
+                      <span>{name}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
         </article>
       );
     case "agentTextDelta":

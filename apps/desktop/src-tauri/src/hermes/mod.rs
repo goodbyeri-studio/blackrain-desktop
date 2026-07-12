@@ -9,7 +9,9 @@ use crate::remote_backend;
 use crate::shared::hermes_core::client::HermesRunCreateRequest;
 use crate::shared::hermes_core::protocol::HermesApprovalRequest;
 use crate::shared::hermes_core::recovery::audit_remote_recovery;
-use crate::shared::hermes_core::runner::{consume_run_events, is_terminal_status, start_task_run};
+use crate::shared::hermes_core::runner::{
+    consume_run_events, is_terminal_status, start_task_run, WorkRunPresentation,
+};
 use crate::shared::hermes_core::runtime::{
     bind_runtime_workbench, repair_runtime, restart_runtime, rollback_runtime_workbench,
     runtime_api_client, runtime_diagnostics, start_runtime, HermesRuntimeDiagnostics,
@@ -389,14 +391,21 @@ pub(crate) async fn hermes_task_start(
         &client,
         &task_id,
         &HermesRunCreateRequest {
-            input: Value::String(input.prompt),
+            input: Value::String(input.prompt.clone()),
             instructions: Some(run_instructions),
             session_id: None,
             model: input.model,
             conversation_history: Vec::new(),
         },
+        WorkRunPresentation {
+            user_text: input.prompt,
+            project_file_refs: input.project_file_refs,
+        },
     )
     .await?;
+    for event in &started.initial_events {
+        let _ = app.emit("work-event", event.clone());
+    }
     spawn_run_consumer(
         app,
         &state,
@@ -537,14 +546,21 @@ pub(crate) async fn hermes_task_continue(
         &client,
         &input.task_id,
         &HermesRunCreateRequest {
-            input: Value::String(input.prompt),
+            input: Value::String(input.prompt.clone()),
             instructions: Some(run_instructions),
             session_id: Some(session_id),
             model: input.model,
             conversation_history: Vec::new(),
         },
+        WorkRunPresentation {
+            user_text: input.prompt,
+            project_file_refs: input.project_file_refs,
+        },
     )
     .await?;
+    for event in &started.initial_events {
+        let _ = app.emit("work-event", event.clone());
+    }
     spawn_run_consumer(
         app,
         &state,

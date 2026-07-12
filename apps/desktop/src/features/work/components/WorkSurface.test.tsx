@@ -204,7 +204,11 @@ describe("WorkSurface", () => {
 
   it("renders persisted messages, output and pending approval", () => {
     const events: WorkEvent[] = [
-      event({ type: "userMessageAdded", text: "整理季度报告" }),
+      event({
+        type: "userMessageAdded",
+        text: "整理季度报告",
+        projectFileRefs: [`${task.projectPath}\\reports\\quarterly.xlsx`],
+      }),
       event({ type: "agentMessageCompleted", sequence: 2, text: "已完成整理。" }),
       event({ type: "outputAvailable", sequence: 3, path: `${task.projectPath}\\report.docx`, mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }),
       event({ type: "approvalRequested", sequence: 4, command: "office-cli write report.docx", description: "写入报告", choices: ["once", "deny"] }),
@@ -218,6 +222,7 @@ describe("WorkSurface", () => {
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
     expect(screen.getByText("已完成整理。")).toBeTruthy();
+    expect(screen.getByText("quarterly.xlsx")).toBeTruthy();
     expect(screen.getByText("report.docx")).toBeTruthy();
     expect(screen.getByText("Hermes 请求执行操作")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "仅本次允许" }));

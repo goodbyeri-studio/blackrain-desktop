@@ -327,6 +327,13 @@
   white-space: pre-wrap;
 }
 
+.work-message-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .work-message-row.is-agent {
   color: var(--text);
 }

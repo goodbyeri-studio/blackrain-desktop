@@ -127,6 +127,7 @@ Hermes 事件映射为 BlackRain 自己的 WORK domain model，至少覆盖：
 - spec 008 负责 inspect/install/activate/deactivate；本 spec 只提供 WORK 执行接缝。
 - 激活时接收工作台的 Skills、插件/MCP、环境变量、权限、任务入口和项目路径。
 - 每个新 run 的 Core-owned instructions 必须携带已验证项目根；用户选择的“附件”只作为项目内现有文件引用，经 Core 做数量、存在性、目录逃逸和 symlink 校验后加入 instructions，不伪装成 `/v1/runs` 不支持的二进制上传。
+- 每轮原始用户消息及其项目文件引用必须先持久化到 WORK transcript，再向前端展示；同一 run 的 Hermes `user.message` 回显不得制造重复用户消息。
 - 停用时解除本工作台的运行映射并回收受控进程，不删除用户项目。
 - 动态 MCP 工具发现不能替代完整工作台生命周期。
 

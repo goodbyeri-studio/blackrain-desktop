@@ -117,6 +117,8 @@ pub(crate) enum WorkEventKind {
     },
     UserMessageAdded {
         text: String,
+        #[serde(default, rename = "projectFileRefs", alias = "project_file_refs")]
+        project_file_refs: Vec<String>,
     },
     AgentTextDelta {
         delta: String,
@@ -192,5 +194,54 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn rust_serialization_preserves_user_message_file_references() {
+        let event = WorkEvent {
+            schema_version: WORK_SCHEMA_VERSION,
+            event_id: "run_demo_001:local-user-message".into(),
+            sequence: 1,
+            task_id: "task_demo_001".into(),
+            run_id: "run_demo_001".into(),
+            timestamp: 1_783_814_400.0,
+            item_id: Some("user-message:run_demo_001".into()),
+            kind: WorkEventKind::UserMessageAdded {
+                text: "整理季度报告".into(),
+                project_file_refs: vec![
+                    r"C:\Users\demo\Office Project\reports\quarterly.xlsx".into()
+                ],
+            },
+        };
+        let actual = serde_json::to_value(event).unwrap();
+        let expected: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../test-fixtures/hermes/v2026.7.7.2/work-event-user-message.json"
+        ))
+        .unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn legacy_user_message_without_file_refs_remains_readable() {
+        let event: WorkEvent = serde_json::from_value(serde_json::json!({
+            "schemaVersion": WORK_SCHEMA_VERSION,
+            "eventId": "run_demo_001:user-message",
+            "sequence": 1,
+            "taskId": "task_demo_001",
+            "runId": "run_demo_001",
+            "timestamp": 1_783_814_400.0,
+            "itemId": null,
+            "type": "userMessageAdded",
+            "text": "整理季度报告"
+        }))
+        .unwrap();
+
+        assert!(matches!(
+            event.kind,
+            WorkEventKind::UserMessageAdded {
+                project_file_refs,
+                ..
+            } if project_file_refs.is_empty()
+        ));
     }
 }

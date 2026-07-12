@@ -127,7 +127,10 @@ impl HermesEventNormalizer {
                     &fingerprint,
                     0,
                     None,
-                    WorkEventKind::UserMessageAdded { text },
+                    WorkEventKind::UserMessageAdded {
+                        text,
+                        project_file_refs: Vec::new(),
+                    },
                 ));
             }
             "reasoning.available" => {

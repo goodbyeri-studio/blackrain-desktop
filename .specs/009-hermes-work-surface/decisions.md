@@ -312,7 +312,15 @@
 - 原因：Hermes 进程 cwd 是独立 `HERMES_HOME`，只发送 prompt 会让 agent 不知道用户项目；在前端拼绝对路径既无法形成信任边界，也会让 transcript 混入内部上下文。锁定 `/v1/runs` 会把 multipart input 展平成文本，不支持 BlackRain 可依赖的二进制附件 contract。
 - 替代方案：把 Hermes cwd 改成项目目录、允许前端传任意 instructions/path、读取文件内容后内联进 prompt，或把项目文件引用伪装成上传附件。
 - 影响范围：activation→run、task start/continue contract、WORK Composer、项目文件安全门禁和阶段 9 消息/附件体验。
-- 后续复查条件：上游提供版本化 multimodal/file input 后另建 typed content contract；当前文件引用在发送后尚未作为独立 transcript metadata 持久化，因此阶段 9 的“消息流和附件显示”总项仍未完成。
+- 后续复查条件：上游提供版本化 multimodal/file input 后另建 typed content contract；当前仍只表达项目内文件引用，不升级为二进制附件。
+
+## 2026-07-12：每轮用户消息由 BlackRain journal-first，Hermes 回显只作兼容输入
+
+- 决策：`POST /v1/runs` 返回真实 run id 后，shared TaskStore 用确定性 `<run_id>:local-user-message` 事件把原始 prompt 与已验证 `projectFileRefs` 写入同一任务 journal，并在 snapshot 写失败时回滚本次 journal append；成功后 App 才向前端 emit。新 run 的 SSE consumer 检测到该本地事件时抑制同 run 的上游 `user.message`，旧任务没有本地事件时仍保留上游 normalizer fallback。
+- 原因：文件引用如果只停留在 Composer React state，发送后和 App 重启后都会消失；如果依赖 Hermes 回显，又无法保证引用元数据存在，并会与本地即时展示产生重复气泡。BlackRain 是工作台 transcript 的持久化真源，必须先落盘再展示。
+- 替代方案：前端乐观插入临时消息、把引用拼进 prompt、无条件删除 normalizer 的 `user.message` 支持、或同时展示本地与上游两条用户消息。
+- 影响范围：TaskStore run attach、runner SSE 门禁、Rust↔TypeScript `WorkEvent` contract、WORK 消息 UI 和 App 重启恢复。
+- 后续复查条件：durable follow-up queue 也必须复用 Core-owned 持久化语义；不得退回仅存在 React state 的队列。若上游未来提供事件 cursor/idempotency，应继续保留单一 transcript 真源并升级去重依据。
 
 ## 2026-07-12：Skills 使用 Hermes 原生 external_dirs，单 runtime 切换时 fail closed
 

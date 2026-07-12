@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import rawMessageDelta from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/event-message-delta.json";
 import rawUnknown from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/event-unknown.json";
 import workAgentDelta from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/work-event-agent-delta.json";
+import workUserMessage from "../../../src-tauri/test-fixtures/hermes/v2026.7.7.2/work-event-user-message.json";
 import activatedWorkbench from "../../../src-tauri/test-fixtures/workbench/v1/activated-workbench-context.json";
 import {
   isActivatedWorkbenchContext,
@@ -25,6 +26,17 @@ describe("Hermes WORK contracts", () => {
     expect(event.type).toBe("agentTextDelta");
     if (event.type === "agentTextDelta") {
       expect(event.delta).toBe("正在读取季度报告。");
+    }
+  });
+
+  it("accepts persisted user messages with project file references", () => {
+    expect(isWorkEvent(workUserMessage)).toBe(true);
+    const event = workUserMessage as WorkEvent;
+    expect(event.type).toBe("userMessageAdded");
+    if (event.type === "userMessageAdded") {
+      expect(event.projectFileRefs).toEqual([
+        "C:\\Users\\demo\\Office Project\\reports\\quarterly.xlsx",
+      ]);
     }
   });
 
