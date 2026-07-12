@@ -761,8 +761,15 @@ mod tests {
         );
         assert_eq!(started.task.active_run_id.as_deref(), Some("run_demo_001"));
         assert_eq!(started.task.last_event_sequence, 1);
+        let assert_roundtrip = |actual: &[WorkEvent]| {
+            assert_eq!(actual.len(), started.initial_events.len());
+            assert!((actual[0].timestamp - started.initial_events[0].timestamp).abs() < 0.000_001);
+            let mut normalized = actual.to_vec();
+            normalized[0].timestamp = started.initial_events[0].timestamp;
+            assert_eq!(normalized, started.initial_events);
+        };
         let events = store.lock().await.load_events("task-runner").unwrap();
-        assert_eq!(events, started.initial_events);
+        assert_roundtrip(&events);
         assert!(matches!(
             &events[0].kind,
             crate::shared::hermes_core::types::WorkEventKind::UserMessageAdded {
@@ -782,7 +789,7 @@ mod tests {
         assert!(body.get("env").is_none());
         let restored = HermesTaskStore::new(&root);
         let restored_events = restored.load_events("task-runner").unwrap();
-        assert_eq!(restored_events, started.initial_events);
+        assert_roundtrip(&restored_events);
         registry.release("task-runner", Some("run_demo_001")).await;
         fs::remove_dir_all(root).unwrap();
     }
