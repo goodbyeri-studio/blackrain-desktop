@@ -38,9 +38,11 @@
 ## 阶段 3：升级、回滚和卸载
 
 - [x] 冻结不可变 activation generation、task/session 迁移资格、审计和失败回滚合同
-- [ ] 实现 activation generation migration shared Core 状态机和持久审计
-- [ ] 迁移 API 仅接受 task + target activation 身份，不接受前端资源/env/runtime 覆盖
-- [ ] 覆盖 active run 拒绝、跨工作台/项目拒绝、新资源未验证拒绝和失败原子回滚
+- [x] 实现 activation generation migration shared Core 状态机和持久审计
+- [x] 迁移 API 仅接受 task + target activation 身份，不接受前端资源/env/runtime 覆盖
+- [ ] 覆盖迁移失败的完整回滚矩阵
+  - [x] 代码级覆盖非终态/active run、跨工作台/项目、目标未验证、prepare 后竞态和 task snapshot 原子审计
+  - [ ] 真实 Hermes/runtime/router readiness 失败、配置回滚失败、App 强退和 Windows process tree E2E
 - [ ] 实现新版本 staging 安装和原子激活
 - [ ] 健康检查失败自动回滚
 - [ ] 共享依赖引用计数
@@ -48,7 +50,7 @@
 - [ ] 报告无法删除的残留项
 - [ ] 失败注入覆盖断网、磁盘不足、进程残留和依赖冲突
 
-> 2026-07-12：generation 合同以新 `activationId` 表达资源变化，旧 activation 不原地改写。既有 task 默认 pinned；仅同 workbench、同 project、无 active run 且新资源全部 install/verify/permission 通过时可显式迁移。session 可保留但下一 run 使用新 generation，迁移必须持久化旧/新 activation、时间、原因和结果；runtime/router readiness 失败同时恢复旧 task binding 与 active generation。当前只冻结合同，shared Core 状态机、API、router 和 Windows 验证均未实现。
+> 2026-07-12：generation 合同以新 `activationId` 表达资源变化，旧 activation 不原地改写。既有 task 默认 pinned；仅同 workbench、同 project、终态、无 active run 且新资源全部 install/verify/permission 通过时可显式迁移。shared `workbench_core::migration` 已实现 prepare/commit/fail；`WorkTask.activationMigrations` 与 task identity 在同一原子 snapshot 中提交并保留 session。local-only Tauri command 只接受 `taskId + targetActivationId + reason enum`，重新读取 verified activation/plugin runtime，准备 binding/readiness 成功后才 commit；失败尽力恢复旧 binding/runtime 并只记录安全 failure code。普通前端只有 IPC wrapper，没有任意资源/env/runtime 输入。真实 Hermes/router、配置回滚失败、App 强退和 Windows 验证仍未完成。
 
 ## 阶段 4：发布级安全与来源
 

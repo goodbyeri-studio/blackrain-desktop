@@ -22,6 +22,34 @@ pub(crate) enum WorkTaskStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) enum WorkActivationMigrationReason {
+    WorkbenchUpgrade,
+    PluginChange,
+    PermissionChange,
+    Repair,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum WorkActivationMigrationStatus {
+    Completed,
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct WorkActivationMigration {
+    pub(crate) migration_id: String,
+    pub(crate) source_activation_id: String,
+    pub(crate) target_activation_id: String,
+    pub(crate) reason: WorkActivationMigrationReason,
+    pub(crate) status: WorkActivationMigrationStatus,
+    pub(crate) timestamp: f64,
+    pub(crate) failure_code: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) enum WorkRuntimeState {
     NotInstalled,
     Stopped,
@@ -63,6 +91,8 @@ pub(crate) struct WorkTask {
     pub(crate) updated_at: f64,
     #[serde(default)]
     pub(crate) recovery: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) activation_migrations: Vec<WorkActivationMigration>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

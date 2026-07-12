@@ -156,6 +156,23 @@ export type WorkTask = {
   createdAt: number;
   updatedAt: number;
   recovery: Record<string, unknown>;
+  activationMigrations?: WorkActivationMigration[];
+};
+
+export type WorkActivationMigrationReason =
+  | "workbenchUpgrade"
+  | "pluginChange"
+  | "permissionChange"
+  | "repair";
+
+export type WorkActivationMigration = {
+  migrationId: string;
+  sourceActivationId: string;
+  targetActivationId: string;
+  reason: WorkActivationMigrationReason;
+  status: "completed" | "failed";
+  timestamp: number;
+  failureCode: string | null;
 };
 
 export type WorkRecoveryDisposition =

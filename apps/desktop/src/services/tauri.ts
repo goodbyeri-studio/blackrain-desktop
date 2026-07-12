@@ -34,6 +34,7 @@ import type {
   HermesTaskRecoveryState,
   HermesTaskStartInput,
   WorkRuntimeStatus,
+  WorkActivationMigrationReason,
   WorkFollowUp,
   WorkTask,
   WorkbenchDeactivationResult,
@@ -1894,6 +1895,16 @@ export async function workbenchActivationDeactivate(
 ): Promise<WorkbenchDeactivationResult> {
   return invoke<WorkbenchDeactivationResult>("workbench_activation_deactivate", {
     activationId,
+  });
+}
+
+export async function workbenchActivationMigrateTask(
+  taskId: string,
+  targetActivationId: string,
+  reason: WorkActivationMigrationReason,
+): Promise<WorkTask> {
+  return invoke<WorkTask>("workbench_activation_migrate_task", {
+    input: { taskId, targetActivationId, reason },
   });
 }
 
