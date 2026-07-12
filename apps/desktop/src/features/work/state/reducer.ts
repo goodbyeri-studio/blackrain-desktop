@@ -1,6 +1,7 @@
 import type {
   ActivatedWorkbenchContext,
   HermesTaskRecoveryState,
+  HermesRuntimeModel,
   WorkError,
   WorkEvent,
   WorkFollowUp,
@@ -25,6 +26,7 @@ export type WorkState = {
   bundledOffice: WorkbenchPackageInspection | null;
   runtime: WorkRuntimeStatus | null;
   recovery: HermesTaskRecoveryState | null;
+  models: HermesRuntimeModel[];
   tasks: Record<string, WorkTaskState>;
   orphanEvents: Record<string, WorkEvent[]>;
   taskOrder: string[];
@@ -39,6 +41,7 @@ export const initialWorkState: WorkState = {
   bundledOffice: null,
   runtime: null,
   recovery: null,
+  models: [],
   tasks: {},
   orphanEvents: {},
   taskOrder: [],
@@ -59,6 +62,7 @@ export type WorkAction =
       error: WorkError | null;
     }
   | { type: "runtimeUpdated"; runtime: WorkRuntimeStatus }
+  | { type: "modelsLoaded"; models: HermesRuntimeModel[] }
   | { type: "recoveryUpdated"; recovery: HermesTaskRecoveryState }
   | { type: "tasksLoaded"; tasks: WorkTask[] }
   | { type: "activationsLoaded"; activations: ActivatedWorkbenchContext[] }
@@ -263,6 +267,8 @@ export function workReducer(state: WorkState, action: WorkAction): WorkState {
     }
     case "runtimeUpdated":
       return { ...state, runtime: action.runtime };
+    case "modelsLoaded":
+      return { ...state, models: action.models };
     case "recoveryUpdated":
       return { ...state, recovery: action.recovery };
     case "tasksLoaded":

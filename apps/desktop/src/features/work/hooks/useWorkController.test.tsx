@@ -14,6 +14,7 @@ import {
   hermesFollowUpEnqueue,
   hermesFollowUpRetry,
   hermesFollowUpDispatchReady,
+  hermesRuntimeModels,
   hermesRuntimeStatus,
   hermesTaskContinue,
   hermesTaskList,
@@ -47,6 +48,7 @@ vi.mock("@/services/tauri", () => ({
   hermesFollowUpRetry: vi.fn(),
   hermesFollowUpDispatchReady: vi.fn(),
   hermesRuntimeDiagnostics: vi.fn(),
+  hermesRuntimeModels: vi.fn(),
   hermesRuntimeRepair: vi.fn(),
   hermesRuntimeRestart: vi.fn(),
   hermesRuntimeStart: vi.fn(),
@@ -61,6 +63,9 @@ vi.mock("@/services/tauri", () => ({
   hermesTaskResume: vi.fn(),
   hermesTaskStart: vi.fn(),
   hermesTaskStop: vi.fn(),
+  hermesTaskUpdateMetadata: vi.fn(),
+  hermesProjectList: vi.fn(),
+  hermesProjectPreview: vi.fn(),
   workbenchActivationDeactivate: vi.fn(),
   workbenchActivationList: vi.fn(),
   workbenchBundledInspect: vi.fn(),
@@ -166,6 +171,7 @@ describe("useWorkController", () => {
     vi.mocked(workbenchActivationList).mockResolvedValue([]);
     vi.mocked(workbenchBundledInspect).mockResolvedValue(bundledOffice);
     vi.mocked(hermesFollowUpDispatchReady).mockResolvedValue(false);
+    vi.mocked(hermesRuntimeModels).mockResolvedValue([]);
   });
 
   afterEach(() => {

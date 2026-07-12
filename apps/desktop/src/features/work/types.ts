@@ -149,6 +149,10 @@ export type WorkTask = {
   workbenchId: string;
   workbenchVersion: string;
   projectPath: string;
+  title?: string | null;
+  pinned?: boolean;
+  archived?: boolean;
+  model?: string | null;
   hermesSessionId: string | null;
   activeRunId: string | null;
   status: WorkTaskStatus;
@@ -210,6 +214,30 @@ export type HermesTaskContinueInput = {
   model?: string | null;
 };
 
+export type HermesTaskMetadataInput = {
+  taskId: string;
+  title?: string;
+  pinned?: boolean;
+  archived?: boolean;
+};
+
+export type WorkProjectEntry = {
+  name: string;
+  relativePath: string;
+  kind: "directory" | "file";
+  size: number | null;
+  modifiedAt: number | null;
+};
+
+export type WorkProjectPreview = {
+  relativePath: string;
+  kind: "text" | "image" | "unsupported";
+  mediaType: string | null;
+  size: number;
+  content: string | null;
+  dataUrl: string | null;
+};
+
 export type WorkFollowUpStatus = "queued" | "starting" | "failed";
 
 export type WorkFollowUp = {
@@ -256,6 +284,11 @@ export type HermesRuntimeDiagnostics = {
   recentRequests: HermesHttpTrace[];
 };
 
+export type HermesRuntimeModel = {
+  id: string;
+  ownedBy: string;
+};
+
 type WorkEventBase = {
   schemaVersion: typeof WORK_SCHEMA_VERSION;
   eventId: string;
@@ -289,6 +322,12 @@ export type WorkEvent = WorkEventBase &
       }
     | { type: "approvalResolved"; choice: string; resolved: number }
     | { type: "userInputRequested"; prompt: string; choices: string[] }
+    | {
+        type: "usageUpdated";
+        inputTokens: number;
+        outputTokens: number;
+        totalTokens: number;
+      }
     | { type: "outputAvailable"; path: string; mediaType: string | null }
     | { type: "warningRaised"; message: string }
     | { type: "taskFailed"; error: WorkError }

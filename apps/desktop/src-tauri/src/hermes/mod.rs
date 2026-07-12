@@ -7,6 +7,10 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::remote_backend;
 use crate::shared::hermes_core::client::HermesRunCreateRequest;
+use crate::shared::hermes_core::files::{
+    list_project_directory, preview_project_file, resolve_task_project_root, WorkProjectEntry,
+    WorkProjectPreview,
+};
 use crate::shared::hermes_core::protocol::HermesApprovalRequest;
 use crate::shared::hermes_core::recovery::audit_remote_recovery;
 use crate::shared::hermes_core::runner::{
@@ -40,6 +44,24 @@ fn unsupported_remote_error() -> WorkError {
         .into_iter()
         .collect(),
     }
+}
+
+fn terminal_error(error: String) -> WorkError {
+    WorkError {
+        kind: WorkErrorKind::Runtime,
+        code: "work_terminal_operation_failed".into(),
+        message: error,
+        retryable: true,
+        http_status: None,
+        request_id: None,
+        details: [("surface".into(), json!("work-terminal"))]
+            .into_iter()
+            .collect(),
+    }
+}
+
+fn terminal_scope(task_id: &str) -> String {
+    format!("work:{task_id}")
 }
 
 async fn require_local(state: &AppState) -> Result<(), WorkError> {
@@ -91,6 +113,15 @@ pub(crate) struct HermesTaskContinueInput {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HermesTaskMetadataInput {
+    task_id: String,
+    title: Option<String>,
+    pinned: Option<bool>,
+    archived: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct HermesFollowUpInput {
     task_id: String,
     prompt: String,
@@ -118,6 +149,13 @@ pub(crate) struct HermesTaskReadResult {
     task: WorkTask,
     events: Vec<WorkEvent>,
     follow_ups: Vec<WorkFollowUp>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HermesRuntimeModel {
+    id: String,
+    owned_by: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -760,6 +798,10 @@ pub(crate) async fn hermes_task_start(
         workbench_id: activation.workbench_id,
         workbench_version: activation.workbench_version,
         project_path: activation.project.path,
+        title: None,
+        pinned: false,
+        archived: false,
+        model: input.model.clone(),
         hermes_session_id: None,
         active_run_id: None,
         status: WorkTaskStatus::Draft,
@@ -1082,11 +1124,130 @@ pub(crate) async fn hermes_task_delete_local_metadata(
 }
 
 #[tauri::command]
+pub(crate) async fn hermes_task_update_metadata(
+    input: HermesTaskMetadataInput,
+    state: State<'_, AppState>,
+) -> Result<WorkTask, WorkError> {
+    require_local(&state).await?;
+    state.hermes_tasks.lock().await.update_task_metadata(
+        &input.task_id,
+        input.title.as_deref(),
+        input.pinned,
+        input.archived,
+    )
+}
+
+#[tauri::command]
 pub(crate) async fn hermes_task_recovery_status(
     state: State<'_, AppState>,
 ) -> Result<HermesTaskRecoveryState, WorkError> {
     require_local(&state).await?;
     Ok(state.hermes_task_recovery.lock().await.clone())
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_runtime_models(
+    state: State<'_, AppState>,
+) -> Result<Vec<HermesRuntimeModel>, WorkError> {
+    require_local(&state).await?;
+    let models = runtime_api_client(&state.hermes_runtime).await?.models().await?;
+    Ok(models
+        .data
+        .into_iter()
+        .map(|model| HermesRuntimeModel {
+            id: model.id,
+            owned_by: model.owned_by,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_project_list(
+    task_id: String,
+    relative_path: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<WorkProjectEntry>, WorkError> {
+    require_local(&state).await?;
+    let tasks = state.hermes_tasks.lock().await;
+    list_project_directory(&tasks, &task_id, relative_path.as_deref().unwrap_or(""))
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_project_preview(
+    task_id: String,
+    relative_path: String,
+    state: State<'_, AppState>,
+) -> Result<WorkProjectPreview, WorkError> {
+    require_local(&state).await?;
+    let tasks = state.hermes_tasks.lock().await;
+    preview_project_file(&tasks, &task_id, &relative_path)
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_terminal_open(
+    task_id: String,
+    terminal_id: String,
+    cols: u16,
+    rows: u16,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<crate::terminal::TerminalSessionInfo, WorkError> {
+    require_local(&state).await?;
+    validate_bounded_text("terminal id", &terminal_id, 128)?;
+    let cwd = {
+        let tasks = state.hermes_tasks.lock().await;
+        resolve_task_project_root(&tasks, &task_id)?
+    };
+    crate::terminal::terminal_open_at_path(
+        terminal_scope(&task_id),
+        cwd,
+        terminal_id,
+        cols,
+        rows,
+        state,
+        app,
+    )
+    .await
+    .map_err(terminal_error)
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_terminal_write(
+    task_id: String,
+    terminal_id: String,
+    data: String,
+    state: State<'_, AppState>,
+) -> Result<(), WorkError> {
+    require_local(&state).await?;
+    crate::terminal::terminal_write(terminal_scope(&task_id), terminal_id, data, state)
+        .await
+        .map_err(terminal_error)
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_terminal_resize(
+    task_id: String,
+    terminal_id: String,
+    cols: u16,
+    rows: u16,
+    state: State<'_, AppState>,
+) -> Result<(), WorkError> {
+    require_local(&state).await?;
+    crate::terminal::terminal_resize(terminal_scope(&task_id), terminal_id, cols, rows, state)
+        .await
+        .map_err(terminal_error)
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_terminal_close(
+    task_id: String,
+    terminal_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), WorkError> {
+    require_local(&state).await?;
+    crate::terminal::terminal_close(terminal_scope(&task_id), terminal_id, state)
+        .await
+        .map_err(terminal_error)
 }
 
 #[cfg(test)]
@@ -1107,6 +1268,10 @@ mod tests {
             workbench_id: "com.blackrain.office".into(),
             workbench_version: "0.1.0".into(),
             project_path: r"C:\Users\demo\Office Project".into(),
+            title: None,
+            pinned: false,
+            archived: false,
+            model: Some("deepseek-v4-flash".into()),
             hermes_session_id: Some(format!("session-{task_id}")),
             active_run_id: active_run_id.map(str::to_string),
             status: if active_run_id.is_some() {

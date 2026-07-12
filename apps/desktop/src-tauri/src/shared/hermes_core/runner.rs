@@ -196,6 +196,7 @@ pub(crate) async fn start_task_run(
         &presentation.user_text,
         &presentation.project_file_refs,
         presentation.source_follow_up_id.as_deref(),
+        request.model.as_deref(),
     ) {
         Ok(attached) => attached,
         Err(error) => {
@@ -554,6 +555,10 @@ mod tests {
             workbench_id: "office-agent".into(),
             workbench_version: "0.1.0".into(),
             project_path: r"C:\Users\demo\BlackRain Project".into(),
+            title: None,
+            pinned: false,
+            archived: false,
+            model: Some("deepseek-v4-flash".into()),
             hermes_session_id: None,
             active_run_id: None,
             status: WorkTaskStatus::Draft,
@@ -1313,6 +1318,7 @@ mod tests {
                     "run_demo_001",
                     "检查季度报告",
                     &[r"C:\Users\demo\BlackRain Project\quarterly.xlsx".into()],
+                    None,
                     None,
                 )
                 .unwrap();

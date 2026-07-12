@@ -16,7 +16,7 @@
 
 - 作为谁：①安装专业工作台的普通用户；②把成熟电脑环境资产化的领域专家；③帮助专家封装环境的工作台作者；④需要 codex 原生控制力的开发者。
 - 想完成什么：用户从工作台和项目进入产品，由 Core 在后台选择 WORK/Hermes 或 CODE/codex 执行；专家工作台的包格式、安装和生命周期由 [.specs/008](../008-expert-workbench-package/) 定义。开发者进入软件开发工作台后尽量对齐 codex app 的本地半边。
-- 成功后看到/得到什么：同一个壳按工作台组织专业环境，双引擎各取所长；用户不需要先理解 WORK/CODE。平台 credit 调用经 new-api/受控服务端入口计量；Plus BYOK 是否绕过 new-api，仍待与 002 统一。
+- 成功后看到/得到什么：同一个壳按工作台组织专业环境，双引擎各取所长；用户不需要先理解 WORK/CODE。平台 credit 调用经独立 BlackRain Relay 计量，身份和商业账本由 BlackRain Cloud 承担；Plus BYOK 是否绕过 Relay 仍待与 002 统一。
 
 ## 非目标
 
@@ -51,4 +51,4 @@
 - [—] **new-api 单点**:本轮 MVP **不在架构考虑范围**(2026-06-29 拍板:信任自家 new-api 稳定性)。HA/容灾留到有真实流量规模后再评估,非 MVP 阻塞。
 - [ ] **第三方市场悬崖**：开放专家工作台需补包签名、权限、来源、审核和结算；008 先处理官方包，市场另建 spec。
 - [ ] Nous Portal ToS 训练/留存条款（若产品引导接 Portal）；默认不接 Portal 则消失。
-- [ ] **credit/BYOK 生产路由**：WORK/Hermes 如何接 Supabase credit，`proxy.py` 与 new-api 如何组合，以及 Plus BYOK 是否是 new-api 例外；与 002 联合定案。
+- [ ] **credit/BYOK 生产接线**：项目边界已按 010 定稿为 Cloud broker + Relay 数据面；仍需实现 WORK/CODE token、usage 对账，并决定 Plus BYOK 是否绕过 Relay。

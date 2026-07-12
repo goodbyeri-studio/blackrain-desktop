@@ -161,6 +161,9 @@
 
 ## 阶段 10：Hermes Desktop 参考能力迁移
 
+- [ ] 按 `references/hermes-desktop-frontend-migration.md` 完成 Hermes Desktop Agent 前端覆盖迁移；不以主聊天页存在冒充整套完成
+  - [x] 完成现有 WORK controller/Event/Activation 合同范围内的页面、状态容器和交互覆盖
+  - [ ] 完成缺合同能力接线与 Windows Tauri 视觉/键盘验收
 - [x] 完成候选组件清单和来源 commit 存证
 - [x] 优先重写 gateway connecting/boot failure 状态到现有 DS
 - [x] 借鉴 session resume/watchdog 行为
@@ -171,6 +174,12 @@
 - [x] 每个复制文件加来源头，更新 NOTICE/THIRD-PARTY
 - [x] 移除 Electron、Node preload 和 Hermes 私有 dashboard runtime 依赖
 - [x] 对复制/重写后的行为补 BlackRain 测试，不沿用上游测试数量冒充覆盖
+
+> 2026-07-12：用户重新冻结阶段顺序：先完成 Hermes Desktop Agent 前端覆盖迁移和 Codex/BlackRain 统一换肤，再开发具体工作台形态或新增后端能力。首批已把 WORK 重构为 sidebar + chat + resource rail 三栏 shell，加入任务搜索/状态分组、消息复制/回到最新、Composer model/queue 状态与操作菜单、activation `/Skill` completion、Files/Artifacts/Skills/MCP/Terminal activity rail、折叠控制、runtime/activation/task statusbar、Cmd/Ctrl+K command palette，以及只读 WORK Agent runtime/Skills/Tools/permissions 面板；数据只来自现有 WORK controller/event/activation，不增加 Hermes API 或工作台业务。完整迁移仍以新增逐页面矩阵为准，当前不得宣称完成。
+
+> 2026-07-12 中间收口：现有合同范围内又完成 session picker/`Ctrl/Cmd+P`、命令中心键盘选择、项目内 drag/drop、Markdown 项目文件安全打开、Preview 元数据/系统打开容器、非 Git Review 汇总、Models & Context 真实缺能力态、Memory/Session 面板和 BlackRain 全局 Settings 入口。该检查点当时仍缺 rename/pin/archive、runtime model picker、usage、受控项目树和 PTY；这些缺口已由下一条追加收口补齐。总项继续不勾选的当前原因以追加收口为准。
+
+> 2026-07-12 追加收口：TaskStore 已接 rename/pin/archive/restore；WORK model picker 只消费当前 Hermes `/v1/models`，选择随 start/continue/follow-up 持久化；`run.completed.usage` 映射为稳定 usage event；Files/Preview 使用 `taskId + relativePath` 受控 Core，拒绝绝对路径、`..`、symlink/reparse point，限制目录/文本/图片大小，Office 二进制只交给系统打开；Terminal 复用现有 `portable_pty + xterm` 并由 TaskStore 解析 cwd，显式启动/停止、切换 rail detach。总项仍不勾选：Windows Tauri 视觉/键盘/高 DPI 尚待用户验收；Clarify response 缺锁定 run API endpoint；native `/api/sessions/{id}/fork` 会结束父 session，在 BlackRain task lineage/继续语义冻结前直接接入会有串话风险；结果确认也没有稳定 controller 合同。
 
 > 2026-07-12：`references/hermes-desktop-ui-audit.md` 已锁定 Hermes `9de9c25` 的候选路径、依赖/Electron 耦合、License 和逐项复制/重写决定。首版没有复制任何 Hermes Desktop React 文件，因此来源头和 NOTICE/THIRD-PARTY 本阶段为“无复制文件、无需新增”；若后续复制，门禁仍然生效。`WorkRuntimeBanner`、TaskStore/recovery/resume、`WorkEventRow`、`WorkApprovalCard`、`WorkFollowUpQueue` 已按独立 WORK contract 重写并由 BlackRain 测试覆盖；PTY 结论是如进入产品只复用 BlackRain terminal，Skills/MCP 服从 008，model/memory 延后 002/003/阶段 15。Composer 已有 send/stop/busy/approval、项目文件引用、durable queue 和 user-input 缺能力说明，但 active clarify response 仍无上游 endpoint，所以该项保持未勾选。
 

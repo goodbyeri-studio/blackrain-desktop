@@ -12,6 +12,9 @@ import {
   hermesFollowUpRetry,
   hermesFollowUpDispatchReady,
   hermesRuntimeDiagnostics,
+  hermesRuntimeModels,
+  hermesProjectList,
+  hermesProjectPreview,
   hermesRuntimeRepair,
   hermesRuntimeRestart,
   hermesRuntimeStart,
@@ -26,6 +29,7 @@ import {
   hermesTaskResume,
   hermesTaskStart,
   hermesTaskStop,
+  hermesTaskUpdateMetadata,
   workbenchActivationList,
   workbenchBundledInspect,
   workbenchActivationDeactivate,
@@ -37,8 +41,11 @@ import type {
   HermesRuntimeDiagnostics,
   HermesTaskContinueInput,
   HermesTaskStartInput,
+  HermesTaskMetadataInput,
   WorkEvent,
   WorkError,
+  WorkProjectEntry,
+  WorkProjectPreview,
 } from "../types";
 import { initialWorkState, workReducer } from "../state/reducer";
 
@@ -165,6 +172,9 @@ export function useWorkController() {
       });
       if (runtimeResult.status === "fulfilled" && runtimeResult.value.state === "ready") {
         void hermesFollowUpDispatchReady().catch(() => false);
+        void hermesRuntimeModels()
+          .then((models) => dispatch({ type: "modelsLoaded", models }))
+          .catch(() => undefined);
       }
     });
     return () => {
@@ -200,27 +210,49 @@ export function useWorkController() {
     return runtime;
   }, [runExclusive]);
 
+  const refreshModels = useCallback(async () => {
+    const models = await runExclusive("runtime:models", hermesRuntimeModels);
+    dispatch({ type: "modelsLoaded", models });
+    return models;
+  }, [runExclusive]);
+
   const startRuntime = useCallback(async () => {
     const runtime = await runExclusive("runtime:start", hermesRuntimeStart);
     dispatch({ type: "runtimeUpdated", runtime });
+    if (runtime.state === "ready") {
+      void hermesRuntimeModels()
+        .then((models) => dispatch({ type: "modelsLoaded", models }))
+        .catch(() => undefined);
+    }
     return runtime;
   }, [runExclusive]);
 
   const stopRuntime = useCallback(async () => {
     const runtime = await runExclusive("runtime:stop", hermesRuntimeStop);
     dispatch({ type: "runtimeUpdated", runtime });
+    dispatch({ type: "modelsLoaded", models: [] });
     return runtime;
   }, [runExclusive]);
 
   const restartRuntime = useCallback(async () => {
     const runtime = await runExclusive("runtime:restart", hermesRuntimeRestart);
     dispatch({ type: "runtimeUpdated", runtime });
+    if (runtime.state === "ready") {
+      void hermesRuntimeModels()
+        .then((models) => dispatch({ type: "modelsLoaded", models }))
+        .catch(() => undefined);
+    }
     return runtime;
   }, [runExclusive]);
 
   const repairRuntime = useCallback(async () => {
     const runtime = await runExclusive("runtime:repair", hermesRuntimeRepair);
     dispatch({ type: "runtimeUpdated", runtime });
+    if (runtime.state === "ready") {
+      void hermesRuntimeModels()
+        .then((models) => dispatch({ type: "modelsLoaded", models }))
+        .catch(() => undefined);
+    }
     return runtime;
   }, [runExclusive]);
 
@@ -406,6 +438,29 @@ export function useWorkController() {
     [runExclusive],
   );
 
+  const updateTaskMetadata = useCallback(
+    async (input: HermesTaskMetadataInput) => {
+      const task = await runExclusive(`task:${input.taskId}:metadata`, () =>
+        hermesTaskUpdateMetadata(input),
+      );
+      dispatch({ type: "taskUpserted", task });
+      return task;
+    },
+    [runExclusive],
+  );
+
+  const listProjectDirectory = useCallback(
+    (taskId: string, relativePath = ""): Promise<WorkProjectEntry[]> =>
+      hermesProjectList(taskId, relativePath),
+    [],
+  );
+
+  const previewProjectFile = useCallback(
+    (taskId: string, relativePath: string): Promise<WorkProjectPreview> =>
+      hermesProjectPreview(taskId, relativePath),
+    [],
+  );
+
   const refreshRecovery = useCallback(async () => {
     const recovery = await runExclusive("recovery:status", hermesTaskRecoveryStatus);
     dispatch({ type: "recoveryUpdated", recovery });
@@ -442,6 +497,7 @@ export function useWorkController() {
       );
       await Promise.allSettled(degradedTasks.map((task) => resumeTask(task.taskId)));
       await hermesFollowUpDispatchReady().catch(() => false);
+      await refreshModels().catch(() => undefined);
     };
     const scheduleReconcile = () => {
       if (!active || reconcileTimer !== null) {
@@ -472,11 +528,12 @@ export function useWorkController() {
         window.clearTimeout(reconcileTimer);
       }
     };
-  }, [refreshActivations, refreshRecovery, refreshRuntime, refreshTasks, resumeTask]);
+  }, [refreshActivations, refreshModels, refreshRecovery, refreshRuntime, refreshTasks, resumeTask]);
 
   return {
     state,
     refreshRuntime,
+    refreshModels,
     startRuntime,
     stopRuntime,
     restartRuntime,
@@ -497,6 +554,9 @@ export function useWorkController() {
     approveTask,
     stopTask,
     deleteTaskMetadata,
+    updateTaskMetadata,
+    listProjectDirectory,
+    previewProjectFile,
     refreshRecovery,
     selectTask,
     clearError,

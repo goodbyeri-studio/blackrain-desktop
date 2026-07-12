@@ -455,12 +455,16 @@ mod tests {
         WorkTask {
             schema_version: WORK_SCHEMA_VERSION,
             task_id: task_id.into(),
+            title: None,
+            pinned: false,
+            archived: false,
             activation_id: activation_id.map(str::to_string),
             workbench_id: "com.blackrain.office".into(),
             workbench_version: "0.1.0".into(),
             project_path: r"C:\Users\demo\Office Project".into(),
             hermes_session_id: Some(format!("session-{task_id}")),
             active_run_id: active.then(|| format!("run-{task_id}")),
+            model: None,
             status: if active {
                 WorkTaskStatus::Running
             } else {

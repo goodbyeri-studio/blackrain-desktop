@@ -11,6 +11,7 @@
 | 双引擎如何运行、谁写配置、Gateway 挂在哪 | `docs/09-运行时架构与里程碑.md` |
 | 工作台 Manifest、安装、升级、回滚和卸载怎样实现 | `.specs/008-expert-workbench-package/` |
 | Hermes WORK surface、进程、SSE、审批和恢复怎样实现 | `.specs/009-hermes-work-surface/` |
+| Desktop、Cloud、Relay 三项目怎样分工 | `.specs/010-three-project-platform/` |
 | 某个跨层功能应该怎样实现 | 对应 `.specs/<NNN-slug>/requirements.md`、`design.md`、`decisions.md` |
 | 某功能当前真的完成了什么 | 对应 `verification.md` + 实际代码/配置 |
 
@@ -52,6 +53,7 @@
 | [09 运行时架构与里程碑](09-运行时架构与里程碑.md) | 工作台运行监工、四条铁律、双引擎和里程碑 |
 | [.specs/008 工作台包](../.specs/008-expert-workbench-package/) | Manifest、依赖、权限、安装、验证、升级、回滚和卸载 |
 | [.specs/009 Hermes WORK surface](../.specs/009-hermes-work-surface/) | Hermes 进程纳管、隔离配置、`/v1/runs`、SSE、审批、任务恢复和 Codex 风格 UI |
+| [.specs/010 三项目平台](../.specs/010-three-project-platform/) | `blackrain-desktop`、`blackrain-cloud`、`blackrain-relay` 的仓库、License、账本和 API 边界 |
 | [REFERENCES](REFERENCES.md) | 参考项目登记、锁定版本、许可证 |
 | [上游更新检查清单](upstream-update-checklist.md) | 每 2 周跟进双引擎上游、历史更新记录、quick-xml 专项 |
 | [跨平台开发指南](cross-platform-dev.md) | Windows-first 开发/发布边界、非 Windows 资产、平台分叉点和实机烟测 |

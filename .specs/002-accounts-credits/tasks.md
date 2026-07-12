@@ -4,7 +4,7 @@
 
 - [x] 确认壳里无任何自有账号/后端（命中的 AccountSnapshot/CreditsSnapshot 均为 Codex 内核 ChatGPT 用量，非自有）。
 - [x] 确认 DeepSeek pro:flash = 3:1（官方价：输入 1→3 元、输出 2→6 元 / 1M 缓存未命中）。
-- [x] 选定账号/余额栈 = Supabase（Auth + Postgres），并验证最小过渡代理；最终 new-api/适配层组合待决。
+- [x] 选定账号/余额栈 = Supabase（Auth + Postgres），并验证最小过渡代理；生产项目边界收敛到 Cloud/Relay，见 010。
 - [x] 验证过渡代理部署形态：独立 `gateway/proxy.py` Chat 转发器常驻运行（不用 Edge Function）。
 - [x] 验证 credit 记账：前置门禁 + 出对话单事务扣减，接受并发小幅超卖；不再称全局严格强一致。
 
@@ -37,12 +37,12 @@
 - [ ] BYOK 模式：base_url 指向 `api.deepseek.com`、用用户自己的 key（沿用 001 的钥匙串存储）。
 - [ ] 模式切换：credit ⇄ BYOK 正确改写网关 provider 配置，互不计费。
 
-## 阶段 4：迁移接缝（仅预留，不实现）
+## 阶段 4：Cloud/Relay 迁移接缝
 
 - [x] 在 design/decisions 记录桌面侧 `base_url + Bearer <jwt>` 接缝目标。
-- [ ] 决定并验证生产 new-api 如何完成 Supabase JWT 校验、credit 扣款；确认 `proxy.py` 保留、替换或重定位。
+- [x] 决定生产边界：Cloud 验证 Supabase 身份并维护商业账本；Relay 基于 New API 中转和记录原始 usage；`proxy.py` 只保留为历史过渡实现。
   - [x] 冻结 WORK 凭据边界：短期 Supabase access JWT 只可用于服务端身份兑换，不直接注入常驻 Hermes `key_env`
-  - [ ] 实现并部署 Supabase 身份到长期、可撤销、可限额 model token 的 account broker，并冻结余额/ledger 与 new-api quota 的单一真源
+  - [ ] 在 Cloud 实现并部署 Supabase 身份到长期、可撤销、可限额 Relay model token 的 account broker；Supabase 是 BlackRain 商业 ledger 真源，Relay 是 usage/执行额度真源
 - [ ] 为 WORK/Hermes 接入同一 credit 余额与结构化错误链路。
 - [ ] 统一 001/002/003 对 BYOK 是否绕过 new-api 的口径，不在本次文档治理中拍板。
 

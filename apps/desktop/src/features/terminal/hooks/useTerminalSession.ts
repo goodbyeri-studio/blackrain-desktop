@@ -19,13 +19,38 @@ import {
 
 const MAX_BUFFER_CHARS = 200_000;
 
+type TerminalWorkspace = Pick<WorkspaceInfo, "id">;
+
+export type TerminalSessionTransport = {
+  open: (
+    workspaceId: string,
+    terminalId: string,
+    cols: number,
+    rows: number,
+  ) => Promise<{ id: string }>;
+  write: (workspaceId: string, terminalId: string, data: string) => Promise<void>;
+  resize: (
+    workspaceId: string,
+    terminalId: string,
+    cols: number,
+    rows: number,
+  ) => Promise<void>;
+};
+
+const defaultTerminalTransport: TerminalSessionTransport = {
+  open: openTerminalSession,
+  write: writeTerminalSession,
+  resize: resizeTerminalSession,
+};
+
 type UseTerminalSessionOptions = {
-  activeWorkspace: WorkspaceInfo | null;
+  activeWorkspace: TerminalWorkspace | null;
   activeTerminalId: string | null;
   isVisible: boolean;
   focusRequestVersion: number;
   onDebug?: (entry: DebugEntry) => void;
   onSessionExit?: (workspaceId: string, terminalId: string) => void;
+  transport?: TerminalSessionTransport;
 };
 
 type TerminalAppearance = {
@@ -118,6 +143,7 @@ export function useTerminalSession({
   focusRequestVersion,
   onDebug,
   onSessionExit,
+  transport = defaultTerminalTransport,
 }: UseTerminalSessionOptions): TerminalSessionState {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -127,7 +153,7 @@ export function useTerminalSession({
   const outputBuffersRef = useRef<Map<string, string>>(new Map());
   const activeKeyRef = useRef<string | null>(null);
   const renderedKeyRef = useRef<string | null>(null);
-  const activeWorkspaceRef = useRef<WorkspaceInfo | null>(null);
+  const activeWorkspaceRef = useRef<TerminalWorkspace | null>(null);
   const activeTerminalIdRef = useRef<string | null>(null);
   const pendingFocusRef = useRef(false);
   const [status, setStatus] = useState<TerminalStatus>("idle");
@@ -281,7 +307,7 @@ export function useTerminalSession({
         if (!openedSessionsRef.current.has(key)) {
           return;
         }
-        void writeTerminalSession(workspace.id, terminalId, data).catch((error) => {
+        void transport.write(workspace.id, terminalId, data).catch((error) => {
           if (shouldIgnoreTerminalError(error)) {
             openedSessionsRef.current.delete(key);
             return;
@@ -290,7 +316,7 @@ export function useTerminalSession({
         });
       });
     }
-  }, [isVisible, onDebug]);
+  }, [isVisible, onDebug, transport]);
 
   useEffect(() => {
     return () => {
@@ -334,7 +360,7 @@ export function useTerminalSession({
       setStatus("connecting");
       setMessage("Starting terminal session...");
       if (!openedSessionsRef.current.has(key)) {
-        await openTerminalSession(activeWorkspace.id, activeTerminalId, cols, rows);
+        await transport.open(activeWorkspace.id, activeTerminalId, cols, rows);
         openedSessionsRef.current.add(key);
       }
       setStatus("ready");
@@ -362,6 +388,7 @@ export function useTerminalSession({
     refreshTerminal,
     syncActiveBuffer,
     sessionResetCounter,
+    transport,
   ]);
 
   useEffect(() => {
@@ -399,7 +426,7 @@ export function useTerminalSession({
     const resize = () => {
       fitAddon.fit();
       const key = `${activeWorkspace.id}:${activeTerminalId}`;
-      resizeTerminalSession(
+      transport.resize(
         activeWorkspace.id,
         activeTerminalId,
         terminal.cols,
@@ -425,7 +452,7 @@ export function useTerminalSession({
     return () => {
       observer.disconnect();
     };
-  }, [activeTerminalId, activeWorkspace, hasSession, isVisible, onDebug]);
+  }, [activeTerminalId, activeWorkspace, hasSession, isVisible, onDebug, transport]);
 
   return {
     status,
