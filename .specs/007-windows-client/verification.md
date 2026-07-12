@@ -13,7 +13,7 @@
 | 2026-07-12 | Windows 本机发布脚本存在性 | 静态检查 `scripts/release-client-win.ps1` | 代码存在 | 会先跑 Hermes static contract，vendor runtime，并调用前端 typecheck/test/lint/DS/doctor、统一 Rust/WORK 检查和 `tauri:build:win`；当前 macOS 无 `pwsh`，未有 Windows 实跑产物 |
 | 2026-07-13 | CI 额度优化前基线 | GitHub Actions run `29200292948` | 通过 | Ubuntu 3m20s + Windows 26m25s；hosted Windows 按 2 倍计费，单次跨层 PR 约 56 个计费分钟 |
 | 2026-07-13 | CI workflow 额度优化 | 本地模拟路由 + 全量 JS checks + `cargo test --no-run --locked` + GitHub Actions run `29201934834` | 通过 | Detect 6s、Ubuntu JS 3m50s、Windows Rust 16m20s；按分钟取整和 Windows 2 倍估算，跨层 PR 从约 58 降到约 39 个计费分钟。docs=`false/false`、frontend=`true/false`、Rust=`false/true`、workflow=`true/true`；纯 Markdown/Word PR 为 0 run，普通 `main` push 不重复跑 |
-| 2026-07-13 | self-hosted 切换与统一 Rust 入口 | workflow/YAML 静态检查 + 等价 Cargo 四命令 | 部分通过 | YAML/diff 静态检查通过；清理旧绝对路径 Tauri 缓存后，macOS 等价命令全绿。`WINDOWS_RUNNER` 未设置时回退 `windows-latest`，fork PR 被排除；尚未注册 Windows runner，也未在 Windows 实跑 PowerShell 脚本 |
+| 2026-07-13 | self-hosted 切换与统一 Rust 入口 | 本地静态/等价 Cargo 检查 + GitHub Actions run `29204194000` | 通过 | Detect 6s、Ubuntu JS 3m02s、Windows Rust 5m46s；API 确认 runner label 为 `windows-latest`，fallback 与 PowerShell 统一入口实跑通过。尚未注册 `blackrain-windows` self-hosted runner |
 | YYYY-MM-DD | doctor.mjs 实跑 | `cd apps\desktop; npm run doctor:win` | 未跑 | 缺 cmake / clang 时应给出 choco 提示 |
 | YYYY-MM-DD | dev-client.ps1 启动 | `pwsh scripts/dev-client.ps1` | 未跑 | 期望 90 秒内 GUI 首帧 + 能选模型 |
 | YYYY-MM-DD | dev 模式真实对话 | dev-client.ps1 起后 GUI 内手发一条对话 | 未跑 | DeepSeek flash 走 BlackRain Gateway 返回真实回复 |
