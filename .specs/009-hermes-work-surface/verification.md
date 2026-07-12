@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- Hermes process supervisor：shared 状态机、AppState 持有、spawn/readiness/stop/日志、PID lease/孤儿审计和正常退出清理已实现；六个本地 runtime commands 已注册，尚无前端 IPC/UI 和 Windows 实机证据。
+- Hermes process supervisor：shared 状态机、AppState 持有、spawn/readiness/stop/日志、PID lease/孤儿审计和正常退出清理已实现；六个本地 runtime commands、前端 IPC、controller 和 runtime/repair/diagnostics UI 已接通，尚无真实 Hermes/Tauri/Windows 实机证据。
 - 独立 `HERMES_HOME` 配置域：shared 实现与单元测试已存在，runtime start/repair 已从 App-owned provider desired state、workbench binding 和 keyring 读取配置；task start/continue 已把 activation Skills 写入原生 `skills.external_dirs`。Providers 产品写入入口仍未完成。
 - Windows Hermes runtime：版本/依赖策略、生成脚本、Tauri resource 和 doctor 门禁已存在；Windows venv 尚未生成和执行。
 - WORK `/v1/runs` shared client 与增量 SSE decoder：已实现并通过 fake HTTP server 测试，已接 task runner、Tauri event bridge 和前端 controller；真实 Hermes/网络尚未验证。
@@ -66,6 +66,8 @@
 | 2026-07-12 | 任务删除与基础焦点语义 | 仅终态/orphaned 展示本地记录删除；DS 二次确认明确保留项目/输出；调用既有 metadata command；任务导航 `aria-current` + 状态 label；ModalShell 首次聚焦、Tab/Shift+Tab 环、Escape callback、卸载焦点归还 | targeted Vitest；`npm run test`; `npm run typecheck`; `npm run lint`; `npm run lint:ds`; `npm run codemod:ds:dry`; `git diff --check` | targeted `2 files / 14 passed`；全量 `149 files / 1106 tests` + typecheck；lint/DS 0 error、5 条既有 warning；codemod 仅提示既有 `SettingsView.tsx` modal（macOS/jsdom） | 自动化只证明 DOM/focus contract，不证明 Windows Tauri WebView、屏幕阅读器、系统缩放或高 DPI；阶段 9 总项保持未完成 |
 | 2026-07-12 | Office bundled Manifest 接缝 | 008 strict manifest inspect、official allowlist App command、唯一 TS wrapper、controller bootstrap、无 activation 时真实包详情/依赖计数展示 | `cargo test workbench_core --lib`; `cargo check`; targeted Vitest；`npm run test`; `npm run typecheck`; `npm run lint`; `npm run lint:ds`; `npm run codemod:ds:dry`; `git diff --check` | Rust `13 passed` + check；targeted TS `4 files / 91 passed`；全量 `149 files / 1106 tests` + typecheck；lint/DS 0 error、5 条既有 warning（macOS/jsdom） | 该检查点仅只读 inspect；后续 install/health/permission/activate 证据见下一行。Daemon/Windows 未验证 |
 | 2026-07-12 | Office official activation → WORK surface | 完整 official allowlist、Windows x64 command；版本化 package/OfficeCLI 安装；SHA/version health；临时项目 create/validate smoke；symlink/reparse-point 拒绝；失败不签 activation；多项目 activation 隔离；用户项目选择与 DS 权限确认；Skills/project/read-write grant/system capability context；controller refresh 后直接成为 WORK task activation；App 启动不再自动复制 OfficeCLI | `cargo test workbench_core --lib`; `cargo test workbench --lib`; `cargo test hermes --lib`; `cargo check`; targeted Vitest；`npm run test`; `npm run typecheck`; `npm run lint`; `npm run lint:ds`; `npm run codemod:ds:dry`; macOS OfficeCLI contract probe；`shasum -a 256 .../officecli.exe`; `git diff --check` | Rust `16 + 20 + 102 passed` + check；targeted TS `3 files / 87 passed`；全量 `149 files / 1108 tests` + typecheck；macOS CLI `1.0.117`/create/validate contract 与代码一致；Windows hash 与 Manifest 一致；lint/DS 0 error、5 条既有 warning；codemod 仅提示既有 Settings modal（macOS/jsdom） | 证明代码级 Office 不再走 CODE 临时入口；macOS probe/fixture smoke 不是产品验收。Windows reparse、真实 OfficeCLI→Hermes、真实模型、工具/审批/Stop/恢复和 Office 黄金流程均未验证 |
+| 2026-07-12 | Hermes `/v1` reload 边界审计 | 锁定 API server 路由与 TUI/CLI 私有 reload 能力对照；`tools/list_changed` 语义核对 | `git -C hermes-upstream rev-parse HEAD`; `git -C hermes-upstream describe --tags --always`; 静态核对 `gateway/platforms/api_server.py`、`tui_gateway/server.py`、`cli.py` | commit `9de9c25f620ff7f1ce0fd5457d596052d5159596` / tag `v2026.7.7.2`；产品 HTTP surface 无 MCP/Skills reload/register/unregister endpoint | 不能调用 TUI 私有 RPC冒充 `/v1` 产品能力；整体 server 变更继续使用空闲态受控 restart，阶段 11 动态无重启项保持未完成 |
+| 2026-07-12 | 第一组跨层故障收敛 | create-run 503、create-run timeout、SSE 断流、工具失败；registry、TaskStore、journal、emit、terminal 状态一致性 | `cargo test hermes_core::runner::tests --lib`; `cargo test hermes --lib` | runner `10 passed`；Hermes `105 passed`（macOS） | 503 不生成本地幽灵 run且只允许显式 retry；timeout 不附着未知 run但无法证明上游未接受；工具失败 journal/emit/task 均 failed；fake server 不替代真实 new-api/Hermes/Windows |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |
@@ -154,7 +156,7 @@ cargo check
 - 生产 credit/new-api/BYOK 路由仍待 002/003 决策。
 - Office 质量基线未跑，无法证明 Hermes 能稳定完成长链任务。
 - Remote backend 首版已明确 local-only 并返回 `unsupported_in_remote_backend`；远程 WORK adapter 尚未实现。
-- 当前 Home 入口直接使用 `office-agent@0.1.0` 和已存在 workspace path，只是阶段 9 的真实 task contract 接缝；在 spec 008 激活 contract 落地前，尚不能证明正式工作台已安装、验证或隔离激活。
+- Office official-only producer 已能完成代码级 install/health/smoke/permission/activate 并进入 WORK surface；尚不能证明 Windows 实机安装、OfficeCLI→Hermes 工具发现、真实模型执行、升级/回滚/卸载或 Office 黄金流程。
 
 ## 失败记录
 

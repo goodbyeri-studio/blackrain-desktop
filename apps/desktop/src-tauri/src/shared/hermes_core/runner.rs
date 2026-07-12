@@ -403,7 +403,9 @@ mod tests {
     };
     use crate::shared::hermes_core::fake_server::{FakeExchange, FakeHermesServer};
     use crate::shared::hermes_core::tasks::HermesTaskStore;
-    use crate::shared::hermes_core::types::{WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION};
+    use crate::shared::hermes_core::types::{
+        WorkErrorKind, WorkEventKind, WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION,
+    };
 
     fn temp_root() -> PathBuf {
         let root = std::env::temp_dir().join(format!(
@@ -518,6 +520,163 @@ mod tests {
         let restored_events = restored.load_events("task-runner").unwrap();
         assert_eq!(restored_events, started.initial_events);
         registry.release("task-runner", Some("run_demo_001")).await;
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn create_run_503_leaves_no_ghost_run_and_requires_an_explicit_retry() {
+        let root = temp_root();
+        let store = Arc::new(Mutex::new(HermesTaskStore::new(&root)));
+        store.lock().await.upsert_task(&task()).unwrap();
+        let registry = Arc::new(HermesRunRegistry::default());
+        let server = FakeHermesServer::spawn(vec![
+            FakeExchange::json(
+                "POST",
+                "/v1/runs",
+                503,
+                r#"{"error":{"message":"model unavailable","code":"upstream_busy"}}"#,
+            ),
+            FakeExchange::json(
+                "POST",
+                "/v1/runs",
+                202,
+                r#"{"run_id":"run-after-explicit-retry","status":"started"}"#,
+            ),
+        ])
+        .await
+        .unwrap();
+        let client = HermesApiClient::new(
+            &server.base_url,
+            "blackrain-test-bearer-runner-503-123456789",
+        )
+        .unwrap();
+        let request = HermesRunCreateRequest {
+            input: serde_json::Value::String("整理季度报告".into()),
+            instructions: None,
+            session_id: None,
+            model: Some("office-fast".into()),
+            conversation_history: Vec::new(),
+        };
+
+        let error = match start_task_run(
+            &store,
+            &registry,
+            &client,
+            "task-runner",
+            &request,
+            WorkRunPresentation {
+                user_text: "整理季度报告".into(),
+                project_file_refs: Vec::new(),
+                source_follow_up_id: None,
+            },
+        )
+        .await
+        {
+            Ok(_) => panic!("503 response must not attach a Hermes run"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.code, "upstream_busy");
+        assert!(error.retryable);
+        let failed_task = store.lock().await.load_task("task-runner").unwrap();
+        assert_eq!(failed_task.status, WorkTaskStatus::Draft);
+        assert_eq!(failed_task.active_run_id, None);
+        assert_eq!(failed_task.hermes_session_id, None);
+        assert!(store
+            .lock()
+            .await
+            .load_events("task-runner")
+            .unwrap()
+            .is_empty());
+
+        let started = start_task_run(
+            &store,
+            &registry,
+            &client,
+            "task-runner",
+            &request,
+            WorkRunPresentation {
+                user_text: "整理季度报告".into(),
+                project_file_refs: Vec::new(),
+                source_follow_up_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(started.run_id, "run-after-explicit-retry");
+        assert_eq!(started.task.status, WorkTaskStatus::Running);
+        assert_eq!(server.finish().await.unwrap().len(), 2);
+        registry
+            .release("task-runner", Some("run-after-explicit-retry"))
+            .await;
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn create_run_timeout_is_not_replayed_and_does_not_mutate_the_task() {
+        let root = temp_root();
+        let store = Arc::new(Mutex::new(HermesTaskStore::new(&root)));
+        store.lock().await.upsert_task(&task()).unwrap();
+        let registry = Arc::new(HermesRunRegistry::default());
+        let server = FakeHermesServer::spawn(vec![FakeExchange::json(
+            "POST",
+            "/v1/runs",
+            202,
+            r#"{"run_id":"run-too-late","status":"started"}"#,
+        )
+        .delay_body(Duration::from_millis(150))])
+        .await
+        .unwrap();
+        let client = HermesApiClient::with_timeouts(
+            &server.base_url,
+            "blackrain-test-bearer-runner-timeout-123456789",
+            Duration::from_millis(30),
+            Duration::from_secs(1),
+        )
+        .unwrap();
+
+        let error = match start_task_run(
+            &store,
+            &registry,
+            &client,
+            "task-runner",
+            &HermesRunCreateRequest {
+                input: serde_json::Value::String("生成报告".into()),
+                instructions: None,
+                session_id: None,
+                model: Some("office-fast".into()),
+                conversation_history: Vec::new(),
+            },
+            WorkRunPresentation {
+                user_text: "生成报告".into(),
+                project_file_refs: Vec::new(),
+                source_follow_up_id: None,
+            },
+        )
+        .await
+        {
+            Ok(_) => panic!("timed out run creation must not attach a Hermes run"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.kind, WorkErrorKind::Timeout);
+        assert_eq!(error.code, "hermes_request_timeout");
+        assert!(error.retryable);
+        let failed_task = store.lock().await.load_task("task-runner").unwrap();
+        assert_eq!(failed_task.status, WorkTaskStatus::Draft);
+        assert_eq!(failed_task.active_run_id, None);
+        assert_eq!(failed_task.hermes_session_id, None);
+        assert!(store
+            .lock()
+            .await
+            .load_events("task-runner")
+            .unwrap()
+            .is_empty());
+        assert_eq!(server.finish().await.unwrap().len(), 1);
+
+        registry.reserve("task-runner").await.unwrap();
+        registry.release("task-runner", None).await;
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -728,6 +887,62 @@ mod tests {
             WorkTaskStatus::Completed
         );
         assert_eq!(server.finish().await.unwrap().len(), 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn tool_failure_is_journaled_emitted_and_converges_the_task_to_failed() {
+        let root = temp_root();
+        let store = Arc::new(Mutex::new(HermesTaskStore::new(&root)));
+        {
+            let guard = store.lock().await;
+            guard.upsert_task(&task()).unwrap();
+            guard
+                .attach_run("task-runner", "run_demo_failed", "run_demo_failed")
+                .unwrap();
+        }
+        let server = FakeHermesServer::spawn(vec![FakeExchange::sse(
+            "/v1/runs/run_demo_failed/events",
+            include_str!("../../../test-fixtures/hermes/v2026.7.7.2/sse-failures.txt"),
+        )])
+        .await
+        .unwrap();
+        let client = HermesApiClient::new(
+            &server.base_url,
+            "blackrain-test-bearer-runner-tool-failure-123456789",
+        )
+        .unwrap();
+        let emitted = Arc::new(StdMutex::new(Vec::new()));
+        let emitted_for_run = Arc::clone(&emitted);
+
+        consume_run_events_with_policy(
+            &store,
+            &client,
+            "task-runner",
+            "run_demo_failed",
+            &HermesStreamCancellation::new(),
+            &RunnerRetryPolicy { backoff: vec![] },
+            move |event| emitted_for_run.lock().unwrap().push(event),
+        )
+        .await
+        .unwrap();
+
+        let events = store.lock().await.load_events("task-runner").unwrap();
+        assert_eq!(*emitted.lock().unwrap(), events);
+        assert!(events
+            .iter()
+            .any(|event| matches!(event.kind, WorkEventKind::ToolCompleted { error: true, .. })));
+        assert!(events
+            .iter()
+            .any(|event| matches!(event.kind, WorkEventKind::TaskFailed { .. })));
+        let failed_task = store.lock().await.load_task("task-runner").unwrap();
+        assert_eq!(failed_task.status, WorkTaskStatus::Failed);
+        assert_eq!(failed_task.active_run_id, None);
+        assert_eq!(
+            failed_task.last_event_sequence,
+            events.last().unwrap().sequence
+        );
+        assert_eq!(server.finish().await.unwrap().len(), 1);
         fs::remove_dir_all(root).unwrap();
     }
 
