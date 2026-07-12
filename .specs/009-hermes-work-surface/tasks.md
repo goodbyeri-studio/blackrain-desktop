@@ -231,6 +231,9 @@
   - [x] file tools 写边界锁定为 activation project，工作台/前端不能传任意 safe root/env
   - [ ] Windows 实机证明未触碰用户原有 `~/.hermes` / `~/.codex`，并覆盖 terminal/显式绝对路径攻击
 - [ ] 验证 WORK 失败不拖垮 CODE surface
+  - [x] Hermes 非预期退出只收敛独立 runtime/task 状态，不调用 App exit、不修改 CODE session
+  - [x] WORK React 子树使用 feature 级 error boundary，固定脱敏 fallback 可返回 CODE 或显式重试，周围 CODE 树保持挂载
+  - [ ] Windows 实机在活跃 CODE thread 期间强杀 Hermes、注入 WORK API/渲染故障，确认 CODE 对话、输入和 app-server session 持续可用
 - [ ] 性能分析：冷启动、事件吞吐、长会话内存、任务列表规模
 - [ ] 建立上游 Hermes 升级 contract regression 流程
 

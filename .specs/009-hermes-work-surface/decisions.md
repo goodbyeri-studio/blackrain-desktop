@@ -307,6 +307,14 @@
 - 影响范围：`Home.tsx`、`MainApp.tsx`、`useMainAppLayoutSurfaces.ts`、`features/work/components/*` 和后续 008 激活入口。
 - 后续复查条件：spec 008 提供正式 `ActivatedWorkbenchContext` 与工作台导航后，将 Home 入口升级为通用工作台路由；controller 所有权和单壳原则保持不变。
 
+## 2026-07-12：WORK 渲染故障使用 feature 级边界，不升级为 App 故障
+
+- 决策：只在 `MainApp` 的 WORK surface 槽位包裹 `WorkSurfaceBoundary`；Hermes runtime/API/task 错误继续进入独立 WORK state，React 子树发生未预期渲染异常时则显示固定脱敏 fallback，允许用户返回 CODE 或显式重试 WORK。边界不打印原始 error message/component stack，不重置 MainApp、Codex sessions 或 WORK controller。
+- 原因：Hermes 已是独立子进程，但没有 React feature boundary 时，WORK 组件缺陷仍可能卸载整个主 App 树，违背“CODE surface 不因 WORK 失败而不可用”。固定 fallback 同时避免把用户任务内容随异常文本泄漏到界面或诊断。
+- 替代方案：只依赖 runtime sidecar 隔离、使用 App 顶层全局 error boundary、WORK 崩溃后自动切换执行引擎、或展示原始 React 错误和 stack。
+- 影响范围：`MainApp.tsx`、`WorkSurfaceBoundary.tsx`、WORK 样式和阶段 13 CODE/WORK 故障隔离验证。
+- 后续复查条件：Windows 实机仍需在真实 CODE thread 活跃时强杀 Hermes、注入 WORK API/渲染故障并确认 CODE 对话、输入和 app-server session 持续可用；当前 jsdom 只证明 React 树隔离。
+
 ## 2026-07-12：WORK 首版 UI 全量重写并只复用 engine-neutral 展示基础
 
 - 决策：首版 WORK surface 不复制 Hermes Desktop React 文件；复用 BlackRain 的 Markdown、按钮、Panel primitives、token 和 Codex 风格密度，Hermes 事件保持独立 domain model。诊断只显示 Core 已脱敏的结构化字段，user input 缺少上游 response endpoint 时明确只读说明。
