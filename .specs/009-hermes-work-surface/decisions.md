@@ -179,6 +179,14 @@
 - 影响范围：`process.rs`、runtime status/diagnostics、前台恢复对账和阶段 13 Hermes 强退矩阵。
 - 后续复查条件：Windows 实机注入 Console close、taskkill、进程崩溃和系统重启；当前 Unix fixture 证明状态机与 lease 收敛，不证明 Windows 退出通知时序或子进程树行为。
 
+## 2026-07-12：诊断采用结构白名单，不保存 Hermes 子进程正文
+
+- 决策：Hermes stdout/stderr 属于不可信内容源，内存和滚动文件只记录 `<redacted Hermes process output>`，不尝试靠关键词猜测 prompt、工具参数或模型输出。supervisor 自有日志只使用固定文案和有界 error code。HTTP error envelope 的 message 不进入 WorkError；code 和 response request id 仅接受 ASCII token 白名单。可复制 diagnostics 进一步把 runtime error message 改为固定文案、清空 details 和不安全 request id，仅保留 kind/code/retryable/status。
+- 原因：裸用户文本可能没有 `prompt=`、JSON key 或已知 secret，关键词替换无法给出“不含用户内容”的证明；上游/插件也可以把私密内容放进 error code、request id 或 details。诊断需要的是状态、路径形状、错误码和时序，不需要原始对话正文。
+- 替代方案：继续维护敏感词表、允许用户手动勾选后复制完整日志、或把 stdout/stderr 原文只写磁盘不展示 UI。
+- 影响范围：`process.rs`、`client.rs`、`runtime.rs`、WORK diagnostics 面板和阶段 13 隐私审计。
+- 后续复查条件：若未来需要更丰富的上游诊断，只能增加结构化、逐字段白名单事件，不得恢复任意 stdout/stderr 或 HTTP body；Windows 需检查 App-data 滚动日志、剪贴板和 crash dump。
+
 ## 2026-07-12：deactivate 先收敛执行资源，最后移除 activation
 
 - 决策：`workbench_activation_deactivate` 为 local-only Core 生命周期命令，并与 task start/continue 共用 activation 串行锁。它先拒绝任何不同 activation 或 legacy active run；对目标 activation 的 run 尽力请求 upstream stop，随后停止单 Hermes supervisor process tree、取消受控 SSE，把仍挂载的 task run 持久收敛为 cancelled；再把 Hermes config 恢复为 provider-only、删除 workbench binding，最后从 activation store 移除记录。命令返回被停止的 task id 和原项目路径，并明确 `projectPreserved=true`。WORK UI 必须通过现有 DS ModalShell 二次确认。

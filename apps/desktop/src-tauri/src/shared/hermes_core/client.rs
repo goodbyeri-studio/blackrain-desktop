@@ -864,6 +864,7 @@ async fn ensure_success(response: Response, request_id: String) -> Result<Respon
         .headers()
         .get("x-request-id")
         .and_then(|value| value.to_str().ok())
+        .filter(|value| is_safe_diagnostic_token(value, 128))
         .map(ToString::to_string)
         .unwrap_or(request_id);
     let (body, _) = read_limited_body(response, MAX_ERROR_BODY_BYTES, &response_request_id).await?;
@@ -871,11 +872,22 @@ async fn ensure_success(response: Response, request_id: String) -> Result<Respon
     let upstream_code = envelope
         .as_ref()
         .and_then(|value| value.error.code.clone())
+        .filter(|value| is_safe_diagnostic_token(value, 80))
         .unwrap_or_else(|| format!("hermes_http_{}", status.as_u16()));
-    let message = envelope
-        .as_ref()
-        .map(|value| value.error.message.clone())
-        .unwrap_or_else(|| format!("Hermes returned HTTP {}.", status.as_u16()));
+    let message = match status {
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
+            "Hermes rejected the managed API authentication."
+        }
+        StatusCode::NOT_FOUND => "The requested Hermes resource was not found.",
+        StatusCode::CONFLICT => "Hermes rejected the request because its state changed.",
+        StatusCode::BAD_REQUEST => "Hermes rejected the managed request.",
+        StatusCode::REQUEST_TIMEOUT | StatusCode::GATEWAY_TIMEOUT => {
+            "Hermes timed out while processing the request."
+        }
+        status if status.is_server_error() => "Hermes upstream service is unavailable.",
+        _ => "Hermes returned an unexpected HTTP error.",
+    }
+    .to_string();
     let kind = match status {
         StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => WorkErrorKind::Authentication,
         StatusCode::BAD_REQUEST | StatusCode::NOT_FOUND | StatusCode::CONFLICT => {
@@ -898,6 +910,14 @@ async fn ensure_success(response: Response, request_id: String) -> Result<Respon
         request_id: Some(response_request_id),
         details: BTreeMap::new(),
     })
+}
+
+fn is_safe_diagnostic_token(value: &str, max_len: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= max_len
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
 }
 
 async fn read_limited_body(
@@ -1252,8 +1272,39 @@ mod tests {
             let error = client.run_status("run_missing").await.unwrap_err();
             assert_eq!(error.kind, WorkErrorKind::InvalidRequest);
             assert_eq!(error.code, "run_not_found");
+            assert_eq!(
+                error.message,
+                "The requested Hermes resource was not found."
+            );
+            assert!(!error.message.contains("run_missing"));
             assert_eq!(error.http_status, Some(404));
             assert!(error.request_id.is_some());
+            server.finish().await.unwrap();
+
+            let server = FakeHermesServer::spawn(vec![FakeExchange::json(
+                "POST",
+                "/v1/runs",
+                503,
+                r#"{"error":{"message":"prompt=private-board-data","code":"private code with spaces"}}"#,
+            )])
+            .await
+            .unwrap();
+            let client = HermesApiClient::new(&server.base_url, bearer()).unwrap();
+            let error = client
+                .create_run(&HermesRunCreateRequest {
+                    input: json!("private-board-data"),
+                    instructions: None,
+                    session_id: None,
+                    model: None,
+                    conversation_history: Vec::new(),
+                })
+                .await
+                .unwrap_err();
+            assert_eq!(error.code, "hermes_http_503");
+            assert_eq!(error.message, "Hermes upstream service is unavailable.");
+            let serialized = serde_json::to_string(&error).unwrap();
+            assert!(!serialized.contains("private-board-data"));
+            assert!(!serialized.contains("private code with spaces"));
             server.finish().await.unwrap();
         });
     }

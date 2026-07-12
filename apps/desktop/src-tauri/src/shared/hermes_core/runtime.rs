@@ -320,12 +320,39 @@ pub(crate) async fn runtime_diagnostics(
         Err(_) => ("inspectionFailed".into(), None),
     };
     HermesRuntimeDiagnostics {
-        status: supervisor.status().await,
+        status: sanitize_diagnostic_status(supervisor.status().await),
         config_state,
         config_summary,
         recent_logs: supervisor.recent_logs(),
         recent_requests: supervisor.recent_http_traces(),
     }
+}
+
+fn sanitize_diagnostic_status(mut status: WorkRuntimeStatus) -> WorkRuntimeStatus {
+    if let Some(error) = &mut status.last_error {
+        if error.code.is_empty()
+            || error.code.len() > 80
+            || !error
+                .code
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+        {
+            error.code = "hermes_runtime_error".into();
+        }
+        error.message =
+            "Hermes runtime reported an error; use the code and request id for diagnosis.".into();
+        error.details.clear();
+        if error.request_id.as_ref().is_some_and(|value| {
+            value.is_empty()
+                || value.len() > 128
+                || !value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+        }) {
+            error.request_id = None;
+        }
+    }
+    status
 }
 
 pub(crate) async fn runtime_api_client(
@@ -425,13 +452,16 @@ mod tests {
 
     use super::{
         configure_runtime_desired_state, ensure_config_matches_desired, load_runtime_desired_state,
-        resolve_mcp_launch_environment_with, resolve_system_tool_paths,
+        resolve_mcp_launch_environment_with, resolve_system_tool_paths, sanitize_diagnostic_status,
         OFFICECLI_SYSTEM_CAPABILITY_ID,
     };
     use crate::shared::hermes_core::config::{
         HermesConfigManager, HermesEnvironmentReference, HermesEnvironmentReferenceKind,
         HermesMcpEnvironmentBinding, HermesMcpServerDesiredState, HermesPaths,
         HermesProviderDesiredState, WorkbenchHermesDesiredState,
+    };
+    use crate::shared::hermes_core::types::{
+        WorkError, WorkErrorKind, WorkRuntimeState, WorkRuntimeStatus, WORK_SCHEMA_VERSION,
     };
 
     fn desired(model: &str) -> HermesProviderDesiredState {
@@ -464,6 +494,37 @@ mod tests {
         };
         ensure_config_matches_desired(&manager, &manager.load_desired_state().unwrap()).unwrap();
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn diagnostic_status_removes_messages_details_and_unsafe_identifiers() {
+        let status = sanitize_diagnostic_status(WorkRuntimeStatus {
+            schema_version: WORK_SCHEMA_VERSION,
+            state: WorkRuntimeState::Crashed,
+            version: Some("0.18.2".into()),
+            pid: None,
+            base_url: Some("http://127.0.0.1:8642".into()),
+            started_at: Some(1.0),
+            last_error: Some(WorkError {
+                kind: WorkErrorKind::Connection,
+                code: "secret value with spaces".into(),
+                message: "prompt=董事会私密数据".into(),
+                retryable: true,
+                http_status: Some(503),
+                request_id: Some("private request id".into()),
+                details: [("body".into(), serde_json::json!("secret-response"))]
+                    .into_iter()
+                    .collect(),
+            }),
+        });
+
+        let error = status.last_error.unwrap();
+        assert_eq!(error.code, "hermes_runtime_error");
+        assert!(!error.message.contains("董事会"));
+        assert!(error.details.is_empty());
+        assert_eq!(error.request_id, None);
+        assert_eq!(error.http_status, Some(503));
+        assert!(error.retryable);
     }
 
     #[test]

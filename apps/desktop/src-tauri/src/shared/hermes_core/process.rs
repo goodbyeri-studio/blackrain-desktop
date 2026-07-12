@@ -766,7 +766,7 @@ impl HermesProcessSupervisor {
         self.logs
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .append("supervisor", &format!("{}: {}", error.code, error.message));
+            .append("supervisor", &format!("runtime error: {}", error.code));
         let mut state = self.state.lock().await;
         state.child = None;
         state.port = None;
@@ -1209,7 +1209,11 @@ impl LogState {
     }
 
     fn append(&mut self, source: &str, line: &str) {
-        let sanitized = redact_log_line(line, &self.secrets);
+        let sanitized = if source == "supervisor" {
+            redact_log_line(line, &self.secrets)
+        } else {
+            "<redacted Hermes process output>".into()
+        };
         let timestamp = now_unix_seconds();
         let rendered = format!("{timestamp:.3} [{source}] {sanitized}");
         self.lines.push_back(rendered.clone());
@@ -1400,6 +1404,16 @@ mod tests {
             redact_log_line(r#"request {"input":"private"}"#, &[]),
             "<redacted potentially sensitive Hermes content>"
         );
+        let root = temp_dir("untrusted-log");
+        let mut logs = LogState::new(root.join("hermes.log"), 1024, 1, 10);
+        logs.append("stdout", "季度收入是 500 万，写入 private-report.docx");
+        assert!(!logs.lines[0].contains("季度收入"));
+        assert!(!logs.lines[0].contains("private-report.docx"));
+        assert!(logs.lines[0].contains("<redacted Hermes process output>"));
+        assert!(!fs::read_to_string(root.join("hermes.log"))
+            .unwrap()
+            .contains("季度收入"));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -1509,10 +1523,10 @@ mod tests {
             assert_eq!(supervisor.status().await.state, WorkRuntimeState::Crashed);
             let logs = supervisor.recent_logs().join("\n");
             assert!(!logs.contains("provider-fixture-secret"));
-            assert!(logs.contains("<redacted>"));
+            assert!(logs.contains("<redacted Hermes process output>"));
             let disk_logs = fs::read_to_string(root.join("hermes.log")).unwrap();
             assert!(!disk_logs.contains("provider-fixture-secret"));
-            assert!(disk_logs.contains("<redacted>"));
+            assert!(disk_logs.contains("<redacted Hermes process output>"));
             fs::remove_dir_all(root).unwrap();
         });
     }

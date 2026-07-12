@@ -70,6 +70,7 @@
 | 2026-07-12 | 第一组跨层故障收敛 | create-run 503、create-run timeout、SSE 断流、工具失败；registry、TaskStore、journal、emit、terminal 状态一致性 | `cargo test hermes_core::runner::tests --lib`; `cargo test hermes --lib` | runner `10 passed`；Hermes `105 passed`（macOS） | 503 不生成本地幽灵 run且只允许显式 retry；timeout 不附着未知 run但无法证明上游未接受；工具失败 journal/emit/task 均 failed；fake server 不替代真实 new-api/Hermes/Windows |
 | 2026-07-12 | 持久化/运行时故障收敛 | 端口 bearer mismatch、runtime 缺失、config 损坏/last-good repair、run 创建后 journal 写失败 | targeted persistence test；`cargo test hermes --lib`; `cargo check` | targeted `1 passed`；Hermes `106 passed`；check 通过（macOS） | journal 失败会请求 stop、保持 task 未附着并释放 registry；真实磁盘不足/只读 App data、Windows runtime 损坏和 stop 成功性仍未验证 |
 | 2026-07-12 | Hermes 非预期退出 | Ready fixture 子进程以 exit 0 自行结束；status refresh、错误、PID、lease 收敛 | targeted process test；`cargo test hermes --lib`; `cargo check`; `npm run typecheck` | targeted `1 passed`；Hermes `107 passed`；check/typecheck 通过（macOS） | 非受控 exit 0 不再误报 stopped；当前通过 status/前台对账发现，尚无 Windows 强退/睡眠/重启或即时后台通知证据 |
+| 2026-07-12 | 日志与诊断脱敏 | 任意 Hermes stdout/stderr、已知 secret、裸用户文本、上游 error message/恶意 code、runtime details/request id、HTTP trace 字段 | 3 个 targeted Rust tests；`cargo test hermes --lib`; `cargo check`; `npm run typecheck`; `git diff --check` | targeted `3 passed`；Hermes `108 passed`；check/typecheck/diff 通过（macOS） | diagnostics 只保留结构白名单；真实 Windows 文件、剪贴板、crash dump 和长会话尚未人工审计，因此阶段总项不勾选 |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |
@@ -168,4 +169,6 @@ cargo check
 - 2026-07-12：durable queue 首轮 controller test 错把 follow-up Tauri wrapper 从 `events` 模块导入；修正为唯一 IPC 入口 `src/services/tauri.ts`。随后 `schedule_task_recovery` 增加 AppHandle/派发参数时遗漏两个旧调用点，补齐后 Rust 编译和 Hermes 专项测试通过。这些属于实现接线失败，已修复且保留本记录。
 - 2026-07-12：durable queue 完整回归中前端 149 文件 / 1104 测试先通过，但 typecheck 发现新增失败态测试 fixture 使用不存在的 `WorkErrorKind="upstream"`；改为 contract 中真实的 `upstreamModel` 后重新执行 typecheck。该问题仅存在于测试数据，未进入运行时代码。
 - 2026-07-12：任务导航 ARIA 专项断言首次把 fixture 路径末级目录误写成 `BlackRain Project`，真实 accessible name 为 `Office Project，已完成`；按真实路径修正测试后重跑。实现生成的 `aria-label`/`aria-current` 无误。
+- 2026-07-12：日志脱敏 targeted 验证首次把三个 Rust test filter 同时作为 `cargo test` 位置参数，Cargo 报 `unexpected argument`，尚未编译代码；随后拆成三个独立 filter，均通过。该错误属于验证命令写法，不是实现失败。
+- 2026-07-12：日志脱敏全量回归首次仍断言旧占位符 `<redacted>`，新策略实际输出更严格的 `<redacted Hermes process output>`，导致 `concurrent_failed_starts_spawn_only_one_process_and_redact_logs` 失败；按新 contract 更新内存/磁盘断言后重跑通过，未发现明文泄漏。
 - 尚无真实 BlackRain WORK 运行记录。后续失败不得只留在聊天或 CI 日志中。
