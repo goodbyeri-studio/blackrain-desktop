@@ -95,7 +95,7 @@ Set-Location ..
 python scripts/check-hermes-contract.py
 
 # 启动锁定 Hermes 真进程，以本地确定性 Chat Completions 桩验证
-# managed config → /health/capabilities → /v1/runs → SSE → tool/approval → completed
+# managed config → runs/SSE → tool/approval → stop/cancel → same-session continue
 python scripts/test-hermes-live-probe.py
 ```
 
@@ -108,7 +108,7 @@ python scripts/test-hermes-live-probe.py
 - 锁定上游 API/Windows/Skills/file safety/approval 专项 pytest；
 - BlackRain Hermes Rust contract 与前端 types/events/Tauri wrapper tests。
 
-`test-hermes-live-probe.py` 不读取 `.env` 或用户凭据，使用随机 loopback 端口、固定测试文本和临时项目。它连续验证真实 `read_file`、受审批 `terminal` 的 `once` 执行与 `deny` 零副作用，并检查 `memory`、`session_search`、`cronjob` 未进入模型工具列表。它证明锁定 Hermes 真进程可消费 BlackRain managed config 并完成结构化 run/SSE/approval，不证明真实 new-api、国产模型、Tauri 或 Windows 产品闭环。
+`test-hermes-live-probe.py` 不读取 `.env` 或用户凭据，使用随机 loopback 端口、固定测试文本和临时项目。它连续验证真实 `read_file`、受审批 `terminal` 的 `once` 执行与 `deny` 零副作用、阻塞模型流的 Stop/cancel，以及同 `session_id` 携带显式历史的新 run 继续，并检查 `memory`、`session_search`、`cronjob` 未进入模型工具列表。它证明锁定 Hermes 真进程可消费 BlackRain managed config 并完成结构化 run/SSE/approval/stop/continue，不证明真实 new-api、国产模型、Tauri 或 Windows 产品闭环。
 
 升级 Hermes 时先更新 `scripts/fetch-references.sh` 与 Windows runtime manifest 的 tag、完整 commit、版本及三个 hash；重新生成并审阅新 tag fixture 目录，更新 spec 003/009 存证，再运行完整入口。最后仍须在 Windows 执行 runtime vendor、NSIS 和 spec 007/009 产品矩阵；该脚本不替代 Windows 实机验收。
 

@@ -314,11 +314,11 @@
 
 ## 2026-07-12：继续与重试创建新 run，active user-input 不伪造
 
-- 决策：终态 task 的继续/显式重试必须复用持久化 `hermes_session_id`，通过新的 `POST /v1/runs` 创建 run；不自动重放旧 prompt，也不把 retry 做成隐式 POST。locked Hermes `/v1` 当前没有响应 active `user_input.request` 的正式 endpoint，因此 UI/commands 暂不声称支持该动作。
-- 原因：run create 没有可验证 idempotency key，自动 retry 可能重复执行工具；TaskStore 也不把用户 prompt 额外复制成 retry payload。使用 session id 能保留上游会话 scope，同时让每次继续都是明确的用户动作。把不存在的 user-input endpoint 映射成 approval 或新 run 会破坏语义。
-- 替代方案：失败后自动重发上一请求、把 run id 当长期 session 覆盖旧 session、用 approval endpoint 回填任意文本、或在 active run 旁创建并行 run。
-- 影响范围：shared runner、task continue command、TS IPC/controller，以及阶段 8/9 Composer 行为。
-- 后续复查条件：上游提供正式 user-input response 或幂等 retry contract 后，先更新锁定 contract/fixtures，再接 command 和 UI。
+- 决策：终态 task 的继续/显式重试复用持久化 `hermes_session_id`，并从该 task 的 Core-owned normalized journal 构建显式 `conversation_history` 后创建新的 `POST /v1/runs`。历史只含用户消息与完成的助手消息；取消、失败或异常结束且没有最终回答的轮次补固定 assistant 占位。最多 128 条、单条 65,536 字符、总计 262,144 字符，保留最近完整 user 起始序列；不回放 reasoning、原始工具参数/结果、审批命令或未知事件。不自动重放旧 prompt，也不把 retry 做成隐式 POST。locked Hermes `/v1` 当前没有响应 active `user_input.request` 的正式 endpoint，因此 UI/commands 暂不声称支持该动作。
+- 原因：真进程探针证明锁定 `/v1/runs` 的 `session_id` 只是 session/memory identity，不会自动读取 SessionDB 历史；此前“只传同 session id 即保留上下文”的假设不成立。TaskStore 已 journal-first 保存同任务可见 transcript，是 BlackRain 恢复真源；显式历史可在 Stop 后立即构造，不与 Hermes executor thread 异步落库竞态。run create 又没有可验证 idempotency key，自动 retry 仍可能重复执行工具。
+- 替代方案：只传 `session_id`、直接读取 Hermes 内部 SQLite、把 raw session/tool/reasoning 全量回放、失败后自动重发上一请求、用 approval endpoint 回填任意文本，或在 active run 旁创建并行 run。
+- 影响范围：shared runner、task continue/follow-up command、TaskStore transcript contract、真进程 Stop 探针、TS IPC/controller，以及阶段 8/9 Composer 行为。
+- 后续复查条件：Windows 真实长任务需验证历史截断、Stop 后立即继续、失败显式 retry、项目文件引用和模型 context limit。上游提供正式 user-input response、幂等 retry 或版本化 resume/history contract 后，先更新锁定 contract/fixtures，再评估是否替换显式历史；不得直接依赖内部 SQLite。
 
 ## 2026-07-12：SSE 断流先查 status，再有限退避重连
 

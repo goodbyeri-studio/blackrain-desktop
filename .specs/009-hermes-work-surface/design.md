@@ -159,6 +159,8 @@ follow-up queue envelope per task
 
 follow-up queue 最多 32 项，持久化 prompt、项目文件引用、可选 instructions/model、状态、attempt identity 和脱敏错误。状态机为 `queued → starting → removed`，创建 run 失败或无派发证据的启动中断进入 `failed`；失败的队首会暂停后续项，不越过顺序执行。新 run 的本地 `UserMessageAdded.sourceFollowUpId` 是已派发凭证，解决 run attach 成功但队列删除前 App 退出的恢复歧义。工作台停用时队列项转为不可重试失败但保留文本供用户查看。
 
+continue/显式 retry 创建新 run 时必须同时复用 `hermes_session_id`，并从当前 task journal 的 `UserMessageAdded` 与 `AgentMessageCompleted` 生成有界 `conversation_history`。取消/失败而没有最终回答的轮次用固定 assistant 占位闭合；reasoning、工具原文、审批命令和未知事件不回放。锁定 Hermes 不会只凭相同 `session_id` 自动加载历史，Core 也不读取其内部 SQLite 代替 TaskStore 真源。
+
 存储格式须支持原子更新和 schema migration。当前壳若已有适合的 SQLite/store 基础设施则复用；不得用散落 localStorage 作为唯一真源。
 
 ## App/Daemon 边界

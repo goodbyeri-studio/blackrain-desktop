@@ -5,7 +5,9 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use tokio::sync::Mutex;
 
-use super::client::{HermesApiClient, HermesRunCreateRequest, HermesStreamCancellation};
+use super::client::{
+    HermesApiClient, HermesConversationMessage, HermesRunCreateRequest, HermesStreamCancellation,
+};
 use super::events::HermesEventNormalizer;
 use super::protocol::HermesSseFrame;
 use super::tasks::{local_user_message_event_id, HermesTaskStore};
@@ -33,6 +35,133 @@ pub(crate) struct WorkRunPresentation {
     pub(crate) user_text: String,
     pub(crate) project_file_refs: Vec<String>,
     pub(crate) source_follow_up_id: Option<String>,
+}
+
+const MAX_HISTORY_MESSAGES: usize = 128;
+const MAX_HISTORY_MESSAGE_CHARS: usize = 65_536;
+const MAX_HISTORY_TOTAL_CHARS: usize = 262_144;
+
+pub(crate) fn build_task_conversation_history(
+    events: &[WorkEvent],
+) -> Vec<HermesConversationMessage> {
+    let mut messages = Vec::new();
+    let mut pending_user_run: Option<&str> = None;
+
+    for event in events {
+        match &event.kind {
+            super::types::WorkEventKind::UserMessageAdded {
+                text,
+                project_file_refs,
+                ..
+            } => {
+                if pending_user_run.is_some() {
+                    messages.push(history_message(
+                        "assistant",
+                        "[Previous run ended before a final response.]",
+                    ));
+                }
+                messages.push(history_message(
+                    "user",
+                    &history_user_content(text, project_file_refs),
+                ));
+                pending_user_run = Some(&event.run_id);
+            }
+            super::types::WorkEventKind::AgentMessageCompleted { text }
+                if pending_user_run == Some(event.run_id.as_str()) && !text.trim().is_empty() =>
+            {
+                messages.push(history_message("assistant", text));
+                pending_user_run = None;
+            }
+            super::types::WorkEventKind::TaskStatusChanged { status }
+                if pending_user_run == Some(event.run_id.as_str())
+                    && is_terminal_status(status) =>
+            {
+                let placeholder = match status {
+                    WorkTaskStatus::Cancelled => {
+                        "[Previous run was stopped by the user before a final response.]"
+                    }
+                    WorkTaskStatus::Failed => {
+                        "[Previous run failed before producing a final response.]"
+                    }
+                    _ => "[Previous run completed without a final response.]",
+                };
+                messages.push(history_message("assistant", placeholder));
+                pending_user_run = None;
+            }
+            _ => {}
+        }
+    }
+    if pending_user_run.is_some() {
+        messages.push(history_message(
+            "assistant",
+            "[Previous run ended before a final response.]",
+        ));
+    }
+
+    bound_history(messages)
+}
+
+fn history_user_content(text: &str, project_file_refs: &[String]) -> String {
+    if project_file_refs.is_empty() {
+        return text.to_string();
+    }
+    let mut content = String::with_capacity(text.len() + project_file_refs.len() * 64);
+    content.push_str(text);
+    content.push_str("\n\nProject file references from that turn:");
+    for path in project_file_refs {
+        content.push_str("\n- ");
+        content.push_str(path);
+    }
+    content
+}
+
+fn history_message(role: &str, content: &str) -> HermesConversationMessage {
+    HermesConversationMessage {
+        role: role.into(),
+        content: serde_json::Value::String(truncate_history_content(content)),
+    }
+}
+
+fn truncate_history_content(content: &str) -> String {
+    let char_count = content.chars().count();
+    if char_count <= MAX_HISTORY_MESSAGE_CHARS {
+        return content.to_string();
+    }
+    const MARKER: &str = "\n[... historical message truncated ...]\n";
+    let retained = MAX_HISTORY_MESSAGE_CHARS.saturating_sub(MARKER.chars().count());
+    let head_len = retained / 2;
+    let tail_len = retained.saturating_sub(head_len);
+    let head: String = content.chars().take(head_len).collect();
+    let mut tail: Vec<char> = content.chars().rev().take(tail_len).collect();
+    tail.reverse();
+    format!("{head}{MARKER}{}", tail.into_iter().collect::<String>())
+}
+
+fn bound_history(messages: Vec<HermesConversationMessage>) -> Vec<HermesConversationMessage> {
+    let mut selected = Vec::new();
+    let mut total_chars = 0_usize;
+    for message in messages.into_iter().rev() {
+        let chars = message
+            .content
+            .as_str()
+            .map(|content| content.chars().count())
+            .unwrap_or(0);
+        if selected.len() >= MAX_HISTORY_MESSAGES
+            || total_chars.saturating_add(chars) > MAX_HISTORY_TOTAL_CHARS
+        {
+            break;
+        }
+        total_chars = total_chars.saturating_add(chars);
+        selected.push(message);
+    }
+    selected.reverse();
+    while selected
+        .first()
+        .is_some_and(|message| message.role != "user")
+    {
+        selected.remove(0);
+    }
+    selected
 }
 
 pub(crate) async fn start_task_run(
@@ -395,8 +524,9 @@ mod tests {
     use tokio::sync::Mutex;
 
     use super::{
-        consume_run_events_with_policy, start_task_run, HermesRunRegistry, RunnerRetryPolicy,
-        WorkRunPresentation,
+        build_task_conversation_history, consume_run_events_with_policy, start_task_run,
+        HermesRunRegistry, RunnerRetryPolicy, WorkRunPresentation, MAX_HISTORY_MESSAGES,
+        MAX_HISTORY_MESSAGE_CHARS, MAX_HISTORY_TOTAL_CHARS,
     };
     use crate::shared::hermes_core::client::{
         HermesApiClient, HermesRunCreateRequest, HermesStreamCancellation,
@@ -404,7 +534,7 @@ mod tests {
     use crate::shared::hermes_core::fake_server::{FakeExchange, FakeHermesServer};
     use crate::shared::hermes_core::tasks::HermesTaskStore;
     use crate::shared::hermes_core::types::{
-        WorkErrorKind, WorkEventKind, WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION,
+        WorkErrorKind, WorkEvent, WorkEventKind, WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION,
     };
 
     fn temp_root() -> PathBuf {
@@ -433,6 +563,134 @@ mod tests {
             recovery: Default::default(),
             activation_migrations: Vec::new(),
         }
+    }
+
+    fn event(sequence: u64, run_id: &str, kind: WorkEventKind) -> WorkEvent {
+        WorkEvent {
+            schema_version: WORK_SCHEMA_VERSION,
+            event_id: format!("event-{sequence}"),
+            sequence,
+            task_id: "task-runner".into(),
+            run_id: run_id.into(),
+            timestamp: sequence as f64,
+            item_id: None,
+            kind,
+        }
+    }
+
+    #[test]
+    fn conversation_history_uses_visible_messages_and_closes_cancelled_turns() {
+        let events = vec![
+            event(
+                1,
+                "run-1",
+                WorkEventKind::UserMessageAdded {
+                    text: "整理报告".into(),
+                    project_file_refs: vec![r"C:\Project\report.xlsx".into()],
+                    source_follow_up_id: None,
+                },
+            ),
+            event(
+                2,
+                "run-1",
+                WorkEventKind::ToolCompleted {
+                    tool: "read_file".into(),
+                    duration: Some(0.1),
+                    error: false,
+                },
+            ),
+            event(
+                3,
+                "run-1",
+                WorkEventKind::AgentMessageCompleted {
+                    text: "报告已整理。".into(),
+                },
+            ),
+            event(
+                4,
+                "run-2",
+                WorkEventKind::UserMessageAdded {
+                    text: "继续补充图表".into(),
+                    project_file_refs: Vec::new(),
+                    source_follow_up_id: None,
+                },
+            ),
+            event(
+                5,
+                "run-2",
+                WorkEventKind::TaskStatusChanged {
+                    status: WorkTaskStatus::Cancelled,
+                },
+            ),
+        ];
+
+        let history = build_task_conversation_history(&events);
+        assert_eq!(history.len(), 4);
+        assert_eq!(history[0].role, "user");
+        assert!(history[0]
+            .content
+            .as_str()
+            .unwrap()
+            .contains(r"C:\Project\report.xlsx"));
+        assert_eq!(history[1].content, serde_json::json!("报告已整理。"));
+        assert_eq!(history[2].content, serde_json::json!("继续补充图表"));
+        assert_eq!(
+            history[3].content,
+            serde_json::json!("[Previous run was stopped by the user before a final response.]")
+        );
+    }
+
+    #[test]
+    fn conversation_history_is_bounded_and_starts_at_a_user_turn() {
+        let mut events = Vec::new();
+        for index in 0..70_u64 {
+            let run_id = format!("run-{index}");
+            events.push(event(
+                index * 2 + 1,
+                &run_id,
+                WorkEventKind::UserMessageAdded {
+                    text: if index == 69 {
+                        "末尾".repeat(MAX_HISTORY_MESSAGE_CHARS)
+                    } else {
+                        format!("用户 {index}")
+                    },
+                    project_file_refs: Vec::new(),
+                    source_follow_up_id: None,
+                },
+            ));
+            events.push(event(
+                index * 2 + 2,
+                &run_id,
+                WorkEventKind::AgentMessageCompleted {
+                    text: format!("助手 {index}"),
+                },
+            ));
+        }
+
+        let history = build_task_conversation_history(&events);
+        assert!(history.len() <= MAX_HISTORY_MESSAGES);
+        assert_eq!(
+            history.first().map(|message| message.role.as_str()),
+            Some("user")
+        );
+        assert!(history.iter().all(|message| {
+            message
+                .content
+                .as_str()
+                .is_some_and(|content| content.chars().count() <= MAX_HISTORY_MESSAGE_CHARS)
+        }));
+        assert!(
+            history
+                .iter()
+                .filter_map(|message| message.content.as_str())
+                .map(|content| content.chars().count())
+                .sum::<usize>()
+                <= MAX_HISTORY_TOTAL_CHARS
+        );
+        assert_eq!(
+            history.last().unwrap().content,
+            serde_json::json!("助手 69")
+        );
     }
 
     #[tokio::test]
@@ -773,6 +1031,24 @@ mod tests {
             "blackrain-test-bearer-runner-continue-123456789",
         )
         .unwrap();
+        let conversation_history = build_task_conversation_history(&[
+            event(
+                1,
+                "run-original",
+                WorkEventKind::UserMessageAdded {
+                    text: "先整理数据".into(),
+                    project_file_refs: Vec::new(),
+                    source_follow_up_id: None,
+                },
+            ),
+            event(
+                2,
+                "run-original",
+                WorkEventKind::AgentMessageCompleted {
+                    text: "数据已整理。".into(),
+                },
+            ),
+        ]);
         let started = start_task_run(
             &store,
             &registry,
@@ -783,7 +1059,7 @@ mod tests {
                 instructions: None,
                 session_id: Some("session-original".into()),
                 model: None,
-                conversation_history: Vec::new(),
+                conversation_history,
             },
             WorkRunPresentation {
                 user_text: "继续处理".into(),
@@ -802,6 +1078,13 @@ mod tests {
         let requests = server.finish().await.unwrap();
         let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
         assert_eq!(body["session_id"], "session-original");
+        assert_eq!(
+            body["conversation_history"],
+            serde_json::json!([
+                {"role": "user", "content": "先整理数据"},
+                {"role": "assistant", "content": "数据已整理。"}
+            ])
+        );
         registry
             .release("task-continue", Some("run-continued"))
             .await;
