@@ -27,15 +27,19 @@ import type {
 import type {
   ActivatedWorkbenchContext,
   HermesRuntimeDiagnostics,
+  HermesRuntimeModel,
   HermesFollowUpEditInput,
   HermesFollowUpInput,
   HermesTaskContinueInput,
+  HermesTaskMetadataInput,
   HermesTaskReadResult,
   HermesTaskRecoveryState,
   HermesTaskStartInput,
   WorkRuntimeStatus,
   WorkActivationMigrationReason,
   WorkFollowUp,
+  WorkProjectEntry,
+  WorkProjectPreview,
   WorkTask,
   WorkbenchDeactivationResult,
   OfficialWorkbenchActivationResult,
@@ -1976,6 +1980,68 @@ export async function hermesTaskDeleteLocalMetadata(taskId: string): Promise<boo
   return invoke<boolean>("hermes_task_delete_local_metadata", { taskId });
 }
 
+export async function hermesTaskUpdateMetadata(
+  input: HermesTaskMetadataInput,
+): Promise<WorkTask> {
+  return invoke<WorkTask>("hermes_task_update_metadata", { input });
+}
+
 export async function hermesTaskRecoveryStatus(): Promise<HermesTaskRecoveryState> {
   return invoke<HermesTaskRecoveryState>("hermes_task_recovery_status");
+}
+
+export async function hermesRuntimeModels(): Promise<HermesRuntimeModel[]> {
+  return invoke<HermesRuntimeModel[]>("hermes_runtime_models");
+}
+
+export async function hermesProjectList(
+  taskId: string,
+  relativePath = "",
+): Promise<WorkProjectEntry[]> {
+  return invoke<WorkProjectEntry[]>("hermes_project_list", { taskId, relativePath });
+}
+
+export async function hermesProjectPreview(
+  taskId: string,
+  relativePath: string,
+): Promise<WorkProjectPreview> {
+  return invoke<WorkProjectPreview>("hermes_project_preview", { taskId, relativePath });
+}
+
+export async function hermesTerminalOpen(
+  taskId: string,
+  terminalId: string,
+  cols: number,
+  rows: number,
+): Promise<{ id: string }> {
+  return invoke<{ id: string }>("hermes_terminal_open", {
+    taskId,
+    terminalId,
+    cols,
+    rows,
+  });
+}
+
+export async function hermesTerminalWrite(
+  taskId: string,
+  terminalId: string,
+  data: string,
+): Promise<void> {
+  return invoke<void>("hermes_terminal_write", { taskId, terminalId, data });
+}
+
+export async function hermesTerminalResize(
+  taskId: string,
+  terminalId: string,
+  cols: number,
+  rows: number,
+): Promise<void> {
+  return invoke<void>("hermes_terminal_resize", { taskId, terminalId, cols, rows });
+}
+
+export async function hermesTerminalClose(
+  taskId: string,
+  terminalId: string,
+): Promise<void> {
+  return invoke<void>("hermes_terminal_close", { taskId, terminalId });
 }

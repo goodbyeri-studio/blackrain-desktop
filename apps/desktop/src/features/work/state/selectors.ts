@@ -121,3 +121,25 @@ export function resolveProjectOutputPath(
     ? candidate
     : null;
 }
+
+export function resolveWorkMessageFilePath(
+  projectPath: string,
+  messagePath: string,
+): string | null {
+  const normalizedMessage = messagePath.replace(/\\/g, "/");
+  if (!normalizedMessage.startsWith("/workspace/")) {
+    return resolveProjectOutputPath(projectPath, messagePath);
+  }
+  const projectSegments = projectPath.split(/[\\/]/).filter(Boolean);
+  const projectName = projectSegments[projectSegments.length - 1];
+  const mountedSegments = normalizedMessage.slice("/workspace/".length).split("/");
+  const mountedProject = mountedSegments.shift();
+  if (
+    !projectName ||
+    !mountedProject ||
+    mountedProject.toLocaleLowerCase() !== projectName.toLocaleLowerCase()
+  ) {
+    return null;
+  }
+  return resolveProjectOutputPath(projectPath, mountedSegments.join("/"));
+}

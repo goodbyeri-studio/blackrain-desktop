@@ -171,6 +171,69 @@ impl HermesTaskStore {
             .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))
     }
 
+    pub(crate) fn update_task_metadata(
+        &self,
+        task_id: &str,
+        title: Option<&str>,
+        pinned: Option<bool>,
+        archived: Option<bool>,
+    ) -> Result<WorkTask, WorkError> {
+        validate_store_id("task id", task_id)?;
+        if title.is_none() && pinned.is_none() && archived.is_none() {
+            return Err(persistence_error(
+                "work_task_metadata_empty",
+                "WORK task metadata update did not contain a change.",
+            ));
+        }
+        let normalized_title = title
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
+        if title.is_some() && normalized_title.is_none() {
+            return Err(persistence_error(
+                "work_task_title_invalid",
+                "WORK task title must not be empty.",
+            ));
+        }
+        if normalized_title
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 120 || value.chars().any(char::is_control))
+        {
+            return Err(persistence_error(
+                "work_task_title_invalid",
+                "WORK task title must be at most 120 characters and contain no control characters.",
+            ));
+        }
+        let mut tasks = self.load_tasks()?;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.task_id == task_id)
+            .ok_or_else(|| persistence_error("work_task_not_found", "WORK task was not found."))?;
+        if archived == Some(true) && task.active_run_id.is_some() {
+            return Err(persistence_error(
+                "work_task_archive_active",
+                "Stop or finish the Hermes run before archiving the WORK task.",
+            ));
+        }
+        if let Some(title) = normalized_title {
+            task.title = Some(title);
+        }
+        if let Some(pinned) = pinned {
+            task.pinned = pinned;
+        }
+        if let Some(archived) = archived {
+            task.archived = archived;
+            if archived {
+                task.pinned = false;
+            }
+        }
+        task.updated_at = now_unix_seconds().max(task.updated_at);
+        let result = task.clone();
+        sort_tasks(&mut tasks);
+        self.write_snapshot(&tasks)?;
+        Ok(result)
+    }
+
     pub(crate) fn commit_activation_migration(
         &self,
         task_id: &str,
@@ -281,6 +344,7 @@ impl HermesTaskStore {
         text: &str,
         project_file_refs: &[String],
         source_follow_up_id: Option<&str>,
+        model: Option<&str>,
     ) -> Result<WorkRunAttachResult, WorkError> {
         validate_store_id("task id", task_id)?;
         validate_store_id("run id", run_id)?;
@@ -339,6 +403,7 @@ impl HermesTaskStore {
         }
 
         task.hermes_session_id = Some(session_id.into());
+        task.model = model.map(str::to_string).or_else(|| task.model.clone());
         task.active_run_id = Some(run_id.into());
         task.status = WorkTaskStatus::Running;
         task.updated_at = timestamp;
@@ -2100,6 +2165,10 @@ mod tests {
             workbench_id: "office-agent".into(),
             workbench_version: "0.1.0".into(),
             project_path: r"C:\Users\demo\BlackRain Project".into(),
+            title: None,
+            pinned: false,
+            archived: false,
+            model: Some("deepseek-v4-flash".into()),
             hermes_session_id: Some(format!("session-{id}")),
             active_run_id: run_id.map(str::to_string),
             status,
@@ -2157,6 +2226,55 @@ mod tests {
         let value: serde_json::Value =
             serde_json::from_slice(&fs::read(&store.paths.snapshot).unwrap()).unwrap();
         assert_eq!(value["schemaVersion"], TASK_SNAPSHOT_SCHEMA_VERSION);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn updates_title_pin_and_archive_metadata_durably() {
+        let root = temp_root("metadata");
+        let store = HermesTaskStore::new(&root);
+        store
+            .upsert_task(&task("task-metadata", WorkTaskStatus::Completed, None))
+            .unwrap();
+
+        let renamed = store
+            .update_task_metadata("task-metadata", Some("  季度报告  "), Some(true), None)
+            .unwrap();
+        assert_eq!(renamed.title.as_deref(), Some("季度报告"));
+        assert!(renamed.pinned);
+        let archived = store
+            .update_task_metadata("task-metadata", None, None, Some(true))
+            .unwrap();
+        assert!(archived.archived);
+        assert!(!archived.pinned);
+
+        let restarted = HermesTaskStore::new(&root).load_task("task-metadata").unwrap();
+        assert_eq!(restarted.title.as_deref(), Some("季度报告"));
+        assert!(restarted.archived);
+        assert!(!restarted.pinned);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_archiving_active_tasks_and_invalid_titles() {
+        let root = temp_root("metadata-guards");
+        let store = HermesTaskStore::new(&root);
+        store
+            .upsert_task(&task(
+                "task-active-metadata",
+                WorkTaskStatus::Running,
+                Some("run-active"),
+            ))
+            .unwrap();
+
+        let archive_error = store
+            .update_task_metadata("task-active-metadata", None, None, Some(true))
+            .unwrap_err();
+        assert_eq!(archive_error.code, "work_task_archive_active");
+        let title_error = store
+            .update_task_metadata("task-active-metadata", Some("bad\ntitle"), None, None)
+            .unwrap_err();
+        assert_eq!(title_error.code, "work_task_title_invalid");
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -2367,6 +2485,7 @@ mod tests {
                 "继续整理",
                 &[],
                 Some(&follow_up_id),
+                None,
             )
             .unwrap();
 
@@ -2575,6 +2694,7 @@ mod tests {
                 "run-user-event",
                 "整理季度报告",
                 &[r"C:\Users\demo\BlackRain Project\quarterly.xlsx".into()],
+                None,
                 None,
             )
             .unwrap();

@@ -83,6 +83,14 @@ pub(crate) struct WorkTask {
     pub(crate) workbench_id: String,
     pub(crate) workbench_version: String,
     pub(crate) project_path: String,
+    #[serde(default)]
+    pub(crate) title: Option<String>,
+    #[serde(default)]
+    pub(crate) pinned: bool,
+    #[serde(default)]
+    pub(crate) archived: bool,
+    #[serde(default)]
+    pub(crate) model: Option<String>,
     pub(crate) hermes_session_id: Option<String>,
     pub(crate) active_run_id: Option<String>,
     pub(crate) status: WorkTaskStatus,
@@ -212,6 +220,11 @@ pub(crate) enum WorkEventKind {
     UserInputRequested {
         prompt: String,
         choices: Vec<String>,
+    },
+    UsageUpdated {
+        input_tokens: u64,
+        output_tokens: u64,
+        total_tokens: u64,
     },
     OutputAvailable {
         path: String,

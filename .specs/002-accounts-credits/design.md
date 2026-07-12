@@ -2,10 +2,10 @@
 
 ## 总体方案
 
-在现有本地壳之上加一层**账号 + credit 计量**。2026-06-25 已真实验证的是 CODE 路径的过渡链路；003 双引擎定稿后，WORK/Hermes 的生产 credit 接线和最终 new-api/`proxy.py` 边界仍待统一，不能把过渡实现写成最终架构。
+在现有本地壳之上加一层**账号 + credit 计量**。2026-06-25 已真实验证的是 CODE 路径的过渡链路；生产项目边界现已定为私有 Cloud 负责身份/权益/商业账本，公开 Relay 基于 New API 负责模型中转与原始 usage，执行真源见 [010](../010-three-project-platform/)。
 
 - **CODE credit（过渡实现已验证）**：Codex → 本地翻译网关 → `proxy.py` → DeepSeek；代理持平台 key 并按真实 usage 扣 credit。
-- **WORK credit（待接线）**：Hermes 原生 Chat 应接生产 credit 入口/new-api，不经过 CODE 翻译网关；鉴权与扣款适配尚未定案。
+- **WORK credit（待接线）**：Hermes 原生 Chat 直接接 BlackRain Relay，不经过 CODE 翻译网关；model token 由 Cloud broker 兑换，尚未实现。
 - **BYOK（仅 Plus+，尚未实现）**：目标是不消耗平台 credit；直连上游还是仍经 new-api，待与 003 统一。
 
 账号、plan、credit 余额由 **Supabase（Auth + Postgres）** 管理，桌面 App 通过 Supabase JS SDK 登录、读余额；当前过渡代理用 Supabase service-role 校验 JWT、扣余额。
@@ -13,7 +13,7 @@
 ```text
 注册/登录:       桌面 App --Supabase SDK--> Supabase Auth (邮箱+密码+OTP)
 CODE credit(已验): Codex -> 本地网关(Responses⇄Chat) -> proxy.py(过渡) -> DeepSeek
-WORK credit(待决): Hermes(Chat) -> 生产 credit 入口/new-api 组合待定 -> 国产模型
+WORK credit(待实现): Hermes(Chat) -> BlackRain Relay(New API) -> 国产模型
 BYOK(待实现):     Plus+ 权益门禁 + 路由待定；不消耗平台 credit
 余额展示:         桌面 --Supabase SDK--> profiles.credits
 ```
@@ -22,14 +22,16 @@ BYOK(待实现):     Plus+ 权益门禁 + 路由待定；不消耗平台 credit
 
 - 属于 `apps/desktop`（前端）：登录/注册 UI、会话态持久、首页/设置展示 plan 与 credit、模型选择器显示倍率、BYOK 入口的 Plus 门禁。
 - 属于 `apps/desktop`（Tauri 后端）：Supabase 会话 token 的安全存取（钥匙串）、把「当前模式（credit/BYOK）」翻译成网关 provider 配置。
-- 属于**过渡代理 `gateway/proxy.py`**（已部署验证）：OpenAI 兼容转发、校验 Supabase JWT、查/扣 credit、持平台 DeepSeek key、usage 计量、余额耗尽拦截。最终是否保留该层待决。
+- 属于**过渡代理 `gateway/proxy.py`**（已部署验证）：历史 CODE 可行性链路；不再作为目标生产入口，新云端实现归 `blackrain-cloud`/`blackrain-relay`。
 - 属于 **Supabase**：用户认证、`profiles`（plan + credits）、`credit_ledger`（流水）、RLS 策略。
+- 属于 **BlackRain Cloud**：验证 Supabase 身份、套餐/权益、商业 credit ledger、Relay 企业客户凭据、model token broker 和对账。
+- 属于 **BlackRain Relay**：New API 模型渠道、路由、scoped token、原始 usage、限流与批发结算；不直接写 Supabase。
 - 明确不改 `codex-upstream`：内核只发 Responses，仍只连本地网关。
-- 与 new-api 的接缝目标：桌面侧尽量保持 `base_url + Bearer` 稳定；但 new-api 的 Supabase JWT 校验和 `spend_credits` 适配不是现成能力，“桌面少改”不等于“服务端零实现”，生产组合待决。
+- 与 Relay 的接缝目标：桌面侧保持 `base_url + Bearer <model token>`；Supabase JWT 只用于 Cloud 身份兑换。Cloud/Relay 独立数据库，通过版本化管理 API 和 usage 对账事件交互。
 
 ## 关键判断：平台 key 必须只在服务端
 
-credit 用户花的是平台的钱，平台 DeepSeek key **绝不能**打包进桌面 App（会被扒包白嫖）。因此 credit 链路**必须**经过服务端受控入口。这是「送 token」的硬性物理约束；该入口最终由 new-api、`proxy.py` 适配层还是二者组合承担，尚未定案。
+credit 用户花的是平台的钱，平台模型 key **绝不能**打包进桌面 App（会被扒包白嫖）。因此 credit 数据面必须经过 BlackRain Relay；Cloud 只负责身份、权益、broker 和商业账本，不代理模型内容。
 
 - 当前 CODE 过渡实现中，本地网关把 `base_url` 指向 `proxy.py`，`Authorization` 带用户 Supabase JWT（不是 DeepSeek key）。
 - 过渡代理用 JWT 认出用户 → 查余额 → 转发到真实 DeepSeek（注入平台 key）→ 读 usage → 扣 credit。
@@ -124,7 +126,7 @@ end $$;
 | 模式 | base_url | Authorization | 计 credit |
 |---|---|---|---|
 | CODE credit（代码接线完成，GUI E2E 未跑） | 过渡代理 `…/v1` | 用户 Supabase JWT | 是 |
-| WORK credit（待接线） | new-api/credit 入口组合待决 | Supabase JWT 或平台 token 适配待决 | 是 |
+| WORK credit（待接线） | BlackRain Relay `…/v1` | Cloud broker 签发的 Relay model token | 是 |
 | BYOK（仅 Plus+，待实现） | 直连或经 new-api 待决 | 用户自己的 key | 否 |
 
 - 默认 credit 模式；Plus 用户的 BYOK 权益、路由和模式切换尚未完成。

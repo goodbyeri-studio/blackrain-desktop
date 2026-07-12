@@ -1861,6 +1861,7 @@ export default function MainApp() {
       <WorkSurface
         controller={workController}
         onClose={() => setWorkSurfaceOpen(false)}
+        onOpenSettings={() => modalActions.openSettings("display")}
       />
     </WorkSurfaceBoundary>
   ) : homeNode;

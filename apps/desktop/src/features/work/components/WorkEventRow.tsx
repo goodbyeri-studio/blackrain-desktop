@@ -1,12 +1,16 @@
 import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Copy from "lucide-react/dist/esm/icons/copy";
 import FileOutput from "lucide-react/dist/esm/icons/file-output";
 import LoaderCircle from "lucide-react/dist/esm/icons/loader-circle";
 import Paperclip from "lucide-react/dist/esm/icons/paperclip";
 import TerminalSquare from "lucide-react/dist/esm/icons/square-terminal";
 
 import { Markdown } from "@/features/messages/components/Markdown";
-import { resolveProjectOutputPath } from "../state/selectors";
+import {
+  resolveProjectOutputPath,
+  resolveWorkMessageFilePath,
+} from "../state/selectors";
 import type { WorkEvent } from "../types";
 
 type WorkEventRowProps = {
@@ -14,6 +18,20 @@ type WorkEventRowProps = {
   projectPath: string;
   onOpenOutput: (path: string) => void;
 };
+
+function CopyMessageButton({ text }: { text: string }) {
+  return (
+    <button
+      type="button"
+      className="ghost icon-button work-message-copy"
+      aria-label="复制消息"
+      title="复制消息"
+      onClick={() => void navigator.clipboard.writeText(text)}
+    >
+      <Copy aria-hidden />
+    </button>
+  );
+}
 
 function ToolEvent({ event }: { event: Extract<WorkEvent, { type: "toolStarted" | "toolProgress" | "toolCompleted" }> }) {
   const completed = event.type === "toolCompleted";
@@ -60,18 +78,43 @@ export function WorkEventRow({ event, projectPath, onOpenOutput }: WorkEventRowP
               </div>
             ) : null}
           </div>
+          <CopyMessageButton text={event.text} />
         </article>
       );
     case "agentTextDelta":
       return (
         <article className="work-message-row is-agent is-streaming">
-          <Markdown value={event.delta} workspacePath={projectPath} />
+          <div className="work-message-content">
+            <Markdown
+              value={event.delta}
+              workspacePath={projectPath}
+              onOpenFileLink={(target) => {
+                const resolved = resolveWorkMessageFilePath(projectPath, target.path);
+                if (resolved) {
+                  onOpenOutput(resolved);
+                }
+              }}
+            />
+          </div>
+          <CopyMessageButton text={event.delta} />
         </article>
       );
     case "agentMessageCompleted":
       return (
         <article className="work-message-row is-agent">
-          <Markdown value={event.text} workspacePath={projectPath} />
+          <div className="work-message-content">
+            <Markdown
+              value={event.text}
+              workspacePath={projectPath}
+              onOpenFileLink={(target) => {
+                const resolved = resolveWorkMessageFilePath(projectPath, target.path);
+                if (resolved) {
+                  onOpenOutput(resolved);
+                }
+              }}
+            />
+          </div>
+          <CopyMessageButton text={event.text} />
         </article>
       );
     case "reasoningUpdated":
@@ -125,10 +168,23 @@ export function WorkEventRow({ event, projectPath, onOpenOutput }: WorkEventRowP
           <TerminalSquare aria-hidden />
           <div>
             <strong>{event.prompt}</strong>
+            {event.choices.length > 0 ? (
+              <div className="work-input-request-choices" aria-label="Hermes 提供的选项">
+                {event.choices.map((choice) => <span key={choice}>{choice}</span>)}
+              </div>
+            ) : null}
             <span>
               当前锁定 Hermes `/v1` 尚未提供 user input response 接口，不能伪造提交。
             </span>
           </div>
+        </div>
+      );
+    case "usageUpdated":
+      return (
+        <div className="work-usage-row" aria-label="本轮模型用量">
+          <span>输入 {event.inputTokens.toLocaleString()}</span>
+          <span>输出 {event.outputTokens.toLocaleString()}</span>
+          <strong>总计 {event.totalTokens.toLocaleString()} tokens</strong>
         </div>
       );
     case "unknown":

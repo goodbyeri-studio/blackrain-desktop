@@ -128,7 +128,7 @@ curl -s http://127.0.0.1:8899/v1/models
 
 ## `proxy.py` —— 平台 credit 代理（M-A2，独立组件）
 
-与 `gateway.py` **不同职责、不同协议**。见 [`.specs/002-accounts-credits/`](../.specs/002-accounts-credits/)。它是已经跑通过 Supabase/DeepSeek 计量闭环的过渡实现；生产态是否由 new-api 直接替代、继续保留为 credit 适配层，及 WORK/Hermes 如何复用同一计费口径，仍需在 002/003 中统一决策。
+与 `gateway.py` **不同职责、不同协议**。见 [`.specs/002-accounts-credits/`](../.specs/002-accounts-credits/) 和 [`.specs/010`](../.specs/010-three-project-platform/)。它是已经跑通过 Supabase/DeepSeek 计量闭环的历史过渡实现；目标生产形态已改为私有 BlackRain Cloud 负责身份/商业账本，公开 BlackRain Relay 基于 New API 负责中转/原始 usage。本目录不再新增生产 Cloud/Relay 服务代码。
 
 - `gateway.py`：本地翻译层，说 **Responses**（codex 专用），跑在用户机器上。
 - `proxy.py`：平台 credit 代理，说 **Chat Completions**（OpenAI 兼容），跑在**服务端常驻主机**，持平台 DeepSeek key、按 usage 扣 credit。
@@ -188,4 +188,4 @@ curl -s http://127.0.0.1:8801/health
 **Fly.io**（推荐，起步基本免费）：`fly launch --no-deploy` → `fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... SUPABASE_ANON_KEY=... DEEPSEEK_API_KEY=...` → `fly deploy`。Fly 边缘自动 TLS（HTTPS）。
 **Railway**：连仓库选 `gateway/` 目录，Variables 里设上述四个 secret，自动构建部署。
 
-历史设想是 new-api 按 `base_url + Bearer <jwt>` 接缝顶替本代理；当前双引擎设计已经实际使用 new-api 做模型中转，但 Supabase JWT、余额门禁和原子扣款由谁承担尚未完成统一设计。不要把本句理解为生产迁移已经完成。
+历史设想是 new-api 按 `base_url + Bearer <jwt>` 直接顶替本代理。当前定稿改为 Supabase JWT 只向 BlackRain Cloud 证明身份，Cloud 向 BlackRain Relay 兑换 model token；Relay 记录原始 usage，Cloud 维护商业 credit ledger 并对账。该决策不代表 broker、对账或生产迁移已经实现。

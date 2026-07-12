@@ -1,10 +1,16 @@
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
+import Bot from "lucide-react/dist/esm/icons/bot";
+import Layers3 from "lucide-react/dist/esm/icons/layers-3";
 import Paperclip from "lucide-react/dist/esm/icons/paperclip";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Wrench from "lucide-react/dist/esm/icons/wrench";
 import Square from "lucide-react/dist/esm/icons/square";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import X from "lucide-react/dist/esm/icons/x";
 
 type WorkComposerProps = {
+  workbenchName: string;
   value: string;
   disabled: boolean;
   running: boolean;
@@ -13,9 +19,13 @@ type WorkComposerProps = {
   projectFileRefs: string[];
   canAttach: boolean;
   attachmentError: string | null;
+  skillNames: string[];
+  selectedModel: string | null;
   focusRequestId: number;
   onChange: (value: string) => void;
   onAddFiles: () => void;
+  onOpenTools: () => void;
+  onOpenModels: () => void;
   onRemoveFile: (path: string) => void;
   onSubmit: () => void;
   onStop: () => void;
@@ -23,6 +33,7 @@ type WorkComposerProps = {
 };
 
 export function WorkComposer({
+  workbenchName,
   value,
   disabled,
   running,
@@ -31,16 +42,33 @@ export function WorkComposer({
   projectFileRefs,
   canAttach,
   attachmentError,
+  skillNames,
+  selectedModel,
   focusRequestId,
   onChange,
   onAddFiles,
+  onOpenTools,
+  onOpenModels,
   onRemoveFile,
   onSubmit,
   onStop,
   onResume,
 }: WorkComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [selectedSkillIndex, setSelectedSkillIndex] = useState(0);
   const canSubmit = value.trim().length > 0 && !disabled;
+  const slashMatch = /(^|\s)\/([^\s/]*)$/.exec(value);
+  const skillQuery = slashMatch?.[2]?.toLocaleLowerCase() ?? null;
+  const matchingSkills = useMemo(
+    () =>
+      skillQuery === null
+        ? []
+        : skillNames.filter((name) => name.toLocaleLowerCase().includes(skillQuery)).slice(0, 8),
+    [skillNames, skillQuery],
+  );
+  const skillCompletionOpen = matchingSkills.length > 0 && !disabled;
 
   useEffect(() => {
     if (focusRequestId > 0 && !disabled) {
@@ -48,7 +76,54 @@ export function WorkComposer({
     }
   }, [disabled, focusRequestId]);
 
+  useEffect(() => {
+    setSelectedSkillIndex(0);
+  }, [skillQuery]);
+
+  useEffect(() => {
+    if (!actionsOpen) {
+      return undefined;
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!actionsRef.current?.contains(event.target as Node)) {
+        setActionsOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [actionsOpen]);
+
+  const applySkill = (name: string) => {
+    if (!slashMatch) {
+      return;
+    }
+    const start = slashMatch.index + slashMatch[1].length;
+    onChange(`${value.slice(0, start)}/${name} `);
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (skillCompletionOpen && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      event.preventDefault();
+      setSelectedSkillIndex((current) => {
+        const delta = event.key === "ArrowDown" ? 1 : -1;
+        return (current + delta + matchingSkills.length) % matchingSkills.length;
+      });
+      return;
+    }
+    if (skillCompletionOpen && event.key === "Escape") {
+      event.preventDefault();
+      onChange(value.replace(/\/([^\s/]*)$/, "$1"));
+      return;
+    }
+    if (skillCompletionOpen && event.key === "Enter" && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      const skill = matchingSkills[selectedSkillIndex];
+      if (skill) {
+        applySkill(skill);
+      }
+      return;
+    }
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       if (canSubmit) {
@@ -59,7 +134,34 @@ export function WorkComposer({
 
   return (
     <div className="work-composer-wrap">
+      <div className="work-composer-status">
+        <span><Bot /> Hermes Agent</span>
+        <button type="button" onClick={onOpenModels} disabled={disabled} aria-label="选择 WORK 模型">
+          <Sparkles aria-hidden />
+          {selectedModel ?? "选择模型"}
+        </button>
+        {running ? <span><Layers3 /> 后续消息将排队</span> : null}
+      </div>
       <div className="work-composer">
+        {skillCompletionOpen ? (
+          <div className="work-skill-completions" role="listbox" aria-label="可用 Skills">
+            <div className="work-skill-completions-label">Skills</div>
+            {matchingSkills.map((name, index) => (
+              <button
+                type="button"
+                role="option"
+                aria-selected={index === selectedSkillIndex}
+                className={index === selectedSkillIndex ? "is-selected" : ""}
+                key={name}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => applySkill(name)}
+              >
+                <Wrench aria-hidden />
+                <span>/{name}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         {projectFileRefs.length > 0 ? (
           <div className="work-composer-files" aria-label="项目文件引用">
             {projectFileRefs.map((path) => {
@@ -91,11 +193,11 @@ export function WorkComposer({
             placeholder={
               running
                 ? "输入后续任务，将在当前任务结束后执行"
-                : "描述你希望 Office 工作台完成的任务"
+                : `描述你希望 ${workbenchName} 完成的任务`
             }
-            rows={1}
+            rows={2}
             disabled={disabled}
-            aria-label="Office 任务指令"
+            aria-label="WORK 任务指令"
             aria-describedby={
               attachmentError
                 ? "work-composer-error work-composer-help"
@@ -103,6 +205,45 @@ export function WorkComposer({
             }
           />
           <div className="work-composer-actions">
+            <div ref={actionsRef} className="work-composer-action-menu">
+              <button
+                type="button"
+                className="ghost work-composer-plus"
+                disabled={disabled}
+                onClick={() => setActionsOpen((open) => !open)}
+                aria-label="打开 Composer 操作"
+                aria-expanded={actionsOpen}
+              >
+                <Plus aria-hidden />
+              </button>
+              {actionsOpen ? (
+                <div className="work-composer-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!canAttach}
+                    onClick={() => {
+                      setActionsOpen(false);
+                      onAddFiles();
+                    }}
+                  >
+                    <Paperclip aria-hidden />
+                    <span>添加项目文件</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      onOpenTools();
+                    }}
+                  >
+                    <Wrench aria-hidden />
+                    <span>Skills 与工具</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <button
               type="button"
               className="ghost work-attach-button"

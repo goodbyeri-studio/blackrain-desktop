@@ -327,10 +327,36 @@ impl HermesEventNormalizer {
                     Some(format!("message:{}", self.run_id)),
                     WorkEventKind::AgentMessageCompleted { text },
                 ));
+                let usage = raw.payload.get("usage").and_then(Value::as_object);
+                let input_tokens = usage
+                    .and_then(|value| value.get("input_tokens"))
+                    .and_then(Value::as_u64);
+                let output_tokens = usage
+                    .and_then(|value| value.get("output_tokens"))
+                    .and_then(Value::as_u64);
+                let total_tokens = usage
+                    .and_then(|value| value.get("total_tokens"))
+                    .and_then(Value::as_u64)
+                    .or_else(|| input_tokens.zip(output_tokens).map(|(input, output)| input.saturating_add(output)));
+                if let (Some(input_tokens), Some(output_tokens), Some(total_tokens)) =
+                    (input_tokens, output_tokens, total_tokens)
+                {
+                    output.push(self.emit(
+                        raw,
+                        &fingerprint,
+                        output.len(),
+                        Some(format!("usage:{}", self.run_id)),
+                        WorkEventKind::UsageUpdated {
+                            input_tokens,
+                            output_tokens,
+                            total_tokens,
+                        },
+                    ));
+                }
                 output.push(self.emit(
                     raw,
                     &fingerprint,
-                    1,
+                    output.len(),
                     None,
                     WorkEventKind::TaskStatusChanged {
                         status: WorkTaskStatus::Completed,
@@ -615,8 +641,8 @@ mod tests {
             .iter()
             .flat_map(|event| normalizer.normalize(event).unwrap())
             .collect::<Vec<_>>();
-        assert_eq!(events.len(), 9);
-        assert_eq!(normalizer.last_sequence(), 9);
+        assert_eq!(events.len(), 10);
+        assert_eq!(normalizer.last_sequence(), 10);
         assert!(events
             .iter()
             .enumerate()
@@ -654,7 +680,7 @@ mod tests {
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].event_type, "future.progress");
         assert_eq!(diagnostics[0].payload_keys, vec!["percent", "phase"]);
-        assert_eq!(normalizer.last_sequence(), 47);
+        assert_eq!(normalizer.last_sequence(), 48);
     }
 
     #[test]
@@ -797,5 +823,39 @@ mod tests {
             2
         );
         assert_eq!(normalizer.recent_unknown_diagnostics().len(), 1);
+    }
+
+    #[test]
+    fn maps_completed_run_usage_before_the_terminal_status() {
+        let raw: HermesRawEvent = serde_json::from_value(serde_json::json!({
+            "event": "run.completed",
+            "run_id": "run-usage",
+            "timestamp": 1.0,
+            "output": "完成",
+            "usage": {
+                "input_tokens": 120,
+                "output_tokens": 30,
+                "total_tokens": 150
+            }
+        }))
+        .unwrap();
+        let events = HermesEventNormalizer::new("task-usage", "run-usage", 0)
+            .unwrap()
+            .normalize(&raw)
+            .unwrap();
+        assert!(matches!(
+            events[1].kind,
+            WorkEventKind::UsageUpdated {
+                input_tokens: 120,
+                output_tokens: 30,
+                total_tokens: 150
+            }
+        ));
+        assert!(matches!(
+            events.last().unwrap().kind,
+            WorkEventKind::TaskStatusChanged {
+                status: WorkTaskStatus::Completed
+            }
+        ));
     }
 }

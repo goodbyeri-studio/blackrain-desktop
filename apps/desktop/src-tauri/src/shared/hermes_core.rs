@@ -7,6 +7,7 @@ pub(crate) mod client;
 pub(crate) mod config;
 pub(crate) mod credential_store;
 pub(crate) mod events;
+pub(crate) mod files;
 pub(crate) mod mcp_router;
 pub(crate) mod process;
 pub(crate) mod protocol;

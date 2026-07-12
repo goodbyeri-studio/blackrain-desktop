@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 工具协作限制
+
+- 不调用、依赖或推荐本机 `claude` CLI 参与开发、审查、调研、测试归因或文档治理；相关工作由当前 agent 使用仓库内工具和普通 Git 工作流独立完成。
+
 ## 项目本质
 
 BlackRain 是**AI 驱动的垂类工作环境平台**：把领域高手电脑里的工具、环境、方法和验证封装成普通人可以安装的工作台，让每个高度电脑化的长尾领域都能快速拥有自己的“Codex”。它不重写 agent 引擎，而是复用 openai/codex 与 Hermes 原装黑盒；自有核心资产位于工作台包、环境复现、垂类验证和专家供给层。`2049 App` / `2049` 是历史旧称，只能出现在历史说明或尚未迁移的必要产物名中。
@@ -35,7 +39,7 @@ BlackRain（Tauri，subtree 自 CodexMonitor）= 工作台 Core + 双 surface + 
             └─ Chat Completions → new-api 计量 → 国产模型
 ```
 
-上图是**定稿目标拓扑**，不是当前完成度声明。当前 Git 跟踪代码仍以 CODE 主链为主，Hermes 进程纳管与 Tauri WORK surface 尚未接入；真实完成度以 [.specs/003 verification](.specs/003-dual-engine-architecture/verification.md) 和实际代码为准。
+上图是**定稿目标拓扑**，不是发布完成度声明。Hermes Desktop 到 WORK surface 的现有合同范围已在 macOS 完成代码级收口，但 Windows Tauri、Hermes/new-api、PTY、Office 和发布矩阵尚未验收；真实完成度以 [.specs/009 verification](.specs/009-hermes-work-surface/verification.md) 和实际代码为准。
 
 **四条铁律（违反即破坏架构）：**
 1. **两个引擎永远原装黑盒**——codex/Hermes 都只读、只调用、白嫖上游日更。分叉=日更能力归零。
@@ -55,21 +59,9 @@ BlackRain（Tauri，subtree 自 CodexMonitor）= 工作台 Core + 双 surface + 
 | `hermes-upstream/` | **WORK 引擎**：Hermes Agent 本地克隆（**gitignored，不入库**），HTTP `/v1` 接缝黑盒纳管。 | 目标锁定 v2026.7.7.2 (`9de9c25`，v0.18.2，2026-07-07)。可借其 Desktop MIT React 组件（摘零件抄进来，不 fork 整个 Desktop）；`fetch-references.sh` 同样强制校验并 checkout。零翻译直入 new-api（Chat Completions）；Windows 产品验收仍以 spec 007 为准。 |
 | `plugins/` | 工具/数据源/软件适配器及配套 Skills，可能包含 MCP、CLI、代码、二进制和独立进程。 | 每个第三方制品都要声明来源、License、权限和验证；不等同工作台。 |
 | `workbenches/` | 专家工作台包；目标包含 Manifest、Skills、插件依赖、环境、模板、任务和验证。 | 当前 `office-agent` 只是内容/注入骨架；完整生命周期按 008 落地，不能再写成“纯 Markdown 即完整工作台”。 |
-| `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–009。 | 只给大功能/架构功能建，随实现同步更新。 |
+| `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–010。 | 只给大功能/架构功能建，随实现同步更新。 |
 
-仓库托管在 `goodbyeri-studio/BlackRain`（私有）。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
-
-## 跨 Agent 协作
-
-Codex 可以调用本机 `claude` CLI 作为协作开发/审查助手，尤其适合并行做文档核查、代码审查、迁移方案对照、测试失败归因。调用前必须先明确任务边界，不把密钥、未脱敏日志或不该出仓库的私有上下文交给子进程。
-
-硬约束：调用 Claude CLI 时必须显式指定 **Sonnet 5 1M** 模型与 `--effort max`，不得省略 effort 或降级。默认使用非交互 `-p/--print` 形式，例如：
-
-```bash
-claude -p --model sonnet5-1m --effort max "<具体任务>"
-```
-
-若本机 CLI 的模型别名不同，先用 `claude --help` 或团队已确认的别名校正，但仍必须满足「Sonnet 5 1M + max effort」。Claude 输出只能作为辅助意见；最终改动、验证和风险判断由当前 agent 负责。
+仓库托管在 `goodbyeri-studio/blackrain-desktop`（私有）。BlackRain 另有私有 `blackrain-cloud` 与公开 AGPL `blackrain-relay`；三项目边界以 `.specs/010-three-project-platform/` 为真源。本仓只承载桌面产品和历史迁移资产。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
 
 ## Living Spec 纪律
 
@@ -92,6 +84,7 @@ claude -p --model sonnet5-1m --effort max "<具体任务>"
 | [007 windows-client](.specs/007-windows-client/) | **当前优先级**:MVP 仅 Windows(macOS 推迟 post-MVP),dev-client.ps1 + NSIS 打包 + Windows 验证矩阵 | — |
 | [008 expert-workbench-package](.specs/008-expert-workbench-package/) | **产品核心协议**：工作台 Manifest、依赖、权限、安装、验证、升级、回滚和卸载 | — |
 | [009 hermes-work-surface](.specs/009-hermes-work-surface/) | **当前实现 P0**：Hermes 进程纳管、隔离配置、`/v1/runs`、SSE、审批、任务恢复和 Codex 风格 WORK surface | — |
+| [010 three-project-platform](.specs/010-three-project-platform/) | `blackrain-desktop` / `blackrain-cloud` / `blackrain-relay` 的仓库、License、账本和 API 边界 | — |
 
 ## 文档治理
 
@@ -122,9 +115,9 @@ src-tauri/
 ## 第三方 License 红线（闭源商业 B2B，全员遵守）
 
 > **MIT / Apache-2.0 → 可进仓库、可借代码（保留 NOTICE 署名）。
-> AGPL / GPL / BSL / 无许可证 → 只能看架构、自己重写；绝不进仓库、绝不复制源码、绝不 fork 到组织账号。**
+> AGPL / GPL / BSL / 无许可证 → 不得进入 Desktop/Cloud 私有仓库；唯一批准例外是独立公开的 `blackrain-relay`，可基于 New API 按 AGPLv3 完整履责。**
 
-AGPL/GPL 有传染性，进了产品会要求整个 SaaS 开源，摧毁商业模式。参考类（AGPL/GPL）项目放在**仓库外、产品目录外**（约定 `~/Projects/refs/`），照着重写不照抄。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+Desktop/Cloud 保持严格闭源来源边界；普通 AGPL/GPL 参考项目仍放在仓库外（约定 `~/Projects/refs/`），照着重写不照抄。Relay 的公开 AGPL 例外不扩散到本仓。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 命令与验证入口
 

@@ -204,6 +204,19 @@ pub(crate) async fn terminal_open(
     state: State<'_, AppState>,
     app: AppHandle,
 ) -> Result<TerminalSessionInfo, String> {
+    let cwd = get_workspace_path(&workspace_id, &state).await?;
+    terminal_open_at_path(workspace_id, cwd, terminal_id, cols, rows, state, app).await
+}
+
+pub(crate) async fn terminal_open_at_path(
+    workspace_id: String,
+    cwd: PathBuf,
+    terminal_id: String,
+    cols: u16,
+    rows: u16,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<TerminalSessionInfo, String> {
     if terminal_id.is_empty() {
         return Err("Terminal id is required".to_string());
     }
@@ -217,7 +230,6 @@ pub(crate) async fn terminal_open(
         }
     }
 
-    let cwd = get_workspace_path(&workspace_id, &state).await?;
     let pty_system = native_pty_system();
     let size = PtySize {
         rows: rows.max(2),

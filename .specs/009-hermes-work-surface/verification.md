@@ -91,6 +91,8 @@
 | 2026-07-12 | Windows release WORK 门禁 | static contract → Windows/Hermes vendor → TS typecheck/test/lint/DS/doctor → Rust check/Hermes/workbench/plugin → NSIS build 调用顺序 | 静态审阅 `release-client-win.ps1`; `python3 scripts/check-hermes-contract.py --static-only`; `git diff --check` | 静态 contract/diff 通过；PowerShell 调用链已接入（macOS） | 本机无 `pwsh`，未执行 Windows runtime vendor、doctor、Rust Windows tests 或 NSIS；只勾选脚本接线子项，不勾选任何 Windows 产品验收 |
 | 2026-07-12 | Windows CI WORK 代码级矩阵 | Windows npm ci/typecheck/test/lint/DS/codemod；Rust check/Hermes/workbench/plugin；Ubuntu JS 快速 job 保留 | 静态审阅 `.github/workflows/ci.yml`; YAML parse；`git diff --check` | workflow 配置已接入，YAML/diff 通过（macOS 静态） | 用户要求不 push，本分支没有 GitHub Actions run；不得勾选 Windows tests 通过。CI 不含 Hermes runtime、GUI、NSIS、Office 或安装/卸载 |
 | 2026-07-12 | WORK 键盘/焦点/窄布局 contract | 新建与 follow-up edit 聚焦 Composer；approval 聚焦“拒绝”；诊断首焦点/Escape/归还；live log；760px 以下保留任务导航 | targeted `WorkSurface.test.tsx`; `npm run test`; `npm run typecheck`; `npm run lint`; `npm run lint:ds`; `npm run codemod:ds:dry`; `git diff --check`; Browser 插件尝试普通 Vite | targeted `14 passed`；全量 `151 files / 1114 tests`；typecheck/diff 通过；lint/DS 0 error、5 条既有 warning；codemod 仅提示既有 `SettingsView.tsx` modal（macOS/jsdom） | 普通浏览器 1420 只到 Supabase gate；无凭据 1421 进入 MainApp 后被既有 Tauri-only drag/drop 调用阻断，未取得有效 WORK screenshot。代码级 contract 通过不替代 Windows Tauri WebView、屏幕阅读器、125%/150%/200% 高 DPI 与真实键盘矩阵，总项保持未完成 |
+| 2026-07-12 | Hermes Desktop 前端迁移第一批 | sidebar + chat + resource rail 三栏 shell；任务搜索/状态分组；消息复制/滚动到最新；Composer model/queue 状态、操作菜单、activation `/Skill` completion；Files/Artifacts/Skills/MCP/Terminal activity tabs；rail 折叠；runtime/activation/task statusbar；Cmd/Ctrl+K command palette；只读 WORK Agent runtime/Skills/Tools/permissions 面板 | targeted `WorkSurface.test.tsx` / `WorkSurfaceBoundary.test.tsx`; `npm run test`; `npm run typecheck`; `npm run lint:ds`; `npm run codemod:ds:dry`; `git diff --check`; `npm run tauri -- dev`; Playwright 开发态真实组件注入和截图 | targeted `22 passed`；全量 `151 files / 1120 tests`；typecheck/diff 通过；DS lint 0 error、5 条既有 warning；codemod 仅提示既有 `SettingsView.tsx`；Tauri Rust 编译并启动；Playwright 在 `1440x900`、`768x900`、`390x844` 检查真实 WorkSurface/CSS，修复窄屏 rail 透明叠字和标题间距（macOS/jsdom/Chromium） | 只证明迁移矩阵中的主 shell 第一批；完整页面覆盖仍未完成。Playwright fixture 绕过登录但不调用 Tauri/Hermes，不算产品 E2E；原生 Tauri 窗口仍被 macOS Keychain 授权门阻断，不替代 Windows Tauri 视觉、键盘和 DPI 验收 |
+| 2026-07-12 | Hermes Desktop 前端迁移最终代码收口 | Hermes `/v1/models` picker 与 task model 持久化；`run.completed.usage`；rename/pin/archive/restore；task-scoped 受控项目树、文本/图片预览与二进制系统打开；复用 BlackRain `portable_pty + xterm` 的 task-scoped WORK terminal | `npm run test`; `npm run typecheck`; `npm run lint:ds`; `npm run codemod:ds:dry`; `cargo test`; `cargo check`; `git diff --check` | TS `152 files / 1129 tests`；Rust lib `377 passed`、daemon `319 passed`、daemonctl `28 passed`、tauri_config `3 passed`；typecheck/check/diff 通过；DS lint 0 error、5 条既有 warning；codemod 仅提示既有 `SettingsView.tsx` modal（macOS/jsdom） | 证明现有锁定合同范围内的迁移代码闭合，不替代 Windows Tauri 视觉、键盘、高 DPI、PTY/process-tree、Office 二进制打开或真实 Hermes/new-api E2E。Clarify response 无锁定 endpoint；native fork 会结束父 session；结果确认无稳定 controller contract，因此未伪接 |
 | 2026-07-12 | 上游 | Hermes 锁定版本 API/Windows 相关测试 | 见 spec 003 verification | `315 passed`（macOS） | 证明上游候选基础健康，不证明 BlackRain 接入 |
 | 2026-06-26 | 独立 spike | Hermes→new-api→DeepSeek、流式、工具调用 | 见 spec 003 verification | 通过（macOS） | 早于当前 Hermes 锁，且未经过 Tauri/WORK UI |
 | YYYY-MM-DD | contract | fake server runs/SSE/approval/stop | Rust/TS tests | 未跑 | 覆盖断流、重复、乱序、恢复 |
@@ -163,6 +165,7 @@ cargo check
 - Hermes shared client 已对所有核心 run 端点和 session 接缝完成 fake server HTTP contract 测试；SSE decoder 支持 UTF-8 跨 chunk、CRLF、comment、完整终帧和截断错误。
 - Hermes supervisor 已在 macOS 测试中完成 fixture 子进程从启动到 readiness 再 stop，并证明并发失败启动只 spawn 一次、stdout secret 不进入内存/磁盘日志。
 - Hermes event normalizer 已把锁定 raw SSE contract 转为独立 `WorkEvent`，重复、乱序、未知和损坏事件均有确定行为。
+- 2026-07-12（macOS 开发机，仅自动化证据）：现有锁定合同范围内的 Hermes Desktop 前端覆盖迁移完成代码级收口。`npm run test` 为 `152 files / 1129 tests` 全通过；Rust `cargo test` 四个目标分别为 `377 + 319 + 28 + 3 passed`；`npm run typecheck`、`cargo check` 和 `git diff --check` 通过；`npm run lint:ds` 为 `0 error / 5` 条既有 warning；`npm run codemod:ds:dry` 仅提示既有 `SettingsView.tsx`。用户明确自行完成最终视觉验证，因此本记录不把本轮自动化结果写成 Windows/Tauri 视觉通过。
 
 这些证明当前代码已存在接入真实 controller contract 的 WORK surface，但仍不证明真实 Hermes/Tauri/Windows 产品闭环。
 
@@ -182,6 +185,18 @@ cargo check
 - Office official-only producer 已能完成代码级 install/health/smoke/permission/activate 并进入 WORK surface；尚不能证明 Windows 实机安装、OfficeCLI→Hermes 工具发现、真实模型执行、升级/回滚/卸载或 Office 黄金流程。
 
 ## 失败记录
+
+- 2026-07-12：模型目录接线后的首次前端全量测试有 8 个 unhandled rejection，原因是 `useWorkController` 测试没有 mock 新增的 `hermesRuntimeModels` IPC。补齐共享 mock 后全量 `152 files / 1129 tests` 通过，产品代码未为测试降级。
+
+- 2026-07-12：usage event 进入真实 normalized event 流后，两处 Rust 旧断言仍使用事件数 `9` 和 `47`；按新增的稳定 `usageUpdated` 事件修正为 `10` 和 `48` 后相关测试与全量测试通过。该变化是合同扩展，不是重复事件。
+
+- 2026-07-12：Rust 首次全量回归中 `concurrent_failed_starts_spawn_only_one_process_and_redact_logs` 一次性报 fixture 进程 `ENOENT`；单独重跑通过，第二次全量 `377 + 319 + 28 + 3 passed`。未放宽断言或修改运行时代码，记录为并发进程测试的时序波动。
+
+- 2026-07-12：新增 WORK 文件拖放后，首轮 jsdom 定向测试因没有 Tauri window metadata，`subscribeWindowDragDrop` 初始化失败；按仓库既有测试模式 mock 共享 drag/drop 服务后恢复，产品 Tauri 路径未降级。随后 Markdown 文件链接用例暴露共享 Markdown 返回 `/workspace/<项目名>/...` 虚拟挂载路径，而 WORK 项目门禁只接受相对或本机绝对路径；新增仅允许当前项目名匹配的 `resolveWorkMessageFilePath` 映射后，再经过原有项目根门禁，跨项目挂载继续拒绝，最终 `24/24` 和全量 `1124/1124` 通过。
+
+- 2026-07-12：为避免修改产品入口，Playwright 通过 Vite 动态导入真实 `WorkSurface` 做开发态视觉 QA。前三次 `run-code` 分别因参数不是函数、页面 `await` 上下文错误和直接导入 React CommonJS 入口失败，均在组件挂载前终止；读取 CLI help 和 Vite ESM export 后改为 `async (page) => page.evaluate(...)` + 预打包模块 `default` 导出，最终完成三档截图。未增加 preview route、测试账号或产品 fixture。768px 首图发现 rail 透明叠字，改用 `--surface-sidebar-opaque` 后复验；390px 无文本/控件重叠。
+
+- 2026-07-12：Hermes Desktop 前端迁移第一批尝试用 `npm run tauri -- dev` 做原生视觉检查，Rust 成功编译并启动 `target/debug/blackrain`，但 macOS 弹出访问“登录”钥匙串中 `BlackRain2049 Account` 机密信息的授权门；拒绝后没有可检查的 WORK 窗口。Playwright 能访问 Vite，但浏览器隔离存储只显示 Supabase 登录页。没有输入用户密码、绕过登录、修改凭据或把登录页截图冒充 WORK 验收；开发进程和浏览器会话已停止。
 
 - 2026-07-12：Stop/continue 阶段最终组合验证从 `apps/desktop/src-tauri` 使用了 `cd ../../../..`，多退一层后 `py_compile` 报 `scripts/test-hermes-live-probe.py` 不存在；Rust 格式检查已先完成，Python/Hermes 尚未启动。改为从仓库根运行后，静态合同与 `26 events / 9 model calls` 真进程探针通过。该失败属于工作目录错误，没有修改文件或产生外部调用。
 

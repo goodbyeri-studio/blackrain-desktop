@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { useWorkController } from "../hooks/useWorkController";
@@ -12,14 +12,41 @@ import type {
   WorkTask,
   WorkbenchPackageInspection,
 } from "../types";
-import { buildVisibleWorkEvents, resolveProjectOutputPath } from "../state/selectors";
+import {
+  buildVisibleWorkEvents,
+  resolveProjectOutputPath,
+  resolveWorkMessageFilePath,
+} from "../state/selectors";
 import { WorkSurface } from "./WorkSurface";
-import { pickWorkProjectFiles, pickWorkspacePath } from "@/services/tauri";
+import {
+  pickWorkProjectFiles,
+  pickWorkspacePath,
+  revealPathInFileManager,
+} from "@/services/tauri";
+
+const dragDrop = vi.hoisted(() => ({
+  listener: null as null | ((event: {
+    payload: {
+      type: "enter" | "over" | "leave" | "drop";
+      position: { x: number; y: number };
+      paths?: string[];
+    };
+  }) => void),
+}));
 
 vi.mock("@/services/tauri", () => ({
   pickWorkProjectFiles: vi.fn(),
   pickWorkspacePath: vi.fn(),
   revealPathInFileManager: vi.fn(),
+}));
+
+vi.mock("@/services/dragDrop", () => ({
+  subscribeWindowDragDrop: vi.fn((listener) => {
+    dragDrop.listener = listener;
+    return () => {
+      dragDrop.listener = null;
+    };
+  }),
 }));
 
 const runtime: WorkRuntimeStatus = {
@@ -165,6 +192,7 @@ function controller(stateOverrides: Partial<WorkState> = {}) {
   return {
     state,
     refreshRuntime: vi.fn(),
+    refreshModels: vi.fn().mockResolvedValue([]),
     startRuntime: vi.fn().mockResolvedValue(runtime),
     stopRuntime: vi.fn(),
     restartRuntime: vi.fn(),
@@ -185,7 +213,7 @@ function controller(stateOverrides: Partial<WorkState> = {}) {
       projectPath: activation.project.path,
       projectPreserved: true,
     }),
-    loadTask: vi.fn(),
+    loadTask: vi.fn().mockResolvedValue(undefined),
     startTask: vi.fn().mockResolvedValue(task),
     continueTask: vi.fn().mockResolvedValue(task),
     enqueueFollowUp: vi.fn().mockResolvedValue([]),
@@ -196,21 +224,28 @@ function controller(stateOverrides: Partial<WorkState> = {}) {
     approveTask: vi.fn(),
     stopTask: vi.fn(),
     deleteTaskMetadata: vi.fn(),
+    updateTaskMetadata: vi.fn().mockResolvedValue(task),
+    listProjectDirectory: vi.fn(() => new Promise(() => undefined)),
+    previewProjectFile: vi.fn(),
     refreshRecovery: vi.fn(),
     selectTask: vi.fn(),
     clearError: vi.fn(),
   } as ReturnType<typeof useWorkController>;
 }
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  dragDrop.listener = null;
+  vi.clearAllMocks();
+});
 
 describe("WorkSurface", () => {
   it("blocks formal task creation until a verified activation exists", () => {
     const workController = controller({ activations: [], bundledOffice });
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
-    expect(screen.getByText("Office 工作台尚未激活")).toBeTruthy();
-    expect((screen.getByLabelText("Office 任务指令") as HTMLTextAreaElement).disabled).toBe(true);
+    expect(screen.getByText("WORK 尚未激活")).toBeTruthy();
+    expect((screen.getByLabelText("WORK 任务指令") as HTMLTextAreaElement).disabled).toBe(true);
     expect((screen.getByLabelText("发送任务") as HTMLButtonElement).disabled).toBe(true);
     expect(workController.startTask).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Office 工作台安装计划").textContent).toContain(
@@ -245,7 +280,7 @@ describe("WorkSurface", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Office 任务指令"), {
+    fireEvent.change(screen.getByLabelText("WORK 任务指令"), {
       target: { value: "整理季度报告" },
     });
     fireEvent.click(screen.getByLabelText("发送任务"));
@@ -255,7 +290,72 @@ describe("WorkSurface", () => {
         activationId: activation.activationId,
         prompt: "整理季度报告",
         projectFileRefs: [],
+        model: null,
       });
+    });
+  });
+
+  it("selects only models exposed by the current Hermes runtime", async () => {
+    const workController = controller({
+      models: [
+        { id: "deepseek-v4", ownedBy: "blackrain" },
+        { id: "glm-5", ownedBy: "blackrain" },
+      ],
+    });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByLabelText("选择 WORK 模型"));
+    fireEvent.click(screen.getByRole("option", { name: /glm-5/ }));
+    fireEvent.change(screen.getByLabelText("WORK 任务指令"), {
+      target: { value: "整理季度报告" },
+    });
+    fireEvent.click(screen.getByLabelText("发送任务"));
+
+    await waitFor(() =>
+      expect(workController.startTask).toHaveBeenCalledWith({
+        activationId: activation.activationId,
+        prompt: "整理季度报告",
+        projectFileRefs: [],
+        model: "glm-5",
+      }),
+    );
+  });
+
+  it("renames, pins and archives a settled task through persisted metadata actions", async () => {
+    const workController = controller({
+      tasks: {
+        [task.taskId]: { task, events: [], eventIds: {}, followUps: [] },
+      },
+      taskOrder: [task.taskId],
+      selectedTaskId: task.taskId,
+    });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByLabelText(/任务操作/));
+    fireEvent.click(screen.getByRole("menuitem", { name: "重命名" }));
+    fireEvent.change(screen.getByLabelText("任务名称"), {
+      target: { value: "季度报告" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(workController.updateTaskMetadata).toHaveBeenCalledWith({
+        taskId: "task-1",
+        title: "季度报告",
+      }),
+    );
+
+    fireEvent.click(screen.getByLabelText(/任务操作/));
+    fireEvent.click(screen.getByRole("menuitem", { name: "置顶" }));
+    expect(workController.updateTaskMetadata).toHaveBeenCalledWith({
+      taskId: "task-1",
+      pinned: true,
+    });
+
+    fireEvent.click(screen.getByLabelText(/任务操作/));
+    fireEvent.click(screen.getByRole("menuitem", { name: "归档" }));
+    expect(workController.updateTaskMetadata).toHaveBeenCalledWith({
+      taskId: "task-1",
+      archived: true,
     });
   });
 
@@ -271,7 +371,7 @@ describe("WorkSurface", () => {
     fireEvent.click(screen.getByLabelText("添加项目文件引用"));
     await waitFor(() => expect(screen.getByText("quarterly.xlsx")).toBeTruthy());
     expect(screen.getByRole("alert").textContent).toContain("当前已验证项目目录");
-    fireEvent.change(screen.getByLabelText("Office 任务指令"), {
+    fireEvent.change(screen.getByLabelText("WORK 任务指令"), {
       target: { value: "检查这份表格" },
     });
     fireEvent.click(screen.getByLabelText("发送任务"));
@@ -281,6 +381,7 @@ describe("WorkSurface", () => {
         activationId: activation.activationId,
         prompt: "检查这份表格",
         projectFileRefs: [inside],
+        model: null,
       });
     });
   });
@@ -296,7 +397,7 @@ describe("WorkSurface", () => {
     });
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText("Office 任务指令"), {
+    fireEvent.change(screen.getByLabelText("WORK 任务指令"), {
       target: { value: "当前任务结束后生成摘要" },
     });
     fireEvent.click(screen.getByLabelText("排队后续任务"));
@@ -306,6 +407,7 @@ describe("WorkSurface", () => {
         taskId: "task-1",
         prompt: "当前任务结束后生成摘要",
         projectFileRefs: [],
+        model: null,
       });
     });
     expect(workController.continueTask).not.toHaveBeenCalled();
@@ -328,12 +430,12 @@ describe("WorkSurface", () => {
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByLabelText("编辑后续任务 1"));
-    const composer = screen.getByLabelText("Office 任务指令") as HTMLTextAreaElement;
+    const composer = screen.getByLabelText("WORK 任务指令") as HTMLTextAreaElement;
     expect(composer.value).toBe(
       followUp.prompt,
     );
     expect(document.activeElement).toBe(composer);
-    fireEvent.change(screen.getByLabelText("Office 任务指令"), {
+    fireEvent.change(screen.getByLabelText("WORK 任务指令"), {
       target: { value: "生成董事会摘要" },
     });
     fireEvent.click(screen.getByLabelText("排队后续任务"));
@@ -343,6 +445,7 @@ describe("WorkSurface", () => {
         followUpId: "follow-up-1",
         prompt: "生成董事会摘要",
         projectFileRefs: [],
+        model: null,
       });
     });
 
@@ -476,12 +579,12 @@ describe("WorkSurface", () => {
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
     expect(screen.getByText("已完成整理。")).toBeTruthy();
-    expect(screen.getByText("quarterly.xlsx")).toBeTruthy();
-    expect(screen.getByText("report.docx")).toBeTruthy();
+    expect(screen.getAllByText("quarterly.xlsx").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("report.docx").length).toBeGreaterThan(0);
     expect(screen.getByText("Hermes 请求执行操作")).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "拒绝" }));
     expect(screen.getByRole("log").getAttribute("aria-relevant")).toBe("additions text");
-    expect(screen.getByRole("navigation", { name: "Office 任务列表" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "WORK 任务列表" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "仅本次允许" }));
     expect(workController.approveTask).toHaveBeenCalledWith("task-1", "once");
   });
@@ -494,9 +597,9 @@ describe("WorkSurface", () => {
     });
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
-    fireEvent.click(screen.getByLabelText("新建 Office 任务"));
+    fireEvent.click(screen.getByLabelText("新建 WORK 任务"));
 
-    expect(document.activeElement).toBe(screen.getByLabelText("Office 任务指令"));
+    expect(document.activeElement).toBe(screen.getByLabelText("WORK 任务指令"));
   });
 
   it("manages diagnostics focus and closes the panel with Escape", async () => {
@@ -521,6 +624,275 @@ describe("WorkSurface", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it("opens WORK commands and routes existing actions into the resource rail", () => {
+    const state: WorkState = {
+      ...initialWorkState,
+      activations: [activation],
+      runtime,
+      tasks: {
+        [task.taskId]: { task, events: [], eventIds: {}, followUps: [] },
+      },
+      taskOrder: [task.taskId],
+      selectedTaskId: task.taskId,
+      bootstrapping: false,
+    };
+    render(<WorkSurface controller={controller(state) as never} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "搜索任务和命令" }));
+    expect(screen.getByRole("dialog", { name: "WORK 命令" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("option", { name: /打开 Skills 与工具/ }));
+    expect(screen.queryByRole("dialog", { name: "WORK 命令" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "工具" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+  });
+
+  it("collapses and restores the Hermes-style resource rail", () => {
+    render(<WorkSurface controller={controller() as never} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "收起任务资源" }));
+    expect(screen.queryByRole("complementary", { name: "任务资源" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "打开任务资源" }));
+    expect(screen.getByRole("complementary", { name: "任务资源" })).toBeTruthy();
+  });
+
+  it("shows the current runtime and activation in the WORK Agent panel", () => {
+    render(
+      <WorkSurface
+        controller={controller({
+          tasks: { [task.taskId]: { task, events: [], eventIds: {}, followUps: [] } },
+          taskOrder: [task.taskId],
+          selectedTaskId: task.taskId,
+        }) as never}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "打开 WORK Agent" }));
+    const dialog = screen.getByRole("dialog", { name: "WORK Agent" });
+    expect(within(dialog).getByText("0.18.2")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Models & Context" }));
+    expect(within(dialog).getByText("等待 usage 事件合同")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Skills" }));
+    expect(within(dialog).getByText("skills")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Permissions" }));
+    expect(within(dialog).getByText(/Office Project/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Memory" }));
+    expect(within(dialog).getByText("未启用跨任务 Memory")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Session" }));
+    expect(within(dialog).getByText("session-1")).toBeTruthy();
+  });
+
+  it("opens the shared BlackRain settings instead of creating WORK settings state", () => {
+    const onOpenSettings = vi.fn();
+    render(
+      <WorkSurface
+        controller={controller() as never}
+        onClose={vi.fn()}
+        onOpenSettings={onOpenSettings}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "打开 WORK Agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "BlackRain 设置" }));
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog", { name: "WORK Agent" })).toBeNull();
+  });
+
+  it("switches tasks through the keyboard session picker", async () => {
+    const secondTask = {
+      ...task,
+      taskId: "task-2",
+      projectPath: "C:\\Users\\demo\\Research Project",
+      status: "running" as const,
+    };
+    const workController = controller({
+      tasks: {
+        [task.taskId]: { task, events: [], eventIds: {}, followUps: [] },
+        [secondTask.taskId]: { task: secondTask, events: [], eventIds: {}, followUps: [] },
+      },
+      taskOrder: [task.taskId, secondTask.taskId],
+      selectedTaskId: task.taskId,
+    });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.keyDown(document, { key: "p", ctrlKey: true });
+    const picker = screen.getByRole("dialog", { name: "切换 WORK 任务" });
+    fireEvent.change(within(picker).getByLabelText("搜索 WORK 任务切换器"), {
+      target: { value: "Research" },
+    });
+    fireEvent.keyDown(within(picker).getByLabelText("搜索 WORK 任务切换器"), {
+      key: "Enter",
+    });
+
+    await waitFor(() => expect(workController.selectTask).toHaveBeenCalledWith("task-2"));
+    expect(workController.loadTask).toHaveBeenCalledWith("task-2");
+  });
+
+  it("accepts dropped files only from the verified project root", () => {
+    render(<WorkSurface controller={controller() as never} onClose={vi.fn()} />);
+    const surface = document.querySelector(".work-surface") as HTMLElement;
+    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 900,
+      height: 700,
+      top: 0,
+      right: 900,
+      bottom: 700,
+      left: 0,
+      toJSON: () => ({}),
+    });
+
+    act(() => {
+      dragDrop.listener?.({
+        payload: {
+          type: "drop",
+          position: { x: 100, y: 100 },
+          paths: [
+            `${task.projectPath}\\reports\\quarterly.xlsx`,
+            "C:\\Users\\demo\\Other\\secret.xlsx",
+          ],
+        },
+      });
+    });
+
+    expect(screen.getByText("quarterly.xlsx")).toBeTruthy();
+    expect(screen.queryByText("secret.xlsx")).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("当前已验证项目目录");
+  });
+
+  it("completes activation Skills from the Hermes-style slash menu", () => {
+    render(<WorkSurface controller={controller() as never} onClose={vi.fn()} />);
+    const composer = screen.getByLabelText("WORK 任务指令") as HTMLTextAreaElement;
+
+    fireEvent.change(composer, { target: { value: "/sk" } });
+    expect(screen.getByRole("option", { name: "/skills" })).toBeTruthy();
+    fireEvent.keyDown(composer, { key: "Enter" });
+    expect(composer.value).toBe("/skills ");
+  });
+
+  it("routes Composer actions to the existing tools rail", () => {
+    render(<WorkSurface controller={controller() as never} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "打开 Composer 操作" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Skills 与工具" }));
+    expect(screen.getByRole("tab", { name: "工具" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+  });
+
+  it("collects structured output events in the Artifacts rail", async () => {
+    const output = event({
+      type: "outputAvailable",
+      path: "report.docx",
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    const workController = controller({
+      tasks: {
+        [task.taskId]: {
+          task,
+          events: [output],
+          eventIds: { [output.eventId]: true },
+          followUps: [],
+        },
+      },
+      taskOrder: [task.taskId],
+      selectedTaskId: task.taskId,
+    });
+    workController.previewProjectFile = vi.fn().mockResolvedValue({
+      relativePath: "report.docx",
+      kind: "unsupported",
+      mediaType: null,
+      size: 2048,
+      content: null,
+      dataUrl: null,
+    });
+    render(
+      <WorkSurface
+        controller={workController as never}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "审阅" }));
+    expect(screen.getByText("任务结果审阅")).toBeTruthy();
+    expect(screen.getByText("审阅成果")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "成果" }));
+    expect(screen.getByText("Artifacts")).toBeTruthy();
+    expect(screen.getAllByText("report.docx").length).toBeGreaterThan(0);
+    const resourceRail = screen.getByRole("complementary", { name: "任务资源" });
+    fireEvent.click(within(resourceRail).getByRole("button", { name: /report.docx/ }));
+    expect(screen.getByRole("tab", { name: "预览" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+    expect(await screen.findByText(/不在 WebView 中解析/)).toBeTruthy();
+    expect(workController.previewProjectFile).toHaveBeenCalledWith("task-1", "report.docx");
+  });
+
+  it("browses the task project and previews text through the controlled Core contract", async () => {
+    const workController = controller({
+      tasks: {
+        [task.taskId]: { task, events: [], eventIds: {}, followUps: [] },
+      },
+      taskOrder: [task.taskId],
+      selectedTaskId: task.taskId,
+    });
+    workController.listProjectDirectory = vi.fn().mockResolvedValue([
+      {
+        name: "notes.md",
+        relativePath: "notes.md",
+        kind: "file",
+        size: 12,
+        modifiedAt: 1,
+      },
+    ]);
+    workController.previewProjectFile = vi.fn().mockResolvedValue({
+      relativePath: "notes.md",
+      kind: "text",
+      mediaType: "text/plain",
+      size: 12,
+      content: "季度摘要",
+      dataUrl: null,
+    });
+    render(<WorkSurface controller={workController as never} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "文件" }));
+    fireEvent.click(await screen.findByRole("button", { name: /notes.md/ }));
+    expect(await screen.findByText("季度摘要")).toBeTruthy();
+    expect(workController.listProjectDirectory).toHaveBeenCalledWith("task-1", "");
+    expect(workController.previewProjectFile).toHaveBeenCalledWith("task-1", "notes.md");
+  });
+
+  it("opens Markdown file links only after resolving them inside the project", () => {
+    const message = event({
+      type: "agentMessageCompleted",
+      text: "打开 [报告](/workspace/Office%20Project/reports/quarterly.xlsx)",
+    });
+    render(
+      <WorkSurface
+        controller={controller({
+          tasks: {
+            [task.taskId]: {
+              task,
+              events: [message],
+              eventIds: { [message.eventId]: true },
+              followUps: [],
+            },
+          },
+          taskOrder: [task.taskId],
+          selectedTaskId: task.taskId,
+        }) as never}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("link", { name: "报告" }));
+    expect(revealPathInFileManager).toHaveBeenCalledWith(
+      `${task.projectPath}\\reports\\quarterly.xlsx`,
+    );
+  });
+
   it("coalesces live deltas and hides them once the completed message arrives", () => {
     const first = event({ type: "agentTextDelta", eventId: "delta-1", sequence: 1, delta: "季度" });
     const second = event({ type: "agentTextDelta", eventId: "delta-2", sequence: 2, delta: "报告" });
@@ -539,5 +911,14 @@ describe("WorkSurface", () => {
     );
     expect(resolveProjectOutputPath(task.projectPath, "..\\secret.txt")).toBeNull();
     expect(resolveProjectOutputPath(task.projectPath, "C:\\Users\\demo\\other\\secret.txt")).toBeNull();
+    expect(
+      resolveWorkMessageFilePath(
+        task.projectPath,
+        "/workspace/Office Project/reports/quarterly.xlsx",
+      ),
+    ).toBe(`${task.projectPath}\\reports\\quarterly.xlsx`);
+    expect(
+      resolveWorkMessageFilePath(task.projectPath, "/workspace/Other/secret.xlsx"),
+    ).toBeNull();
   });
 });

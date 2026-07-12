@@ -1,9 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
 import Copy from "lucide-react/dist/esm/icons/copy";
+import PanelRight from "lucide-react/dist/esm/icons/panel-right";
+import Search from "lucide-react/dist/esm/icons/search";
+import SquareTerminal from "lucide-react/dist/esm/icons/square-terminal";
+import Boxes from "lucide-react/dist/esm/icons/boxes";
+import Bot from "lucide-react/dist/esm/icons/bot";
 import FolderOpen from "lucide-react/dist/esm/icons/folder-open";
 import Power from "lucide-react/dist/esm/icons/power";
+import Settings from "lucide-react/dist/esm/icons/settings";
+import SwitchCamera from "lucide-react/dist/esm/icons/switch-camera";
 import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Upload from "lucide-react/dist/esm/icons/upload";
 import X from "lucide-react/dist/esm/icons/x";
 
 import {
@@ -14,6 +23,7 @@ import {
 import { ModalShell } from "@/features/design-system/components/modal/ModalShell";
 import { PanelFrame } from "@/features/design-system/components/panel/PanelPrimitives";
 import type { useWorkController } from "../hooks/useWorkController";
+import { useWorkProjectDrop } from "../hooks/useWorkProjectDrop";
 import {
   selectCanResume,
   selectCanStop,
@@ -24,12 +34,17 @@ import {
   selectSelectedTask,
   selectTaskEvents,
 } from "../state/selectors";
-import type { HermesRuntimeDiagnostics, WorkTaskStatus } from "../types";
+import type { HermesRuntimeDiagnostics, WorkTask, WorkTaskStatus } from "../types";
 import { WorkApprovalCard } from "./WorkApprovalCard";
+import { WorkAgentPanel } from "./WorkAgentPanel";
 import { WorkComposer } from "./WorkComposer";
+import { WorkCommandPalette, type WorkCommand } from "./WorkCommandPalette";
 import { WorkEventRow } from "./WorkEventRow";
 import { WorkFollowUpQueue } from "./WorkFollowUpQueue";
+import { WorkModelPicker } from "./WorkModelPicker";
 import { WorkRuntimeBanner } from "./WorkRuntimeBanner";
+import { WorkResourceRail, type WorkRailTab } from "./WorkResourceRail";
+import { WorkSessionPicker } from "./WorkSessionPicker";
 import { WorkTaskSidebar } from "./WorkTaskSidebar";
 
 type WorkController = ReturnType<typeof useWorkController>;
@@ -37,6 +52,7 @@ type WorkController = ReturnType<typeof useWorkController>;
 type WorkSurfaceProps = {
   controller: WorkController;
   onClose: () => void;
+  onOpenSettings?: () => void;
 };
 
 function isTerminal(status: WorkTaskStatus | undefined) {
@@ -47,7 +63,11 @@ function isSettled(status: WorkTaskStatus | undefined) {
   return isTerminal(status) || status === "orphaned";
 }
 
-export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
+export function WorkSurface({
+  controller,
+  onClose,
+  onOpenSettings = () => undefined,
+}: WorkSurfaceProps) {
   const { state } = controller;
   const tasks = selectOrderedTasks(state);
   const selectedTask = selectSelectedTask(state);
@@ -66,10 +86,22 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   const [copiedDiagnostics, setCopiedDiagnostics] = useState(false);
   const [deactivationOpen, setDeactivationOpen] = useState(false);
   const [taskDeletionOpen, setTaskDeletionOpen] = useState(false);
+  const [renamingTask, setRenamingTask] = useState<WorkTask | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const [activationOpen, setActivationOpen] = useState(false);
   const [activationProjectPath, setActivationProjectPath] = useState("");
+  const [resourceRailOpen, setResourceRailOpen] = useState(true);
+  const [resourceRailTab, setResourceRailTab] = useState<WorkRailTab>("files");
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [sessionPickerOpen, setSessionPickerOpen] = useState(false);
+  const [agentPanelOpen, setAgentPanelOpen] = useState(false);
+  const [transcriptAtBottom, setTranscriptAtBottom] = useState(true);
   const [composerFocusRequestId, setComposerFocusRequestId] = useState(0);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const diagnosticsCloseRef = useRef<HTMLButtonElement | null>(null);
+  const surfaceRef = useRef<HTMLElement | null>(null);
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
   const diagnosticsReturnFocusRef = useRef<HTMLElement | null>(null);
   const pending = Object.keys(state.pendingOperations).length > 0;
   const busy = state.bootstrapping || pending;
@@ -83,12 +115,50 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
         (activation) => activation.activationId === selectedTask.activationId,
       ) ?? null
     : selectedActivation;
+  const activeActivation = selectedTask?.activationId
+    ? state.activations.find((activation) => activation.activationId === selectedTask.activationId) ?? null
+    : selectedActivation;
+  const workbenchTitle = activeActivation
+    ? state.bundledOffice?.manifest.id === activeActivation.workbenchId
+      ? state.bundledOffice.manifest.name
+      : activeActivation.workbenchId
+    : state.bundledOffice?.manifest.name ?? "WORK";
+  const skillNames = useMemo(
+    () =>
+      activeActivation?.skillRoots.map((path) => {
+        const segments = path.split(/[\\/]/).filter(Boolean);
+        return segments[segments.length - 1] ?? path;
+      }) ?? [],
+    [activeActivation],
+  );
   const running = Boolean(selectedTask && !isSettled(selectedTask.status));
   const canStop = selectCanStop(selectedTask);
   const canResume = selectedTask?.status === "degraded" && selectCanResume(selectedTask);
   const followUps = selectedTask
     ? state.tasks[selectedTask.taskId]?.followUps ?? []
     : [];
+  const latestUsage = [...events]
+    .reverse()
+    .find((event) => event.type === "usageUpdated");
+
+  const handleDroppedProjectFiles = useCallback((paths: string[], rejectedCount: number) => {
+    const merged = Array.from(new Set([...projectFileRefs, ...paths]));
+    setProjectFileRefs(merged.slice(0, 16));
+    setAttachmentError(
+      rejectedCount > 0
+        ? "只能拖入当前已验证项目目录内的文件。"
+        : merged.length > 16
+          ? "每次任务最多引用 16 个项目文件。"
+          : null,
+    );
+  }, [projectFileRefs]);
+  const dropState = useWorkProjectDrop({
+    targetRef: surfaceRef,
+    projectPath: selectedProjectPath,
+    disabled:
+      busy || !selectedProjectPath || projectFileRefs.length >= 16 || selectedTask?.status === "orphaned",
+    onDropFiles: handleDroppedProjectFiles,
+  });
 
   const diagnosticsText = useMemo(
     () => (diagnostics ? JSON.stringify(diagnostics, null, 2) : ""),
@@ -100,6 +170,17 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
       setActivationId(state.activations[0].activationId);
     }
   }, [activationId, state.activations]);
+
+  useEffect(() => {
+    const taskModel = selectedTask?.model ?? null;
+    if (taskModel) {
+      setSelectedModel(taskModel);
+      return;
+    }
+    if (!selectedModel && state.models[0]?.id) {
+      setSelectedModel(state.models[0].id);
+    }
+  }, [selectedModel, selectedTask?.model, state.models]);
 
   useEffect(() => {
     if (!diagnosticsOpen) {
@@ -121,6 +202,29 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
       diagnosticsReturnFocusRef.current = null;
     };
   }, [diagnosticsOpen]);
+
+  useEffect(() => {
+    const transcript = transcriptRef.current;
+    if (!transcript || !transcriptAtBottom) {
+      return;
+    }
+    transcript.scrollTo?.({ top: transcript.scrollHeight, behavior: "smooth" });
+  }, [transcriptAtBottom, visibleEvents.length]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k") {
+        event.preventDefault();
+        setCommandPaletteOpen((open) => !open);
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "p") {
+        event.preventDefault();
+        setSessionPickerOpen(true);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleSelectTask = async (taskId: string) => {
     controller.selectTask(taskId);
@@ -175,12 +279,14 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
         followUpId: editingFollowUpId,
         prompt,
         projectFileRefs,
+        model: selectedModel,
       });
     } else if (selectedTask && running) {
       await controller.enqueueFollowUp({
         taskId: selectedTask.taskId,
         prompt,
         projectFileRefs,
+        model: selectedModel,
       });
     } else if (selectedTask && isTerminal(selectedTask.status)) {
       if (state.runtime?.state !== "ready") {
@@ -190,6 +296,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
         taskId: selectedTask.taskId,
         prompt,
         projectFileRefs,
+        model: selectedModel,
       });
     } else if (!selectedTask) {
       if (!selectedActivation) {
@@ -202,6 +309,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
         activationId: selectedActivation.activationId,
         prompt,
         projectFileRefs,
+        model: selectedModel,
       });
     } else {
       return;
@@ -273,17 +381,152 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     }
   };
 
+  const handleRenameTask = async () => {
+    if (!renamingTask || !renameDraft.trim()) {
+      return;
+    }
+    await controller.updateTaskMetadata({
+      taskId: renamingTask.taskId,
+      title: renameDraft.trim(),
+    });
+    setRenamingTask(null);
+    setRenameDraft("");
+  };
+
+  const showResourceTab = (tab: WorkRailTab) => {
+    setResourceRailTab(tab);
+    setResourceRailOpen(true);
+  };
+  const commands: WorkCommand[] = [
+    {
+      id: "models",
+      label: "选择模型",
+      detail: "使用当前 Hermes runtime 暴露的模型",
+      icon: <Bot aria-hidden />,
+      onSelect: () => setModelPickerOpen(true),
+    },
+    {
+      id: "sessions",
+      label: "切换任务",
+      detail: "搜索并恢复已有 WORK 任务",
+      icon: <SwitchCamera aria-hidden />,
+      onSelect: () => setSessionPickerOpen(true),
+    },
+    {
+      id: "artifacts",
+      label: "打开成果",
+      detail: "查看当前任务登记的输出",
+      icon: <FolderOpen aria-hidden />,
+      onSelect: () => showResourceTab("artifacts"),
+    },
+    {
+      id: "review",
+      label: "审阅任务结果",
+      detail: "汇总当前任务的成果、工具和告警",
+      icon: <FolderOpen aria-hidden />,
+      onSelect: () => showResourceTab("review"),
+    },
+    {
+      id: "new-task",
+      label: "新建任务",
+      detail: "在当前工作台创建一个新会话",
+      icon: <Search aria-hidden />,
+      onSelect: handleNewTask,
+    },
+    {
+      id: "files",
+      label: "打开文件",
+      detail: "查看当前任务引用和输出",
+      icon: <FolderOpen aria-hidden />,
+      onSelect: () => showResourceTab("files"),
+    },
+    {
+      id: "tools",
+      label: "打开 Skills 与工具",
+      detail: "查看当前 activation 的执行能力",
+      icon: <Boxes aria-hidden />,
+      onSelect: () => showResourceTab("tools"),
+    },
+    {
+      id: "terminal",
+      label: "打开终端活动",
+      detail: "查看当前任务的命令执行状态",
+      icon: <SquareTerminal aria-hidden />,
+      onSelect: () => showResourceTab("terminal"),
+    },
+    {
+      id: "agent",
+      label: "打开 WORK Agent",
+      detail: "查看 runtime、Skills、Tools 和权限",
+      icon: <Bot aria-hidden />,
+      onSelect: () => setAgentPanelOpen(true),
+    },
+    {
+      id: "diagnostics",
+      label: "打开诊断",
+      detail: "查看脱敏后的 Hermes runtime 状态",
+      icon: <Copy aria-hidden />,
+      onSelect: () => void handleDiagnostics(),
+    },
+    {
+      id: "settings",
+      label: "打开 BlackRain 设置",
+      detail: "外观、通知、快捷键与关于使用全局设置",
+      icon: <Settings aria-hidden />,
+      onSelect: onOpenSettings,
+    },
+  ];
+
   return (
-    <main className="work-surface">
+    <main ref={surfaceRef} className="work-surface">
       <header className="work-surface-header">
         <button type="button" className="ghost icon-button" onClick={onClose} aria-label="返回首页">
           <ArrowLeft aria-hidden />
         </button>
         <div className="work-surface-title">
-          <strong>Office 工作台</strong>
+          <strong>{workbenchTitle}</strong>
           <span>{selectedTask ? selectedTask.projectPath : "由 Hermes Agent 执行"}</span>
         </div>
         <div className="work-surface-header-actions">
+          <button
+            type="button"
+            className="ghost work-command-trigger"
+            onClick={() => setCommandPaletteOpen(true)}
+            aria-label="搜索任务和命令"
+            title="搜索任务和命令"
+          >
+            <Search aria-hidden />
+            <kbd>⌘K</kbd>
+          </button>
+          <button
+            type="button"
+            className="ghost icon-button"
+            onClick={() => setSessionPickerOpen(true)}
+            aria-label="切换 WORK 任务"
+            title="切换任务 (Ctrl/Cmd+P)"
+          >
+            <SwitchCamera aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="ghost icon-button"
+            onClick={() => setAgentPanelOpen(true)}
+            aria-label="打开 WORK Agent"
+            title="打开 WORK Agent"
+          >
+            <Bot aria-hidden />
+          </button>
+          {!resourceRailOpen ? (
+            <button
+              type="button"
+              className="ghost icon-button"
+              onClick={() => setResourceRailOpen(true)}
+              aria-label="打开任务资源"
+              title="打开任务资源"
+            >
+              <PanelRight aria-hidden />
+            </button>
+          ) : null}
           {selectedTask && isSettled(selectedTask.status) ? (
             <button
               type="button"
@@ -315,10 +558,28 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
 
       <div className="work-surface-body">
         <WorkTaskSidebar
+          title={workbenchTitle}
           tasks={tasks}
           selectedTaskId={state.selectedTaskId}
           onSelectTask={(taskId) => void handleSelectTask(taskId)}
           onNewTask={handleNewTask}
+          onRenameTask={(task) => {
+            const pathSegments = task.projectPath.split(/[\\/]/).filter(Boolean);
+            setRenamingTask(task);
+            setRenameDraft(task.title?.trim() || pathSegments[pathSegments.length - 1] || "WORK 任务");
+          }}
+          onTogglePin={(task) => void controller.updateTaskMetadata({
+            taskId: task.taskId,
+            pinned: !task.pinned,
+          })}
+          onToggleArchive={(task) => void controller.updateTaskMetadata({
+            taskId: task.taskId,
+            archived: !task.archived,
+          }).then(() => {
+            if (!task.archived && state.selectedTaskId === task.taskId) {
+              controller.selectTask(null);
+            }
+          })}
         />
 
         <section className="work-conversation">
@@ -344,11 +605,18 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
           ) : null}
 
           <div
+            ref={transcriptRef}
             className="work-transcript"
             role="log"
             aria-live="polite"
             aria-relevant="additions text"
             aria-atomic="false"
+            onScroll={(event) => {
+              const element = event.currentTarget;
+              setTranscriptAtBottom(
+                element.scrollHeight - element.scrollTop - element.clientHeight < 48,
+              );
+            }}
           >
             {visibleEvents.length === 0 ? (
               <div className="work-welcome">
@@ -356,8 +624,8 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
                   {selectedTask
                     ? "任务还没有可展示的事件"
                     : selectedActivation
-                      ? "让 Office 工作台替你完成复杂工作"
-                      : "Office 工作台尚未激活"}
+                      ? `开始使用 ${workbenchTitle}`
+                      : "WORK 尚未激活"}
                 </h1>
                 <p>
                   {selectedActivation
@@ -422,6 +690,24 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
             )}
           </div>
 
+          {!transcriptAtBottom ? (
+            <button
+              type="button"
+              className="work-scroll-bottom"
+              aria-label="滚动到最新消息"
+              title="滚动到最新消息"
+              onClick={() => {
+                transcriptRef.current?.scrollTo?.({
+                  top: transcriptRef.current.scrollHeight,
+                  behavior: "smooth",
+                });
+                setTranscriptAtBottom(true);
+              }}
+            >
+              <ArrowDown aria-hidden />
+            </button>
+          ) : null}
+
           {approval && selectedTask ? (
             <WorkApprovalCard
               approval={approval}
@@ -458,6 +744,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
           />
 
           <WorkComposer
+            workbenchName={workbenchTitle}
             value={draft}
             disabled={busy || (!selectedTask && !selectedActivation) || selectedTask?.status === "orphaned"}
             running={running}
@@ -466,9 +753,18 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
             projectFileRefs={projectFileRefs}
             canAttach={Boolean(selectedProjectPath) && projectFileRefs.length < 16}
             attachmentError={attachmentError}
+            skillNames={skillNames}
+            selectedModel={selectedModel}
             focusRequestId={composerFocusRequestId}
             onChange={setDraft}
             onAddFiles={() => void handleAddProjectFiles()}
+            onOpenTools={() => showResourceTab("tools")}
+            onOpenModels={() => {
+              setModelPickerOpen(true);
+              if (state.runtime?.state === "ready") {
+                void controller.refreshModels().catch(() => undefined);
+              }
+            }}
             onRemoveFile={(path) =>
               setProjectFileRefs((current) => current.filter((item) => item !== path))
             }
@@ -477,7 +773,76 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
             onResume={() => selectedTask && void controller.resumeTask(selectedTask.taskId)}
           />
         </section>
+
+        {resourceRailOpen ? (
+          <WorkResourceRail
+            activation={activeActivation}
+            events={events}
+            task={selectedTask}
+            activeTab={resourceRailTab}
+            onTabChange={setResourceRailTab}
+            onOpenPath={(path) => void revealPathInFileManager(path)}
+            onListProjectDirectory={controller.listProjectDirectory}
+            onPreviewProjectFile={controller.previewProjectFile}
+            onCollapse={() => setResourceRailOpen(false)}
+          />
+        ) : null}
       </div>
+
+      <footer className="work-statusbar">
+        <span className={`work-runtime-dot is-${state.runtime?.state ?? "stopped"}`} aria-hidden />
+        <span>{state.runtime?.state === "ready" ? `Hermes ${state.runtime.version ?? ""}` : "Hermes 未就绪"}</span>
+        <span>{activeActivation ? `${activeActivation.workbenchId}@${activeActivation.workbenchVersion}` : "无 activation"}</span>
+        {latestUsage?.type === "usageUpdated" ? (
+          <span>{latestUsage.totalTokens.toLocaleString()} tokens</span>
+        ) : null}
+        <span className="work-statusbar-spacer" />
+        <span>{selectedTask?.status ?? "新任务"}</span>
+      </footer>
+
+      {dropState !== "idle" ? (
+        <div className={`work-drop-overlay is-${dropState}`} role="status">
+          <Upload aria-hidden />
+          <strong>{dropState === "accept" ? "添加项目文件引用" : "无法添加这些文件"}</strong>
+          <span>
+            {dropState === "accept"
+              ? "松开后加入当前任务，不会复制或上传文件。"
+              : "只能引用当前已验证项目目录中的文件。"}
+          </span>
+        </div>
+      ) : null}
+
+      {commandPaletteOpen ? (
+        <WorkCommandPalette
+          commands={commands}
+          onClose={() => setCommandPaletteOpen(false)}
+        />
+      ) : null}
+      {sessionPickerOpen ? (
+        <WorkSessionPicker
+          tasks={tasks}
+          selectedTaskId={state.selectedTaskId}
+          onSelect={(taskId) => void handleSelectTask(taskId)}
+          onClose={() => setSessionPickerOpen(false)}
+        />
+      ) : null}
+      {modelPickerOpen ? (
+        <WorkModelPicker
+          models={state.models}
+          selectedModel={selectedModel}
+          onSelect={setSelectedModel}
+          onClose={() => setModelPickerOpen(false)}
+        />
+      ) : null}
+      {agentPanelOpen ? (
+        <WorkAgentPanel
+          activation={activeActivation}
+          runtime={state.runtime}
+          task={selectedTask}
+          onOpenSettings={onOpenSettings}
+          onClose={() => setAgentPanelOpen(false)}
+        />
+      ) : null}
 
       {diagnosticsOpen ? (
         <PanelFrame
@@ -636,6 +1001,37 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
               onClick={() => void handleDeleteTask()}
             >
               {busy ? "正在删除…" : "确认删除记录"}
+            </button>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {renamingTask ? (
+        <ModalShell
+          ariaLabelledBy="work-task-rename-title"
+          onBackdropClick={() => setRenamingTask(null)}
+          onEscapeKeyDown={() => setRenamingTask(null)}
+        >
+          <div id="work-task-rename-title" className="ds-modal-title">重命名任务</div>
+          <label className="work-task-rename-field">
+            <span>任务名称</span>
+            <input
+              autoFocus
+              value={renameDraft}
+              maxLength={120}
+              onChange={(event) => setRenameDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && renameDraft.trim()) {
+                  event.preventDefault();
+                  void handleRenameTask();
+                }
+              }}
+            />
+          </label>
+          <div className="ds-modal-actions">
+            <button type="button" className="ghost ds-modal-button" onClick={() => setRenamingTask(null)}>取消</button>
+            <button type="button" className="primary ds-modal-button" disabled={!renameDraft.trim() || busy} onClick={() => void handleRenameTask()}>
+              保存
             </button>
           </div>
         </ModalShell>
