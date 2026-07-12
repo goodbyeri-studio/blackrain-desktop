@@ -12,7 +12,7 @@
 | 2026-07-11 | NSIS/Windows 资源配置存在性 | 检查 `tauri.windows.conf.json` | 配置存在 | 已锁 `targets:["nsis"]` 并映射 codex/Python/gateway/OfficeCLI/plugins/workbench;未执行构建/解包 smoke |
 | 2026-07-12 | Windows 本机发布脚本存在性 | 静态检查 `scripts/release-client-win.ps1` | 代码存在 | 会先跑 Hermes static contract，vendor runtime，并调用前端 typecheck/test/lint/DS/doctor、Rust check/Hermes/workbench/plugin 专项和 `tauri:build:win`；当前 macOS 无 `pwsh`，未有 Windows 实跑产物 |
 | 2026-07-13 | CI 额度优化前基线 | GitHub Actions run `29200292948` | 通过 | Ubuntu 3m20s + Windows 26m25s；hosted Windows 按 2 倍计费，单次跨层 PR 约 56 个计费分钟 |
-| 2026-07-13 | CI workflow 额度优化接线 | 静态检查 `.github/workflows/ci.yml` + 本地模拟路由 + 全量 JS checks + `cargo test --no-run --locked` | 本地通过，待 PR 实跑 | docs=`false/false`、frontend=`true/false`、Rust=`false/true`、workflow=`true/true`；纯 Markdown/Word PR 为 0 run；增加 concurrency、手动全量入口和 Cargo 依赖变更 cache 预热；Windows 单 test profile 编译并只跑 Rust WORK 专项；普通 `main` push 不重复跑 |
+| 2026-07-13 | CI workflow 额度优化 | 本地模拟路由 + 全量 JS checks + `cargo test --no-run --locked` + GitHub Actions run `29201934834` | 通过 | Detect 6s、Ubuntu JS 3m50s、Windows Rust 16m20s；按分钟取整和 Windows 2 倍估算，跨层 PR 从约 58 降到约 39 个计费分钟。docs=`false/false`、frontend=`true/false`、Rust=`false/true`、workflow=`true/true`；纯 Markdown/Word PR 为 0 run，普通 `main` push 不重复跑 |
 | YYYY-MM-DD | doctor.mjs 实跑 | `cd apps\desktop; npm run doctor:win` | 未跑 | 缺 cmake / clang 时应给出 choco 提示 |
 | YYYY-MM-DD | dev-client.ps1 启动 | `pwsh scripts/dev-client.ps1` | 未跑 | 期望 90 秒内 GUI 首帧 + 能选模型 |
 | YYYY-MM-DD | dev 模式真实对话 | dev-client.ps1 起后 GUI 内手发一条对话 | 未跑 | DeepSeek flash 走 BlackRain Gateway 返回真实回复 |
@@ -60,7 +60,7 @@
 - **品牌兼容**:base `productName` 已是 BlackRain，但 Windows title、About、tray 与 keyring service 仍有 `BlackRain2049`；特别是凭据 service 改名需要迁移验证。
 - **Win10/Win11 支持边界**:Mica 仅 Win11;是否官方支持 Win10 纯色降级尚未决策,两系统安装/启动均未验。
 - **uvloop 在 Windows 不可用**(`.specs/003` 已知问题):本仓 gateway.py 是纯 stdlib 不依赖 uvloop,但若将来切 Hermes Python 引擎要重检。
-- **CI 覆盖不完整**:旧矩阵已有 Ubuntu JS + Windows Rust WORK 真实成功 run；2026-07-13 的按路径分流与单 profile 编译优化仍待 PR 实跑。Tauri GUI、Hermes runtime、NSIS build、安装包制品仍无 CI 保障。
+- **CI 覆盖不完整**:按路径分流与单 profile 编译已由 run `29201934834` 实跑通过，但 Tauri GUI、Hermes runtime、NSIS build、安装包制品仍无 CI 保障。
 
 ## 失败记录
 
