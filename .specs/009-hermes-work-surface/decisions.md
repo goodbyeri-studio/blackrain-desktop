@@ -146,6 +146,14 @@
 - 影响范围：阶段 4/11、task start/continue、App exit、Windows process tree 和 deactivate。
 - 后续复查条件：上游提供稳定且可鉴权的动态 server 生命周期 API，并完成运行中无事件丢失的真实验证后，可去掉 restart；在此之前“动态挂拔不重启进程”仍未完成。Windows 还必须故障注入验证新旧 MCP 子进程都随对应 process tree 收敛。
 
+## 2026-07-12：Hermes supervisor 拥有完整子进程树
+
+- 决策：App `ExitRequested` 先取消受控 SSE，再等待 Hermes supervisor stop 完成后真正退出。Windows 继续使用 `taskkill /T`（超时后 `/F`）处理 Hermes 及其 stdio MCP 后代；Unix 开发运行把 Hermes 放入独立 process group，graceful stop 对整组发送 SIGTERM，父进程退出后仍对残留组发送 SIGKILL。
+- 原因：只终止 Hermes 父 PID 时，父进程可能先退出并把 MCP child 留成孤儿；App 退出回调若不等待 stop，又可能在清理完成前结束进程。
+- 替代方案：只依赖 `Child::kill_on_drop`、只删除 PID lease、让每个 MCP 自行退出，或在 App 下次启动时才清理正常退出遗留。
+- 影响范围：Hermes spawn/stop、App exit、MCP server 变更、deactivate 和 Windows process-tree 验收。
+- 后续复查条件：Windows 实机需用真实 Hermes+MCP 注入正常退出、超时和强退故障；若引入 Windows Job Object，可将其作为首要生命周期所有权机制，但保留 lease 审计。
+
 ## 2026-07-12：deactivate 先收敛执行资源，最后移除 activation
 
 - 决策：`workbench_activation_deactivate` 为 local-only Core 生命周期命令，并与 task start/continue 共用 activation 串行锁。它先拒绝任何不同 activation 或 legacy active run；对目标 activation 的 run 尽力请求 upstream stop，随后停止单 Hermes supervisor process tree、取消受控 SSE，把仍挂载的 task run 持久收敛为 cancelled；再把 Hermes config 恢复为 provider-only、删除 workbench binding，最后从 activation store 移除记录。命令返回被停止的 task id 和原项目路径，并明确 `projectPreserved=true`。WORK UI 必须通过现有 DS ModalShell 二次确认。
