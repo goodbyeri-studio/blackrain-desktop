@@ -488,6 +488,14 @@
 - 影响范围：HermesPaths 保持单 `hermes-home`；App 不增加 Profile UI/API；008 activation store 继续是工作台 generation 真源；Memory/session 的产品策略不能借 Profile 隐式决定。
 - 后续复查条件：只有真实需求证明多个工作台必须并发运行，且单 runtime 的切换门禁不可接受时，才设计 Core-owned 多 runtime slot。届时每个 slot 必须使用不透明 ID、独立 `HERMES_HOME + port + supervisor + credential namespace`，补资源上限、进程回收、任务路由、Windows 包体/内存和跨 slot 串台矩阵；仍不得让工作台直接写 Profile。
 
+## 2026-07-12：首版关闭 Hermes 持久记忆和跨 session 搜索
+
+- 决策：App-owned Hermes managed config 必须把 `memory.memory_enabled`、`memory.user_profile_enabled` 设为 false，`memory.provider` 设为空，并在 `agent.disabled_toolsets` 中同时关闭 `memory` 与 `session_search`。首版不提供 Memory provider 选择/配置 UI，不安装 provider 的 lazy dependency，也不把某个工作台的记忆自动共享给其他工作台。专业知识由 008 管理的 Skills/资源交付，用户对话历史由 BlackRain TaskStore 按 task/activation 保存。
+- 原因：锁定 Hermes 默认同时启用 `MEMORY.md` 和 `USER.md`，在 session 启动时注入快照，并允许 agent 主动写入；external provider 还会逐 turn 同步、抽取并注入上下文。当前不同 activation 复用同一个 App-owned `HERMES_HOME`，默认行为会让 Office 工作台学到的用户内容进入另一个工作台，`session_search` 也可能搜索同 home 的其他任务。Hermes Profile 能隔离这些文件但会与 008 状态重复，不能用它掩盖 scope 缺失。
+- 替代方案：保留 built-in memory 只关闭 provider、把 `USER.md` 当全局账号偏好、按工作台切换时清空 memory、让用户自行选择 Honcho/Mem0/Hindsight，或依赖 prompt 要求 agent 不读取其他工作台。上述方案都缺少可执行的数据 scope、同意、来源、保留和删除合同。
+- 影响范围：managed `config.yaml` 渲染/漂移检查、运行时 repair、未来 Memory UI、任务隐私边界和 Windows 多 activation 串台验证。旧 managed config 缺少显式禁用块时按 drift fail closed，并由显式 repair 重写。
+- 后续复查条件：只有 App 定义并实现至少 `user/workbench/project` scope、数据来源、写入审批、敏感信息策略、保留期、查看/纠错/删除/导出和 provider 凭据/地域/License 后，才能评估外置共享记忆；启用前必须用两个 activation 做双向零串台 E2E。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
