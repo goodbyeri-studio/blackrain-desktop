@@ -186,7 +186,8 @@
   - [x] 实现 generation migration shared Core、持久 task audit、local-only Tauri command 与失败补偿接缝
   - [x] 实现始终注册的 App-managed MCP router 与双 loopback bearer 内存控制面，动态 secret 不落盘
   - [x] 覆盖 router connect-before-swap、失败保留旧工具、移除回收子进程和真实 Streamable HTTP `tools/list_changed`
-  - [ ] 用锁定 Hermes 完成当前 session 下一 turn 工具快照刷新，并在 Windows 验证打包 runtime/process tree
+  - [x] 用锁定 Hermes 完成当前 session 下一 turn 工具快照刷新
+  - [ ] 在 Windows 验证打包 runtime/process tree
 - [x] 停用工作台时停止其受控进程但保留用户项目
 - [x] 防止不同工作台环境变量、Skills、MCP 和 session 串台
 - [x] Office 官方工作台进入 WORK surface，而不是 CODE 临时路径
@@ -196,7 +197,7 @@
 
 > 更正：上段阶段总结中“把每个下游 command/`${BLACKRAIN_MCP_SECRET_*}` 直接写进 Hermes config，并通过空闲态 restart 注册/注销”的实现水位已被本次 router 接入取代，仅作为历史检查点理解，不再是当前架构。
 
-> 动态挂拔实现更新：锁定 `/v1/runs` 仍不调用任何私有 reload。BlackRain 自有 Python router 已实现 bearer 分离的 Streamable HTTP MCP/control endpoint、下游 stdio owner task、connect-before-swap、旧 generation 保留、changed/removed process 回收、tool collision/数量门禁和 `tools/list_changed` 转发；真实进程 E2E 在同一 MCP ClientSession 中完成 add→list/call→remove→notification→空 list。App shared supervisor 使用随包 Hermes Python、随机双端口/双高熵 bearer、无 secret lease、启动审计和 process-tree stop；Hermes config 只注册 `blackrain-router`，bearer 仅以 `${BLACKRAIN_MCP_ROUTER_BEARER}` 注入进程。Core 从 verified plugin runtime 与 credential store 生成内存 generation，task start/continue/migration 在 run 前完成 swap，失败回滚 binding 且 router 保留旧集合；纯 MCP 变化不再重启 Hermes，project/process environment 变化仍受控重启。尚未用锁定 Hermes 验证下一 turn 工具快照，也未在 Windows 验证 vendor/NSIS/process tree，因此动态总项保持未完成。
+> 动态挂拔实现更新：锁定 `/v1/runs` 仍不调用任何私有 reload。BlackRain 自有 Python router 已实现 bearer 分离的 Streamable HTTP MCP/control endpoint、下游 stdio owner task、connect-before-swap、旧 generation 保留、changed/removed process 回收、tool collision/数量门禁和 `tools/list_changed` 转发；真实进程 E2E 在同一 MCP ClientSession 中完成 add→list/call→remove→notification。router 始终发布只读 `blackrain_workbench_status` 刷新锚点，避免最后一个动态工具移除后锁定 Hermes 因 registry 为空而跳过 next-turn refresh。新增锁定 Hermes 集成探针通过其真实 `MCPServerTask`、registry 和 `build_turn_context` prologue，证明同一个 agent/session 的下一 turn 加入工具、真实 dispatch 下游调用，并在移除最后一个插件后的下一 turn 删除旧 snapshot。App shared supervisor 使用随包 Hermes Python、随机双端口/双高熵 bearer、无 secret lease、启动审计和 process-tree stop；Hermes config 只注册 `blackrain-router`，bearer 仅以 `${BLACKRAIN_MCP_ROUTER_BEARER}` 注入进程。Core 从 verified plugin runtime 与 credential store 生成内存 generation，task start/continue/migration 在 run 前完成 swap，失败回滚 binding 且 router 保留旧集合；纯 MCP 变化不再重启 Hermes，project/process environment 变化仍受控重启。Windows vendor/NSIS/process tree 尚未实测，因此动态总项保持未完成。
 
 ## 阶段 12：真实模型、工具和 Office 纵切
 

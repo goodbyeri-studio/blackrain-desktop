@@ -37,6 +37,7 @@ MAX_TOOLS = 2048
 MAX_ARGS = 128
 MAX_ENVIRONMENT = 64
 MAX_TEXT = 4096
+ROUTER_STATUS_TOOL = "blackrain_workbench_status"
 IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 ENV_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
 TOOL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -394,9 +395,25 @@ class RouterState:
 
     async def list_tools(self) -> list[types.Tool]:
         async with self._lock:
-            return [self._routes[name].definition for name in sorted(self._routes)]
+            routed = [self._routes[name].definition for name in sorted(self._routes)]
+        return [self._status_tool(), *routed]
 
     async def call_tool(self, public_name: str, arguments: dict[str, Any]) -> types.CallToolResult:
+        if public_name == ROUTER_STATUS_TOOL:
+            async with self._lock:
+                payload = {
+                    "generationId": self._generation.generation_id if self._generation else None,
+                    "serverIds": sorted(self._workers),
+                    "toolNames": sorted(self._routes),
+                }
+            return types.CallToolResult(
+                content=[
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(payload, separators=(",", ":")),
+                    )
+                ]
+            )
         async with self._lock:
             route = self._routes.get(public_name)
         if route is None:
@@ -479,7 +496,7 @@ class RouterState:
             worker = workers[server_id]
             for tool in await worker.tools():
                 public_name = _route_name(server_id, tool.name)
-                if public_name in routes:
+                if public_name == ROUTER_STATUS_TOOL or public_name in routes:
                     raise RouterError("router_tool_collision", "Managed MCP tool names collided.", 409)
                 payload = tool.model_dump(by_alias=True, exclude_none=True)
                 payload["name"] = public_name
@@ -497,9 +514,25 @@ class RouterState:
                     definition=definition,
                     worker=worker,
                 )
-                if len(routes) > MAX_TOOLS:
+                if len(routes) + 1 > MAX_TOOLS:
                     raise RouterError("router_tool_limit", "Managed MCP tool limit was exceeded.", 409)
         return routes
+
+    @staticmethod
+    def _status_tool() -> types.Tool:
+        return types.Tool(
+            name=ROUTER_STATUS_TOOL,
+            description=(
+                "Inspect the active BlackRain workbench tool generation. "
+                "This read-only tool remains available while managed plugins change."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+            _meta={"blackrain/routerAnchor": True},
+        )
 
     async def _refresh_worker(self, worker: DownstreamWorker) -> None:
         async with self._update_lock:
