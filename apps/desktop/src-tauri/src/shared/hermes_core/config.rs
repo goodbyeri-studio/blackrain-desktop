@@ -881,7 +881,7 @@ fn render_config_with_binding_and_router(
         "{MANAGED_HEADER}\nagent:\n  disabled_toolsets:\n    - memory\n    - session_search\n    - cronjob\nmemory:\n  memory_enabled: false\n  user_profile_enabled: false\n  provider: \"\"\nmodel:\n  default: {}\n  provider: {}\nproviders:\n  {}:\n    name: {}\n    base_url: {}\n    key_env: {}\n    api_mode: \"chat_completions\"\n    default_model: {}\n    discover_models: {}\n",
         yaml_quote(&desired.model),
         yaml_quote(&provider_identity),
-        desired.provider_id,
+        yaml_quote(&desired.provider_id),
         yaml_quote(&desired.display_name),
         yaml_quote(&desired.base_url),
         yaml_quote(&desired.key_env),
@@ -1387,7 +1387,7 @@ mod tests {
     fn renders_named_provider_without_inline_secrets() {
         let rendered = render_config(&desired("deepseek-chat")).unwrap();
         assert!(rendered.contains("provider: \"custom:blackrain-new-api\""));
-        assert!(rendered.contains("providers:\n  blackrain-new-api:"));
+        assert!(rendered.contains("providers:\n  \"blackrain-new-api\":"));
         assert!(rendered.contains(&format!("key_env: \"{PROVIDER_API_KEY_ENV}\"")));
         assert!(rendered.contains("api_mode: \"chat_completions\""));
         assert!(!rendered.contains("api_key:"));
@@ -1440,6 +1440,16 @@ mod tests {
         let mut state = desired("deepseek-chat");
         state.provider_id = "custom".into();
         assert!(state.validate().unwrap_err().contains("Bare custom"));
+    }
+
+    #[test]
+    fn quotes_provider_ids_that_yaml_would_treat_as_scalars() {
+        let mut state = desired("deepseek-chat");
+        state.provider_id = "null".into();
+
+        assert!(render_config(&state)
+            .unwrap()
+            .contains("providers:\n  \"null\":\n"));
     }
 
     #[test]

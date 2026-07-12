@@ -540,6 +540,12 @@ export function isWorkEvent(value: unknown): value is WorkEvent {
       return typeof value.choice === "string" && typeof value.resolved === "number";
     case "userInputRequested":
       return typeof value.prompt === "string" && isStringArray(value.choices);
+    case "usageUpdated":
+      return (
+        typeof value.inputTokens === "number" &&
+        typeof value.outputTokens === "number" &&
+        typeof value.totalTokens === "number"
+      );
     case "outputAvailable":
       return typeof value.path === "string" && isNullableString(value.mediaType);
     case "warningRaised":

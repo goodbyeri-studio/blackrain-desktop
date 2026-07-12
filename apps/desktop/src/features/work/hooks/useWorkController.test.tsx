@@ -15,7 +15,9 @@ import {
   hermesFollowUpRetry,
   hermesFollowUpDispatchReady,
   hermesRuntimeModels,
+  hermesRuntimeStart,
   hermesRuntimeStatus,
+  hermesRuntimeStop,
   hermesTaskContinue,
   hermesTaskList,
   hermesTaskRecoveryStatus,
@@ -334,6 +336,37 @@ describe("useWorkController", () => {
       prompt: "继续",
     });
     expect(result.current.state.tasks["task-1"].task.activeRunId).toBe("run-2");
+  });
+
+  it("serializes runtime mutations through one operation key", async () => {
+    vi.mocked(hermesRuntimeStatus).mockResolvedValue(runtime);
+    vi.mocked(hermesTaskList).mockResolvedValue([]);
+    vi.mocked(hermesTaskRecoveryStatus).mockResolvedValue({ records: [], error: null });
+    const startRequest = deferred<WorkRuntimeStatus>();
+    vi.mocked(hermesRuntimeStart).mockReturnValue(startRequest.promise);
+    vi.mocked(hermesRuntimeStop).mockResolvedValue({
+      ...runtime,
+      state: "stopped",
+      pid: null,
+    });
+    const { result } = renderHook(() => useWorkController());
+    await waitFor(() => expect(result.current.state.bootstrapping).toBe(false));
+
+    let start!: Promise<WorkRuntimeStatus>;
+    let stop!: Promise<WorkRuntimeStatus>;
+    act(() => {
+      start = result.current.startRuntime();
+      stop = result.current.stopRuntime();
+    });
+    await expect(stop).rejects.toMatchObject({
+      code: "work_operation_in_progress",
+    });
+    expect(hermesRuntimeStop).not.toHaveBeenCalled();
+
+    await act(async () => {
+      startRequest.resolve(runtime);
+      await start;
+    });
   });
 
   it("persists follow-up queue mutations through Tauri wrappers", async () => {

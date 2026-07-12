@@ -190,6 +190,17 @@ class RouterContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session.notifications, 2)
         await state.close()
 
+    async def test_new_hermes_session_resets_initialization_state(self) -> None:
+        state = router.RouterState(worker_factory=FakeWorker)
+        first = FakeHermesSession()
+        second = FakeHermesSession()
+        await state.observe_hermes_session(first, initialized=True)
+        await state.observe_hermes_session(second, initialized=False)
+
+        self.assertIs(state._hermes_session, second)
+        self.assertFalse(state._hermes_initialized)
+        await state.close()
+
     async def test_downstream_list_changed_rebuilds_routes_before_notification(self) -> None:
         state = router.RouterState(worker_factory=FakeWorker)
         session = FakeHermesSession()

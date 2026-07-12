@@ -12,7 +12,7 @@ model:
   default: "blackrain-fixture"
   provider: "custom:blackrain-live-probe"
 providers:
-  blackrain-live-probe:
+  "blackrain-live-probe":
     name: "BlackRain live probe"
     base_url: "http://127.0.0.1:18765/v1"
     key_env: "BLACKRAIN_HERMES_PROVIDER_API_KEY"

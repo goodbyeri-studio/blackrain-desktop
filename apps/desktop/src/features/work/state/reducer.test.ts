@@ -153,6 +153,31 @@ describe("workReducer", () => {
     expect(selectCanResume(task({ status: "orphaned" }))).toBe(false);
   });
 
+  it("does not let stale events regress projected task state", () => {
+    let state = workReducer(initialWorkState, {
+      type: "taskUpserted",
+      task: task({
+        status: "completed",
+        activeRunId: null,
+        lastEventSequence: 5,
+        updatedAt: 10,
+      }),
+    });
+    state = workReducer(state, {
+      type: "workEventReceived",
+      event: event("stale-user-message", 4, {
+        type: "userMessageAdded",
+        text: "迟到的消息",
+        projectFileRefs: [],
+        sourceFollowUpId: null,
+      }),
+    });
+
+    expect(state.tasks["task-1"].task.status).toBe("completed");
+    expect(state.tasks["task-1"].task.activeRunId).toBeNull();
+    expect(state.tasks["task-1"].task.lastEventSequence).toBe(5);
+  });
+
   it("tracks the latest unresolved approval", () => {
     let state = workReducer(initialWorkState, {
       type: "taskUpserted",

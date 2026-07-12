@@ -33,9 +33,10 @@ export function WorkRuntimeBanner({
   onDiagnostics,
 }: WorkRuntimeBannerProps) {
   const state = runtime?.state ?? "stopped";
-  const needsRepair = state === "repairRequired" || state === "notInstalled";
-  const canStart = state === "stopped" || state === "crashed";
-  const canRestart = state === "degraded";
+  const needsRepair =
+    runtime != null && (state === "repairRequired" || state === "notInstalled");
+  const canStart = runtime != null && (state === "stopped" || state === "crashed");
+  const canRestart = runtime != null && state === "degraded";
 
   return (
     <section className={`work-runtime-banner is-${state}`} aria-live="polite">
