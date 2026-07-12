@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-07-12：服务端账号资产迁入 Cloud
+
+- 决策：Supabase 配置、migration、邮件模板迁入 `blackrain-cloud/supabase/`；历史代理及其计算、测试和镜像迁入 `blackrain-cloud/legacy/credit-proxy/`，Desktop 删除对应文件。
+- 原因：Desktop 可以使用 Supabase 登录，但不能拥有 `service_role`、数据库部署或商业账本服务端资产。
+- 影响范围：仓库真源、历史验证路径、Cloud foundation 和 Desktop gateway 文档。
+- 后续复查条件：正式 Cloud/Relay API 完成后重验 account broker、usage 对账和 Desktop 客户端接线。
+
 ## 2026-07-12：文档锚定服从现有可执行公式
 
 - 决策：在定价重新拍板前，文档按当前实现公式表述：`cost = tokens × multiplier / 10000`，所以 1 credit = 10,000 个 1x 等效 token；100 credit = 1,000,000 个 1x 等效 token，约等于 666,667 个 pro token 或 2,000,000 个 flash token。

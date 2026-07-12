@@ -1,5 +1,9 @@
 # Requirements
 
+> 迁移状态（2026-07-12）：Supabase 服务端资产与历史代理已迁入
+> `blackrain-cloud`；本 spec 保留 2026-06-25 历史验证语境，Desktop 只继续拥有
+> 账户/session 客户端和本地 CODE 翻译网关。
+
 ## 背景
 
 - 本 spec 创建时（2026-06-25），BlackRain 还是无自有账号、无计费的本地 Tauri 壳；后续 M-A1/M-A2 已实现账号骨干和过渡代理，当前状态以 tasks/verification 为准。
@@ -19,7 +23,7 @@
 
 - 不做团队版 / 多租户 / 组织管理（仅个人版）。
 - 不在本阶段定死 Plus/Pro 的价格与额度（先留占位字段）。
-- 不在 Desktop 仓库继续建设生产云端代理。`proxy.py` 只保留为已验证过渡实现；生产目标已定为私有 BlackRain Cloud 向独立公开 BlackRain Relay 购买服务，具体 broker/对账仍未实现。
+- 不在 Desktop 仓库建设或保存生产云端代理。历史 `proxy.py` 已迁入 Cloud legacy 留档；生产目标已定为私有 BlackRain Cloud 向独立公开 BlackRain Relay 购买服务，具体 broker/对账仍未实现。
 - 不做除 DeepSeek 外的 credit 套餐对接（BYOK 可接任意 OpenAI 兼容，但平台赠送的 credit 只覆盖 DeepSeek）。
 - 不改 Codex 内核；不恢复 `wire_api="chat"`。
 
@@ -27,9 +31,9 @@
 
 - 用户能注册、登录、登出；会话态持久（重开 App 不必重登）。
 - 账号带 plan 字段（free/plus/pro，默认 free）与 credit 余额；Free 注册即获赠 credit（暂定 100）。
-- credit 计量真实：经平台代理的对话，按 DeepSeek 真实 token 用量 × 模型倍率扣 credit；倍率 flash 0.5x / pro 1.5x（比值 = DeepSeek 真实成本比 3:1）。
+- credit 计量真实：经 Relay 的对话按真实 usage 进入 Cloud 商业账本；历史倍率 flash 0.5x / pro 1.5x 仅作为待重验基线。
 - 余额耗尽时，平台代理拒绝新对话并给出可读提示，不静默失败。
-- 平台 DeepSeek key 只存在于服务端代理，绝不下发到桌面 App。
+- 平台模型 key 只存在于 Relay 服务端，绝不下发到桌面 App 或 Cloud。
 - BYOK 入口仅 Plus 可用；Free 用户看到入口但被引导升级。
 - 前端模型选择器展示 flash/pro 两个模型及其倍率（0.5x / 1.5x）。
 

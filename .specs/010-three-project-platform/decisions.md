@@ -42,6 +42,14 @@
 - 影响范围：Cloud/Relay 初始目录、部署和数据一致性策略。
 - 后续复查条件：容量、SLA、合规或团队规模出现可量化瓶颈。
 
+## 2026-07-12：Supabase 真源与历史代理迁入 Cloud
+
+- 决策：Desktop 的 `supabase/` 受控资产迁入 Cloud 正式路径；历史 proxy 及其 credit 计算、测试和镜像文件迁入 Cloud `legacy/credit-proxy/`，Desktop 删除对应服务端文件。
+- 原因：Desktop 可以使用 Supabase 登录和 Cloud API，但不能拥有 migration、`service_role` 账本合同或云端代理部署资产。
+- 替代方案：两仓复制；立即删除历史代理证据；继续从 Desktop 部署代理。
+- 影响范围：仓库真源、文档、验证命令和后续 Cloud/Relay 接口接线。
+- 后续复查条件：正式 Cloud/Relay API 覆盖历史行为后，单独决定是否删除 Cloud legacy 留档。
+
 ## 被推翻的方案
 
 ### 2026-07-12：New API 只是 BlackRain Cloud 的内部基础设施

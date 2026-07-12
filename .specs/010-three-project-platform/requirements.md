@@ -6,7 +6,7 @@
 
 - BlackRain 是桌面端 SaaS：专业工作环境主要在用户 Windows 电脑运行，账号、权益、模型额度和持续运营依赖云端。
 - 模型中转站将作为可独立经营的第二产品，而不是只藏在 Desktop 或 Cloud 仓库里的内部组件。
-- 现有单仓同时包含桌面代码、Supabase 账号代码和历史 `proxy.py`，需要冻结长期归属，避免密钥、发布节奏和 License 边界继续混淆。
+- 历史单仓曾同时包含桌面代码、Supabase 服务端资产和 `proxy.py`；2026-07-12 已按冻结边界完成仓库迁移。
 
 ## 用户目标
 
@@ -16,8 +16,8 @@
 
 ## 非目标
 
-- 本 spec 不实现 Cloud API、支付、model token broker、New API fork、部署、数据迁移或双账本对账。
-- 本轮不把现有 Supabase、`proxy.py` 或客户端账号代码搬出 Desktop 仓库。
+- 本次资产迁移不实现 Cloud API、支付、model token broker、New API fork、生产数据迁移或双账本对账。
+- Desktop 的客户端账号代码、Supabase SDK、session 与系统钥匙串不迁出。
 - 本轮不决定 Plus BYOK 是否绕过 Relay，也不因 New API 宣称支持 Responses 就删除 CODE 本地翻译网关。
 
 ## 成功标准
@@ -27,6 +27,7 @@
 - 文档明确控制面、模型数据面、账本、数据库、密钥和 License 的归属。
 - AGPL 例外只适用于独立公开的 Relay；AGPL 源码不得进入 Desktop/Cloud 私有仓库。
 - 未实现的 Cloud/Relay 能力继续标成目标或待验证，不把仓库创建写成服务可用。
+- Supabase 服务端资产只存在于 Cloud；Desktop 不再包含 migration、`service_role` RPC 部署资产或历史代理服务代码。
 
 ## 约束
 

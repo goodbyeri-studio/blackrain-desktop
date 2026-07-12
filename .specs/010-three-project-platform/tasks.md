@@ -15,13 +15,15 @@
 - [x] 更新 Desktop 本地 `origin`
 - [x] 更新 Desktop 文档、GitHub Flow 命令、updater URL 和 AGPL 边界
 
-## 阶段 2：Cloud 最小闭环
+## 阶段 2：Cloud 资产迁移与最小闭环
 
-- [ ] 在 Cloud 建立模块化单体骨架、Supabase migration 真源和 OpenAPI
+- [x] 将 Supabase 配置、migration、邮件模板迁入 Cloud 并建立唯一真源
+- [x] 将历史 proxy、credit 计算、测试和镜像迁入 Cloud legacy 留档
+- [x] 从 Desktop 删除服务端资产，保留客户端账户层和 CODE 本地翻译网关
+- [ ] 在 Cloud 建立模块化单体运行时骨架和 OpenAPI
 - [ ] 实现 Supabase JWT 校验与 BlackRain entitlement
 - [ ] 实现 Cloud service account -> Relay scoped model token broker
 - [ ] 冻结 Supabase 商业 ledger 与 Relay usage/批发账单的幂等对账合同
-- [ ] 从 Desktop 仓库迁出生产云端代码；保留必要客户端 contract，不破坏历史验证
 
 ## 阶段 3：Relay 最小闭环
 

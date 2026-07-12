@@ -1,6 +1,8 @@
 # Verification
 
 > 状态校准（2026-07-12）：M-A1 账号代码、M-A2 过渡代理和真实 Supabase/DeepSeek 计量已经验证；生产项目边界已按 010 定为 Cloud 购买 Relay 服务，但 broker、对账、Windows 桌面 GUI、WORK/Hermes credit 和 Plus BYOK 尚未实现。2026-06-25 的公网地址和云服务结果是当日历史证据，不代表当前可用性监控。
+> 同日 Supabase 服务端资产与历史代理已迁入 `blackrain-cloud`；下文
+> `gateway/proxy.py` 等路径是历史证据中的原始位置，不代表 Desktop 当前仍含这些文件。
 
 ## 验证矩阵
 
@@ -33,6 +35,7 @@
 | 2026-06-25 | 公网端到端计量闭环 | 公网 HTTPS 真实对话（DeepSeek+Supabase） | 通过 | flash 22 token→扣 0.0011；首尾 1860ms；门禁 402 |
 | 2026-06-25 | 网关 api_key_file 热读单测 | `cd gateway && python3 -m unittest test_gateway_key` | 通过 | 7 用例：JWT 每请求读盘、空回退、缺失返 None |
 | 2026-06-25 | 桌面 credit 接线（代码） | typecheck + cargo check + 1053 前端用例 | 通过 | registry credit override + JWT 文件命令 + useCreditGatewaySync；GUI 端到端待跑 |
+| 2026-07-12 | Cloud 资产迁移 | Cloud `supabase start` + `supabase db reset` + catalog 查询；legacy 17 tests + Docker build；Desktop gateway 7 tests + 路径核对 | 通过 | 三条 migration 从空库执行；RLS/trigger/RPC 权限正确；Desktop 删除服务端文件并保留账户客户端与 `gateway.py` |
 | 2026-06-25 | 登录开屏门禁（代码） | typecheck + 1055 前端用例 + lint + DS 守卫 | 通过 | AccountProvider 单一真源 + AccountGate 四态分支(4 用例) + 积分额度条 + 登出；会话优先/离线宽限 |
 | YYYY-MM-DD | 本地网关 credit 模式端到端 | 桌面 GUI（登录→选模型→对话） | 未跑 | 需 tauri dev：base_url 切代理、JWT 文件热读、扣 credit |
 | YYYY-MM-DD | 余额耗尽 → 前端提示 | 桌面 GUI | 未跑 | 代理 402 → response.failed 已就绪；前端提示文案待联调 |
@@ -44,7 +47,7 @@
 
 - spec 五文档已创建。
 - 边界已确认：壳无自有账号/后端；DeepSeek pro:flash = 3:1（官方价）。
-- 账号/余额栈 = Supabase；最小 `proxy.py` 过渡代理已验证；目标生产形态已定为 Cloud 身份/商业账本 + Relay 中转/原始 usage，但尚无实现证据。
+- 账号/余额栈 = Supabase；最小 `proxy.py` 过渡代理已验证并迁入 Cloud legacy；目标生产形态已定为 Cloud 身份/商业账本 + Relay 中转/原始 usage，但正式接口尚无实现证据。
 - M-A1 代码骨干（2026-06-25）：
   - SQL migration（profiles + credit_ledger + RLS + 注册赠送 trigger）已写入并应用真实 Supabase 项目。
   - Supabase SDK 接入 + 钥匙串会话存储（Rust `account_session*` 命令 + 前端 adapter）+ `useAccount` 状态机已实现，typecheck/lint/cargo check 全绿。
@@ -55,7 +58,7 @@
   - RLS 端到端坐实：用户 JWT 只读到本人 1 行；PATCH credits 影响 0 行、余额未篡改。
 - M-A2 代理服务端（2026-06-25，真实 DeepSeek + 真实 Supabase）：
   - `spend_credits` RPC 坐实：单事务原子扣减+流水；用户无权调(42501)；负 cost 被拒(P0001)。
-  - `gateway/proxy.py` 端到端坐实：用户对话经代理→DeepSeek 流式透传；flash 33 token→扣 0.00165 credit（与 credit_math 锚定分毫不差）；ledger 落账含 token 明细。
+  - 历史 `gateway/proxy.py`（现 `blackrain-cloud/legacy/credit-proxy/proxy.py`）端到端坐实：用户对话经代理→DeepSeek 流式透传；flash 33 token→扣 0.00165 credit；ledger 落账含 token 明细。
   - 门禁坐实：余额耗尽→402 insufficient_credits；无效 JWT→401；未知模型→400。
   - 日志脱敏坐实：扫描无平台 key/JWT/用户内容/完整 user_id。
   - 纯逻辑单测：credit_math 9 + proxy 8 用例通过。
@@ -69,7 +72,7 @@
 - 价格、Plus/Pro 额度未定，全为占位。
 - Supabase 在国内的网络可达性 / 合规边界：本机（开发者环境）经 CLI/REST 直连新加坡区项目正常（建项目、push migration、admin/REST 调用均通），但**这不等于终端用户网络**；发行前仍须在目标用户网络/弱网/移动网络下实测登录与实时余额延迟，并评估合规边界。
 - 并发超卖（接受小幅为负、下次充值补齐）的实际损失规模未观测；若偏大需上预授权冻结。
-- `proxy.py` 的一次性 DO/Caddy 部署已实操，但它已退为历史过渡实现；Cloud/Relay 的持续监控、备份、轮换、故障恢复和生产迁移尚未验证。
+- `proxy.py` 的一次性 DO/Caddy 部署已实操，但代码已迁入 Cloud legacy 且不得作为新生产入口；Cloud/Relay 的持续监控、备份、轮换、故障恢复和生产接线尚未验证。
 - Windows Credential Manager 中的会话持久、GUI credit 闭环、WORK/Hermes credit、BYOK 权益后端门禁均未验证。
 - Supabase→长期 model token 的 account broker 尚不存在；不得把自动刷新的 access JWT 直接放进 Hermes，也不得把 new-api 上游 token API 存在写成签发链路完成。
 - 当前注册赠送 trigger 在 `auth.users insert` 时执行，可能早于邮箱 OTP 确认；真实未确认注册行为与防滥用策略未验证。
