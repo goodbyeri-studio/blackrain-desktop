@@ -520,6 +520,14 @@
 - 影响范围：runtime inventory 保持只从 messaging 锁文件提取 `aiohttp` 约束；supervisor `env_clear()` 不继承渠道变量；WORK UI/008 Manifest 不增加 platform 字段；003 的 Hermes 多渠道能力只保留为 post-MVP 上游资产。
 - 后续复查条件：工作室需要从企业微信/飞书/Telegram 等接单或推送成果时，按具体平台单独评估官方 API、License、数据地域、身份映射、allowlist、附件隔离、幂等、审批、credit、离线服务、撤销和审计；不得用一个“启用 messaging”总开关替代。
 
+## 2026-07-12：真进程审批探针只使用临时项目内的可验证副作用
+
+- 决策：`test-hermes-live-probe.py` 在同一个原装锁定 Hermes 进程中依次运行只读、`once` 和 `deny` 三个确定性场景。审批场景让模型调用必定命中上游 dangerous-command guard 的 `terminal` 命令，命令只在随机临时项目内写固定 marker；`once` 必须产生 marker 并把工具结果送入第二次模型迭代，`deny` 必须零副作用并把 `BLOCKED`/未同意结果送入第二次迭代。探针不读取 `.env`、用户凭据或用户项目。
+- 原因：fake server 只能证明 BlackRain contract，单纯看到 `approval.request` 也不能证明原装 agent thread 被正确阻塞、用户决定能解除等待、批准后确实执行或拒绝后不会绕路。固定临时副作用与第二轮模型请求同时提供执行层和 agent-loop 层证据，又不触碰真实资产。
+- 替代方案：对真实仓库执行删除/写入、使用网络命令、只断言 HTTP 200、mock `tools.approval`，或把本地确定性模型结果称为生产 new-api/Windows 通过。
+- 影响范围：阶段 12 approval approve/deny 子项、Hermes 锁升级 contract、`docs/commands.md` 和发布证据口径。
+- 后续复查条件：生产结论仍要求 verified activation、BlackRain supervisor/TaskStore/WORK UI、真实 account broker/new-api/国产模型以及 Windows 实机各跑 approve/deny；本探针不能勾选父项或发布矩阵。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
