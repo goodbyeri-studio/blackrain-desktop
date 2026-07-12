@@ -89,6 +89,9 @@ function createEventHub<T>(eventName: string) {
 
 const appServerHub = createEventHub<AppServerEvent>("app-server-event");
 const workEventHub = createEventHub<WorkEvent>("work-event");
+const workEnvironmentReconcileHub = createEventHub<void>(
+  "work-environment-reconcile",
+);
 const dictationDownloadHub = createEventHub<DictationModelStatus>("dictation-download");
 const dictationEventHub = createEventHub<DictationEvent>("dictation-event");
 const terminalOutputHub = createEventHub<TerminalOutputEvent>("terminal-output");
@@ -132,6 +135,15 @@ export function subscribeWorkEvents(
   options?: SubscriptionOptions,
 ): Unsubscribe {
   return workEventHub.subscribe(onEvent, options);
+}
+
+export function subscribeWorkEnvironmentReconcile(
+  onEvent: () => void,
+  options?: SubscriptionOptions,
+): Unsubscribe {
+  return workEnvironmentReconcileHub.subscribe(() => {
+    onEvent();
+  }, options);
 }
 
 export function subscribeDictationDownload(

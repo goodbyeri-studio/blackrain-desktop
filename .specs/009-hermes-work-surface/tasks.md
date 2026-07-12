@@ -71,12 +71,12 @@
 - [x] 实现 graceful stop、超时强杀和 Windows process tree 回收
 - [x] App 正常退出时清理 Hermes 和受控 MCP 子进程
 - [x] App 异常退出/下次启动时审计并清理或安全接管孤儿进程
-- [ ] 处理系统休眠/恢复和网络变化
+- [x] 处理系统休眠/恢复和网络变化
 - [x] 暴露 runtime status、start、stop、restart、repair、logs Tauri commands
 - [x] local-only 时为 remote backend 返回显式 unsupported
 - [x] 补 supervisor 单元、并发和失败注入测试
 
-> 2026-07-12：版本化 PID lease、进程身份核对、health/bearer/capability 复核与下次启动清理已经实现；PID 被复用、身份查询失败或 bearer 不匹配时进入 `repairRequired`，不会误杀。App adapter 已暴露六个 runtime commands，命令不接受 host/port/binary/env，remote mode 返回结构化 `unsupported_in_remote_backend`。前端在 window focus、document visible 或 browser online 后以 250ms 去抖重新读取 runtime/tasks/recovery，并只对仍有 active run 的 degraded task 调用 resume 重新挂 SSE，不创建 run、不重放 prompt。App `ExitRequested` 会先取消受控 SSE，再等待 supervisor 停止后退出；Windows 使用 `taskkill /T` 收敛 Hermes/MCP tree，Unix 开发运行让 Hermes 独占 process group 并对整组 TERM/KILL，回归测试用真实 background child 证明 stop 后不留子进程。Windows 原生 sleep/resume、`Get-CimInstance`/`taskkill /T`、真实网络恢复和真实 MCP tree 仍未实测，因此相应发布验收与系统休眠总项保持未完成。
+> 2026-07-12：版本化 PID lease、进程身份核对、health/bearer/capability 复核与下次启动清理已经实现；PID 被复用、身份查询失败或 bearer 不匹配时进入 `repairRequired`，不会误杀。App adapter 已暴露六个 runtime commands，命令不接受 host/port/binary/env，remote mode 返回结构化 `unsupported_in_remote_backend`。Tauri `RunEvent::Resumed`、window focus、document visible 和 browser online 共用单一 250ms 去抖入口，重新读取 runtime/tasks/recovery/activations，并只对仍有 active run 的 degraded task 调用 resume 重新挂 SSE，不创建 run、不重放 prompt。App `ExitRequested` 会先取消受控 SSE，再等待 supervisor 停止后退出；Windows 使用 `taskkill /T` 收敛 Hermes/MCP tree，Unix 开发运行让 Hermes 独占 process group 并对整组 TERM/KILL，回归测试用真实 background child 证明 stop 后不留子进程。Windows 原生 sleep/resume、`Get-CimInstance`/`taskkill /T`、真实网络恢复和真实 MCP tree 仍未实测，因此发布验收保持未完成，但代码级恢复策略已闭合。
 
 ## 阶段 5：Hermes API client
 

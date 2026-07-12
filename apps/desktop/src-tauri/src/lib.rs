@@ -1,5 +1,7 @@
 #[cfg(desktop)]
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(desktop)]
+use tauri::Emitter;
 use tauri::Manager;
 #[cfg(desktop)]
 use tauri::RunEvent;
@@ -447,6 +449,11 @@ pub fn run() {
                 });
             }
             return;
+        }
+
+        #[cfg(desktop)]
+        if let RunEvent::Resumed = event {
+            let _ = app_handle.emit("work-environment-reconcile", ());
         }
 
         #[cfg(target_os = "macos")]

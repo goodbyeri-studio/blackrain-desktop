@@ -282,13 +282,13 @@
 - 影响范围：`useWorkController`、WORK reducer/tests、长任务 UI 性能和阶段 13 性能基线。
 - 后续复查条件：Windows WebView 长会话性能数据证明 256/16ms 不合适时可调整批大小/节奏；不得降低事件幂等和持久化顺序。
 
-## 2026-07-12：恢复到前台或网络在线时只重新对账并挂接已有 run
+## 2026-07-12：系统恢复、前台或网络在线时只重新对账并挂接已有 run
 
-- 决策：WORK controller 监听 window focus、document visible 和 browser online，250ms 去抖后并行刷新 runtime/tasks/recovery；只有 runtime Ready 且 TaskStore 返回 `degraded + activeRunId` 时才调用现有 resume command。多个同时到达的环境事件合并成一次对账，组件卸载时清理监听器和 timer。
+- 决策：Tauri 在 `RunEvent::Resumed` 发出唯一 `work-environment-reconcile` 事件；WORK controller 将它与 window focus、document visible 和 browser online 合并，250ms 去抖后并行刷新 runtime/tasks/recovery/activations。只有 runtime Ready 且 TaskStore 返回 `degraded + activeRunId` 时才调用现有 resume command。多个同时到达的环境事件合并成一次对账，组件卸载时清理 Tauri/browser listener 和 timer。
 - 原因：系统休眠或网络中断可能让有限 SSE 重连耗尽，但上游 run 仍在执行。resume command 会先 GET status，再挂接同一 run 的 events；它不创建新 run、不重放 prompt，符合幂等和黑盒边界。仅靠浏览器 online 不能判断 Hermes 进程健康，因此必须先查询受控 runtime。
 - 替代方案：窗口聚焦就重新 POST run、自动重放上一条 prompt、对所有 running/waiting task 重复 attach、或完全依赖用户手工点击恢复。
 - 影响范围：`useWorkController`、阶段 4 休眠/网络恢复、阶段 9 connection UI 和阶段 13 故障注入。
-- 后续复查条件：Windows 提供稳定的 Tauri/native power-resume signal 后，把它加入同一 schedule 入口；当前 focus/visibility/online 仍需 Windows 睡眠实机验证后才能勾选总项。
+- 后续复查条件：当前已接 Tauri runtime resume，但仍需 Windows 实机确认系统睡眠确实产生该事件，并覆盖离线→在线、Hermes 存活/退出和 SSE 已耗尽三种组合；代码完成不能替代产品验收。
 
 ## 2026-07-12：ActivatedWorkbenchContext 只由 Core 签发且不携带可执行配置
 

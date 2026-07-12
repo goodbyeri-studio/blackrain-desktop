@@ -9,6 +9,7 @@ import {
   subscribeMenuCycleModel,
   subscribeMenuNewAgent,
   subscribeTerminalOutput,
+  subscribeWorkEnvironmentReconcile,
   subscribeWorkEvents,
 } from "./events";
 
@@ -81,6 +82,29 @@ describe("events subscriptions", () => {
 
     cleanupFirst();
     cleanupSecond();
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("delivers native WORK environment reconcile signals", async () => {
+    let listener: EventCallback<void> = () => {};
+    const unlisten = vi.fn();
+    vi.mocked(listen).mockImplementation((eventName, handler) => {
+      expect(eventName).toBe("work-environment-reconcile");
+      listener = handler as EventCallback<void>;
+      return Promise.resolve(unlisten);
+    });
+    const onEvent = vi.fn();
+    const cleanup = subscribeWorkEnvironmentReconcile(onEvent);
+
+    listener({
+      event: "work-environment-reconcile",
+      id: 3,
+      payload: undefined,
+    });
+    expect(onEvent).toHaveBeenCalledTimes(1);
+
+    cleanup();
     await Promise.resolve();
     expect(unlisten).toHaveBeenCalledTimes(1);
   });
