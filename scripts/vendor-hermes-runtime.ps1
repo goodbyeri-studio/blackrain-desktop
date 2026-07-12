@@ -57,6 +57,9 @@ if ($LASTEXITCODE -ne 0 -or $actualTag -ne $manifest.hermes.tag) {
 if ((Get-Sha256 (Join-Path $hermes "pyproject.toml")) -ne $manifest.hermes.pyprojectSha256) {
   throw "Hermes pyproject.toml hash 与 manifest 不一致。"
 }
+if ((Get-Sha256 (Join-Path $hermes "LICENSE")) -ne $manifest.hermes.licenseSha256) {
+  throw "Hermes LICENSE hash 与 manifest 不一致；升级前必须重新完成许可证审计。"
+}
 if ((Get-Sha256 (Join-Path $hermes "uv.lock")) -ne $manifest.hermes.uvLockSha256) {
   throw "Hermes uv.lock hash 与 manifest 不一致。"
 }

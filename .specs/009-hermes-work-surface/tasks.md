@@ -238,7 +238,7 @@
   - [x] 建立代码级 guardrail：10,000 事件按 256 批处理、可见消息投影、序列化状态体积、5,000 任务 hydration/排序
   - [x] 建立 supervisor fixture 冷启动 guardrail，覆盖 spawn → health → capabilities → models → Ready
   - [ ] Windows 真实 Hermes 冷启动 P50/P95、进程/MCP RSS、WebView 长会话 heap、事件积压/掉帧和 5,000 任务可交互性
-- [ ] 建立上游 Hermes 升级 contract regression 流程
+- [x] 建立上游 Hermes 升级 contract regression 流程
 
 > 2026-07-12：阶段 13 第一组已建立跨 `client → runner/registry → TaskStore journal` 的 fake HTTP/SSE 故障矩阵。它证明明确 503、请求超时、SSE 断流和工具失败在本地状态机中的收敛行为，但不能证明真实 new-api、Hermes 工具子进程或 Windows 网络栈。尤其 create-run timeout 没有上游 run id/idempotency key，BlackRain 只能拒绝本地附着和自动重放，不能证明上游没有接受该请求，因此总项保持未完成。
 
