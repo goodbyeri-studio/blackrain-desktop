@@ -3,7 +3,10 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { subscribeWorkEvents } from "@/services/events";
+import {
+  subscribeWorkEnvironmentReconcile,
+  subscribeWorkEvents,
+} from "@/services/events";
 import {
   hermesRuntimeStatus,
   hermesTaskContinue,
@@ -18,6 +21,7 @@ import type { WorkEvent, WorkRuntimeStatus, WorkTask } from "../types";
 import { useWorkController } from "./useWorkController";
 
 vi.mock("@/services/events", () => ({
+  subscribeWorkEnvironmentReconcile: vi.fn(() => vi.fn()),
   subscribeWorkEvents: vi.fn(() => vi.fn()),
 }));
 
@@ -78,6 +82,7 @@ function deferred<T>() {
 describe("useWorkController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(subscribeWorkEnvironmentReconcile).mockReturnValue(vi.fn());
     vi.mocked(subscribeWorkEvents).mockReturnValue(vi.fn());
     vi.mocked(workbenchActivationList).mockResolvedValue([]);
   });
@@ -248,19 +253,26 @@ describe("useWorkController", () => {
     vi.useRealTimers();
   });
 
-  it("reconciles and reattaches degraded runs after focus or network recovery", async () => {
+  it("reconciles and reattaches degraded runs after native, focus, or network recovery", async () => {
     vi.useFakeTimers();
     const degradedTask = { ...task, status: "degraded" as const };
     vi.mocked(hermesRuntimeStatus).mockResolvedValue(runtime);
     vi.mocked(hermesTaskList).mockResolvedValue([degradedTask]);
     vi.mocked(hermesTaskRecoveryStatus).mockResolvedValue({ records: [], error: null });
     vi.mocked(hermesTaskResume).mockResolvedValue({ ...task, status: "running" });
+    let onNativeResume: (() => void) | null = null;
+    const unsubscribeNativeResume = vi.fn();
+    vi.mocked(subscribeWorkEnvironmentReconcile).mockImplementation((listener) => {
+      onNativeResume = listener;
+      return unsubscribeNativeResume;
+    });
     const { result, unmount } = renderHook(() => useWorkController());
     await act(async () => {
       await Promise.resolve();
     });
 
     act(() => {
+      onNativeResume?.();
       window.dispatchEvent(new Event("focus"));
       window.dispatchEvent(new Event("online"));
     });
@@ -274,6 +286,7 @@ describe("useWorkController", () => {
     expect(hermesTaskResume).toHaveBeenCalledWith(degradedTask.taskId);
     expect(result.current.state.tasks[task.taskId].task.status).toBe("running");
     unmount();
+    expect(unsubscribeNativeResume).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
 });

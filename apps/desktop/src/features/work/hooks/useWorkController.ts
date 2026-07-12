@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
-import { subscribeWorkEvents } from "@/services/events";
+import {
+  subscribeWorkEnvironmentReconcile,
+  subscribeWorkEvents,
+} from "@/services/events";
 import {
   hermesRuntimeDiagnostics,
   hermesRuntimeRepair,
@@ -360,8 +363,11 @@ export function useWorkController() {
     window.addEventListener("online", scheduleReconcile);
     window.addEventListener("focus", scheduleReconcile);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    const unsubscribeEnvironmentReconcile =
+      subscribeWorkEnvironmentReconcile(scheduleReconcile);
     return () => {
       active = false;
+      unsubscribeEnvironmentReconcile();
       window.removeEventListener("online", scheduleReconcile);
       window.removeEventListener("focus", scheduleReconcile);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
