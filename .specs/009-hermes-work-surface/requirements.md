@@ -131,6 +131,9 @@ Hermes 事件映射为 BlackRain 自己的 WORK domain model，至少覆盖：
 - 每轮原始用户消息及其项目文件引用必须先持久化到 WORK transcript，再向前端展示；同一 run 的 Hermes `user.message` 回显不得制造重复用户消息。
 - 停用时解除本工作台的运行映射并回收受控进程，不删除用户项目。
 - 动态 MCP 工具发现不能替代完整工作台生命周期。
+- 资源变化必须由 spec 008 签发新的不可变 activation generation；既有 task 默认绑定旧 generation，不得由 WORK surface 静默升级。
+- WORK 只允许在无 active run、同 workbench/project 且目标 activation 已完整验证时消费 Core 显式迁移结果；session 可保留，但下一 run 必须使用新 generation。
+- 动态 MCP router 切换失败时必须保留旧工具集合和旧 task activation，不得产生半迁移状态。
 
 ### R10：诊断与安全降级
 

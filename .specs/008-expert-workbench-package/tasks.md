@@ -37,12 +37,18 @@
 
 ## 阶段 3：升级、回滚和卸载
 
+- [x] 冻结不可变 activation generation、task/session 迁移资格、审计和失败回滚合同
+- [ ] 实现 activation generation migration shared Core 状态机和持久审计
+- [ ] 迁移 API 仅接受 task + target activation 身份，不接受前端资源/env/runtime 覆盖
+- [ ] 覆盖 active run 拒绝、跨工作台/项目拒绝、新资源未验证拒绝和失败原子回滚
 - [ ] 实现新版本 staging 安装和原子激活
 - [ ] 健康检查失败自动回滚
 - [ ] 共享依赖引用计数
 - [ ] 卸载保留用户项目
 - [ ] 报告无法删除的残留项
 - [ ] 失败注入覆盖断网、磁盘不足、进程残留和依赖冲突
+
+> 2026-07-12：generation 合同以新 `activationId` 表达资源变化，旧 activation 不原地改写。既有 task 默认 pinned；仅同 workbench、同 project、无 active run 且新资源全部 install/verify/permission 通过时可显式迁移。session 可保留但下一 run 使用新 generation，迁移必须持久化旧/新 activation、时间、原因和结果；runtime/router readiness 失败同时恢复旧 task binding 与 active generation。当前只冻结合同，shared Core 状态机、API、router 和 Windows 验证均未实现。
 
 ## 阶段 4：发布级安全与来源
 
