@@ -10,19 +10,22 @@ use serde_json::Value;
 use super::config::{atomic_write, tighten_file_permissions};
 use super::protocol::HermesRunStatus;
 use super::types::{
-    WorkError, WorkErrorKind, WorkEvent, WorkEventKind, WorkTask, WorkTaskStatus,
-    WORK_SCHEMA_VERSION,
+    WorkError, WorkErrorKind, WorkEvent, WorkEventKind, WorkFollowUp, WorkFollowUpStatus, WorkTask,
+    WorkTaskStatus, WORK_SCHEMA_VERSION,
 };
 
 const TASK_SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+const FOLLOW_UP_QUEUE_SCHEMA_VERSION: u32 = 1;
 const MAX_JOURNAL_EVENT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_APPEND_EVENTS: usize = 1024;
+const MAX_FOLLOW_UPS_PER_TASK: usize = 32;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct HermesTaskStorePaths {
     pub(crate) root: PathBuf,
     pub(crate) snapshot: PathBuf,
     pub(crate) events: PathBuf,
+    pub(crate) follow_ups: PathBuf,
 }
 
 impl HermesTaskStorePaths {
@@ -31,6 +34,7 @@ impl HermesTaskStorePaths {
         Self {
             snapshot: root.join("tasks.v1.json"),
             events: root.join("events"),
+            follow_ups: root.join("follow-ups"),
             root,
         }
     }
@@ -41,6 +45,14 @@ impl HermesTaskStorePaths {
 struct TaskSnapshot {
     schema_version: u32,
     tasks: Vec<WorkTask>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FollowUpQueueEnvelope {
+    schema_version: u32,
+    task_id: String,
+    items: Vec<WorkFollowUp>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -200,11 +212,15 @@ impl HermesTaskStore {
         session_id: &str,
         text: &str,
         project_file_refs: &[String],
+        source_follow_up_id: Option<&str>,
     ) -> Result<WorkRunAttachResult, WorkError> {
         validate_store_id("task id", task_id)?;
         validate_store_id("run id", run_id)?;
         validate_store_id("Hermes session id", session_id)?;
         validate_user_message(text, project_file_refs)?;
+        if let Some(follow_up_id) = source_follow_up_id {
+            validate_store_id("source follow-up id", follow_up_id)?;
+        }
 
         let mut tasks = self.load_tasks()?;
         let task = tasks
@@ -240,6 +256,7 @@ impl HermesTaskStore {
             kind: WorkEventKind::UserMessageAdded {
                 text: text.into(),
                 project_file_refs: project_file_refs.to_vec(),
+                source_follow_up_id: source_follow_up_id.map(str::to_string),
             },
         };
         validate_event(task_id, &user_event)?;
@@ -286,6 +303,331 @@ impl HermesTaskStore {
             task: result,
             user_event,
         })
+    }
+
+    pub(crate) fn load_follow_ups(&self, task_id: &str) -> Result<Vec<WorkFollowUp>, WorkError> {
+        validate_store_id("task id", task_id)?;
+        let path = self.follow_up_queue_path(task_id)?;
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        reject_symlink(&path)?;
+        let bytes = fs::read(&path).map_err(|error| {
+            persistence_error(
+                "work_follow_up_queue_read_failed",
+                &format!("Unable to read WORK follow-up queue: {error}"),
+            )
+        })?;
+        let envelope =
+            serde_json::from_slice::<FollowUpQueueEnvelope>(&bytes).map_err(|error| {
+                persistence_error(
+                    "work_follow_up_queue_invalid",
+                    &format!("WORK follow-up queue is invalid JSON: {error}"),
+                )
+            })?;
+        if envelope.schema_version != FOLLOW_UP_QUEUE_SCHEMA_VERSION || envelope.task_id != task_id
+        {
+            return Err(persistence_error(
+                "work_follow_up_queue_invalid",
+                "WORK follow-up queue schema or task identity is invalid.",
+            ));
+        }
+        validate_follow_ups(task_id, &envelope.items)?;
+        Ok(envelope.items)
+    }
+
+    pub(crate) fn enqueue_follow_up(
+        &self,
+        task_id: &str,
+        prompt: &str,
+        project_file_refs: &[String],
+        instructions: Option<&str>,
+        model: Option<&str>,
+    ) -> Result<Vec<WorkFollowUp>, WorkError> {
+        let task = self.load_task(task_id)?;
+        if task.active_run_id.is_none() || is_terminal_task_status(&task.status) {
+            return Err(persistence_error(
+                "work_follow_up_requires_active_run",
+                "WORK follow-ups may only be queued while the task has an active run.",
+            ));
+        }
+        validate_follow_up_content(prompt, project_file_refs, instructions, model)?;
+        let mut items = self.load_follow_ups(task_id)?;
+        if items.len() >= MAX_FOLLOW_UPS_PER_TASK {
+            return Err(persistence_error(
+                "work_follow_up_queue_full",
+                "WORK follow-up queue may contain at most 32 items.",
+            ));
+        }
+        let now = now_unix_seconds();
+        items.push(WorkFollowUp {
+            schema_version: WORK_SCHEMA_VERSION,
+            follow_up_id: format!("follow-up-{}", uuid::Uuid::new_v4().simple()),
+            task_id: task_id.into(),
+            prompt: prompt.into(),
+            project_file_refs: project_file_refs.to_vec(),
+            instructions: instructions.map(str::to_string),
+            model: model.map(str::to_string),
+            status: WorkFollowUpStatus::Queued,
+            attempt_id: None,
+            created_at: now,
+            updated_at: now,
+            last_error: None,
+        });
+        self.write_follow_ups(task_id, &items)?;
+        Ok(items)
+    }
+
+    pub(crate) fn edit_follow_up(
+        &self,
+        task_id: &str,
+        follow_up_id: &str,
+        prompt: &str,
+        project_file_refs: &[String],
+        instructions: Option<&str>,
+        model: Option<&str>,
+    ) -> Result<Vec<WorkFollowUp>, WorkError> {
+        validate_store_id("follow-up id", follow_up_id)?;
+        validate_follow_up_content(prompt, project_file_refs, instructions, model)?;
+        let mut items = self.load_follow_ups(task_id)?;
+        let item = items
+            .iter_mut()
+            .find(|item| item.follow_up_id == follow_up_id)
+            .ok_or_else(|| {
+                persistence_error(
+                    "work_follow_up_not_found",
+                    "WORK follow-up queue item was not found.",
+                )
+            })?;
+        if item.status == WorkFollowUpStatus::Starting {
+            return Err(persistence_error(
+                "work_follow_up_already_starting",
+                "WORK follow-up cannot be edited after run creation has started.",
+            ));
+        }
+        item.prompt = prompt.into();
+        item.project_file_refs = project_file_refs.to_vec();
+        item.instructions = instructions.map(str::to_string);
+        item.model = model.map(str::to_string);
+        item.status = WorkFollowUpStatus::Queued;
+        item.attempt_id = None;
+        item.updated_at = now_unix_seconds().max(item.updated_at);
+        item.last_error = None;
+        self.write_follow_ups(task_id, &items)?;
+        Ok(items)
+    }
+
+    pub(crate) fn cancel_follow_up(
+        &self,
+        task_id: &str,
+        follow_up_id: &str,
+    ) -> Result<Vec<WorkFollowUp>, WorkError> {
+        validate_store_id("follow-up id", follow_up_id)?;
+        let mut items = self.load_follow_ups(task_id)?;
+        let item = items
+            .iter()
+            .find(|item| item.follow_up_id == follow_up_id)
+            .ok_or_else(|| {
+                persistence_error(
+                    "work_follow_up_not_found",
+                    "WORK follow-up queue item was not found.",
+                )
+            })?;
+        if item.status == WorkFollowUpStatus::Starting {
+            return Err(persistence_error(
+                "work_follow_up_already_starting",
+                "WORK follow-up cannot be cancelled after run creation has started.",
+            ));
+        }
+        items.retain(|item| item.follow_up_id != follow_up_id);
+        self.write_follow_ups(task_id, &items)?;
+        Ok(items)
+    }
+
+    pub(crate) fn retry_follow_up(
+        &self,
+        task_id: &str,
+        follow_up_id: &str,
+    ) -> Result<Vec<WorkFollowUp>, WorkError> {
+        validate_store_id("follow-up id", follow_up_id)?;
+        let mut items = self.load_follow_ups(task_id)?;
+        let item = items
+            .iter_mut()
+            .find(|item| item.follow_up_id == follow_up_id)
+            .ok_or_else(|| {
+                persistence_error(
+                    "work_follow_up_not_found",
+                    "WORK follow-up queue item was not found.",
+                )
+            })?;
+        if item.status != WorkFollowUpStatus::Failed {
+            return Err(persistence_error(
+                "work_follow_up_not_failed",
+                "Only a failed WORK follow-up may be retried.",
+            ));
+        }
+        if item
+            .last_error
+            .as_ref()
+            .is_some_and(|error| !error.retryable)
+        {
+            return Err(persistence_error(
+                "work_follow_up_not_retryable",
+                "This WORK follow-up failure is not retryable.",
+            ));
+        }
+        item.status = WorkFollowUpStatus::Queued;
+        item.attempt_id = None;
+        item.updated_at = now_unix_seconds().max(item.updated_at);
+        item.last_error = None;
+        self.write_follow_ups(task_id, &items)?;
+        Ok(items)
+    }
+
+    pub(crate) fn claim_next_follow_up(
+        &self,
+        task_id: &str,
+    ) -> Result<Option<WorkFollowUp>, WorkError> {
+        let task = self.load_task(task_id)?;
+        if task.active_run_id.is_some() || !is_terminal_task_status(&task.status) {
+            return Ok(None);
+        }
+        let mut items = self.load_follow_ups(task_id)?;
+        let Some(item) = items.first_mut() else {
+            return Ok(None);
+        };
+        match item.status {
+            WorkFollowUpStatus::Failed => return Ok(None),
+            WorkFollowUpStatus::Starting => {
+                return Err(persistence_error(
+                    "work_follow_up_start_already_in_progress",
+                    "A WORK follow-up run creation is already in progress.",
+                ));
+            }
+            WorkFollowUpStatus::Queued => {}
+        }
+        item.status = WorkFollowUpStatus::Starting;
+        item.attempt_id = Some(format!("attempt-{}", uuid::Uuid::new_v4().simple()));
+        item.updated_at = now_unix_seconds().max(item.updated_at);
+        let claimed = item.clone();
+        self.write_follow_ups(task_id, &items)?;
+        Ok(Some(claimed))
+    }
+
+    pub(crate) fn complete_follow_up_claim(
+        &self,
+        task_id: &str,
+        follow_up_id: &str,
+        attempt_id: &str,
+    ) -> Result<Vec<WorkFollowUp>, WorkError> {
+        validate_store_id("follow-up id", follow_up_id)?;
+        validate_store_id("follow-up attempt id", attempt_id)?;
+        let mut items = self.load_follow_ups(task_id)?;
+        let item = matching_starting_follow_up(&items, follow_up_id, attempt_id)?;
+        let completed_id = item.follow_up_id.clone();
+        items.retain(|item| item.follow_up_id != completed_id);
+        self.write_follow_ups(task_id, &items)?;
+        Ok(items)
+    }
+
+    pub(crate) fn fail_follow_up_claim(
+        &self,
+        task_id: &str,
+        follow_up_id: &str,
+        attempt_id: &str,
+        error: &WorkError,
+    ) -> Result<Vec<WorkFollowUp>, WorkError> {
+        validate_store_id("follow-up id", follow_up_id)?;
+        validate_store_id("follow-up attempt id", attempt_id)?;
+        let mut items = self.load_follow_ups(task_id)?;
+        let item = items
+            .iter_mut()
+            .find(|item| {
+                item.follow_up_id == follow_up_id
+                    && item.attempt_id.as_deref() == Some(attempt_id)
+                    && item.status == WorkFollowUpStatus::Starting
+            })
+            .ok_or_else(|| {
+                persistence_error(
+                    "work_follow_up_claim_mismatch",
+                    "WORK follow-up claim identity no longer matches.",
+                )
+            })?;
+        item.status = WorkFollowUpStatus::Failed;
+        item.attempt_id = None;
+        item.updated_at = now_unix_seconds().max(item.updated_at);
+        item.last_error = Some(sanitize_follow_up_error(error));
+        self.write_follow_ups(task_id, &items)?;
+        Ok(items)
+    }
+
+    pub(crate) fn audit_interrupted_follow_ups(&self) -> Result<usize, WorkError> {
+        let tasks = self.load_tasks()?;
+        let mut interrupted = 0;
+        for task in tasks {
+            let mut items = self.load_follow_ups(&task.task_id)?;
+            let dispatched = self
+                .load_events(&task.task_id)?
+                .into_iter()
+                .filter_map(|event| match event.kind {
+                    WorkEventKind::UserMessageAdded {
+                        source_follow_up_id: Some(follow_up_id),
+                        ..
+                    } => Some(follow_up_id),
+                    _ => None,
+                })
+                .collect::<std::collections::HashSet<_>>();
+            let previous_len = items.len();
+            items.retain(|item| {
+                !(item.status == WorkFollowUpStatus::Starting
+                    && dispatched.contains(&item.follow_up_id))
+            });
+            let mut changed = items.len() != previous_len;
+            for item in &mut items {
+                if item.status == WorkFollowUpStatus::Starting {
+                    item.status = WorkFollowUpStatus::Failed;
+                    item.attempt_id = None;
+                    item.updated_at = now_unix_seconds().max(item.updated_at);
+                    item.last_error = Some(interrupted_follow_up_error());
+                    interrupted += 1;
+                    changed = true;
+                }
+            }
+            if changed {
+                self.write_follow_ups(&task.task_id, &items)?;
+            }
+        }
+        Ok(interrupted)
+    }
+
+    pub(crate) fn fail_follow_ups_for_deactivation(
+        &self,
+        task_id: &str,
+    ) -> Result<Vec<WorkFollowUp>, WorkError> {
+        let mut items = self.load_follow_ups(task_id)?;
+        let mut changed = false;
+        for item in &mut items {
+            if item.status != WorkFollowUpStatus::Failed {
+                item.status = WorkFollowUpStatus::Failed;
+                item.attempt_id = None;
+                item.updated_at = now_unix_seconds().max(item.updated_at);
+                item.last_error = Some(WorkError {
+                    kind: WorkErrorKind::Cancelled,
+                    code: "workbench_deactivated".into(),
+                    message: "WORK follow-up was cancelled because the workbench was deactivated."
+                        .into(),
+                    retryable: false,
+                    http_status: None,
+                    request_id: None,
+                    details: BTreeMap::new(),
+                });
+                changed = true;
+            }
+        }
+        if changed {
+            self.write_follow_ups(task_id, &items)?;
+        }
+        Ok(items)
     }
 
     pub(crate) fn set_run_status(
@@ -378,7 +720,19 @@ impl HermesTaskStore {
             })?;
             removed_journal = true;
         }
-        Ok(removed_snapshot || removed_journal)
+        let follow_ups = self.follow_up_queue_path(task_id)?;
+        let mut removed_follow_ups = false;
+        if follow_ups.exists() {
+            reject_symlink(&follow_ups)?;
+            fs::remove_file(follow_ups).map_err(|error| {
+                persistence_error(
+                    "work_follow_up_queue_remove_failed",
+                    &format!("Unable to remove WORK follow-up queue: {error}"),
+                )
+            })?;
+            removed_follow_ups = true;
+        }
+        Ok(removed_snapshot || removed_journal || removed_follow_ups)
     }
 
     pub(crate) fn load_events(&self, task_id: &str) -> Result<Vec<WorkEvent>, WorkError> {
@@ -739,6 +1093,29 @@ impl HermesTaskStore {
         Ok(self.paths.events.join(format!("{task_id}.ndjson")))
     }
 
+    fn follow_up_queue_path(&self, task_id: &str) -> Result<PathBuf, WorkError> {
+        validate_store_id("task id", task_id)?;
+        Ok(self.paths.follow_ups.join(format!("{task_id}.v1.json")))
+    }
+
+    fn write_follow_ups(&self, task_id: &str, items: &[WorkFollowUp]) -> Result<(), WorkError> {
+        self.ensure_root()?;
+        validate_follow_ups(task_id, items)?;
+        let envelope = FollowUpQueueEnvelope {
+            schema_version: FOLLOW_UP_QUEUE_SCHEMA_VERSION,
+            task_id: task_id.into(),
+            items: items.to_vec(),
+        };
+        let bytes = serde_json::to_vec_pretty(&envelope).map_err(|error| {
+            persistence_error(
+                "work_follow_up_queue_serialize_failed",
+                &format!("Unable to serialize WORK follow-up queue: {error}"),
+            )
+        })?;
+        atomic_write(&self.follow_up_queue_path(task_id)?, &bytes)
+            .map_err(|message| persistence_error("work_follow_up_queue_write_failed", &message))
+    }
+
     fn append_journal_lines(&self, task_id: &str, events: &[WorkEvent]) -> Result<(), WorkError> {
         self.ensure_root()?;
         let path = self.event_journal_path(task_id)?;
@@ -823,7 +1200,14 @@ impl HermesTaskStore {
                 &format!("Unable to create WORK task store: {error}"),
             )
         })?;
-        reject_symlink(&self.paths.events)
+        fs::create_dir_all(&self.paths.follow_ups).map_err(|error| {
+            persistence_error(
+                "work_task_store_create_failed",
+                &format!("Unable to create WORK follow-up store: {error}"),
+            )
+        })?;
+        reject_symlink(&self.paths.events)?;
+        reject_symlink(&self.paths.follow_ups)
     }
 }
 
@@ -993,6 +1377,166 @@ fn validate_tasks(tasks: &[WorkTask]) -> Result<(), WorkError> {
     Ok(())
 }
 
+fn validate_follow_ups(task_id: &str, items: &[WorkFollowUp]) -> Result<(), WorkError> {
+    if items.len() > MAX_FOLLOW_UPS_PER_TASK {
+        return Err(persistence_error(
+            "work_follow_up_queue_full",
+            "WORK follow-up queue may contain at most 32 items.",
+        ));
+    }
+    let mut ids = HashMap::<&str, ()>::new();
+    let mut starting = 0;
+    for item in items {
+        if item.schema_version != WORK_SCHEMA_VERSION || item.task_id != task_id {
+            return Err(persistence_error(
+                "work_follow_up_invalid",
+                "WORK follow-up schema or task identity is invalid.",
+            ));
+        }
+        validate_store_id("follow-up id", &item.follow_up_id)?;
+        if ids.insert(item.follow_up_id.as_str(), ()).is_some() {
+            return Err(persistence_error(
+                "work_follow_up_duplicate_id",
+                "WORK follow-up queue contains duplicate ids.",
+            ));
+        }
+        validate_follow_up_content(
+            &item.prompt,
+            &item.project_file_refs,
+            item.instructions.as_deref(),
+            item.model.as_deref(),
+        )?;
+        if !item.created_at.is_finite()
+            || !item.updated_at.is_finite()
+            || item.created_at < 0.0
+            || item.updated_at < item.created_at
+        {
+            return Err(persistence_error(
+                "work_follow_up_timestamp_invalid",
+                "WORK follow-up timestamps are invalid.",
+            ));
+        }
+        match item.status {
+            WorkFollowUpStatus::Starting => {
+                starting += 1;
+                let attempt_id = item.attempt_id.as_deref().ok_or_else(|| {
+                    persistence_error(
+                        "work_follow_up_attempt_missing",
+                        "Starting WORK follow-up has no attempt identity.",
+                    )
+                })?;
+                validate_store_id("follow-up attempt id", attempt_id)?;
+                if item.last_error.is_some() {
+                    return Err(persistence_error(
+                        "work_follow_up_state_invalid",
+                        "Starting WORK follow-up cannot retain an error.",
+                    ));
+                }
+            }
+            WorkFollowUpStatus::Queued => {
+                if item.attempt_id.is_some() || item.last_error.is_some() {
+                    return Err(persistence_error(
+                        "work_follow_up_state_invalid",
+                        "Queued WORK follow-up cannot retain attempt or error state.",
+                    ));
+                }
+            }
+            WorkFollowUpStatus::Failed => {
+                if item.attempt_id.is_some() || item.last_error.is_none() {
+                    return Err(persistence_error(
+                        "work_follow_up_state_invalid",
+                        "Failed WORK follow-up must retain one sanitized error and no attempt id.",
+                    ));
+                }
+            }
+        }
+    }
+    if starting > 1 {
+        return Err(persistence_error(
+            "work_follow_up_multiple_starting",
+            "WORK follow-up queue may have at most one starting item.",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_follow_up_content(
+    prompt: &str,
+    project_file_refs: &[String],
+    instructions: Option<&str>,
+    model: Option<&str>,
+) -> Result<(), WorkError> {
+    validate_user_message(prompt, project_file_refs)?;
+    if instructions.is_some_and(|value| {
+        value.trim().is_empty() || value.chars().count() > 65_536 || value.contains('\0')
+    }) {
+        return Err(persistence_error(
+            "work_follow_up_instructions_invalid",
+            "WORK follow-up instructions must be non-empty and at most 65,536 characters.",
+        ));
+    }
+    if model.is_some_and(|value| {
+        value.trim().is_empty() || value.chars().count() > 256 || value.contains('\0')
+    }) {
+        return Err(persistence_error(
+            "work_follow_up_model_invalid",
+            "WORK follow-up model must be non-empty and at most 256 characters.",
+        ));
+    }
+    Ok(())
+}
+
+fn matching_starting_follow_up<'a>(
+    items: &'a [WorkFollowUp],
+    follow_up_id: &str,
+    attempt_id: &str,
+) -> Result<&'a WorkFollowUp, WorkError> {
+    items
+        .iter()
+        .find(|item| {
+            item.follow_up_id == follow_up_id
+                && item.attempt_id.as_deref() == Some(attempt_id)
+                && item.status == WorkFollowUpStatus::Starting
+        })
+        .ok_or_else(|| {
+            persistence_error(
+                "work_follow_up_claim_mismatch",
+                "WORK follow-up claim identity no longer matches.",
+            )
+        })
+}
+
+fn sanitize_follow_up_error(error: &WorkError) -> WorkError {
+    WorkError {
+        kind: error.kind.clone(),
+        code: bounded_recovery_value(&error.code),
+        message: "WORK follow-up run creation failed.".into(),
+        retryable: error.retryable,
+        http_status: error.http_status,
+        request_id: error.request_id.clone(),
+        details: BTreeMap::new(),
+    }
+}
+
+fn interrupted_follow_up_error() -> WorkError {
+    WorkError {
+        kind: WorkErrorKind::Persistence,
+        code: "work_follow_up_start_interrupted".into(),
+        message: "WORK follow-up run creation was interrupted and was not replayed.".into(),
+        retryable: true,
+        http_status: None,
+        request_id: None,
+        details: BTreeMap::new(),
+    }
+}
+
+fn is_terminal_task_status(status: &WorkTaskStatus) -> bool {
+    matches!(
+        status,
+        WorkTaskStatus::Completed | WorkTaskStatus::Failed | WorkTaskStatus::Cancelled
+    )
+}
+
 fn validate_task(task: &WorkTask) -> Result<(), WorkError> {
     if task.schema_version != WORK_SCHEMA_VERSION {
         return Err(persistence_error(
@@ -1055,9 +1599,13 @@ fn validate_event(task_id: &str, event: &WorkEvent) -> Result<(), WorkError> {
     if let WorkEventKind::UserMessageAdded {
         text,
         project_file_refs,
+        source_follow_up_id,
     } = &event.kind
     {
         validate_user_message(text, project_file_refs)?;
+        if let Some(follow_up_id) = source_follow_up_id {
+            validate_store_id("source follow-up id", follow_up_id)?;
+        }
     }
     Ok(())
 }
@@ -1348,7 +1896,8 @@ mod tests {
     use crate::shared::hermes_core::events::HermesEventNormalizer;
     use crate::shared::hermes_core::protocol::{parse_sse_transcript, HermesSseFrame};
     use crate::shared::hermes_core::types::{
-        WorkEventKind, WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION,
+        WorkError, WorkErrorKind, WorkEventKind, WorkFollowUpStatus, WorkTask, WorkTaskStatus,
+        WORK_SCHEMA_VERSION,
     };
 
     fn temp_root(label: &str) -> PathBuf {
@@ -1408,6 +1957,7 @@ mod tests {
             PathBuf::from("/app-data/work/tasks.v1.json")
         );
         assert_eq!(paths.events, PathBuf::from("/app-data/work/events"));
+        assert_eq!(paths.follow_ups, PathBuf::from("/app-data/work/follow-ups"));
     }
 
     #[test]
@@ -1448,6 +1998,267 @@ mod tests {
             .unwrap_err()
             .code
             .contains("identity_mismatch"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn durable_follow_up_queue_supports_edit_cancel_retry_and_claim_completion() {
+        let root = temp_root("follow-ups");
+        let store = HermesTaskStore::new(&root);
+        store
+            .upsert_task(&task(
+                "task-follow-ups",
+                WorkTaskStatus::Running,
+                Some("run-active"),
+            ))
+            .unwrap();
+        let first = store
+            .enqueue_follow_up(
+                "task-follow-ups",
+                "先整理表格",
+                &[r"C:\Users\demo\BlackRain Project\quarterly.xlsx".into()],
+                None,
+                None,
+            )
+            .unwrap();
+        let first_id = first[0].follow_up_id.clone();
+        let second = store
+            .enqueue_follow_up(
+                "task-follow-ups",
+                "再生成摘要",
+                &[],
+                Some("只生成项目内文件"),
+                Some("office-fast"),
+            )
+            .unwrap();
+        let second_id = second[1].follow_up_id.clone();
+        assert_eq!(
+            HermesTaskStore::new(&root)
+                .load_follow_ups("task-follow-ups")
+                .unwrap()
+                .len(),
+            2
+        );
+
+        let edited = store
+            .edit_follow_up(
+                "task-follow-ups",
+                &second_id,
+                "再生成管理层摘要",
+                &[],
+                None,
+                None,
+            )
+            .unwrap();
+        assert_eq!(edited[1].prompt, "再生成管理层摘要");
+
+        let mut terminal = store.load_task("task-follow-ups").unwrap();
+        terminal.status = WorkTaskStatus::Completed;
+        terminal.active_run_id = None;
+        store.upsert_task(&terminal).unwrap();
+        let claimed = store
+            .claim_next_follow_up("task-follow-ups")
+            .unwrap()
+            .unwrap();
+        assert_eq!(claimed.follow_up_id, first_id);
+        assert_eq!(claimed.status, WorkFollowUpStatus::Starting);
+        let attempt_id = claimed.attempt_id.clone().unwrap();
+        let failed = store
+            .fail_follow_up_claim(
+                "task-follow-ups",
+                &first_id,
+                &attempt_id,
+                &WorkError {
+                    kind: WorkErrorKind::Connection,
+                    code: "upstream_secret_message".into(),
+                    message: "must not persist this upstream body".into(),
+                    retryable: true,
+                    http_status: Some(503),
+                    request_id: Some("request-safe".into()),
+                    details: [("secret".into(), serde_json::json!("hidden"))]
+                        .into_iter()
+                        .collect(),
+                },
+            )
+            .unwrap();
+        assert_eq!(failed[0].status, WorkFollowUpStatus::Failed);
+        assert_eq!(
+            failed[0].last_error.as_ref().unwrap().message,
+            "WORK follow-up run creation failed."
+        );
+        assert!(failed[0].last_error.as_ref().unwrap().details.is_empty());
+        assert!(store
+            .claim_next_follow_up("task-follow-ups")
+            .unwrap()
+            .is_none());
+
+        store.retry_follow_up("task-follow-ups", &first_id).unwrap();
+        let retried = store
+            .claim_next_follow_up("task-follow-ups")
+            .unwrap()
+            .unwrap();
+        store
+            .complete_follow_up_claim(
+                "task-follow-ups",
+                &first_id,
+                retried.attempt_id.as_deref().unwrap(),
+            )
+            .unwrap();
+        let remaining = store.load_follow_ups("task-follow-ups").unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].follow_up_id, second_id);
+        assert!(store
+            .cancel_follow_up("task-follow-ups", &second_id)
+            .unwrap()
+            .is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn interrupted_follow_up_claim_is_failed_without_automatic_replay() {
+        let root = temp_root("follow-up-interrupted");
+        let store = HermesTaskStore::new(&root);
+        store
+            .upsert_task(&task(
+                "task-interrupted",
+                WorkTaskStatus::Running,
+                Some("run-active"),
+            ))
+            .unwrap();
+        store
+            .enqueue_follow_up("task-interrupted", "继续整理", &[], None, None)
+            .unwrap();
+        let mut terminal = store.load_task("task-interrupted").unwrap();
+        terminal.status = WorkTaskStatus::Completed;
+        terminal.active_run_id = None;
+        store.upsert_task(&terminal).unwrap();
+        store
+            .claim_next_follow_up("task-interrupted")
+            .unwrap()
+            .unwrap();
+
+        let restarted = HermesTaskStore::new(&root);
+        assert_eq!(restarted.audit_interrupted_follow_ups().unwrap(), 1);
+        let items = restarted.load_follow_ups("task-interrupted").unwrap();
+        assert_eq!(items[0].status, WorkFollowUpStatus::Failed);
+        assert_eq!(
+            items[0].last_error.as_ref().unwrap().code,
+            "work_follow_up_start_interrupted"
+        );
+        assert!(restarted
+            .claim_next_follow_up("task-interrupted")
+            .unwrap()
+            .is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn dispatched_follow_up_evidence_removes_a_stale_starting_queue_item() {
+        let root = temp_root("follow-up-dispatched-recovery");
+        let store = HermesTaskStore::new(&root);
+        store
+            .upsert_task(&task(
+                "task-dispatched",
+                WorkTaskStatus::Running,
+                Some("run-active"),
+            ))
+            .unwrap();
+        let queued = store
+            .enqueue_follow_up("task-dispatched", "继续整理", &[], None, None)
+            .unwrap();
+        let follow_up_id = queued[0].follow_up_id.clone();
+        let mut terminal = store.load_task("task-dispatched").unwrap();
+        terminal.status = WorkTaskStatus::Completed;
+        terminal.active_run_id = None;
+        store.upsert_task(&terminal).unwrap();
+        store
+            .claim_next_follow_up("task-dispatched")
+            .unwrap()
+            .unwrap();
+        store
+            .attach_run_with_user_message(
+                "task-dispatched",
+                "run-follow-up",
+                "session-task-dispatched",
+                "继续整理",
+                &[],
+                Some(&follow_up_id),
+            )
+            .unwrap();
+
+        let restarted = HermesTaskStore::new(&root);
+        assert_eq!(restarted.audit_interrupted_follow_ups().unwrap(), 0);
+        assert!(restarted
+            .load_follow_ups("task-dispatched")
+            .unwrap()
+            .is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn follow_up_queue_requires_an_active_run_and_is_removed_with_task_metadata() {
+        let root = temp_root("follow-up-removal");
+        let store = HermesTaskStore::new(&root);
+        store
+            .upsert_task(&task("task-no-run", WorkTaskStatus::Completed, None))
+            .unwrap();
+        assert_eq!(
+            store
+                .enqueue_follow_up("task-no-run", "不应排队", &[], None, None)
+                .unwrap_err()
+                .code,
+            "work_follow_up_requires_active_run"
+        );
+        let mut active = store.load_task("task-no-run").unwrap();
+        active.status = WorkTaskStatus::Running;
+        active.active_run_id = Some("run-active".into());
+        store.upsert_task(&active).unwrap();
+        store
+            .enqueue_follow_up("task-no-run", "允许排队", &[], None, None)
+            .unwrap();
+        assert!(store.remove_task_metadata("task-no-run").unwrap());
+        assert!(store.load_follow_ups("task-no-run").unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workbench_deactivation_fails_queued_follow_ups_without_losing_their_content() {
+        let root = temp_root("follow-up-deactivation");
+        let store = HermesTaskStore::new(&root);
+        store
+            .upsert_task(&task(
+                "task-deactivation-queue",
+                WorkTaskStatus::Running,
+                Some("run-active"),
+            ))
+            .unwrap();
+        store
+            .enqueue_follow_up(
+                "task-deactivation-queue",
+                "保留这条后续任务",
+                &[],
+                None,
+                None,
+            )
+            .unwrap();
+
+        let items = store
+            .fail_follow_ups_for_deactivation("task-deactivation-queue")
+            .unwrap();
+        assert_eq!(items[0].prompt, "保留这条后续任务");
+        assert_eq!(items[0].status, WorkFollowUpStatus::Failed);
+        assert_eq!(
+            items[0].last_error.as_ref().unwrap().code,
+            "workbench_deactivated"
+        );
+        assert!(!items[0].last_error.as_ref().unwrap().retryable);
+        assert_eq!(
+            store
+                .retry_follow_up("task-deactivation-queue", &items[0].follow_up_id)
+                .unwrap_err()
+                .code,
+            "work_follow_up_not_retryable"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1580,6 +2391,7 @@ mod tests {
                 "run-user-event",
                 "整理季度报告",
                 &[r"C:\Users\demo\BlackRain Project\quarterly.xlsx".into()],
+                None,
             )
             .unwrap();
 

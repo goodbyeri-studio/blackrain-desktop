@@ -3,8 +3,14 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import {
   subscribeWorkEnvironmentReconcile,
   subscribeWorkEvents,
+  subscribeWorkFollowUpsChanged,
 } from "@/services/events";
 import {
+  hermesFollowUpCancel,
+  hermesFollowUpEdit,
+  hermesFollowUpEnqueue,
+  hermesFollowUpRetry,
+  hermesFollowUpDispatchReady,
   hermesRuntimeDiagnostics,
   hermesRuntimeRepair,
   hermesRuntimeRestart,
@@ -24,6 +30,8 @@ import {
   workbenchActivationDeactivate,
 } from "@/services/tauri";
 import type {
+  HermesFollowUpEditInput,
+  HermesFollowUpInput,
   HermesRuntimeDiagnostics,
   HermesTaskContinueInput,
   HermesTaskStartInput,
@@ -106,6 +114,14 @@ export function useWorkController() {
     };
   }, []);
 
+  useEffect(
+    () =>
+      subscribeWorkFollowUpsChanged(({ taskId, followUps }) => {
+        dispatch({ type: "followUpsUpdated", taskId, followUps });
+      }),
+    [],
+  );
+
   useEffect(() => {
     let active = true;
     void Promise.allSettled([
@@ -130,6 +146,9 @@ export function useWorkController() {
           activationsResult.status === "fulfilled" ? activationsResult.value : [],
         error: rejected?.status === "rejected" ? unknownError(rejected.reason) : null,
       });
+      if (runtimeResult.status === "fulfilled" && runtimeResult.value.state === "ready") {
+        void hermesFollowUpDispatchReady().catch(() => false);
+      }
     });
     return () => {
       active = false;
@@ -233,7 +252,12 @@ export function useWorkController() {
       const result = await runExclusive(`task:${taskId}:read`, () =>
         hermesTaskRead(taskId),
       );
-      dispatch({ type: "taskLoaded", task: result.task, events: result.events });
+      dispatch({
+        type: "taskLoaded",
+        task: result.task,
+        events: result.events,
+        followUps: result.followUps,
+      });
       return result;
     },
     [runExclusive],
@@ -267,6 +291,50 @@ export function useWorkController() {
       );
       dispatch({ type: "taskUpserted", task });
       return task;
+    },
+    [runExclusive],
+  );
+
+  const enqueueFollowUp = useCallback(
+    async (input: HermesFollowUpInput) => {
+      const followUps = await runExclusive(`task:${input.taskId}:follow-ups`, () =>
+        hermesFollowUpEnqueue(input),
+      );
+      dispatch({ type: "followUpsUpdated", taskId: input.taskId, followUps });
+      return followUps;
+    },
+    [runExclusive],
+  );
+
+  const editFollowUp = useCallback(
+    async (input: HermesFollowUpEditInput) => {
+      const followUps = await runExclusive(`task:${input.taskId}:follow-ups`, () =>
+        hermesFollowUpEdit(input),
+      );
+      dispatch({ type: "followUpsUpdated", taskId: input.taskId, followUps });
+      return followUps;
+    },
+    [runExclusive],
+  );
+
+  const cancelFollowUp = useCallback(
+    async (taskId: string, followUpId: string) => {
+      const followUps = await runExclusive(`task:${taskId}:follow-ups`, () =>
+        hermesFollowUpCancel(taskId, followUpId),
+      );
+      dispatch({ type: "followUpsUpdated", taskId, followUps });
+      return followUps;
+    },
+    [runExclusive],
+  );
+
+  const retryFollowUp = useCallback(
+    async (taskId: string, followUpId: string) => {
+      const followUps = await runExclusive(`task:${taskId}:follow-ups`, () =>
+        hermesFollowUpRetry(taskId, followUpId),
+      );
+      dispatch({ type: "followUpsUpdated", taskId, followUps });
+      return followUps;
     },
     [runExclusive],
   );
@@ -345,6 +413,7 @@ export function useWorkController() {
         (task) => task.status === "degraded" && Boolean(task.activeRunId),
       );
       await Promise.allSettled(degradedTasks.map((task) => resumeTask(task.taskId)));
+      await hermesFollowUpDispatchReady().catch(() => false);
     };
     const scheduleReconcile = () => {
       if (!active || reconcileTimer !== null) {
@@ -391,6 +460,10 @@ export function useWorkController() {
     loadTask,
     startTask,
     continueTask,
+    enqueueFollowUp,
+    editFollowUp,
+    cancelFollowUp,
+    retryFollowUp,
     resumeTask,
     approveTask,
     stopTask,

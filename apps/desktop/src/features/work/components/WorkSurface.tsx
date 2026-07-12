@@ -22,6 +22,7 @@ import type { HermesRuntimeDiagnostics, WorkTaskStatus } from "../types";
 import { WorkApprovalCard } from "./WorkApprovalCard";
 import { WorkComposer } from "./WorkComposer";
 import { WorkEventRow } from "./WorkEventRow";
+import { WorkFollowUpQueue } from "./WorkFollowUpQueue";
 import { WorkRuntimeBanner } from "./WorkRuntimeBanner";
 import { WorkTaskSidebar } from "./WorkTaskSidebar";
 
@@ -50,6 +51,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   const [draft, setDraft] = useState("");
   const [projectFileRefs, setProjectFileRefs] = useState<string[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [editingFollowUpId, setEditingFollowUpId] = useState<string | null>(null);
   const [activationId, setActivationId] = useState(
     () => state.activations[0]?.activationId ?? "",
   );
@@ -72,6 +74,9 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   const running = Boolean(selectedTask && !isSettled(selectedTask.status));
   const canStop = selectCanStop(selectedTask);
   const canResume = selectedTask?.status === "degraded" && selectCanResume(selectedTask);
+  const followUps = selectedTask
+    ? state.tasks[selectedTask.taskId]?.followUps ?? []
+    : [];
 
   const diagnosticsText = useMemo(
     () => (diagnostics ? JSON.stringify(diagnostics, null, 2) : ""),
@@ -88,6 +93,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     controller.selectTask(taskId);
     setProjectFileRefs([]);
     setAttachmentError(null);
+    setEditingFollowUpId(null);
     await controller.loadTask(taskId).catch(() => undefined);
   };
 
@@ -96,6 +102,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     setDraft("");
     setProjectFileRefs([]);
     setAttachmentError(null);
+    setEditingFollowUpId(null);
   };
 
   const handleAddProjectFiles = async () => {
@@ -128,10 +135,23 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     if (!prompt) {
       return;
     }
-    if (state.runtime?.state !== "ready") {
-      await controller.startRuntime();
-    }
-    if (selectedTask && isTerminal(selectedTask.status)) {
+    if (selectedTask && editingFollowUpId) {
+      await controller.editFollowUp({
+        taskId: selectedTask.taskId,
+        followUpId: editingFollowUpId,
+        prompt,
+        projectFileRefs,
+      });
+    } else if (selectedTask && running) {
+      await controller.enqueueFollowUp({
+        taskId: selectedTask.taskId,
+        prompt,
+        projectFileRefs,
+      });
+    } else if (selectedTask && isTerminal(selectedTask.status)) {
+      if (state.runtime?.state !== "ready") {
+        await controller.startRuntime();
+      }
       await controller.continueTask({
         taskId: selectedTask.taskId,
         prompt,
@@ -140,6 +160,9 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     } else if (!selectedTask) {
       if (!selectedActivation) {
         return;
+      }
+      if (state.runtime?.state !== "ready") {
+        await controller.startRuntime();
       }
       await controller.startTask({
         activationId: selectedActivation.activationId,
@@ -152,6 +175,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     setDraft("");
     setProjectFileRefs([]);
     setAttachmentError(null);
+    setEditingFollowUpId(null);
   };
 
   const handleDiagnostics = async () => {
@@ -289,6 +313,32 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
               onChoose={(choice) => void controller.approveTask(selectedTask.taskId, choice)}
             />
           ) : null}
+
+          <WorkFollowUpQueue
+            items={followUps}
+            busy={busy}
+            editingId={editingFollowUpId}
+            onEdit={(item) => {
+              setEditingFollowUpId(item.followUpId);
+              setDraft(item.prompt);
+              setProjectFileRefs(item.projectFileRefs);
+              setAttachmentError(null);
+            }}
+            onCancel={(followUpId) => {
+              if (!selectedTask) {
+                return;
+              }
+              if (editingFollowUpId === followUpId) {
+                setEditingFollowUpId(null);
+                setDraft("");
+                setProjectFileRefs([]);
+              }
+              void controller.cancelFollowUp(selectedTask.taskId, followUpId);
+            }}
+            onRetry={(followUpId) =>
+              selectedTask && void controller.retryFollowUp(selectedTask.taskId, followUpId)
+            }
+          />
 
           <WorkComposer
             value={draft}

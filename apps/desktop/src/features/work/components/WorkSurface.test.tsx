@@ -7,6 +7,7 @@ import { initialWorkState, type WorkState } from "../state/reducer";
 import type {
   ActivatedWorkbenchContext,
   WorkEvent,
+  WorkFollowUp,
   WorkRuntimeStatus,
   WorkTask,
 } from "../types";
@@ -66,6 +67,21 @@ const activation: ActivatedWorkbenchContext = {
   verifiedAt: 1,
 };
 
+const followUp: WorkFollowUp = {
+  schemaVersion: 1,
+  followUpId: "follow-up-1",
+  taskId: "task-1",
+  prompt: "生成管理层摘要",
+  projectFileRefs: [],
+  instructions: null,
+  model: null,
+  status: "queued",
+  attemptId: null,
+  createdAt: 3,
+  updatedAt: 3,
+  lastError: null,
+};
+
 function event(overrides: Partial<WorkEvent> & Pick<WorkEvent, "type">): WorkEvent {
   return {
     schemaVersion: 1,
@@ -106,6 +122,10 @@ function controller(stateOverrides: Partial<WorkState> = {}) {
     loadTask: vi.fn(),
     startTask: vi.fn().mockResolvedValue(task),
     continueTask: vi.fn().mockResolvedValue(task),
+    enqueueFollowUp: vi.fn().mockResolvedValue([]),
+    editFollowUp: vi.fn().mockResolvedValue([]),
+    cancelFollowUp: vi.fn().mockResolvedValue([]),
+    retryFollowUp: vi.fn().mockResolvedValue([]),
     resumeTask: vi.fn(),
     approveTask: vi.fn(),
     stopTask: vi.fn(),
@@ -178,6 +198,123 @@ describe("WorkSurface", () => {
     });
   });
 
+  it("queues a durable follow-up while the current run is active", async () => {
+    const runningTask = { ...task, status: "running" as const, activeRunId: "run-1" };
+    const workController = controller({
+      tasks: {
+        "task-1": { task: runningTask, events: [], eventIds: {}, followUps: [] },
+      },
+      taskOrder: ["task-1"],
+      selectedTaskId: "task-1",
+    });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Office 任务指令"), {
+      target: { value: "当前任务结束后生成摘要" },
+    });
+    fireEvent.click(screen.getByLabelText("排队后续任务"));
+
+    await waitFor(() => {
+      expect(workController.enqueueFollowUp).toHaveBeenCalledWith({
+        taskId: "task-1",
+        prompt: "当前任务结束后生成摘要",
+        projectFileRefs: [],
+      });
+    });
+    expect(workController.continueTask).not.toHaveBeenCalled();
+  });
+
+  it("loads a persisted follow-up into the composer for edit and supports cancel", async () => {
+    const runningTask = { ...task, status: "running" as const, activeRunId: "run-1" };
+    const workController = controller({
+      tasks: {
+        "task-1": {
+          task: runningTask,
+          events: [],
+          eventIds: {},
+          followUps: [followUp],
+        },
+      },
+      taskOrder: ["task-1"],
+      selectedTaskId: "task-1",
+    });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByLabelText("编辑后续任务 1"));
+    expect((screen.getByLabelText("Office 任务指令") as HTMLTextAreaElement).value).toBe(
+      followUp.prompt,
+    );
+    fireEvent.change(screen.getByLabelText("Office 任务指令"), {
+      target: { value: "生成董事会摘要" },
+    });
+    fireEvent.click(screen.getByLabelText("排队后续任务"));
+    await waitFor(() => {
+      expect(workController.editFollowUp).toHaveBeenCalledWith({
+        taskId: "task-1",
+        followUpId: "follow-up-1",
+        prompt: "生成董事会摘要",
+        projectFileRefs: [],
+      });
+    });
+
+    fireEvent.click(screen.getByLabelText("取消后续任务 1"));
+    expect(workController.cancelFollowUp).toHaveBeenCalledWith(
+      "task-1",
+      "follow-up-1",
+    );
+  });
+
+  it("offers retry for retryable failures but only cancel for deactivated workbenches", () => {
+    const retryable = {
+      ...followUp,
+      status: "failed" as const,
+      lastError: {
+        kind: "upstreamModel" as const,
+        code: "hermes_run_create_failed",
+        message: "启动失败",
+        retryable: true,
+        httpStatus: 503,
+        requestId: null,
+        details: {},
+      },
+    };
+    const deactivated = {
+      ...followUp,
+      followUpId: "follow-up-2",
+      prompt: "保留但不可重试",
+      status: "failed" as const,
+      lastError: {
+        kind: "cancelled" as const,
+        code: "workbench_deactivated",
+        message: "工作台已停用",
+        retryable: false,
+        httpStatus: null,
+        requestId: null,
+        details: {},
+      },
+    };
+    const runningTask = { ...task, status: "running" as const, activeRunId: "run-1" };
+    const workController = controller({
+      tasks: {
+        "task-1": {
+          task: runningTask,
+          events: [],
+          eventIds: {},
+          followUps: [retryable, deactivated],
+        },
+      },
+      taskOrder: ["task-1"],
+      selectedTaskId: "task-1",
+    });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByLabelText("重试后续任务 1"));
+    expect(workController.retryFollowUp).toHaveBeenCalledWith("task-1", "follow-up-1");
+    expect(screen.queryByLabelText("重试后续任务 2")).toBeNull();
+    expect(screen.queryByLabelText("编辑后续任务 2")).toBeNull();
+    expect(screen.getByLabelText("取消后续任务 2")).toBeTruthy();
+  });
+
   it("deactivates through a design-system confirmation and states project retention", async () => {
     const workController = controller();
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
@@ -208,13 +345,14 @@ describe("WorkSurface", () => {
         type: "userMessageAdded",
         text: "整理季度报告",
         projectFileRefs: [`${task.projectPath}\\reports\\quarterly.xlsx`],
+        sourceFollowUpId: null,
       }),
       event({ type: "agentMessageCompleted", sequence: 2, text: "已完成整理。" }),
       event({ type: "outputAvailable", sequence: 3, path: `${task.projectPath}\\report.docx`, mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }),
       event({ type: "approvalRequested", sequence: 4, command: "office-cli write report.docx", description: "写入报告", choices: ["once", "deny"] }),
     ];
     const workController = controller({
-      tasks: { "task-1": { task: { ...task, status: "waitingForApproval", activeRunId: "run-1" }, events, eventIds: Object.fromEntries(events.map((entry) => [entry.eventId, true])) } },
+      tasks: { "task-1": { task: { ...task, status: "waitingForApproval", activeRunId: "run-1" }, events, eventIds: Object.fromEntries(events.map((entry) => [entry.eventId, true])), followUps: [] } },
       taskOrder: ["task-1"],
       selectedTaskId: "task-1",
     });

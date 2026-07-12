@@ -130,6 +130,7 @@ impl HermesEventNormalizer {
                     WorkEventKind::UserMessageAdded {
                         text,
                         project_file_refs: Vec::new(),
+                        source_follow_up_id: None,
                     },
                 ));
             }

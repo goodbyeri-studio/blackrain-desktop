@@ -27,11 +27,14 @@ import type {
 import type {
   ActivatedWorkbenchContext,
   HermesRuntimeDiagnostics,
+  HermesFollowUpEditInput,
+  HermesFollowUpInput,
   HermesTaskContinueInput,
   HermesTaskReadResult,
   HermesTaskRecoveryState,
   HermesTaskStartInput,
   WorkRuntimeStatus,
+  WorkFollowUp,
   WorkTask,
   WorkbenchDeactivationResult,
 } from "@/features/work/types";
@@ -1881,6 +1884,36 @@ export async function hermesTaskList(): Promise<WorkTask[]> {
 
 export async function hermesTaskRead(taskId: string): Promise<HermesTaskReadResult> {
   return invoke<HermesTaskReadResult>("hermes_task_read", { taskId });
+}
+
+export async function hermesFollowUpEnqueue(
+  input: HermesFollowUpInput,
+): Promise<WorkFollowUp[]> {
+  return invoke<WorkFollowUp[]>("hermes_follow_up_enqueue", { input });
+}
+
+export async function hermesFollowUpEdit(
+  input: HermesFollowUpEditInput,
+): Promise<WorkFollowUp[]> {
+  return invoke<WorkFollowUp[]>("hermes_follow_up_edit", { input });
+}
+
+export async function hermesFollowUpCancel(
+  taskId: string,
+  followUpId: string,
+): Promise<WorkFollowUp[]> {
+  return invoke<WorkFollowUp[]>("hermes_follow_up_cancel", { taskId, followUpId });
+}
+
+export async function hermesFollowUpRetry(
+  taskId: string,
+  followUpId: string,
+): Promise<WorkFollowUp[]> {
+  return invoke<WorkFollowUp[]>("hermes_follow_up_retry", { taskId, followUpId });
+}
+
+export async function hermesFollowUpDispatchReady(): Promise<boolean> {
+  return invoke<boolean>("hermes_follow_up_dispatch_ready");
 }
 
 export async function hermesTaskStart(input: HermesTaskStartInput): Promise<WorkTask> {

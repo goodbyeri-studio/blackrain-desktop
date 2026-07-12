@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::remote_backend;
 use crate::shared::hermes_core::client::HermesRunCreateRequest;
@@ -18,8 +18,8 @@ use crate::shared::hermes_core::runtime::{
 };
 use crate::shared::hermes_core::tasks::HermesTaskRecoveryState;
 use crate::shared::hermes_core::types::{
-    WorkError, WorkErrorKind, WorkEvent, WorkRuntimeState, WorkRuntimeStatus, WorkTask,
-    WorkTaskStatus, WORK_SCHEMA_VERSION,
+    WorkError, WorkErrorKind, WorkEvent, WorkFollowUp, WorkRuntimeState, WorkRuntimeStatus,
+    WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION,
 };
 use crate::state::AppState;
 
@@ -48,7 +48,7 @@ async fn require_local(state: &AppState) -> Result<(), WorkError> {
     }
 }
 
-fn schedule_task_recovery(state: &AppState) {
+fn schedule_task_recovery(state: &AppState, app: AppHandle, dispatch_follow_ups: bool) {
     let runtime = Arc::clone(&state.hermes_runtime);
     let tasks = Arc::clone(&state.hermes_tasks);
     let recovery = Arc::clone(&state.hermes_task_recovery);
@@ -57,7 +57,11 @@ fn schedule_task_recovery(state: &AppState) {
             Ok(client) => audit_remote_recovery(&tasks, &client).await,
             Err(error) => Err(error),
         };
+        let recovered = result.is_ok();
         *recovery.lock().await = HermesTaskRecoveryState::from_result(result);
+        if recovered && dispatch_follow_ups {
+            let _ = dispatch_first_ready_follow_up(app).await;
+        }
     });
 }
 
@@ -83,11 +87,42 @@ pub(crate) struct HermesTaskContinueInput {
     model: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HermesFollowUpInput {
+    task_id: String,
+    prompt: String,
+    #[serde(default)]
+    project_file_refs: Vec<String>,
+    instructions: Option<String>,
+    model: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HermesFollowUpEditInput {
+    task_id: String,
+    follow_up_id: String,
+    prompt: String,
+    #[serde(default)]
+    project_file_refs: Vec<String>,
+    instructions: Option<String>,
+    model: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct HermesTaskReadResult {
     task: WorkTask,
     events: Vec<WorkEvent>,
+    follow_ups: Vec<WorkFollowUp>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkFollowUpsChanged {
+    task_id: String,
+    follow_ups: Vec<WorkFollowUp>,
 }
 
 fn validate_bounded_text(label: &str, value: &str, max_chars: usize) -> Result<(), WorkError> {
@@ -128,6 +163,7 @@ fn ensure_no_conflicting_activation(
 
 async fn restart_runtime_for_mcp_change(
     state: &AppState,
+    app: &AppHandle,
     binding: &crate::shared::hermes_core::config::HermesWorkbenchBindResult,
 ) -> Result<(), WorkError> {
     if !binding.mcp_changed || state.hermes_runtime.status().await.state != WorkRuntimeState::Ready
@@ -137,7 +173,7 @@ async fn restart_runtime_for_mcp_change(
     state.hermes_runs.cancel_all().await;
     match restart_runtime(&state.hermes_paths, &state.hermes_runtime).await {
         Ok(_) => {
-            schedule_task_recovery(state);
+            schedule_task_recovery(state, app.clone(), false);
             Ok(())
         }
         Err(restart_error) => {
@@ -149,7 +185,7 @@ async fn restart_runtime_for_mcp_change(
                 Err(restart_error.clone())
             };
             if recovery_result.is_ok() {
-                schedule_task_recovery(state);
+                schedule_task_recovery(state, app.clone(), false);
             }
             let mut error = restart_error;
             error.code = "hermes_mcp_transition_failed".into();
@@ -240,7 +276,116 @@ fn spawn_run_consumer(
                 .reconcile_remote_error(&task_id, &run_id, &error);
         }
         runs.release(&task_id, Some(&run_id)).await;
+        let terminal = tasks
+            .lock()
+            .await
+            .load_task(&task_id)
+            .map(|task| is_terminal_status(&task.status))
+            .unwrap_or(false);
+        if terminal {
+            dispatch_next_follow_up(app, task_id).await;
+        }
     });
+}
+
+pub(crate) fn emit_follow_ups(app: &AppHandle, task_id: &str, follow_ups: Vec<WorkFollowUp>) {
+    let _ = app.emit(
+        "work-follow-ups-changed",
+        WorkFollowUpsChanged {
+            task_id: task_id.into(),
+            follow_ups,
+        },
+    );
+}
+
+async fn dispatch_next_follow_up(app: AppHandle, task_id: String) -> bool {
+    let state = app.state::<AppState>();
+    let claimed = match state
+        .hermes_tasks
+        .lock()
+        .await
+        .claim_next_follow_up(&task_id)
+    {
+        Ok(Some(item)) => item,
+        Ok(None) | Err(_) => return false,
+    };
+    emit_follow_ups(
+        &app,
+        &task_id,
+        state
+            .hermes_tasks
+            .lock()
+            .await
+            .load_follow_ups(&task_id)
+            .unwrap_or_default(),
+    );
+    let Some(attempt_id) = claimed.attempt_id.clone() else {
+        return false;
+    };
+    let input = HermesTaskContinueInput {
+        task_id: task_id.clone(),
+        prompt: claimed.prompt.clone(),
+        project_file_refs: claimed.project_file_refs.clone(),
+        instructions: claimed.instructions.clone(),
+        model: claimed.model.clone(),
+    };
+    match continue_task_inner(input, &app, &state, Some(claimed.follow_up_id.clone())).await {
+        Ok(_) => {
+            if let Ok(items) = state.hermes_tasks.lock().await.complete_follow_up_claim(
+                &task_id,
+                &claimed.follow_up_id,
+                &attempt_id,
+            ) {
+                emit_follow_ups(&app, &task_id, items);
+            }
+        }
+        Err(error) => {
+            if let Ok(items) = state.hermes_tasks.lock().await.fail_follow_up_claim(
+                &task_id,
+                &claimed.follow_up_id,
+                &attempt_id,
+                &error,
+            ) {
+                emit_follow_ups(&app, &task_id, items);
+            }
+        }
+    }
+    true
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_follow_up_dispatch_ready(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<bool, WorkError> {
+    require_local(&state).await?;
+    dispatch_first_ready_follow_up(app).await
+}
+
+async fn dispatch_first_ready_follow_up(app: AppHandle) -> Result<bool, WorkError> {
+    let state = app.state::<AppState>();
+    if state.hermes_runtime.status().await.state != WorkRuntimeState::Ready {
+        return Ok(false);
+    }
+    let tasks = state.hermes_tasks.lock().await.load_tasks()?;
+    for task in tasks {
+        if !is_terminal_status(&task.status) || task.active_run_id.is_some() {
+            continue;
+        }
+        let has_queued = state
+            .hermes_tasks
+            .lock()
+            .await
+            .load_follow_ups(&task.task_id)?
+            .first()
+            .is_some_and(|item| {
+                item.status == crate::shared::hermes_core::types::WorkFollowUpStatus::Queued
+            });
+        if has_queued {
+            return Ok(dispatch_next_follow_up(app, task.task_id).await);
+        }
+    }
+    Ok(false)
 }
 
 #[tauri::command]
@@ -253,11 +398,12 @@ pub(crate) async fn hermes_runtime_status(
 
 #[tauri::command]
 pub(crate) async fn hermes_runtime_start(
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<WorkRuntimeStatus, WorkError> {
     require_local(&state).await?;
     let status = start_runtime(&state.hermes_paths, &state.hermes_runtime).await?;
-    schedule_task_recovery(&state);
+    schedule_task_recovery(&state, app, true);
     Ok(status)
 }
 
@@ -272,12 +418,13 @@ pub(crate) async fn hermes_runtime_stop(
 
 #[tauri::command]
 pub(crate) async fn hermes_runtime_restart(
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<WorkRuntimeStatus, WorkError> {
     require_local(&state).await?;
     state.hermes_runs.cancel_all().await;
     let status = restart_runtime(&state.hermes_paths, &state.hermes_runtime).await?;
-    schedule_task_recovery(&state);
+    schedule_task_recovery(&state, app, true);
     Ok(status)
 }
 
@@ -316,7 +463,152 @@ pub(crate) async fn hermes_task_read(
     Ok(HermesTaskReadResult {
         task: store.load_task(&task_id)?,
         events: store.load_events(&task_id)?,
+        follow_ups: store.load_follow_ups(&task_id)?,
     })
+}
+
+async fn validate_follow_up_against_activation(
+    state: &AppState,
+    task_id: &str,
+    project_file_refs: &[String],
+    instructions: Option<&str>,
+) -> Result<(), WorkError> {
+    let task = state.hermes_tasks.lock().await.load_task(task_id)?;
+    let activation_id = task.activation_id.as_deref().ok_or_else(|| {
+        command_error(
+            "workbench_activation_required",
+            "Legacy WORK task has no verified activation identity and cannot queue follow-ups.",
+            false,
+        )
+    })?;
+    let activation = state
+        .workbench_activations
+        .lock()
+        .await
+        .read(activation_id)
+        .map_err(|message| command_error("workbench_activation_required", &message, false))?;
+    if activation.workbench_id != task.workbench_id
+        || activation.workbench_version != task.workbench_version
+        || activation.project.path != task.project_path
+    {
+        return Err(command_error(
+            "workbench_activation_changed",
+            "The verified workbench activation no longer matches this WORK task.",
+            false,
+        ));
+    }
+    activation
+        .build_run_instructions(project_file_refs, instructions)
+        .map_err(|message| command_error("workbench_project_file_invalid", &message, false))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_follow_up_enqueue(
+    input: HermesFollowUpInput,
+    state: State<'_, AppState>,
+) -> Result<Vec<WorkFollowUp>, WorkError> {
+    require_local(&state).await?;
+    validate_bounded_text("prompt", &input.prompt, 1_048_576)?;
+    if let Some(instructions) = &input.instructions {
+        validate_bounded_text("instructions", instructions, 65_536)?;
+    }
+    if let Some(model) = &input.model {
+        validate_bounded_text("model", model, 256)?;
+    }
+    validate_follow_up_against_activation(
+        &state,
+        &input.task_id,
+        &input.project_file_refs,
+        input.instructions.as_deref(),
+    )
+    .await?;
+    state.hermes_tasks.lock().await.enqueue_follow_up(
+        &input.task_id,
+        &input.prompt,
+        &input.project_file_refs,
+        input.instructions.as_deref(),
+        input.model.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_follow_up_edit(
+    input: HermesFollowUpEditInput,
+    state: State<'_, AppState>,
+) -> Result<Vec<WorkFollowUp>, WorkError> {
+    require_local(&state).await?;
+    validate_bounded_text("prompt", &input.prompt, 1_048_576)?;
+    if let Some(instructions) = &input.instructions {
+        validate_bounded_text("instructions", instructions, 65_536)?;
+    }
+    if let Some(model) = &input.model {
+        validate_bounded_text("model", model, 256)?;
+    }
+    validate_follow_up_against_activation(
+        &state,
+        &input.task_id,
+        &input.project_file_refs,
+        input.instructions.as_deref(),
+    )
+    .await?;
+    state.hermes_tasks.lock().await.edit_follow_up(
+        &input.task_id,
+        &input.follow_up_id,
+        &input.prompt,
+        &input.project_file_refs,
+        input.instructions.as_deref(),
+        input.model.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_follow_up_cancel(
+    task_id: String,
+    follow_up_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<WorkFollowUp>, WorkError> {
+    require_local(&state).await?;
+    state
+        .hermes_tasks
+        .lock()
+        .await
+        .cancel_follow_up(&task_id, &follow_up_id)
+}
+
+#[tauri::command]
+pub(crate) async fn hermes_follow_up_retry(
+    task_id: String,
+    follow_up_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<WorkFollowUp>, WorkError> {
+    require_local(&state).await?;
+    let item = state
+        .hermes_tasks
+        .lock()
+        .await
+        .load_follow_ups(&task_id)?
+        .into_iter()
+        .find(|item| item.follow_up_id == follow_up_id)
+        .ok_or_else(|| {
+            command_error(
+                "work_follow_up_not_found",
+                "WORK follow-up queue item was not found.",
+                false,
+            )
+        })?;
+    validate_follow_up_against_activation(
+        &state,
+        &task_id,
+        &item.project_file_refs,
+        item.instructions.as_deref(),
+    )
+    .await?;
+    state
+        .hermes_tasks
+        .lock()
+        .await
+        .retry_follow_up(&task_id, &follow_up_id)
 }
 
 #[tauri::command]
@@ -365,7 +657,7 @@ pub(crate) async fn hermes_task_start(
         &mcp_servers,
         !has_active_runs,
     )?;
-    restart_runtime_for_mcp_change(&state, &binding).await?;
+    restart_runtime_for_mcp_change(&state, &app, &binding).await?;
     let now = now_unix_seconds();
     let task_id = format!("task-{}", uuid::Uuid::new_v4().simple());
     let task = WorkTask {
@@ -400,6 +692,7 @@ pub(crate) async fn hermes_task_start(
         WorkRunPresentation {
             user_text: input.prompt,
             project_file_refs: input.project_file_refs,
+            source_follow_up_id: None,
         },
     )
     .await?;
@@ -453,6 +746,7 @@ pub(crate) async fn hermes_task_resume(
         }
     };
     if is_terminal_status(&task.status) {
+        dispatch_next_follow_up(app, task_id).await;
         return Ok(task);
     }
     let cancellation = state.hermes_runs.activate(&task_id, &run_id).await?;
@@ -467,6 +761,15 @@ pub(crate) async fn hermes_task_continue(
     state: State<'_, AppState>,
 ) -> Result<WorkTask, WorkError> {
     require_local(&state).await?;
+    continue_task_inner(input, &app, &state, None).await
+}
+
+async fn continue_task_inner(
+    input: HermesTaskContinueInput,
+    app: &AppHandle,
+    state: &AppState,
+    source_follow_up_id: Option<String>,
+) -> Result<WorkTask, WorkError> {
     validate_bounded_text("prompt", &input.prompt, 1_048_576)?;
     if let Some(instructions) = &input.instructions {
         validate_bounded_text("instructions", instructions, 65_536)?;
@@ -531,7 +834,7 @@ pub(crate) async fn hermes_task_continue(
         &mcp_servers,
         !has_active_runs,
     )?;
-    restart_runtime_for_mcp_change(&state, &binding).await?;
+    restart_runtime_for_mcp_change(state, app, &binding).await?;
     let session_id = task.hermes_session_id.ok_or_else(|| {
         command_error(
             "work_task_session_missing",
@@ -555,6 +858,7 @@ pub(crate) async fn hermes_task_continue(
         WorkRunPresentation {
             user_text: input.prompt,
             project_file_refs: input.project_file_refs,
+            source_follow_up_id,
         },
     )
     .await?;
@@ -562,8 +866,8 @@ pub(crate) async fn hermes_task_continue(
         let _ = app.emit("work-event", event.clone());
     }
     spawn_run_consumer(
-        app,
-        &state,
+        app.clone(),
+        state,
         client,
         input.task_id,
         started.run_id,
@@ -686,7 +990,7 @@ pub(crate) async fn hermes_task_recovery_status(
 mod tests {
     use super::{
         ensure_no_conflicting_activation, unsupported_remote_error, validate_bounded_text,
-        HermesTaskStartInput,
+        HermesFollowUpInput, HermesTaskStartInput,
     };
     use crate::shared::hermes_core::types::{
         WorkErrorKind, WorkTask, WorkTaskStatus, WORK_SCHEMA_VERSION,
@@ -737,6 +1041,18 @@ mod tests {
             "env": {"HERMES_HOME": "C:\\escape"}
         });
         assert!(serde_json::from_value::<HermesTaskStartInput>(value).is_err());
+    }
+
+    #[test]
+    fn follow_up_contract_rejects_runtime_override_fields() {
+        let value = serde_json::json!({
+            "taskId": "task-office",
+            "prompt": "当前任务完成后继续",
+            "binary": "C:\\escape\\hermes.exe",
+            "host": "0.0.0.0",
+            "env": {"SECRET": "leak"}
+        });
+        assert!(serde_json::from_value::<HermesFollowUpInput>(value).is_err());
     }
 
     #[test]

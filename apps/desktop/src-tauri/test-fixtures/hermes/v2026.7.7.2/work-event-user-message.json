@@ -8,6 +8,7 @@
   "itemId": "user-message:run_demo_001",
   "type": "userMessageAdded",
   "text": "整理季度报告",
+  "sourceFollowUpId": null,
   "projectFileRefs": [
     "C:\\Users\\demo\\Office Project\\reports\\quarterly.xlsx"
   ]

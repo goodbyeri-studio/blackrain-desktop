@@ -5,7 +5,12 @@ import type {
   DictationModelStatus,
   TrayOpenThreadPayload,
 } from "../types";
-import type { WorkEvent } from "@/features/work/types";
+import type { WorkEvent, WorkFollowUp } from "@/features/work/types";
+
+export type WorkFollowUpsChanged = {
+  taskId: string;
+  followUps: WorkFollowUp[];
+};
 
 export type Unsubscribe = () => void;
 
@@ -89,6 +94,9 @@ function createEventHub<T>(eventName: string) {
 
 const appServerHub = createEventHub<AppServerEvent>("app-server-event");
 const workEventHub = createEventHub<WorkEvent>("work-event");
+const workFollowUpsChangedHub = createEventHub<WorkFollowUpsChanged>(
+  "work-follow-ups-changed",
+);
 const workEnvironmentReconcileHub = createEventHub<void>(
   "work-environment-reconcile",
 );
@@ -135,6 +143,13 @@ export function subscribeWorkEvents(
   options?: SubscriptionOptions,
 ): Unsubscribe {
   return workEventHub.subscribe(onEvent, options);
+}
+
+export function subscribeWorkFollowUpsChanged(
+  onEvent: (event: WorkFollowUpsChanged) => void,
+  options?: SubscriptionOptions,
+): Unsubscribe {
+  return workFollowUpsChangedHub.subscribe(onEvent, options);
 }
 
 export function subscribeWorkEnvironmentReconcile(

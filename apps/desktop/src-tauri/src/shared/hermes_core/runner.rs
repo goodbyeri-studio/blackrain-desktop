@@ -32,6 +32,7 @@ pub(crate) struct StartedTaskRun {
 pub(crate) struct WorkRunPresentation {
     pub(crate) user_text: String,
     pub(crate) project_file_refs: Vec<String>,
+    pub(crate) source_follow_up_id: Option<String>,
 }
 
 pub(crate) async fn start_task_run(
@@ -65,6 +66,7 @@ pub(crate) async fn start_task_run(
         session_id,
         &presentation.user_text,
         &presentation.project_file_refs,
+        presentation.source_follow_up_id.as_deref(),
     ) {
         Ok(attached) => attached,
         Err(error) => {
@@ -264,8 +266,12 @@ where
                     }
                     let result = store.lock().await.append_events(task_id, &normalized)?;
                     appended_any |= result.appended > 0;
+                    let terminal = is_terminal_status(&result.task.status);
                     for event in result.appended_events {
                         emit(event);
+                    }
+                    if terminal {
+                        return Ok(());
                     }
                 }
                 Err(error) if error.kind == WorkErrorKind::Cancelled => return Ok(()),
@@ -475,6 +481,7 @@ mod tests {
             WorkRunPresentation {
                 user_text: "整理季度报告".into(),
                 project_file_refs: vec![r"C:\Users\demo\BlackRain Project\quarterly.xlsx".into()],
+                source_follow_up_id: None,
             },
         )
         .await
@@ -495,6 +502,7 @@ mod tests {
             crate::shared::hermes_core::types::WorkEventKind::UserMessageAdded {
                 text,
                 project_file_refs,
+                ..
             } if text == "整理季度报告"
                 && project_file_refs == &[r"C:\Users\demo\BlackRain Project\quarterly.xlsx"]
         ));
@@ -551,6 +559,7 @@ mod tests {
             WorkRunPresentation {
                 user_text: "继续处理".into(),
                 project_file_refs: Vec::new(),
+                source_follow_up_id: None,
             },
         )
         .await
@@ -736,6 +745,7 @@ mod tests {
                     "run_demo_001",
                     "检查季度报告",
                     &[r"C:\Users\demo\BlackRain Project\quarterly.xlsx".into()],
+                    None,
                 )
                 .unwrap();
         }

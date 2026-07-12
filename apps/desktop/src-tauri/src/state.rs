@@ -122,8 +122,11 @@ impl AppState {
             data_dir.join("hermes-runtime.log"),
         ));
         let hermes_tasks = HermesTaskStore::new(&data_dir);
-        let hermes_task_recovery =
-            HermesTaskRecoveryState::from_result(hermes_tasks.audit_local_recovery());
+        let hermes_task_recovery = HermesTaskRecoveryState::from_result(
+            hermes_tasks
+                .audit_interrupted_follow_ups()
+                .and_then(|_| hermes_tasks.audit_local_recovery()),
+        );
         let workbench_activations = ActivatedWorkbenchStore::new(&data_dir);
         let plugin_runtimes = VerifiedPluginRuntimeStore::new(&data_dir);
         if std::env::var_os("CODEX_HOME").is_none() {

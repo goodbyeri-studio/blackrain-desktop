@@ -139,9 +139,33 @@ export type HermesTaskContinueInput = {
   model?: string | null;
 };
 
+export type WorkFollowUpStatus = "queued" | "starting" | "failed";
+
+export type WorkFollowUp = {
+  schemaVersion: typeof WORK_SCHEMA_VERSION;
+  followUpId: string;
+  taskId: string;
+  prompt: string;
+  projectFileRefs: string[];
+  instructions: string | null;
+  model: string | null;
+  status: WorkFollowUpStatus;
+  attemptId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  lastError: WorkError | null;
+};
+
+export type HermesFollowUpInput = HermesTaskContinueInput;
+
+export type HermesFollowUpEditInput = HermesTaskContinueInput & {
+  followUpId: string;
+};
+
 export type HermesTaskReadResult = {
   task: WorkTask;
   events: WorkEvent[];
+  followUps: WorkFollowUp[];
 };
 
 export type HermesHttpTrace = {
@@ -174,7 +198,12 @@ type WorkEventBase = {
 export type WorkEvent = WorkEventBase &
   (
     | { type: "taskStatusChanged"; status: WorkTaskStatus }
-    | { type: "userMessageAdded"; text: string; projectFileRefs: string[] }
+    | {
+        type: "userMessageAdded";
+        text: string;
+        projectFileRefs: string[];
+        sourceFollowUpId: string | null;
+      }
     | { type: "agentTextDelta"; delta: string }
     | { type: "agentMessageCompleted"; text: string }
     | { type: "reasoningUpdated"; text: string }
@@ -323,6 +352,28 @@ export function isHermesRawEvent(value: unknown): value is HermesRawEvent {
   );
 }
 
+export function isWorkFollowUp(value: unknown): value is WorkFollowUp {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    value.schemaVersion === WORK_SCHEMA_VERSION &&
+    typeof value.followUpId === "string" &&
+    typeof value.taskId === "string" &&
+    typeof value.prompt === "string" &&
+    isStringArray(value.projectFileRefs) &&
+    isNullableString(value.instructions) &&
+    isNullableString(value.model) &&
+    (value.status === "queued" ||
+      value.status === "starting" ||
+      value.status === "failed") &&
+    isNullableString(value.attemptId) &&
+    typeof value.createdAt === "number" &&
+    typeof value.updatedAt === "number" &&
+    (value.lastError === null || isWorkError(value.lastError))
+  );
+}
+
 export function isWorkEvent(value: unknown): value is WorkEvent {
   if (!isRecord(value)) {
     return false;
@@ -349,7 +400,11 @@ export function isWorkEvent(value: unknown): value is WorkEvent {
     case "agentTextDelta":
       return typeof value.delta === "string";
     case "userMessageAdded":
-      return typeof value.text === "string" && isStringArray(value.projectFileRefs);
+      return (
+        typeof value.text === "string" &&
+        isStringArray(value.projectFileRefs) &&
+        isNullableString(value.sourceFollowUpId)
+      );
     case "agentMessageCompleted":
     case "reasoningUpdated":
       return typeof value.text === "string";

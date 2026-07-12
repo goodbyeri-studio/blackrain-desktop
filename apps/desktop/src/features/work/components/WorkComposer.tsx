@@ -38,7 +38,7 @@ export function WorkComposer({
   onResume,
 }: WorkComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const canSubmit = value.trim().length > 0 && !disabled && !running;
+  const canSubmit = value.trim().length > 0 && !disabled;
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -63,7 +63,7 @@ export function WorkComposer({
                   <span>{name}</span>
                   <button
                     type="button"
-                    disabled={disabled || running}
+                    disabled={disabled}
                     onClick={() => onRemoveFile(path)}
                     aria-label={`移除项目文件 ${name}`}
                   >
@@ -80,16 +80,20 @@ export function WorkComposer({
             value={value}
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={running ? "Hermes 正在执行任务…" : "描述你希望 Office 工作台完成的任务"}
+            placeholder={
+              running
+                ? "输入后续任务，将在当前任务结束后执行"
+                : "描述你希望 Office 工作台完成的任务"
+            }
             rows={1}
-            disabled={disabled || running}
+            disabled={disabled}
             aria-label="Office 任务指令"
           />
           <div className="work-composer-actions">
             <button
               type="button"
               className="ghost work-attach-button"
-              disabled={!canAttach || disabled || running}
+              disabled={!canAttach || disabled}
               onClick={onAddFiles}
               aria-label="添加项目文件引用"
             >
@@ -104,16 +108,25 @@ export function WorkComposer({
               <button type="button" className="work-stop-button" disabled={disabled} onClick={onStop} aria-label="停止任务">
                 <Square aria-hidden />
               </button>
-            ) : (
-              <button type="button" className="work-send-button" disabled={!canSubmit} onClick={onSubmit} aria-label="发送任务">
-                <ArrowUp aria-hidden />
-              </button>
-            )}
+            ) : null}
+            <button
+              type="button"
+              className="work-send-button"
+              disabled={!canSubmit}
+              onClick={onSubmit}
+              aria-label={running ? "排队后续任务" : "发送任务"}
+            >
+              <ArrowUp aria-hidden />
+            </button>
           </div>
         </div>
       </div>
       {attachmentError ? <small role="alert">{attachmentError}</small> : null}
-      <small>Hermes 可能调用本工作台声明的工具；高影响操作会先请求审批。</small>
+      <small>
+        {running
+          ? "后续任务会持久化排队；当前 run 结束前不会发送给 Hermes。"
+          : "Hermes 可能调用本工作台声明的工具；高影响操作会先请求审批。"}
+      </small>
     </div>
   );
 }

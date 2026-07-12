@@ -3,6 +3,7 @@ import type {
   HermesTaskRecoveryState,
   WorkError,
   WorkEvent,
+  WorkFollowUp,
   WorkRuntimeStatus,
   WorkTask,
   WorkTaskStatus,
@@ -15,6 +16,7 @@ export type WorkTaskState = {
   task: WorkTask;
   events: WorkEvent[];
   eventIds: Record<string, true>;
+  followUps: WorkFollowUp[];
 };
 
 export type WorkState = {
@@ -56,7 +58,8 @@ export type WorkAction =
   | { type: "recoveryUpdated"; recovery: HermesTaskRecoveryState }
   | { type: "tasksLoaded"; tasks: WorkTask[] }
   | { type: "activationsLoaded"; activations: ActivatedWorkbenchContext[] }
-  | { type: "taskLoaded"; task: WorkTask; events: WorkEvent[] }
+  | { type: "taskLoaded"; task: WorkTask; events: WorkEvent[]; followUps: WorkFollowUp[] }
+  | { type: "followUpsUpdated"; taskId: string; followUps: WorkFollowUp[] }
   | { type: "taskUpserted"; task: WorkTask }
   | { type: "taskRemoved"; taskId: string }
   | { type: "workEventReceived"; event: WorkEvent }
@@ -93,6 +96,8 @@ function projectTaskFromEvent(task: WorkTask, event: WorkEvent): WorkTask {
   let status: WorkTaskStatus = task.status;
   if (event.type === "taskStatusChanged") {
     status = event.status;
+  } else if (event.type === "userMessageAdded") {
+    status = "running";
   } else if (event.type === "taskFailed") {
     status = "failed";
   }
@@ -101,7 +106,12 @@ function projectTaskFromEvent(task: WorkTask, event: WorkEvent): WorkTask {
   return {
     ...task,
     status,
-    activeRunId: terminal ? null : task.activeRunId,
+    activeRunId:
+      event.type === "userMessageAdded"
+        ? event.runId
+        : terminal
+          ? null
+          : task.activeRunId,
     lastEventSequence: Math.max(task.lastEventSequence, event.sequence),
     updatedAt: Math.max(task.updatedAt, event.timestamp),
   };
@@ -171,7 +181,12 @@ function receiveWorkEvents(state: WorkState, incoming: WorkEvent[]): WorkState {
     if (tasks === state.tasks) {
       tasks = { ...state.tasks };
     }
-    tasks[taskId] = { task, events, eventIds: nextEventIds };
+    tasks[taskId] = {
+      task,
+      events,
+      eventIds: nextEventIds,
+      followUps: current.followUps,
+    };
     taskOrder = [taskId, ...taskOrder.filter((candidate) => candidate !== taskId)];
     changed = true;
   }
@@ -209,6 +224,7 @@ function upsertTasks(
       task: projectedTask,
       events,
       eventIds: eventIds(events),
+      followUps: current?.followUps ?? [],
     };
     delete orphanEvents[task.taskId];
   }
@@ -260,7 +276,30 @@ export function workReducer(state: WorkState, action: WorkAction): WorkState {
         },
       };
       const merged = upsertTasks(pendingState, [action.task]);
-      return { ...state, ...merged };
+      const loaded = merged.tasks[action.task.taskId];
+      return {
+        ...state,
+        ...merged,
+        tasks: loaded
+          ? {
+              ...merged.tasks,
+              [action.task.taskId]: { ...loaded, followUps: action.followUps },
+            }
+          : merged.tasks,
+      };
+    }
+    case "followUpsUpdated": {
+      const current = state.tasks[action.taskId];
+      if (!current) {
+        return state;
+      }
+      return {
+        ...state,
+        tasks: {
+          ...state.tasks,
+          [action.taskId]: { ...current, followUps: action.followUps },
+        },
+      };
     }
     case "taskUpserted":
       return { ...state, ...upsertTasks(state, [action.task]) };

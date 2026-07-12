@@ -18,6 +18,11 @@ import {
   getOpenAppIcon,
   hermesRuntimeDiagnostics,
   hermesRuntimeStart,
+  hermesFollowUpCancel,
+  hermesFollowUpEdit,
+  hermesFollowUpEnqueue,
+  hermesFollowUpRetry,
+  hermesFollowUpDispatchReady,
   hermesTaskApproval,
   hermesTaskContinue,
   hermesTaskDeleteLocalMetadata,
@@ -571,6 +576,15 @@ describe("tauri invoke wrappers", () => {
     await workbenchActivationDeactivate("activation-office-demo");
     await hermesTaskList();
     await hermesTaskRead("task-1");
+    await hermesFollowUpEnqueue({ taskId: "task-1", prompt: "排队继续" });
+    await hermesFollowUpEdit({
+      taskId: "task-1",
+      followUpId: "follow-up-1",
+      prompt: "修改后继续",
+    });
+    await hermesFollowUpCancel("task-1", "follow-up-1");
+    await hermesFollowUpRetry("task-1", "follow-up-1");
+    await hermesFollowUpDispatchReady();
     await hermesTaskStart(input);
     await hermesTaskContinue({ taskId: "task-1", prompt: "继续整理" });
     await hermesTaskResume("task-1");
@@ -590,6 +604,25 @@ describe("tauri invoke wrappers", () => {
     });
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_list");
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_read", { taskId: "task-1" });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_enqueue", {
+      input: { taskId: "task-1", prompt: "排队继续" },
+    });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_edit", {
+      input: {
+        taskId: "task-1",
+        followUpId: "follow-up-1",
+        prompt: "修改后继续",
+      },
+    });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_cancel", {
+      taskId: "task-1",
+      followUpId: "follow-up-1",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_retry", {
+      taskId: "task-1",
+      followUpId: "follow-up-1",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_dispatch_ready");
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_start", { input });
     expect(invokeMock).toHaveBeenCalledWith("hermes_task_continue", {
       input: { taskId: "task-1", prompt: "继续整理" },
