@@ -352,7 +352,7 @@
 - 原因：Hermes 需要通过正常工具发现机制调用 OfficeCLI，但 activation 不应获得任意进程路径注入能力。Core allowlist 能把“已验证依赖身份”与实际安装位置绑定，同时保持 App 唯一配置写入者和可升级边界。
 - 替代方案：让工作台传 PATH、在用户环境中查找任意 OfficeCLI、把路径写进 prompt/config，或让 Office 工作台直接 spawn 二进制。
 - 影响范围：`hermes_core/config.rs`、`hermes_core/runtime.rs`、008 Office install/verify/activation producer 和阶段 12 Office 黄金流程。
-- 后续复查条件：当前只完成消费侧解析。正式 008 producer 和 Windows 实测必须证明受控安装、SHA-256、`--version`、Credential/权限、真实 Hermes 工具发现与卸载行为；在这些证据完成前不得声称 Office 可用。
+- 后续复查条件：008 producer 已完成首个代码纵切；Windows 实测仍必须证明受控安装、SHA-256、`--version`、权限、真实 Hermes 工具发现与卸载行为。在这些证据完成前不得声称 Office 可发布。
 
 ## 被推翻的方案
 

@@ -122,15 +122,18 @@ uninstall:
   → 保留用户项目 → 报告残留
 ```
 
-## 本地路径草案
+## 首个 Office v1 受控路径
 
 ```text
 %APPDATA%/BlackRain/
 ├── workbenches/
+│   ├── activations.v1.json
 │   └── com.blackrain.office/
-│       ├── versions/0.1.0/
-│       ├── active.json
-│       └── state.json
+│       ├── versions/0.1.0/       # 安装后的完整声明包与 Skills
+│       ├── active.json           # 当前已验证安装版本，不绑定具体项目
+│       └── state.json            # 已验证安装状态
+├── tools/
+│   └── officecli/officecli.exe   # SHA-256 + --version 通过后启用
 ├── plugins/
 ├── runtimes/
 ├── cache/
@@ -138,11 +141,10 @@ uninstall:
 
 用户选择目录/
 └── 某个项目/
-    ├── .blackrain/project.yaml
-    └── 用户文件...
+    └── 用户文件...               # 不复制工作台资源，不因停用/卸载删除
 ```
 
-最终 Windows 路径必须使用 Tauri App data API，不在文档中硬编码猜测。
+实际根目录必须由 Tauri App data API 解析；上图只表达相对布局。首版同一 OfficeCLI 依赖为单一 Core-owned 资源，升级/卸载前仍需补共享引用计数，不能据此直接删除。
 
 ## 架构边界
 

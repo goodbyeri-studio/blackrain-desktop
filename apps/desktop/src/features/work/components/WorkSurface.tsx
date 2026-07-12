@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import Copy from "lucide-react/dist/esm/icons/copy";
+import FolderOpen from "lucide-react/dist/esm/icons/folder-open";
 import Power from "lucide-react/dist/esm/icons/power";
 import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import X from "lucide-react/dist/esm/icons/x";
 
-import { pickWorkProjectFiles, revealPathInFileManager } from "@/services/tauri";
+import {
+  pickWorkProjectFiles,
+  pickWorkspacePath,
+  revealPathInFileManager,
+} from "@/services/tauri";
 import { ModalShell } from "@/features/design-system/components/modal/ModalShell";
 import { PanelFrame } from "@/features/design-system/components/panel/PanelPrimitives";
 import type { useWorkController } from "../hooks/useWorkController";
@@ -61,6 +66,8 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   const [copiedDiagnostics, setCopiedDiagnostics] = useState(false);
   const [deactivationOpen, setDeactivationOpen] = useState(false);
   const [taskDeletionOpen, setTaskDeletionOpen] = useState(false);
+  const [activationOpen, setActivationOpen] = useState(false);
+  const [activationProjectPath, setActivationProjectPath] = useState("");
   const pending = Object.keys(state.pendingOperations).length > 0;
   const busy = state.bootstrapping || pending;
   const selectedActivation =
@@ -204,6 +211,28 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     setDeactivationOpen(false);
   };
 
+  const handleChooseActivationProject = async () => {
+    const projectPath = await pickWorkspacePath().catch(() => null);
+    if (!projectPath) {
+      return;
+    }
+    setActivationProjectPath(projectPath);
+    setActivationOpen(true);
+  };
+
+  const handleActivateOfficialWorkbench = async () => {
+    if (!state.bundledOffice || !activationProjectPath) {
+      return;
+    }
+    const result = await controller.activateOfficialWorkbench(
+      state.bundledOffice.manifest.id,
+      activationProjectPath,
+    );
+    setActivationId(result.activation.activationId);
+    setActivationOpen(false);
+    setActivationProjectPath("");
+  };
+
   const handleDeleteTask = async () => {
     if (!selectedTask) {
       return;
@@ -310,6 +339,15 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
                       Windows x64 · {state.bundledOffice.manifest.skills.length} 个 Skills ·{" "}
                       {state.bundledOffice.manifest.dependencies.length} 个受控依赖 · 卸载保留项目
                     </small>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={busy}
+                      onClick={() => void handleChooseActivationProject()}
+                    >
+                      <FolderOpen aria-hidden />
+                      选择项目并安装激活
+                    </button>
                   </div>
                 ) : null}
                 {!selectedTask ? (
@@ -463,6 +501,51 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
               onClick={() => void handleDeactivate()}
             >
               {busy ? "正在停用…" : "确认停用"}
+            </button>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {activationOpen && state.bundledOffice ? (
+        <ModalShell
+          ariaLabelledBy="work-activation-title"
+          ariaDescribedBy="work-activation-description"
+          onBackdropClick={() => {
+            if (!busy) {
+              setActivationOpen(false);
+            }
+          }}
+          onEscapeKeyDown={() => {
+            if (!busy) {
+              setActivationOpen(false);
+            }
+          }}
+        >
+          <div id="work-activation-title" className="ds-modal-title">
+            安装并激活 Office 工作台？
+          </div>
+          <div id="work-activation-description" className="ds-modal-subtitle">
+            BlackRain 将校验并安装 {state.bundledOffice.manifest.name}@
+            {state.bundledOffice.manifest.version}、
+            {state.bundledOffice.manifest.skills.length} 个受控 Skills 和 OfficeCLI 1.0.117，
+            并授予对项目目录 {activationProjectPath} 的读写权限。该版本不声明网络访问；停用或卸载时保留项目文件。
+          </div>
+          <div className="ds-modal-actions">
+            <button
+              type="button"
+              className="ghost ds-modal-button"
+              disabled={busy}
+              onClick={() => setActivationOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="primary ds-modal-button"
+              disabled={busy}
+              onClick={() => void handleActivateOfficialWorkbench()}
+            >
+              {busy ? "正在校验并激活…" : "确认权限并激活"}
             </button>
           </div>
         </ModalShell>

@@ -1,10 +1,14 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::remote_backend;
 use crate::shared::hermes_core::runtime::{runtime_api_client, unbind_runtime_workbench};
 use crate::shared::hermes_core::types::{WorkError, WorkErrorKind, WorkTask};
+use crate::shared::workbench_core::lifecycle::{
+    install_and_activate_official_office, OfficialOfficeActivationRequest,
+    OfficialOfficeActivationResult, OFFICIAL_OFFICE_WORKBENCH_ID,
+};
 use crate::shared::workbench_core::manifest::{
     inspect_workbench_package, WorkbenchPackageInspection,
 };
@@ -18,6 +22,13 @@ pub(crate) struct WorkbenchDeactivationResult {
     stopped_task_ids: Vec<String>,
     project_path: String,
     project_preserved: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct OfficialWorkbenchActivationInput {
+    workbench_id: String,
+    project_path: String,
 }
 
 fn workbench_error(kind: WorkErrorKind, code: &str, message: String) -> WorkError {
@@ -135,6 +146,70 @@ pub(crate) async fn workbench_bundled_inspect(
         workbench_error(
             WorkErrorKind::InvalidRequest,
             "workbench_manifest_invalid",
+            error,
+        )
+    })
+}
+
+#[tauri::command]
+pub(crate) async fn workbench_official_activate(
+    input: OfficialWorkbenchActivationInput,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<OfficialOfficeActivationResult, WorkError> {
+    require_local(&state).await?;
+    if !cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+        return Err(workbench_error(
+            WorkErrorKind::Unsupported,
+            "workbench_activation_windows_required",
+            "Official Office workbench activation requires Windows x64 in the MVP release.".into(),
+        ));
+    }
+    if input.workbench_id != OFFICIAL_OFFICE_WORKBENCH_ID {
+        return Err(workbench_error(
+            WorkErrorKind::InvalidRequest,
+            "workbench_bundled_not_found",
+            "Bundled workbench is not in the official allowlist.".into(),
+        ));
+    }
+    let package_root = crate::office::bundled_workbench_dir(&app).ok_or_else(|| {
+        workbench_error(
+            WorkErrorKind::Persistence,
+            "workbench_bundled_resource_missing",
+            "Bundled Office workbench resource was not found.".into(),
+        )
+    })?;
+    let officecli_source =
+        crate::office::bundled_officecli_windows_binary(&app).ok_or_else(|| {
+            workbench_error(
+                WorkErrorKind::Persistence,
+                "workbench_dependency_resource_missing",
+                "Bundled OfficeCLI Windows x64 resource was not found.".into(),
+            )
+        })?;
+    let app_data_dir = app.path().app_data_dir().map_err(|error| {
+        workbench_error(
+            WorkErrorKind::Persistence,
+            "workbench_app_data_unavailable",
+            format!("Unable to resolve BlackRain App data: {error}"),
+        )
+    })?;
+    let _activation_guard = state.hermes_activation_gate.lock().await;
+    let activation_store = state.workbench_activations.lock().await;
+    install_and_activate_official_office(
+        OfficialOfficeActivationRequest {
+            app_data_dir,
+            package_root,
+            officecli_source,
+            project_path: input.project_path.into(),
+        },
+        &activation_store,
+    )
+    .await
+    .map_err(|error| {
+        workbench_error(
+            WorkErrorKind::Persistence,
+            "workbench_official_activation_failed",
             error,
         )
     })

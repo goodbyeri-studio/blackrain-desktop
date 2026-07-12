@@ -29,6 +29,7 @@ import {
   workbenchActivationList,
   workbenchBundledInspect,
   workbenchActivationDeactivate,
+  workbenchOfficialActivate,
 } from "@/services/tauri";
 import type {
   HermesFollowUpEditInput,
@@ -263,6 +264,17 @@ export function useWorkController() {
     [runExclusive],
   );
 
+  const activateOfficialWorkbench = useCallback(
+    (workbenchId: string, projectPath: string) =>
+      runExclusive(`activation:${workbenchId}:activate`, async () => {
+        const result = await workbenchOfficialActivate(workbenchId, projectPath);
+        const activations = await workbenchActivationList();
+        dispatch({ type: "activationsLoaded", activations });
+        return result;
+      }),
+    [runExclusive],
+  );
+
   const loadTask = useCallback(
     async (taskId: string) => {
       const result = await runExclusive(`task:${taskId}:read`, () =>
@@ -472,6 +484,7 @@ export function useWorkController() {
     loadDiagnostics,
     refreshTasks,
     refreshActivations,
+    activateOfficialWorkbench,
     deactivateActivation,
     loadTask,
     startTask,

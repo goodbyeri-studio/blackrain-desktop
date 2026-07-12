@@ -12,7 +12,8 @@
 | 2026-07-12 | verified plugin runtime 接缝 | App-data store、plugin/version 资源不可变、managed install root、祖先链/command symlink 与路径逃逸门禁、MCP/typed environment ref 解析、child env key 与 App placeholder 生成；legacy ref、system capability 和同 ID 不同 kind 均 fail closed | `cargo test plugin_core --lib` | `5 passed`（macOS） | 只证明 009 可消费的底层执行制品 contract；没有 Manifest/install/verify/credential producer，没有真实插件或 Windows 运行证据 |
 | 2026-07-12 | deactivate 消费侧接缝 | 009 Core command 停止运行资源、移除 binding/activation、保留项目；冲突和身份门禁 | `cargo test workbench_core --lib`; `cargo test hermes --lib`; targeted TS tests | Rust `8 + 83 passed` + TS `82 passed`（macOS） | 只实现已有 activation 的消费侧停用；008 install/health/activate producer、安装资源卸载和 Windows process tree 仍未实现 |
 | 2026-07-12 | Manifest v1 与 Office 只读 inspect | strict YAML/unknown field、Windows x64/WORK 边界、依赖 checksum/scope、包内路径、Skill、symlink/穿越、Office 真实 Manifest；official allowlist App command、TS wrapper/controller、未激活安装计划 UI | `cargo test workbench_core --lib`; `cargo check`; targeted Vitest；`npm run test`; `npm run typecheck`; `npm run lint`; `npm run lint:ds`; `npm run codemod:ds:dry`; `git diff --check` | Rust `13 passed` + check；targeted TS `4 files / 91 passed`；全量 `149 files / 1106 tests` + typecheck；lint/DS 0 error、5 条既有 warning；codemod 仅提示既有 `SettingsView.tsx` modal（macOS/jsdom） | `serde_yaml_ng 0.10.0`；只读 inspect，不含空间/签名/semver/Daemon/install/health 执行/activation；Windows 未验证 |
-| 2026-07-12 | OfficeCLI system capability 消费接缝 | `officecli-1.0.117` Core allowlist、App-data 受控根解析、祖先链/可执行文件 symlink 与缺失/unsupported fail closed、仅 Hermes 子进程 PATH 前置 | `cargo test shared::hermes_core::runtime --lib`; `cargo test hermes --lib`; `cargo check` | `8 passed` + `102 passed` + check（macOS） | 只证明 009 消费已验证 capability 的代码路径；008 尚未安装/校验 OfficeCLI 或签发正式 activation，Windows 未验证 |
+| 2026-07-12 | OfficeCLI system capability 消费接缝 | `officecli-1.0.117` Core allowlist、App-data 受控根解析、祖先链/可执行文件 symlink 与缺失/unsupported fail closed、仅 Hermes 子进程 PATH 前置 | `cargo test shared::hermes_core::runtime --lib`; `cargo test hermes --lib`; `cargo check` | `8 passed` + `102 passed` + check（macOS） | 该检查点只证明 009 消费路径；随后 producer 证据见下一行。Windows 仍未验证 |
+| 2026-07-12 | Office official install/health/permission/activate 纵切 | 完整 official allowlist、Windows x64 command 门禁、App-data staging/版本/active/state、symlink/reparse-point 拒绝、严格复制、OfficeCLI SHA-256/`--version`、失败不签 activation、项目目录 canonicalize、多项目 activation 隔离、read-write grant、system capability、Core store、TS wrapper/controller、目录选择与 DS 权限确认；移除 App 启动自动复制 | `cargo test workbench_core --lib`; `cargo test workbench --lib`; `cargo test hermes --lib`; `cargo check`; targeted Vitest；`npm run test`; `npm run typecheck`; `npm run lint`; `npm run lint:ds`; `npm run codemod:ds:dry`; `shasum -a 256 .../officecli.exe`; `git diff --check` | Rust `15 + 19 + 102 passed` + check；targeted TS `3 files / 87 passed`；全量 `149 files / 1108 tests` + typecheck；OfficeCLI hash 与 Manifest 一致；lint/DS 0 error、5 条既有 warning；codemod 仅提示既有 `SettingsView.tsx` modal（macOS/jsdom） | lifecycle 单测使用可执行 fixture；产品 command 在非 Windows x64 明确 unsupported。Windows reparse 分支只通过编译设计审计，未运行 Windows OfficeCLI、领域 smoke、Hermes 工具发现、升级/回滚/卸载、签名/空间/Daemon parity |
 | YYYY-MM-DD | Windows 安装 | 干净 Windows x64 VM | 未跑 | 尚无安装器 |
 | YYYY-MM-DD | 健康检查与任务 | Office smoke | 未跑 | 尚无生命周期闭环 |
 | YYYY-MM-DD | 升级与回滚 | 失败注入 | 未跑 | 尚无实现 |
@@ -27,15 +28,15 @@
 - `ActivatedWorkbenchContext v1` 代码 contract 已存在，能表达已验证工作台运行实例并拒绝任意 env/command/path 越权字段。
 - Core-owned activation store 与 surface 只读 list/read 接缝已存在；009 已拒绝未出现在 store 中的正式任务创建。
 - Core-owned verified plugin runtime store 的底层读取/校验接缝已存在；普通前端没有写入口。
-- OfficeCLI capability 的 009 消费侧路径映射已存在，但没有 008 lifecycle producer。
+- Office official-only lifecycle producer 与 009 capability 消费已接通；普通前端仍不能直接写 activation store。
 
-activation contract/store 是已实现的底层接缝，但仍没有 Manifest/install/verify/permission/activate 生产链；不能据此声称工作台生命周期或 Windows 发布可用。
+Office v0.1.0 已有首个 install/health/permission/activate 生产链，但 008 的通用依赖解析、签名、空间、升级、回滚、卸载和 Windows 发布矩阵仍未完成，不能据此声称完整工作台生命周期或 Windows 发布可用。
 
 ## 未验证风险
 
 - App 已有 official bundled inspect；Daemon parity 与 install/activate/uninstall RPC 尚无，当前 activation list/read/deactivate 仍为 local-only。
 - Manifest v1 已冻结最小字段，但空间、签名、BlackRain semver、系统依赖探针和安装事务未实现。
-- 受控路径、共享依赖、升级回滚和用户项目隔离未实现。
+- 首个 Office 受控路径与用户项目隔离已有代码；共享依赖、升级回滚和崩溃恢复未实现。
 - 第三方包签名、恶意包防护和权限模型未实现。
 - Windows 干净环境没有任何工作台生命周期实测。
 - 商业软件、数据源和高责任领域的真实工作台尚未验证协议表达能力。

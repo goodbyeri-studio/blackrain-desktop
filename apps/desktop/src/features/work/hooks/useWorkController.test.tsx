@@ -23,6 +23,7 @@ import {
   workbenchActivationDeactivate,
   workbenchActivationList,
   workbenchBundledInspect,
+  workbenchOfficialActivate,
 } from "@/services/tauri";
 import type {
   WorkEvent,
@@ -63,6 +64,7 @@ vi.mock("@/services/tauri", () => ({
   workbenchActivationDeactivate: vi.fn(),
   workbenchActivationList: vi.fn(),
   workbenchBundledInspect: vi.fn(),
+  workbenchOfficialActivate: vi.fn(),
 }));
 
 const runtime: WorkRuntimeStatus = {
@@ -229,6 +231,59 @@ describe("useWorkController", () => {
     expect(hermesTaskList).toHaveBeenCalledTimes(2);
     expect(hermesTaskRecoveryStatus).toHaveBeenCalledTimes(2);
     expect(workbenchActivationList).toHaveBeenCalledTimes(2);
+  });
+
+  it("activates the official workbench and refreshes Core activations", async () => {
+    vi.mocked(hermesRuntimeStatus).mockResolvedValue(runtime);
+    vi.mocked(hermesTaskList).mockResolvedValue([]);
+    vi.mocked(hermesTaskRecoveryStatus).mockResolvedValue({ records: [], error: null });
+    const activation = {
+      schemaVersion: 1 as const,
+      activationId: "office-project-demo",
+      workbenchId: "com.blackrain.office",
+      workbenchVersion: "0.1.0",
+      engine: "work" as const,
+      project: { projectId: "project-demo", path: task.projectPath },
+      task: null,
+      skillRoots: ["C:\\AppData\\BlackRain\\workbenches\\office\\skills"],
+      plugins: [],
+      mcpServers: [],
+      environmentRefs: [
+        { kind: "systemCapability" as const, referenceId: "officecli-1.0.117" },
+      ],
+      permissions: {
+        grantId: "grant-demo",
+        files: [{ path: task.projectPath, access: "readWrite" as const }],
+        networkDomains: [],
+        processIds: ["com.blackrain.office-cli"],
+      },
+      verifiedAt: 1,
+    };
+    vi.mocked(workbenchOfficialActivate).mockResolvedValue({
+      activation,
+      installRoot: "C:\\AppData\\BlackRain\\workbenches\\office",
+      officecliRoot: "C:\\AppData\\BlackRain\\tools\\officecli",
+      healthChecks: ["OfficeCLI 1.0.117"],
+      projectPreserved: true,
+    });
+    vi.mocked(workbenchActivationList)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([activation]);
+
+    const { result } = renderHook(() => useWorkController());
+    await waitFor(() => expect(result.current.state.bootstrapping).toBe(false));
+    await act(async () => {
+      await result.current.activateOfficialWorkbench(
+        "com.blackrain.office",
+        task.projectPath,
+      );
+    });
+
+    expect(workbenchOfficialActivate).toHaveBeenCalledWith(
+      "com.blackrain.office",
+      task.projectPath,
+    );
+    expect(result.current.state.activations).toEqual([activation]);
   });
 
   it("rejects duplicate stop actions before another render is required", async () => {

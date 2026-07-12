@@ -32,6 +32,14 @@ export type WorkbenchDeactivationResult = {
   projectPreserved: boolean;
 };
 
+export type OfficialWorkbenchActivationResult = {
+  activation: ActivatedWorkbenchContext;
+  installRoot: string;
+  officecliRoot: string;
+  healthChecks: string[];
+  projectPreserved: boolean;
+};
+
 export type WorkbenchPackageInspection = {
   packageRoot: string;
   manifestPath: string;

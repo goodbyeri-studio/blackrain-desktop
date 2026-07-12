@@ -164,7 +164,7 @@ fn validate_system_tool_root(app_data: &Path, root: &Path) -> Result<(), WorkErr
             false,
         )
     })?;
-    if !app_data_metadata.is_dir() || app_data_metadata.file_type().is_symlink() {
+    if !app_data_metadata.is_dir() || is_link_like(&app_data_metadata) {
         return Err(runtime_error(
             "hermes_system_capability_invalid",
             "BlackRain App data is invalid for a verified WORK system capability.",
@@ -188,7 +188,7 @@ fn validate_system_tool_root(app_data: &Path, root: &Path) -> Result<(), WorkErr
                 false,
             )
         })?;
-        if metadata.file_type().is_symlink() {
+        if is_link_like(&metadata) {
             return Err(runtime_error(
                 "hermes_system_capability_invalid",
                 "A verified WORK system capability path contains a symlink.",
@@ -220,7 +220,7 @@ fn validate_system_tool_root(app_data: &Path, root: &Path) -> Result<(), WorkErr
             false,
         )
     })?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() {
+    if !metadata.is_file() || is_link_like(&metadata) {
         return Err(runtime_error(
             "hermes_system_capability_invalid",
             "A verified WORK system capability executable is invalid.",
@@ -228,6 +228,20 @@ fn validate_system_tool_root(app_data: &Path, root: &Path) -> Result<(), WorkErr
         ));
     }
     Ok(())
+}
+
+fn is_link_like(metadata: &fs::Metadata) -> bool {
+    if metadata.file_type().is_symlink() {
+        return true;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+        return metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0;
+    }
+    #[cfg(not(target_os = "windows"))]
+    false
 }
 
 fn resolve_mcp_launch_environment(

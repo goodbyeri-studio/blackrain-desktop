@@ -131,9 +131,6 @@ pub fn run() {
         .setup(|app| {
             let state = state::AppState::load(&app.handle());
             app.manage(state);
-            let _ = tauri::async_runtime::block_on(office::configure_runtime_environment(
-                &app.handle(),
-            ));
             #[cfg(target_os = "macos")]
             {
                 let tray_state = app.state::<tray::TrayState>();
@@ -382,6 +379,7 @@ pub fn run() {
             workbench::workbench_activation_list,
             workbench::workbench_activation_read,
             workbench::workbench_bundled_inspect,
+            workbench::workbench_official_activate,
             workbench::workbench_activation_deactivate,
             codex::experimental_feature_list,
             codex::set_codex_feature_flag,

@@ -8,7 +8,7 @@
 - [x] 盘点 Office 参考工作台当前所有资源、注入路径和 License
 - [x] 确认首版只支持 Windows x64 和官方签名/随包工作台
 - [x] 决定 Manifest 格式、schema 校验库和版本策略
-- [ ] 决定受控安装路径、用户项目路径和共享依赖策略
+- [x] 决定受控安装路径、用户项目路径和共享依赖策略
 
 ## 阶段 1：最小 Manifest 与只读检查
 
@@ -24,14 +24,16 @@
 
 ## 阶段 2：官方工作台安装与激活
 
-- [ ] 实现版本化 staging/active/state 目录
-- [ ] 支持 `bundled` 依赖
+- [x] 实现版本化 staging/active/state 目录
+- [x] 支持 `bundled` 依赖
 - [ ] 支持 `system` 依赖检测和用户引导
 - [ ] 接入系统凭据槽位，不在 manifest/settings 落密钥
-- [ ] 实现 install / health / activate / deactivate
-- [ ] 将工作台 Skills、插件和项目路径映射给 Hermes WORK surface
-- [ ] 保持 App 是唯一引擎配置写入者
+- [x] 实现 install / health / activate / deactivate
+- [x] 将工作台 Skills、插件和项目路径映射给 Hermes WORK surface
+- [x] 保持 App 是唯一引擎配置写入者
 - [ ] 完成 Office 参考工作台安装后 smoke
+
+> 2026-07-12：官方 Office v0.1.0 已形成首个 local-only Core lifecycle：仅 Windows x64 command 可从 App allowlist 资源进入；工作台包复制到 `workbenches/com.blackrain.office/versions/0.1.0`，OfficeCLI 经 SHA-256 和 `--version` 后安装到 `tools/officecli`，再依据用户选择的既有项目目录签发 read-write permission grant、`SystemCapability: officecli-1.0.117` 和 `ActivatedWorkbenchContext`。staging/版本目录、`active.json`/`state.json`、前端项目选择与 DS 权限确认已接通；App 启动不再无条件复制 OfficeCLI。当前只覆盖首个 bundled 依赖与版本 health，不含 Windows 实测、领域 smoke、升级/回滚、共享引用计数、签名、空间检查、system/user-provided 依赖或 Daemon parity，不能写成完整 008 生命周期完成。
 
 ## 阶段 3：升级、回滚和卸载
 
