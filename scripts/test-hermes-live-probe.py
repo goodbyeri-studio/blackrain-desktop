@@ -39,6 +39,7 @@ MODEL_BEARER = "blackrain-live-probe-model-bearer"
 EXPECTED_OUTPUT = "BlackRain locked Hermes live probe completed."
 EXPECTED_APPROVAL_OUTPUT = "BlackRain approved terminal tool completed."
 EXPECTED_DENIAL_OUTPUT = "BlackRain denied terminal tool was not executed."
+EXPECTED_CONTINUE_OUTPUT = "BlackRain stopped session continued successfully."
 EXPECTED_FILE_CONTENT = "blackrain-read-tool-result-verified"
 APPROVED_MARKER_CONTENT = "blackrain-approved-tool-executed"
 DENIED_MARKER_CONTENT = "blackrain-denied-tool-must-not-execute"
@@ -55,10 +56,14 @@ class ModelState:
             "read": [],
             "approve": [],
             "deny": [],
+            "stop": [],
+            "continue": [],
         }
         self.active_scenario = "read"
         self.read_path: str | None = None
         self.terminal_commands: dict[str, str] = {}
+        self.stop_stream_started = threading.Event()
+        self.stop_stream_release = threading.Event()
         self.lock = threading.Lock()
 
 
@@ -108,6 +113,9 @@ class ModelHandler(BaseHTTPRequestHandler):
             scenario_requests = self.server.state.requests[scenario]
             scenario_requests.append(request)
             request_index = len(scenario_requests)
+        if scenario == "stop":
+            self._send_stop_stream()
+            return
         if request.get("stream"):
             self._send_stream(scenario, request_index)
         else:
@@ -152,7 +160,7 @@ class ModelHandler(BaseHTTPRequestHandler):
         }
 
     def _tool_call(self, scenario: str) -> dict[str, Any]:
-        if scenario == "read":
+        if scenario in {"read", "continue"}:
             read_path = self.server.state.read_path
             if not read_path:
                 raise ProbeFailure("Live probe read path was not configured")
@@ -180,7 +188,36 @@ class ModelHandler(BaseHTTPRequestHandler):
             "read": EXPECTED_OUTPUT,
             "approve": EXPECTED_APPROVAL_OUTPUT,
             "deny": EXPECTED_DENIAL_OUTPUT,
+            "continue": EXPECTED_CONTINUE_OUTPUT,
         }[scenario]
+
+    def _send_stop_stream(self) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        initial = {
+            "id": "chatcmpl-blackrain-stop-probe",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "blackrain-fixture",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": "working"},
+                    "finish_reason": None,
+                }
+            ],
+        }
+        try:
+            self.wfile.write(b"data: " + json_bytes(initial) + b"\n\n")
+            self.wfile.flush()
+            self.server.state.stop_stream_started.set()
+            self.server.state.stop_stream_release.wait(timeout=15)
+            self.wfile.write(b"data: [DONE]\n\n")
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def _send_stream(self, scenario: str, request_index: int) -> None:
         self.send_response(200)
@@ -389,14 +426,21 @@ def run_scenario(
     prompt: str,
     expected_output: str,
     approval_choice: str | None = None,
+    session_id: str | None = None,
+    conversation_history: list[dict[str, str]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     with state.lock:
         state.active_scenario = scenario
+    body = {"input": prompt, "model": "blackrain-fixture"}
+    if session_id:
+        body["session_id"] = session_id
+    if conversation_history:
+        body["conversation_history"] = conversation_history
     status, started = request_json(
         "POST",
         f"{base_url}/v1/runs",
         API_BEARER,
-        {"input": prompt, "model": "blackrain-fixture"},
+        body,
     )
     if status != 202 or not started.get("run_id"):
         raise ProbeFailure(f"{scenario} run creation failed: HTTP {status}: {started}")
@@ -429,12 +473,78 @@ def run_scenario(
     status, run_status = request_json("GET", f"{base_url}/v1/runs/{run_id}", API_BEARER)
     if status != 200 or run_status.get("status") != "completed":
         raise ProbeFailure(f"{scenario} run did not converge to completed: {run_status}")
+    if session_id and run_status.get("session_id") != session_id:
+        raise ProbeFailure(f"{scenario} run did not preserve its session id: {run_status}")
     with state.lock:
         model_requests = list(state.requests[scenario])
     if len(model_requests) != 2:
         raise ProbeFailure(
             f"Expected two {scenario} model requests, received {len(model_requests)}"
         )
+    return events, model_requests
+
+
+def run_stop_scenario(
+    base_url: str,
+    state: ModelState,
+    session_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    with state.lock:
+        state.active_scenario = "stop"
+    status, started = request_json(
+        "POST",
+        f"{base_url}/v1/runs",
+        API_BEARER,
+        {
+            "input": "Run the BlackRain STOP_PROBE scenario until interrupted.",
+            "model": "blackrain-fixture",
+            "session_id": session_id,
+        },
+    )
+    if status != 202 or not started.get("run_id"):
+        raise ProbeFailure(f"stop run creation failed: HTTP {status}: {started}")
+    run_id = str(started["run_id"])
+    stream_result: dict[str, Any] = {}
+
+    def consume_events() -> None:
+        try:
+            stream_result["events"] = stream_events(base_url, run_id)[0]
+        except Exception as error:  # pragma: no cover - surfaced in the caller
+            stream_result["error"] = error
+
+    stream_thread = threading.Thread(target=consume_events, daemon=True)
+    stream_thread.start()
+    if not state.stop_stream_started.wait(timeout=10):
+        state.stop_stream_release.set()
+        raise ProbeFailure("stop run did not enter the blocking model stream")
+    try:
+        status, stopped = request_json(
+            "POST",
+            f"{base_url}/v1/runs/{run_id}/stop",
+            API_BEARER,
+        )
+    finally:
+        state.stop_stream_release.set()
+    if status != 200 or stopped.get("run_id") != run_id or stopped.get("status") != "stopping":
+        raise ProbeFailure(f"stop request failed: HTTP {status}: {stopped}")
+    stream_thread.join(timeout=10)
+    if stream_thread.is_alive():
+        raise ProbeFailure("stop run SSE stream did not close")
+    if stream_result.get("error"):
+        raise ProbeFailure(f"stop run SSE failed: {stream_result['error']}")
+    events = list(stream_result.get("events") or [])
+    event_names = [str(event.get("event")) for event in events]
+    if "run.cancelled" not in event_names:
+        raise ProbeFailure(f"stop run did not emit run.cancelled: {event_names}")
+    status, run_status = request_json("GET", f"{base_url}/v1/runs/{run_id}", API_BEARER)
+    if status != 200 or run_status.get("status") != "cancelled":
+        raise ProbeFailure(f"stop run did not converge to cancelled: {run_status}")
+    if run_status.get("session_id") != session_id:
+        raise ProbeFailure(f"stop run did not preserve its session id: {run_status}")
+    with state.lock:
+        model_requests = list(state.requests["stop"])
+    if len(model_requests) != 1:
+        raise ProbeFailure(f"Expected one stopped model request, received {len(model_requests)}")
     return events, model_requests
 
 
@@ -575,6 +685,36 @@ def run_probe(python: Path) -> None:
             if "BLOCKED" not in denial_context or "NOT consented" not in denial_context:
                 raise ProbeFailure("Approval denial did not reach the second model iteration")
 
+            stop_session_id = "blackrain-live-probe-stop-session"
+            stop_events, stop_requests = run_stop_scenario(
+                base_url,
+                state,
+                stop_session_id,
+            )
+            continue_events, continue_requests = run_scenario(
+                base_url,
+                state,
+                "continue",
+                "Continue the BlackRain STOP_PROBE session with a read check.",
+                EXPECTED_CONTINUE_OUTPUT,
+                session_id=stop_session_id,
+                conversation_history=[
+                    {
+                        "role": "user",
+                        "content": "Run the BlackRain STOP_PROBE scenario until interrupted.",
+                    },
+                    {
+                        "role": "assistant",
+                        "content": "[Previous run was stopped by the user before a final response.]",
+                    },
+                ],
+            )
+            continuation_context = json.dumps(continue_requests[0])
+            if "STOP_PROBE scenario until interrupted" not in continuation_context:
+                raise ProbeFailure("Stopped run history did not reach the continuation model request")
+            if EXPECTED_FILE_CONTENT not in json.dumps(continue_requests[1]):
+                raise ProbeFailure("Continuation tool result did not reach the second model iteration")
+
             request_tools = {
                 str(tool.get("function", {}).get("name"))
                 for tool in read_requests[0].get("tools", [])
@@ -586,9 +726,9 @@ def run_probe(python: Path) -> None:
             print(
                 "OK: pinned Hermes live probe completed "
                 f"({health.get('version')}, "
-                f"{len(read_events) + len(approve_events) + len(deny_events)} events, "
-                f"{len(read_requests) + len(approve_requests) + len(deny_requests)} model calls, "
-                f"{len(request_tools)} tools, approval once+deny)"
+                f"{len(read_events) + len(approve_events) + len(deny_events) + len(stop_events) + len(continue_events)} events, "
+                f"{len(read_requests) + len(approve_requests) + len(deny_requests) + len(stop_requests) + len(continue_requests)} model calls, "
+                f"{len(request_tools)} tools, approval once+deny, stop+continue)"
             )
     finally:
         if process is not None:

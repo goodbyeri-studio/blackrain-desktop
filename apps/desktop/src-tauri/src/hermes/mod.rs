@@ -10,7 +10,8 @@ use crate::shared::hermes_core::client::HermesRunCreateRequest;
 use crate::shared::hermes_core::protocol::HermesApprovalRequest;
 use crate::shared::hermes_core::recovery::audit_remote_recovery;
 use crate::shared::hermes_core::runner::{
-    consume_run_events, is_terminal_status, start_task_run, WorkRunPresentation,
+    build_task_conversation_history, consume_run_events, is_terminal_status, start_task_run,
+    WorkRunPresentation,
 };
 use crate::shared::hermes_core::runtime::{
     bind_runtime_workbench, repair_runtime, restart_runtime, rollback_runtime_workbench,
@@ -937,6 +938,13 @@ async fn continue_task_inner(
             false,
         )
     })?;
+    let conversation_history = build_task_conversation_history(
+        &state
+            .hermes_tasks
+            .lock()
+            .await
+            .load_events(&input.task_id)?,
+    );
     let client = runtime_api_client(&state.hermes_runtime).await?;
     let started = start_task_run(
         &state.hermes_tasks,
@@ -948,7 +956,7 @@ async fn continue_task_inner(
             instructions: Some(run_instructions),
             session_id: Some(session_id),
             model: input.model,
-            conversation_history: Vec::new(),
+            conversation_history,
         },
         WorkRunPresentation {
             user_text: input.prompt,

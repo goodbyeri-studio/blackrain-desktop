@@ -94,7 +94,7 @@
 - [x] 为每次请求加入 request id、版本 User-Agent 和脱敏 tracing
 - [x] 对取消、超时、重试、幂等和 backpressure 建立测试
 
-> 2026-07-12：supervisor 持有共享的有界 HTTP trace sink，并通过 runtime diagnostics 暴露；每条只包含 request id、method、受校验 path、status、outcome 和 elapsed，不记录 bearer/header/body。SSE 使用可唤醒取消 token，pending frame queue 上限 1024。timeout/5xx 标记 retryable，但 create run 等请求不会在 client 内自动重放，测试证明每次只发出一次。session resume 使用读取既有 session 后在新 run 中传回 `session_id`，锁定 Hermes 没有独立的 resume 端点。
+> 2026-07-12：supervisor 持有共享的有界 HTTP trace sink，并通过 runtime diagnostics 暴露；每条只包含 request id、method、受校验 path、status、outcome 和 elapsed，不记录 bearer/header/body。SSE 使用可唤醒取消 token，pending frame queue 上限 1024。timeout/5xx 标记 retryable，但 create run 等请求不会在 client 内自动重放，测试证明每次只发出一次。锁定 Hermes 没有独立 resume 端点，且 `/v1/runs` 不会因同一个 `session_id` 自动加载历史；continue/retry 必须同时传回 session id 与 Core 从同任务 journal 生成的有界显式 `conversation_history`。
 
 ## 阶段 6：事件 normalizer 和任务存储
 
@@ -214,6 +214,9 @@
   - [x] 锁定 Hermes 真进程收到 `deny` 后不产生临时项目副作用，把 `BLOCKED`/未同意结果交给第二次模型迭代并完成解释性 run
   - [ ] 在 Windows 产品链经真实 new-api/国产模型和 WORK UI 完成拒绝审批纵切
 - [ ] 完成运行中 Stop 和后续继续/重试
+  - [x] 锁定 Hermes 真进程在模型流阻塞期间经 `/stop` 收敛为 `run.cancelled`，随后同 `session_id` 携带显式历史创建新 run 并完成真实 `read_file` 工具迭代
+  - [x] BlackRain Core 从同任务 journal 生成仅含用户消息/完成助手消息的有界历史，取消/失败轮次补固定占位，不回放 reasoning 或工具原文
+  - [ ] 在 Windows 产品链经真实 new-api/国产模型、TaskStore 和 WORK UI 完成 Stop→continue/显式 retry
 - [ ] 完成输出文件写入用户项目并在 UI 打开
 - [ ] 完成 App 重启后恢复任务
 - [ ] Office 官方工作台完成第一条黄金流程
