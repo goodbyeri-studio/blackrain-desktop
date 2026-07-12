@@ -36,6 +36,7 @@ FIXED_MODEL_URL = "http://127.0.0.1:18765/v1"
 API_BEARER = "blackrain-live-probe-api-bearer-0000000000000001"
 MODEL_BEARER = "blackrain-live-probe-model-bearer"
 EXPECTED_OUTPUT = "BlackRain locked Hermes live probe completed."
+EXPECTED_FILE_CONTENT = "blackrain-read-tool-result-verified"
 DISALLOWED_TOOLS = {"memory", "session_search", "cronjob"}
 
 
@@ -46,6 +47,7 @@ class ProbeFailure(RuntimeError):
 class ModelState:
     def __init__(self) -> None:
         self.requests: list[dict[str, Any]] = []
+        self.read_path: str | None = None
         self.lock = threading.Lock()
 
 
@@ -92,12 +94,32 @@ class ModelHandler(BaseHTTPRequestHandler):
             return
         with self.server.state.lock:
             self.server.state.requests.append(request)
+            request_index = len(self.server.state.requests)
         if request.get("stream"):
-            self._send_stream()
+            self._send_stream(request_index)
         else:
-            self._send_json(200, self._completion())
+            self._send_json(200, self._completion(request_index))
 
-    def _completion(self) -> dict[str, Any]:
+    def _completion(self, request_index: int) -> dict[str, Any]:
+        if request_index == 1:
+            return {
+                "id": "chatcmpl-blackrain-live-probe-tool",
+                "object": "chat.completion",
+                "created": 1,
+                "model": "blackrain-fixture",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [self._tool_call()],
+                        },
+                        "finish_reason": "tool_calls",
+                    }
+                ],
+                "usage": {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18},
+            }
         return {
             "id": "chatcmpl-blackrain-live-probe",
             "object": "chat.completion",
@@ -113,11 +135,52 @@ class ModelHandler(BaseHTTPRequestHandler):
             "usage": {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18},
         }
 
-    def _send_stream(self) -> None:
+    def _tool_call(self) -> dict[str, Any]:
+        read_path = self.server.state.read_path
+        if not read_path:
+            raise ProbeFailure("Live probe read path was not configured")
+        return {
+            "index": 0,
+            "id": "call_blackrain_read_probe",
+            "type": "function",
+            "function": {
+                "name": "read_file",
+                "arguments": json.dumps({"path": read_path}, separators=(",", ":")),
+            },
+        }
+
+    def _send_stream(self, request_index: int) -> None:
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
+        if request_index == 1:
+            chunks = [
+                {
+                    "id": "chatcmpl-blackrain-live-probe-tool",
+                    "object": "chat.completion.chunk",
+                    "created": 1,
+                    "model": "blackrain-fixture",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"role": "assistant", "tool_calls": [self._tool_call()]},
+                            "finish_reason": None,
+                        }
+                    ],
+                },
+                {
+                    "id": "chatcmpl-blackrain-live-probe-tool",
+                    "object": "chat.completion.chunk",
+                    "created": 1,
+                    "model": "blackrain-fixture",
+                    "choices": [
+                        {"index": 0, "delta": {}, "finish_reason": "tool_calls"}
+                    ],
+                },
+            ]
+            self._write_stream_chunks(chunks)
+            return
         chunks = [
             {
                 "id": "chatcmpl-blackrain-live-probe",
@@ -157,6 +220,9 @@ class ModelHandler(BaseHTTPRequestHandler):
                 "usage": {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18},
             },
         ]
+        self._write_stream_chunks(chunks)
+
+    def _write_stream_chunks(self, chunks: list[dict[str, Any]]) -> None:
         for chunk in chunks:
             self.wfile.write(b"data: " + json_bytes(chunk) + b"\n\n")
             self.wfile.flush()
@@ -289,6 +355,9 @@ def run_probe(python: Path) -> None:
             hermes_home.mkdir(parents=True)
             process_home.mkdir()
             project.mkdir()
+            read_fixture = project / "read-probe.txt"
+            read_fixture.write_text(EXPECTED_FILE_CONTENT + "\n", encoding="utf-8")
+            state.read_path = str(read_fixture)
             rendered = CONFIG_FIXTURE.read_text(encoding="utf-8").replace(
                 FIXED_MODEL_URL, f"http://127.0.0.1:{model_port}/v1"
             )
@@ -344,7 +413,8 @@ def run_probe(python: Path) -> None:
             run_id = str(started["run_id"])
             events = stream_events(base_url, run_id)
             event_names = [str(event.get("event")) for event in events]
-            if "message.delta" not in event_names or "run.completed" not in event_names:
+            required_events = {"tool.started", "tool.completed", "message.delta", "run.completed"}
+            if not required_events.issubset(event_names):
                 terminal = events[-1] if events else {}
                 raise ProbeFailure(
                     f"Incomplete run events: {event_names}; terminal={terminal}"
@@ -359,8 +429,10 @@ def run_probe(python: Path) -> None:
                 raise ProbeFailure(f"Run did not converge to completed: {run_status}")
             with state.lock:
                 model_requests = list(state.requests)
-            if len(model_requests) != 1:
-                raise ProbeFailure(f"Expected one model request, received {len(model_requests)}")
+            if len(model_requests) != 2:
+                raise ProbeFailure(f"Expected two model requests, received {len(model_requests)}")
+            if EXPECTED_FILE_CONTENT not in json.dumps(model_requests[1]):
+                raise ProbeFailure("read_file result did not return to the second model iteration")
             request_tools = {
                 str(tool.get("function", {}).get("name"))
                 for tool in model_requests[0].get("tools", [])
@@ -371,7 +443,8 @@ def run_probe(python: Path) -> None:
                 raise ProbeFailure(f"Managed-disabled tools reached the model: {exposed}")
             print(
                 "OK: pinned Hermes live probe completed "
-                f"({health.get('version')}, {len(events)} events, {len(request_tools)} tools)"
+                f"({health.get('version')}, {len(events)} events, "
+                f"{len(model_requests)} model calls, {len(request_tools)} tools)"
             )
     finally:
         if process is not None:
