@@ -28,7 +28,7 @@
 - [x] **NSIS target + Windows 资源映射代码已落**:`tauri.windows.conf.json` 已显式 `targets = ["nsis"]`,并映射 codex/Python/gateway/OfficeCLI/plugins/workbench。此勾选只表示配置存在。
 - [ ] **NSIS 元数据收口**:publisher / shortcut / 签名 hook 依签名待决结论落地。
 - [ ] **Windows 品牌元数据收口**:窗口标题、About、tray、Credential Manager service 从 `BlackRain2049` 迁到 `BlackRain`；凭据 service 改名必须设计兼容读取/迁移，不能让已有登录/key 静默丢失。
-- [x] **本机发布脚本已落**:`scripts/release-client-win.ps1` 已会 vendor Windows runtime、跑 typecheck/test/cargo check 并调 `tauri:build:win`;尚未有本 spec 的 Windows 实跑记录。
+- [x] **本机发布脚本已落**:`scripts/release-client-win.ps1` 已会跑 Hermes static contract、vendor Windows/Hermes runtime、执行 typecheck/test/lint/DS/doctor 与 cargo check/Hermes/workbench/plugin 专项，再调 `tauri:build:win`;尚未有本 spec 的 Windows 实跑记录。
 - [ ] **跑 `npm run tauri:build:win`**:产出 `.exe` 安装包,记打包时长 / 体积。
 - [ ] **安装包资源 smoke**:解包验证 `office-cli/windows-x64/officecli.exe`、`gateway/gateway.py`、`plugins/office-cli/`、`workbenches/office-agent/` 都在。
 - [ ] **区分资源存在与工作台可安装**：在 verification 明确记录 Office 目录入包只属于静态资源 smoke，不得标记 008 的 inspect/install/activate/verify/uninstall 已完成。

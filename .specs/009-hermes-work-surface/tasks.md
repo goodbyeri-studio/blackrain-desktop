@@ -38,7 +38,9 @@
 - [x] 只生成命名 `providers:`，增加禁止 bare `custom` 的测试
 - [x] 配置 `127.0.0.1`、受控端口、`API_SERVER_ENABLED=true` 和非空 bearer
 - [x] 生成高熵 `API_SERVER_KEY`，实现安全保存/轮换策略
-- [x] 对接模型/平台 secret reference，不在配置、日志或项目中落明文
+- [ ] 对接模型/平台 secret reference，不在配置、日志或项目中落明文
+  - [x] provider secret reference、系统凭据 namespace、desired state 与进程短期注入 primitive 已实现
+  - [ ] 由 spec 002/003 的 App-owned provider producer 写入首份 desired state/credential；当前产品路径没有调用 `configure_runtime_desired_state`/`provider_secret_set`
 - [x] 注入 `CUA_DRIVER_RS_TELEMETRY_ENABLED=0`，默认不接 Nous Portal
 - [x] 实现脱敏 config/runtime summary
 - [x] 配置损坏时保留上一个可用版本并输出 repair plan
@@ -244,6 +246,7 @@
 
 ## 阶段 14：Windows 发布闭环
 
+- [x] `release-client-win.ps1` 在 vendor/build 前接入 Hermes static contract，并在 checks 中覆盖 typecheck/test/lint/DS/doctor 与 Hermes/workbench/plugin Rust 专项
 - [ ] Windows x64 完成前端 typecheck/test/lint/DS checks
 - [ ] Windows Rust `cargo check` 和相关测试通过
 - [ ] 构建 NSIS 并检查 Hermes runtime、LICENSES、provenance、checksums

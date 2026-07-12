@@ -188,7 +188,7 @@ Copy-Item .env.production.example .env.production.local
 pwsh scripts/release-client-win.ps1
 ```
 
-脚本会 vendoring Windows runtime，并依次运行 `typecheck`、`test`、Rust `cargo check` 和 `tauri:build:win`。产物在：
+脚本会先执行 Hermes static contract，再 vendor Windows/Hermes runtime；常规 checks 覆盖 `typecheck`、`test`、`lint`、`lint:ds`、`codemod:ds:dry`、`doctor:win`、Rust `cargo check` 及 Hermes/workbench/plugin 专项，最后运行 `tauri:build:win`。产物在：
 
 ```text
 apps\desktop\src-tauri\target\release\bundle\

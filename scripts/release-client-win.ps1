@@ -46,6 +46,18 @@ foreach ($name in $required) {
 
 $env:CARGO_NET_GIT_FETCH_WITH_CLI = "true"
 
+$python = Get-Command python -ErrorAction SilentlyContinue
+if (-not $python) {
+  $python = Get-Command py -ErrorAction SilentlyContinue
+}
+if (-not $python) {
+  throw "找不到 Python；Hermes contract 与 Windows runtime vendor 需要 Python 3.11+。"
+}
+
+Invoke-Checked {
+  & $python.Source (Join-Path $repo "scripts\check-hermes-contract.py") --static-only
+}
+
 & pwsh -NoProfile -File (Join-Path $repo "scripts\vendor-windows-runtime.ps1")
 if ($LASTEXITCODE -ne 0) {
   throw "Vendor Windows runtime failed with exit code $LASTEXITCODE."
@@ -60,9 +72,16 @@ try {
   if (-not $SkipChecks) {
     Invoke-Checked { & npm.cmd run typecheck }
     Invoke-Checked { & npm.cmd run test }
+    Invoke-Checked { & npm.cmd run lint }
+    Invoke-Checked { & npm.cmd run lint:ds }
+    Invoke-Checked { & npm.cmd run codemod:ds:dry }
+    Invoke-Checked { & npm.cmd run doctor:win }
     Push-Location "src-tauri"
     try {
       Invoke-Checked { & cargo check }
+      Invoke-Checked { & cargo test hermes --lib }
+      Invoke-Checked { & cargo test workbench_core --lib }
+      Invoke-Checked { & cargo test plugin_core --lib }
     } finally {
       Pop-Location
     }
