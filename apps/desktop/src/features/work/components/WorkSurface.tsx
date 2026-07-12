@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import Copy from "lucide-react/dist/esm/icons/copy";
 import FolderOpen from "lucide-react/dist/esm/icons/folder-open";
@@ -68,6 +68,9 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   const [taskDeletionOpen, setTaskDeletionOpen] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
   const [activationProjectPath, setActivationProjectPath] = useState("");
+  const [composerFocusRequestId, setComposerFocusRequestId] = useState(0);
+  const diagnosticsCloseRef = useRef<HTMLButtonElement | null>(null);
+  const diagnosticsReturnFocusRef = useRef<HTMLElement | null>(null);
   const pending = Object.keys(state.pendingOperations).length > 0;
   const busy = state.bootstrapping || pending;
   const selectedActivation =
@@ -98,6 +101,27 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     }
   }, [activationId, state.activations]);
 
+  useEffect(() => {
+    if (!diagnosticsOpen) {
+      return undefined;
+    }
+    diagnosticsCloseRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setDiagnosticsOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (diagnosticsReturnFocusRef.current?.isConnected) {
+        diagnosticsReturnFocusRef.current.focus();
+      }
+      diagnosticsReturnFocusRef.current = null;
+    };
+  }, [diagnosticsOpen]);
+
   const handleSelectTask = async (taskId: string) => {
     controller.selectTask(taskId);
     setProjectFileRefs([]);
@@ -112,6 +136,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
     setProjectFileRefs([]);
     setAttachmentError(null);
     setEditingFollowUpId(null);
+    setComposerFocusRequestId((current) => current + 1);
   };
 
   const handleAddProjectFiles = async () => {
@@ -188,6 +213,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
   };
 
   const handleDiagnostics = async () => {
+    diagnosticsReturnFocusRef.current = document.activeElement as HTMLElement | null;
     setDiagnosticsOpen(true);
     const next = await controller.loadDiagnostics().catch(() => null);
     setDiagnostics(next);
@@ -264,6 +290,8 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
               className="ghost work-delete-task-button"
               disabled={busy}
               onClick={() => setTaskDeletionOpen(true)}
+              aria-label="删除记录"
+              title="删除记录"
             >
               <Trash2 aria-hidden />
               删除记录
@@ -275,6 +303,8 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
               className="ghost work-deactivate-button"
               disabled={busy}
               onClick={() => setDeactivationOpen(true)}
+              aria-label="停用"
+              title="停用"
             >
               <Power aria-hidden />
               停用
@@ -313,7 +343,13 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
             </div>
           ) : null}
 
-          <div className="work-transcript" aria-live="polite">
+          <div
+            className="work-transcript"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions text"
+            aria-atomic="false"
+          >
             {visibleEvents.length === 0 ? (
               <div className="work-welcome">
                 <h1>
@@ -403,6 +439,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
               setDraft(item.prompt);
               setProjectFileRefs(item.projectFileRefs);
               setAttachmentError(null);
+              setComposerFocusRequestId((current) => current + 1);
             }}
             onCancel={(followUpId) => {
               if (!selectedTask) {
@@ -429,6 +466,7 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
             projectFileRefs={projectFileRefs}
             canAttach={Boolean(selectedProjectPath) && projectFileRefs.length < 16}
             attachmentError={attachmentError}
+            focusRequestId={composerFocusRequestId}
             onChange={setDraft}
             onAddFiles={() => void handleAddProjectFiles()}
             onRemoveFile={(path) =>
@@ -442,10 +480,13 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
       </div>
 
       {diagnosticsOpen ? (
-        <PanelFrame className="work-diagnostics">
+        <PanelFrame
+          className="work-diagnostics"
+          aria-labelledby="work-diagnostics-title"
+        >
           <header>
             <div>
-              <strong>Hermes 诊断</strong>
+              <strong id="work-diagnostics-title">Hermes 诊断</strong>
               <span>内容由 Core 脱敏后返回</span>
             </div>
             <div>
@@ -453,7 +494,13 @@ export function WorkSurface({ controller, onClose }: WorkSurfaceProps) {
                 <Copy aria-hidden />
                 {copiedDiagnostics ? "已复制" : "复制"}
               </button>
-              <button type="button" className="ghost icon-button" onClick={() => setDiagnosticsOpen(false)} aria-label="关闭诊断">
+              <button
+                ref={diagnosticsCloseRef}
+                type="button"
+                className="ghost icon-button"
+                onClick={() => setDiagnosticsOpen(false)}
+                aria-label="关闭诊断"
+              >
                 <X aria-hidden />
               </button>
             </div>

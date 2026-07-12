@@ -60,7 +60,11 @@ export function WorkTaskSidebar({
         </button>
       </PanelHeader>
 
-      <PanelNavList className="work-task-list">
+      <PanelNavList
+        className="work-task-list"
+        role="navigation"
+        aria-label="Office 任务列表"
+      >
         {tasks.length === 0 ? (
           <div className="work-task-empty">
             <FileText aria-hidden />
