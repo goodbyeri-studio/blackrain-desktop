@@ -199,6 +199,11 @@
 ## 阶段 13：稳定性、安全和诊断
 
 - [ ] 失败注入：断网、new-api 5xx、模型超时、SSE 断开、工具崩溃
+  - [x] `POST /v1/runs` 明确返回 503 时不创建本地幽灵 run，不隐式重放，释放 operation reserve 后只允许显式重试
+  - [x] `POST /v1/runs` 超时时不附着未知 run、不写用户消息 journal，并释放 operation reserve；上游是否已创建 run 无法从锁定协议确认，保留发布风险
+  - [x] SSE 工具失败与 `run.failed` 经过 normalizer → journal → emit 后一致收敛为 failed，并清空 active run
+  - [x] SSE 断开先查询 status，有限重连、replay 去重，耗尽后持久化 degraded/resumable
+  - [ ] 真实 new-api 5xx/模型超时/断网/工具子进程崩溃 E2E
 - [ ] 失败注入：端口冲突、runtime 文件损坏、config 损坏、磁盘不足
 - [ ] 失败注入：App 强退、Hermes 强退、睡眠恢复、系统重启
 - [ ] 审核所有日志和诊断包的 secret/用户内容脱敏
@@ -207,6 +212,8 @@
 - [ ] 验证 WORK 失败不拖垮 CODE surface
 - [ ] 性能分析：冷启动、事件吞吐、长会话内存、任务列表规模
 - [ ] 建立上游 Hermes 升级 contract regression 流程
+
+> 2026-07-12：阶段 13 第一组已建立跨 `client → runner/registry → TaskStore journal` 的 fake HTTP/SSE 故障矩阵。它证明明确 503、请求超时、SSE 断流和工具失败在本地状态机中的收敛行为，但不能证明真实 new-api、Hermes 工具子进程或 Windows 网络栈。尤其 create-run timeout 没有上游 run id/idempotency key，BlackRain 只能拒绝本地附着和自动重放，不能证明上游没有接受该请求，因此总项保持未完成。
 
 ## 阶段 14：Windows 发布闭环
 

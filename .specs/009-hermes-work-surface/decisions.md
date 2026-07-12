@@ -141,10 +141,19 @@
 ## 2026-07-12：整体 MCP server 变更使用空闲态受控重启
 
 - 决策：已注册 server 内部的工具增删交给锁定 Hermes 原生 `notifications/tools/list_changed`；新增、删除或改变整个 server 时，Core 只在不存在 active WORK run 时替换版本化 workbench binding。若 Hermes 已 Ready，则取消受控 stream、重启 Hermes 并重新做 task recovery；session/task metadata 保留。binding 变更前保存旧 binding/config/last-good 的内存回滚快照；新 runtime readiness 失败时恢复旧文件并尝试重新拉起旧 runtime，返回结构化 `hermes_mcp_transition_failed` 和回滚/恢复状态。任一 active run 存在时在写 config 前 fail closed。Skills-only 变化不触发重启。
+- 锁定协议证据：`hermes-upstream` 当前为 tag `v2026.7.7.2` / commit `9de9c25f620ff7f1ce0fd5457d596052d5159596`。`tui_gateway/server.py` 确有私有 RPC `reload.mcp`、`skills.reload`，CLI 也有 `/reload-mcp`、`/reload-skills`；但 BlackRain 产品接入的 `gateway/platforms/api_server.py` 注册路由中没有 MCP/Skills register、unregister 或 reload endpoint。`notifications/tools/list_changed` 只通知已连接 server 内部工具集合改变，不能新增或移除整个 server。
 - 原因：锁定 `/v1` surface 没有 server register/unregister/reload endpoint，而直接在对话执行中杀进程会丢失不可重放的 SSE。空闲态重启能复用原装 Hermes 的启动注册路径，并确保旧 stdio 子进程随 Windows process tree 收敛。
 - 替代方案：修改 Hermes Agent loop、伪造 registry、运行中直接改 config 并假设生效、或调用未进入锁定 HTTP contract 的 CLI `/reload-mcp`。
 - 影响范围：阶段 4/11、task start/continue、App exit、Windows process tree 和 deactivate。
 - 后续复查条件：上游提供稳定且可鉴权的动态 server 生命周期 API，并完成运行中无事件丢失的真实验证后，可去掉 restart；在此之前“动态挂拔不重启进程”仍未完成。Windows 还必须故障注入验证新旧 MCP 子进程都随对应 process tree 收敛。
+
+## 2026-07-12：run 创建失败按“未附着”收敛，超时不猜测上游结果
+
+- 决策：只有 `POST /v1/runs` 返回可解析的 `run_id` 后，Core 才把 run/session 和本地用户消息 journal 原子附着到 task。明确 4xx/5xx 或连接错误会释放 registry reserve；不会创建本地 active run，也不会在 client/runner 内自动重放。请求超时时同样保持 task 原状态，但明确记录“上游可能已接受、BlackRain 无法确认”的协议风险。
+- 原因：锁定 `/v1/runs` 没有 idempotency key，也没有按 BlackRain request id 查询 run 的 endpoint。超时可能发生在上游创建 run 之后、响应到达之前；此时自动重试会产生重复执行，凭空生成本地 run id 又会破坏身份核对。
+- 替代方案：超时后自动重发 prompt、把 request id 当 run id、扫描所有 session 猜测对应 run，或把未知请求直接标成成功。
+- 影响范围：`client.rs`、`runner.rs`、TaskStore、follow-up queue、阶段 12/13 真实模型故障矩阵。
+- 后续复查条件：Hermes 提供正式 idempotency key 或 request-id→run 查询 contract 后，增加可证明的创建对账；在此之前 UI 只能提示创建结果不确定并允许用户显式检查/重试，不能声称 exactly-once。
 
 ## 2026-07-12：Hermes supervisor 拥有完整子进程树
 
