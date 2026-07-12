@@ -496,6 +496,14 @@
 - 影响范围：managed `config.yaml` 渲染/漂移检查、运行时 repair、未来 Memory UI、任务隐私边界和 Windows 多 activation 串台验证。旧 managed config 缺少显式禁用块时按 drift fail closed，并由显式 repair 重写。
 - 后续复查条件：只有 App 定义并实现至少 `user/workbench/project` scope、数据来源、写入审批、敏感信息策略、保留期、查看/纠错/删除/导出和 provider 凭据/地域/License 后，才能评估外置共享记忆；启用前必须用两个 activation 做双向零串台 E2E。
 
+## 2026-07-12：首版不把 session export 作为交付或审计能力
+
+- 决策：首版不增加 session export command/UI，不读取 Hermes 内部 `state.db` 或调用 `SessionDB.export_session*`。工作台交付物是用户项目中的真实输出文件；WORK transcript 只由 BlackRain TaskStore normalized journal 提供显示、恢复和本地记录。产品文案不能把当前 journal 称为不可篡改审计证据。
+- 原因：锁定 API Server 只有 session list/create/read/messages 等资源，没有稳定 export 端点；上游 `hermes_state.py` 的 export 方法是内部 SQLite API，数据 shape 会随上游变化且可能包含 raw message/tool 内容。BlackRain journal 有 task、activation、run、sequence 和稳定 event id，但为隐私主动不保存 raw event、完整工具参数/结果和部分诊断，也没有签名、时间戳证明或 custody chain，无法证明完整性。把聊天导出当交付还会弱化“真实文件落到用户项目”的工作台成功标准。
+- 替代方案：直接复制 Hermes SQLite/JSONL、导出上游 raw session、把诊断包改名审计包、默认自动上传 transcript，或把 Markdown 聊天记录视为 Office 任务交付。
+- 影响范围：首版 WORK UI 不增加导出入口；阶段 12 仍以项目输出文件验收；未来 enterprise audit、支持诊断和用户数据导出必须分开设计。
+- 后续复查条件：真实客户需要任务交接或监管留痕时，另建 living spec，从 Core-owned 单 task/activation 生成显式用户触发的 Markdown 与版本化 JSON；必须冻结字段白名单、reasoning/tool 参数与文件引用策略、脱敏预览、权限、导出位置、hash/signature、保留/删除和 schema migration，并证明不会越过 activation 或混入其他 session。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

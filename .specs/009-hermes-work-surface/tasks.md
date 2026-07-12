@@ -277,7 +277,7 @@
 - [x] 评估 Hermes `model_routes` 是否进入工作台模型路由；首版不启用任意 route，只允许 App-managed 默认模型
 - [x] 评估多 Profile 是否映射工作台隔离；首版不映射，继续使用单 App-owned runtime + activation generation
 - [x] 评估 Memory provider UI 与外置共享记忆策略；首版关闭跨工作台持久记忆与 session search，不提供 provider UI
-- [ ] 评估 session export 是否成为交付/审计能力
+- [x] 评估 session export 是否成为交付/审计能力；首版不进入交付/审计闭环，未来以 TaskStore 单任务导出另建合同
 - [ ] 评估 PTY、Cron、MOA、自验证的真实垂类价值
 - [ ] WhatsApp/Telegram/Discord 等渠道另行决策，不默认进入桌面 MVP
 
