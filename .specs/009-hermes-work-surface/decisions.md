@@ -306,6 +306,14 @@
 - 影响范围：`workbench_core` store、AppState/Tauri commands、Hermes task start/TaskStore contract、WORK controller/surface 和 spec 008 activation producer。
 - 后续复查条件：008 完成正式 install/verify/activate/deactivate 后，将内部写入入口接入生命周期状态机，并在 deactivate 时按 `activationId` 收敛任务和受控进程；普通前端仍不得获得任意写权限。
 
+## 2026-07-12：项目上下文与文件引用由 Core 注入 Hermes instructions
+
+- 决策：每次 start/continue 都从持久 activation 生成 Core-owned instructions，包含 workbench/version、已验证项目根和 permission grant。Composer 可选择最多 16 个项目内现有文件，但前端只提交结构化 `projectFileRefs`；shared `workbench_core` 重新校验绝对路径、项目包含关系、存在/regular file、重复和完整相对链无 symlink 后，才把引用路径加入 instructions。用户 prompt 保持原文。
+- 原因：Hermes 进程 cwd 是独立 `HERMES_HOME`，只发送 prompt 会让 agent 不知道用户项目；在前端拼绝对路径既无法形成信任边界，也会让 transcript 混入内部上下文。锁定 `/v1/runs` 会把 multipart input 展平成文本，不支持 BlackRain 可依赖的二进制附件 contract。
+- 替代方案：把 Hermes cwd 改成项目目录、允许前端传任意 instructions/path、读取文件内容后内联进 prompt，或把项目文件引用伪装成上传附件。
+- 影响范围：activation→run、task start/continue contract、WORK Composer、项目文件安全门禁和阶段 9 消息/附件体验。
+- 后续复查条件：上游提供版本化 multimodal/file input 后另建 typed content contract；当前文件引用在发送后尚未作为独立 transcript metadata 持久化，因此阶段 9 的“消息流和附件显示”总项仍未完成。
+
 ## 2026-07-12：Skills 使用 Hermes 原生 external_dirs，单 runtime 切换时 fail closed
 
 - 决策：不复制 Skills 到 Hermes 自有目录，也不修改 Agent loop。Core 在创建或继续新 run 前，将 activation 的受控 `skillRoots` 写入专属 `HERMES_HOME/config.yaml` 的原生 `skills.external_dirs`，并把非敏感 binding 持久化为 `workbench-desired-state.v1.json`。绑定前递归拒绝不存在、无 `SKILL.md`、重复、超过 50,000 项/32 层或包含 symlink 的技能树；provider credential ref 必须匹配当前 App-owned provider。provider 更新、runtime restart 和 repair 都保留并重新验证该 binding。

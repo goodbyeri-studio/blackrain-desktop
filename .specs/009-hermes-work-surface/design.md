@@ -219,6 +219,7 @@ apps/desktop/src/features/work/
 - `engine.preferred: work` 的已激活工作台进入 WORK surface。
 - `engine.preferred: code` 进入现有 CODE surface。
 - 尚未安装/激活工作台时停在工作台流程，不生成虚假的 WORK 会话。
+- Composer 的项目文件引用由 `src/services/tauri.ts` 打开选择器，但路径不在前端直接拼 prompt；Tauri command 把结构化 `projectFileRefs` 交给 shared `workbench_core`，由 Core 复核其位于 activation 项目根内并写入 Hermes `instructions`。锁定 `/v1/runs` 不支持真实附件上传，因此 UI 必须称为“项目文件引用”。
 
 ## 视觉策略
 

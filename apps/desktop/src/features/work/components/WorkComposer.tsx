@@ -1,6 +1,8 @@
 import { useRef, type KeyboardEvent } from "react";
 import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
+import Paperclip from "lucide-react/dist/esm/icons/paperclip";
 import Square from "lucide-react/dist/esm/icons/square";
+import X from "lucide-react/dist/esm/icons/x";
 
 type WorkComposerProps = {
   value: string;
@@ -8,7 +10,12 @@ type WorkComposerProps = {
   running: boolean;
   canStop: boolean;
   canResume: boolean;
+  projectFileRefs: string[];
+  canAttach: boolean;
+  attachmentError: string | null;
   onChange: (value: string) => void;
+  onAddFiles: () => void;
+  onRemoveFile: (path: string) => void;
   onSubmit: () => void;
   onStop: () => void;
   onResume: () => void;
@@ -20,7 +27,12 @@ export function WorkComposer({
   running,
   canStop,
   canResume,
+  projectFileRefs,
+  canAttach,
+  attachmentError,
   onChange,
+  onAddFiles,
+  onRemoveFile,
   onSubmit,
   onStop,
   onResume,
@@ -40,33 +52,67 @@ export function WorkComposer({
   return (
     <div className="work-composer-wrap">
       <div className="work-composer">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={running ? "Hermes 正在执行任务…" : "描述你希望 Office 工作台完成的任务"}
-          rows={1}
-          disabled={disabled || running}
-          aria-label="Office 任务指令"
-        />
-        <div className="work-composer-actions">
-          {canResume ? (
-            <button type="button" className="ghost" disabled={disabled} onClick={onResume}>
-              恢复连接
+        {projectFileRefs.length > 0 ? (
+          <div className="work-composer-files" aria-label="项目文件引用">
+            {projectFileRefs.map((path) => {
+              const parts = path.split(/[\\/]/).filter(Boolean);
+              const name = parts[parts.length - 1] ?? path;
+              return (
+                <span key={path} className="work-composer-file" title={path}>
+                  <Paperclip aria-hidden />
+                  <span>{name}</span>
+                  <button
+                    type="button"
+                    disabled={disabled || running}
+                    onClick={() => onRemoveFile(path)}
+                    aria-label={`移除项目文件 ${name}`}
+                  >
+                    <X aria-hidden />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
+        <div className="work-composer-input-row">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={running ? "Hermes 正在执行任务…" : "描述你希望 Office 工作台完成的任务"}
+            rows={1}
+            disabled={disabled || running}
+            aria-label="Office 任务指令"
+          />
+          <div className="work-composer-actions">
+            <button
+              type="button"
+              className="ghost work-attach-button"
+              disabled={!canAttach || disabled || running}
+              onClick={onAddFiles}
+              aria-label="添加项目文件引用"
+            >
+              <Paperclip aria-hidden />
             </button>
-          ) : null}
-          {canStop ? (
-            <button type="button" className="work-stop-button" disabled={disabled} onClick={onStop} aria-label="停止任务">
-              <Square aria-hidden />
-            </button>
-          ) : (
-            <button type="button" className="work-send-button" disabled={!canSubmit} onClick={onSubmit} aria-label="发送任务">
-              <ArrowUp aria-hidden />
-            </button>
-          )}
+            {canResume ? (
+              <button type="button" className="ghost" disabled={disabled} onClick={onResume}>
+                恢复连接
+              </button>
+            ) : null}
+            {canStop ? (
+              <button type="button" className="work-stop-button" disabled={disabled} onClick={onStop} aria-label="停止任务">
+                <Square aria-hidden />
+              </button>
+            ) : (
+              <button type="button" className="work-send-button" disabled={!canSubmit} onClick={onSubmit} aria-label="发送任务">
+                <ArrowUp aria-hidden />
+              </button>
+            )}
+          </div>
         </div>
       </div>
+      {attachmentError ? <small role="alert">{attachmentError}</small> : null}
       <small>Hermes 可能调用本工作台声明的工具；高影响操作会先请求审批。</small>
     </div>
   );

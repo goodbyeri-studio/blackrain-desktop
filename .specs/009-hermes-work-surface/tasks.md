@@ -153,7 +153,7 @@
 - [ ] 完成键盘、焦点、ARIA、缩放和 Windows 高 DPI 检查
 - [x] WORK/CODE 切换不丢各自任务状态，不产生两套壳 chrome
 
-> 2026-07-12：Home 已提供 Office 工作台入口，`MainApp` 持有独立 `useWorkController` 并在现有主布局的 Home surface 槽位挂载 WORK；`App.tsx` 只新增样式导入。WORK surface 已连接真实 Tauri/controller actions，任务 sidebar、runtime/repair、消息 Markdown、reasoning、工具、审批、user-input 缺能力说明、输出文件、诊断和 Stop/Resume 均有组件与测试。Composer 的附件/队列、任务删除 UI、键盘/Windows 高 DPI 全矩阵仍未完成，因此相关总项保持未勾选。浏览器 fixture 只用于可见 QA 且已删除，不替代 Tauri WebView、真实 Hermes 或 Windows 验收。
+> 2026-07-12：Home 已提供 Office 工作台入口，`MainApp` 持有独立 `useWorkController` 并在现有主布局的 Home surface 槽位挂载 WORK；`App.tsx` 只新增样式导入。WORK surface 已连接真实 Tauri/controller actions，任务 sidebar、runtime/repair、消息 Markdown、reasoning、工具、审批、user-input 缺能力说明、输出文件、诊断和 Stop/Resume 均有组件与测试。Composer 已增加最多 16 个“项目文件引用”：picker 从已验证项目根打开，Core 对 start/continue 重新校验存在性、目录逃逸和 symlink，并把项目根/引用写入 Hermes instructions，不内联内容或伪装二进制上传。引用尚未作为独立 transcript metadata 持久化，queue、任务删除 UI、键盘/Windows 高 DPI 全矩阵也仍未完成，因此相关总项保持未勾选。浏览器 fixture 只用于可见 QA 且已删除，不替代 Tauri WebView、真实 Hermes 或 Windows 验收。
 
 ## 阶段 10：Hermes Desktop 参考能力迁移
 

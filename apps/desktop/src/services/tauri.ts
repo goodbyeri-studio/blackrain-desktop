@@ -98,6 +98,18 @@ export async function pickImageFiles(): Promise<string[]> {
   return Array.isArray(selection) ? selection : [selection];
 }
 
+export async function pickWorkProjectFiles(projectPath: string): Promise<string[]> {
+  const selection = await open({
+    multiple: true,
+    directory: false,
+    defaultPath: projectPath,
+  });
+  if (!selection) {
+    return [];
+  }
+  return Array.isArray(selection) ? selection : [selection];
+}
+
 export async function exportMarkdownFile(
   content: string,
   defaultFileName = "plan.md",

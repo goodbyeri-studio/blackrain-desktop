@@ -12,6 +12,7 @@ use crate::shared::hermes_core::config::{
 pub(crate) const ACTIVATED_WORKBENCH_SCHEMA_VERSION: u32 = 1;
 const ACTIVATION_STORE_SCHEMA_VERSION: u32 = 1;
 const MAX_ACTIVATIONS: usize = 1024;
+const MAX_PROJECT_FILE_REFERENCES: usize = 16;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ActivatedWorkbenchStore {
@@ -244,6 +245,99 @@ impl ActivatedWorkbenchContext {
         desired.validate()?;
         Ok(desired)
     }
+
+    pub(crate) fn build_run_instructions(
+        &self,
+        project_file_refs: &[String],
+        additional_instructions: Option<&str>,
+    ) -> Result<String, String> {
+        self.validate()?;
+        let project_file_refs =
+            resolve_project_file_references(&self.project.path, project_file_refs)?;
+        let mut instructions = format!(
+            "BlackRain verified WORK activation context:\n- workbench: {}@{}\n- project root: {}\n- permission grant: {}\nUse the verified project root as the default workspace. Follow the activation's file permissions and approval gates.",
+            self.workbench_id,
+            self.workbench_version,
+            serde_json::to_string(&self.project.path)
+                .map_err(|error| format!("Unable to serialize WORK project path: {error}"))?,
+            self.permissions.grant_id,
+        );
+        if !project_file_refs.is_empty() {
+            instructions.push_str(
+                "\nThe user selected these existing files inside the verified project as references. Their contents are not inlined; read them only when needed:",
+            );
+            for path in project_file_refs {
+                instructions.push_str("\n- ");
+                instructions.push_str(&serde_json::to_string(&path).map_err(|error| {
+                    format!("Unable to serialize WORK project file reference: {error}")
+                })?);
+            }
+        }
+        if let Some(additional) = additional_instructions {
+            instructions.push_str("\nAdditional task instructions:\n");
+            instructions.push_str(additional);
+        }
+        if instructions.chars().count() > 65_536 {
+            return Err("WORK runtime instructions exceed the bounded limit.".into());
+        }
+        Ok(instructions)
+    }
+}
+
+fn resolve_project_file_references(
+    project_path: &str,
+    references: &[String],
+) -> Result<Vec<String>, String> {
+    if references.len() > MAX_PROJECT_FILE_REFERENCES {
+        return Err(format!(
+            "WORK accepts at most {MAX_PROJECT_FILE_REFERENCES} project file references per run."
+        ));
+    }
+    if references.is_empty() {
+        return Ok(Vec::new());
+    }
+    let project_root = PathBuf::from(project_path);
+    if !project_root.is_dir() {
+        return Err("Activated WORK project root does not exist or is not a directory.".into());
+    }
+    reject_symlink(&project_root)?;
+    let canonical_project = project_root
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve WORK project root: {error}"))?;
+    let mut resolved = Vec::with_capacity(references.len());
+    let mut seen = HashSet::new();
+    for reference in references {
+        validate_absolute_path("project file reference", reference)?;
+        if reference.len() > 4096 || !path_contains(project_path, reference) {
+            return Err("WORK project file reference escaped the verified project root.".into());
+        }
+        let candidate = PathBuf::from(reference);
+        if !candidate.is_file() {
+            return Err(
+                "WORK project file reference does not exist or is not a regular file.".into(),
+            );
+        }
+        let relative = candidate
+            .strip_prefix(&project_root)
+            .map_err(|_| "WORK project file reference escaped the verified project root.")?;
+        let mut current = project_root.clone();
+        for component in relative.components() {
+            current.push(component.as_os_str());
+            reject_symlink(&current)?;
+        }
+        let canonical_candidate = candidate
+            .canonicalize()
+            .map_err(|error| format!("Unable to resolve WORK project file reference: {error}"))?;
+        if !canonical_candidate.starts_with(&canonical_project) {
+            return Err("WORK project file reference escaped the verified project root.".into());
+        }
+        let key = normalize_path(&canonical_candidate.to_string_lossy());
+        if !seen.insert(key) {
+            return Err("WORK project file references must be unique.".into());
+        }
+        resolved.push(candidate.to_string_lossy().to_string());
+    }
+    Ok(resolved)
 }
 
 impl ActivatedWorkbenchStore {
@@ -449,6 +543,7 @@ fn validate_unique_refs<'a>(
 fn validate_absolute_path(label: &str, value: &str) -> Result<(), String> {
     if value.is_empty()
         || value.contains('\0')
+        || value.chars().any(char::is_control)
         || !is_portable_absolute_path(value)
         || value.split(['/', '\\']).any(|segment| segment == "..")
     {
@@ -485,7 +580,7 @@ fn reject_symlink(path: &Path) -> Result<(), String> {
     let metadata = fs::symlink_metadata(path).map_err(|error| error.to_string())?;
     if metadata.file_type().is_symlink() {
         return Err(format!(
-            "Activated workbench store path cannot be a symlink: {}",
+            "Activated workbench path cannot be a symlink: {}",
             path.display()
         ));
     }
@@ -565,6 +660,71 @@ mod tests {
             .validate()
             .unwrap_err()
             .contains("at most one provider credential"));
+    }
+
+    #[test]
+    fn builds_core_owned_project_context_and_validates_file_references() {
+        let root = temp_root();
+        let project = root.join("Office Project");
+        fs::create_dir_all(project.join("reports")).unwrap();
+        let report = project.join("reports").join("quarterly.xlsx");
+        fs::write(&report, "fixture").unwrap();
+        let outside = root.join("outside.xlsx");
+        fs::write(&outside, "fixture").unwrap();
+
+        let mut context = fixture();
+        context.project.path = project.to_string_lossy().to_string();
+        context.permissions.files[0].path = context.project.path.clone();
+        let instructions = context
+            .build_run_instructions(
+                &[report.to_string_lossy().to_string()],
+                Some("优先检查公式错误。"),
+            )
+            .unwrap();
+        assert!(instructions.contains("BlackRain verified WORK activation context"));
+        assert!(instructions.contains(&serde_json::to_string(&context.project.path).unwrap()));
+        assert!(instructions.contains(&serde_json::to_string(&report).unwrap()));
+        assert!(instructions.contains("优先检查公式错误。"));
+        assert!(!instructions.contains("fixture"));
+
+        assert!(context
+            .build_run_instructions(&[outside.to_string_lossy().to_string()], None)
+            .unwrap_err()
+            .contains("escaped"));
+        assert!(context
+            .build_run_instructions(
+                &[
+                    report.to_string_lossy().to_string(),
+                    report.to_string_lossy().to_string(),
+                ],
+                None,
+            )
+            .unwrap_err()
+            .contains("unique"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlinked_project_file_references() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root();
+        let project = root.join("project");
+        fs::create_dir_all(&project).unwrap();
+        let outside = root.join("outside.txt");
+        fs::write(&outside, "fixture").unwrap();
+        let linked = project.join("linked.txt");
+        symlink(&outside, &linked).unwrap();
+        let mut context = fixture();
+        context.project.path = project.to_string_lossy().to_string();
+        context.permissions.files[0].path = context.project.path.clone();
+
+        assert!(context
+            .build_run_instructions(&[linked.to_string_lossy().to_string()], None)
+            .unwrap_err()
+            .contains("symlink"));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

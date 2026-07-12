@@ -12,8 +12,10 @@ import type {
 } from "../types";
 import { buildVisibleWorkEvents, resolveProjectOutputPath } from "../state/selectors";
 import { WorkSurface } from "./WorkSurface";
+import { pickWorkProjectFiles } from "@/services/tauri";
 
 vi.mock("@/services/tauri", () => ({
+  pickWorkProjectFiles: vi.fn(),
   revealPathInFileManager: vi.fn(),
 }));
 
@@ -145,6 +147,33 @@ describe("WorkSurface", () => {
       expect(workController.startTask).toHaveBeenCalledWith({
         activationId: activation.activationId,
         prompt: "整理季度报告",
+        projectFileRefs: [],
+      });
+    });
+  });
+
+  it("adds only current-project file references to the structured task input", async () => {
+    const inside = `${activation.project.path}\\reports\\quarterly.xlsx`;
+    vi.mocked(pickWorkProjectFiles).mockResolvedValue([
+      inside,
+      "C:\\Users\\demo\\Other\\secret.xlsx",
+    ]);
+    const workController = controller();
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByLabelText("添加项目文件引用"));
+    await waitFor(() => expect(screen.getByText("quarterly.xlsx")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toContain("当前已验证项目目录");
+    fireEvent.change(screen.getByLabelText("Office 任务指令"), {
+      target: { value: "检查这份表格" },
+    });
+    fireEvent.click(screen.getByLabelText("发送任务"));
+
+    await waitFor(() => {
+      expect(workController.startTask).toHaveBeenCalledWith({
+        activationId: activation.activationId,
+        prompt: "检查这份表格",
+        projectFileRefs: [inside],
       });
     });
   });

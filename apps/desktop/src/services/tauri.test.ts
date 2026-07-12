@@ -62,6 +62,7 @@ import {
   tailscaleDaemonStop,
   tailscaleStatus,
   pickImageFiles,
+  pickWorkProjectFiles,
   pickWorkspacePaths,
   writeGlobalAgentsMd,
   writeGlobalCodexConfigToml,
@@ -168,6 +169,20 @@ describe("tauri invoke wrappers", () => {
           ],
         },
       ],
+    });
+  });
+
+  it("opens the WORK file picker at the verified project root", async () => {
+    const openMock = vi.mocked(open);
+    openMock.mockResolvedValueOnce(["C:\\Project\\report.xlsx"]);
+
+    await expect(pickWorkProjectFiles("C:\\Project")).resolves.toEqual([
+      "C:\\Project\\report.xlsx",
+    ]);
+    expect(openMock).toHaveBeenCalledWith({
+      multiple: true,
+      directory: false,
+      defaultPath: "C:\\Project",
     });
   });
 
