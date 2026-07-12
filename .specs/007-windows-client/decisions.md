@@ -7,6 +7,14 @@
 - 影响范围:发布元数据、支持文案、安装验证矩阵和 Mica 降级策略。
 - 后续复查条件:首个真实 NSIS 包在 Win11 与至少一台 Win10 环境完成 SmartScreen/安装/启动实测,并获得证书成本报价后拍板。
 
+## 2026-07-12：Windows 发布入口不得跳过 WORK 专项
+
+- 决策：正式 `release-client-win.ps1` 在 vendor/build 前无条件跑 Hermes static contract；常规 checks 覆盖前端 typecheck/test/lint/DS/codemod、`doctor:win`、Rust check 及 Hermes/workbench/plugin 专项，再进入 NSIS build。`-SkipChecks` 不得绕过上游静态门禁与 runtime vendor。
+- 原因：Windows 是唯一 MVP 发布线，旧入口只跑 typecheck/test/cargo check，不能证明 WORK runtime、工作台 Core 和共享 chrome 的专项边界没有回归。
+- 替代方案：依赖维护者手工命令、只靠当前部分 CI、或打包后再人工发现缺口。
+- 影响范围：Windows 本机发布耗时、失败诊断、spec 007/009 发布矩阵。
+- 后续复查条件：首次 Windows 实跑记录完整耗时；后续可通过缓存优化，但不得降低门禁覆盖。
+
 ## 2026-06-30:MVP 仅发行 Windows 版,macOS 推迟到 post-MVP
 
 - 决策:**v1 / MVP 只发行 Windows 客户端;macOS 客户端整体推迟到 post-MVP**(具体节点未定,或在 MVP 跑通后另起仓 / 独立维护通道)。本仓 `apps/desktop` 仍是单一代码库,但日常开发、CI、打包、发布、用户支持全部按 Windows-only 推进。

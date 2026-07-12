@@ -10,7 +10,7 @@
 | 2026-07-03 | Codex 版本锁定更新 | `codex-upstream` checkout `da4c8ca`;`codex.exe --version` | 部分通过 | CLI 编译与 quick-xml 安全修复已确认;app-server 编译、协议四探针、Windows 客户端 E2E 仍未跑,下方矩阵继续追 |
 | 2026-07-12 | Codex 稳定锁升级候选基础验证 | `cargo check -p codex-app-server-protocol -p codex-app-server` | 部分通过 | rust-v0.144.1 / `44918ea` 在 macOS 编译检查通过；Windows 协议、GUI、NSIS 与真实对话均未跑 |
 | 2026-07-11 | NSIS/Windows 资源配置存在性 | 检查 `tauri.windows.conf.json` | 配置存在 | 已锁 `targets:["nsis"]` 并映射 codex/Python/gateway/OfficeCLI/plugins/workbench;未执行构建/解包 smoke |
-| 2026-07-11 | Windows 本机发布脚本存在性 | 检查 `scripts/release-client-win.ps1` | 代码存在 | 会 vendor runtime 并调用检查/`tauri:build:win`;未有实跑产物 |
+| 2026-07-12 | Windows 本机发布脚本存在性 | 静态检查 `scripts/release-client-win.ps1` | 代码存在 | 会先跑 Hermes static contract，vendor runtime，并调用前端 typecheck/test/lint/DS/doctor、Rust check/Hermes/workbench/plugin 专项和 `tauri:build:win`；当前 macOS 无 `pwsh`，未有 Windows 实跑产物 |
 | 2026-07-11 | CI 现状 | 检查 `.github/workflows/ci.yml` | 部分存在 | Ubuntu 跑 JS typecheck/test,Windows 跑 Rust cargo check;不打 NSIS,不等于 Windows 发布矩阵 |
 | YYYY-MM-DD | doctor.mjs 实跑 | `cd apps\desktop; npm run doctor:win` | 未跑 | 缺 cmake / clang 时应给出 choco 提示 |
 | YYYY-MM-DD | dev-client.ps1 启动 | `pwsh scripts/dev-client.ps1` | 未跑 | 期望 90 秒内 GUI 首帧 + 能选模型 |

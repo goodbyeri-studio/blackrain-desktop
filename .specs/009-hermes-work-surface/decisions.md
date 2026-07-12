@@ -109,6 +109,7 @@
 ## 2026-07-12：商业计量与 BYOK 不在 WORK 客户端隐式定案
 
 - 决策：credit/套餐/BYOK 服从 spec 002，WORK→new-api 路径服从 spec 003；009 只接收结构化 provider/model desired state 和 secret reference。
+- 当前实现校准：Hermes config/keyring/launch primitive 已存在，但产品代码尚无 App-owned producer 调用 `configure_runtime_desired_state` 与 `provider_secret_set`。因此首次 runtime start 会诚实返回未配置/缺凭据，不能把底层 primitive 写成端到端 provider 已接通。
 - 原因：客户端私自固化 provider key、模型路由或套餐判断会绕过服务端计量和统一配置边界。
 - 替代方案：为了先跑通，在 Hermes config 中直接写死生产 key 或 BYOK 策略。
 - 影响范围：阶段 2、5、11、12 和设置 UI。
@@ -346,6 +347,14 @@
 - 替代方案：跟随 Hermes `main`、只跑 `cargo check`、直接覆盖旧 fixtures、依赖 README 路由清单、或由 runtime vendor 阶段才发现许可证/依赖漂移。
 - 影响范围：Hermes 版本升级、Windows runtime manifest/vendor、spec 003/009 verification、fixtures 与维护者 runbook。
 - 后续复查条件：上游测试重命名或协议升级时必须先让旧入口失败，再审阅上游 diff、更新 route/feature/fixture allowlist 和存证；脚本通过仍不替代真实 new-api/Windows/Office 产品验收。
+
+## 2026-07-12：Windows 正式发布脚本必须执行 WORK 专项门禁
+
+- 决策：`release-client-win.ps1` 在任何 vendor/build 前无条件运行 Hermes static contract；未使用 `-SkipChecks` 时必须运行前端 typecheck/test/lint/DS/codemod、`doctor:win`、Rust `cargo check` 以及 Hermes/workbench/plugin 专项测试，再允许 NSIS build。`-SkipChecks` 只用于已明确承担风险的本地重试，不能绕过上游锁/hash/route/fixture 静态门禁和 runtime vendor。
+- 原因：旧发布脚本只跑 typecheck/test/cargo check，可能在 WORK 主链专项、DS 或 Hermes 上游 contract 已坏时仍产出安装包；Windows 是唯一 MVP 发布线，正式入口必须覆盖核心执行器。
+- 替代方案：依赖开发者手工先跑命令、只靠 Ubuntu/Windows CI 的现有部分检查、或等安装后人工发现 runtime/contract 缺失。
+- 影响范围：spec 007/009 Windows verification、release script、Hermes runtime vendor 与 NSIS 构建前置条件。
+- 后续复查条件：首次 Windows 实跑需记录耗时和失败点；若专项总时长不可接受，只能通过缓存/CI 复用证据优化，不得静默删除发布门禁。
 
 ## 2026-07-12：系统恢复、前台或网络在线时只重新对账并挂接已有 run
 
