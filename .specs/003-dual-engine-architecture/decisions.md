@@ -41,6 +41,14 @@
 - 影响范围：`gateway` 定位收窄为「仅 CODE 路径」；关联 spec `001`、`002`。
 - 后续复查条件：new-api 若正式支持 Responses 计量，可重新评估 CODE 路径是否还需网关。
 
+## 2026-07-12：WORK 直连 new-api 使用模型凭据，不使用短期账号 JWT
+
+- 决策：目标 WORK 路径仍是 Hermes→Chat Completions→new-api，不经过 CODE 翻译网关。Hermes `key_env` 接收的是 account broker 签发的长期、可撤销 model token；Supabase access JWT 只用于 broker 身份兑换，不能充当常驻 Hermes provider key。
+- 原因：协议路径是否零翻译与账号凭据是否适合长任务是两个问题。Supabase JWT 自动刷新，但 Hermes 在 agent 创建时解析 provider credential；强行直塞会让运行中任务继续持旧 token。new-api 原生 token 支持额度、模型限制、过期和撤销，更符合模型调用凭据语义。
+- 替代方案：WORK 复用 CODE 本地网关、每次 JWT 刷新重启运行中的 Hermes、或由工作台包持有 model token。
+- 影响范围：002 account broker/credit 真源、009 provider producer、Hermes config/keyring 和 Windows 长任务验证；不改变 WORK 零翻译铁律。
+- 后续复查条件：broker 尚未实现；在真实签发、撤销、余额同步与 Windows 长任务跨刷新验证完成前，WORK 生产 credit 仍未闭环。
+
 ## 2026-06-25：GUI = 留 CodexMonitor/Tauri 壳，借 Hermes Desktop 的 MIT 组件，不 fork 其壳
 
 - 决策：壳继续用我方 CodexMonitor/Tauri；从 Hermes Desktop（Electron+React，MIT）**摘 React 组件**（skills/memory/provider 面板）放进我方壳。不 fork Hermes Desktop 当壳。

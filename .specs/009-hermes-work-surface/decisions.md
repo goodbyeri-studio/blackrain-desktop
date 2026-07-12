@@ -472,6 +472,14 @@
 - 影响范围：`hermes_core/config.rs`、`hermes_core/runtime.rs`、008 Office install/verify/activation producer 和阶段 12 Office 黄金流程。
 - 后续复查条件：008 producer 已完成首个代码纵切；Windows 实测仍必须证明受控安装、SHA-256、`--version`、权限、真实 Hermes 工具发现与卸载行为。在这些证据完成前不得声称 Office 可发布。
 
+## 2026-07-12：首版不启用任意 Hermes model_routes
+
+- 决策：当前 task/continue/follow-up 的可选 `model` 只允许等于 App-owned `desired-state.v1.json` 的默认模型；其他值在创建 run 前以 `hermes_model_route_unavailable` fail closed。首版不生成 `platforms.api_server.extra.model_routes`，也不展示可自由选择的 WORK 模型目录。
+- 原因：锁定 Hermes `/v1/runs` 只有 `model` 命中 `model_routes` alias 时才覆盖全局 provider/model；未知字符串会继续使用默认模型，造成 UI 声称切换但实际没切。route 本身支持 `provider: custom:blackrain-new-api` 并通过 provider `key_env` 解析 secret，可以在未来安全使用，但 alias 必须来自 002 account broker/new-api 的可信允许目录，而不是前端或工作台自由输入。
+- 替代方案：把任意 new-api 模型名原样发给 `/v1/runs`、在 route 中写 inline `api_key`、让工作台包定义 provider/base URL，或现在硬编码 flash/pro 并假设生产 token 一定允许。
+- 影响范围：Hermes runtime model gate、task/follow-up commands、未来模型选择器、config renderer 和 002 provider producer。
+- 后续复查条件：account broker 返回版本化 allowed-model catalog 后，App 可生成只含 alias/model/`custom:blackrain-new-api` provider 的 routes，并以 `/v1/models` 真实发现结果驱动 UI；必须补 route 切换、token model limit、未知 alias 和 secret 不落盘验证。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说

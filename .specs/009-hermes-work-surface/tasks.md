@@ -274,7 +274,7 @@
 
 ## 阶段 15：核心闭环后的能力评估
 
-- [ ] 评估 Hermes `model_routes` 是否进入工作台模型路由
+- [x] 评估 Hermes `model_routes` 是否进入工作台模型路由；首版不启用任意 route，只允许 App-managed 默认模型
 - [ ] 评估多 Profile 是否映射工作台隔离，避免与 008 状态重复
 - [ ] 评估 Memory provider UI 与外置共享记忆策略
 - [ ] 评估 session export 是否成为交付/审计能力

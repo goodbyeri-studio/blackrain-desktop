@@ -41,6 +41,8 @@
 
 - [x] 在 design/decisions 记录桌面侧 `base_url + Bearer <jwt>` 接缝目标。
 - [ ] 决定并验证生产 new-api 如何完成 Supabase JWT 校验、credit 扣款；确认 `proxy.py` 保留、替换或重定位。
+  - [x] 冻结 WORK 凭据边界：短期 Supabase access JWT 只可用于服务端身份兑换，不直接注入常驻 Hermes `key_env`
+  - [ ] 实现并部署 Supabase 身份到长期、可撤销、可限额 model token 的 account broker，并冻结余额/ledger 与 new-api quota 的单一真源
 - [ ] 为 WORK/Hermes 接入同一 credit 余额与结构化错误链路。
 - [ ] 统一 001/002/003 对 BYOK 是否绕过 new-api 的口径，不在本次文档治理中拍板。
 
