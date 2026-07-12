@@ -202,6 +202,8 @@
 ## 阶段 12：真实模型、工具和 Office 纵切
 
 - [ ] 锁定 Hermes 经 new-api/国产模型完成真实流式 run
+  - [x] 锁定 Hermes `9de9c25` 真进程经 Rust renderer 锁定的 managed config + 本地确定性 Chat Completions 桩完成 `/v1/runs`/SSE/completed
+  - [ ] 使用生产 account broker/model token 经真实 new-api/国产模型完成同一纵切
 - [ ] 完成至少一个安全只读工具调用
 - [ ] 完成一个需要审批的写/执行工具调用
 - [ ] 完成用户拒绝审批后的可解释收敛
