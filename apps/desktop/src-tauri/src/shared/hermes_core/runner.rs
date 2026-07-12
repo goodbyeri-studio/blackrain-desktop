@@ -681,6 +681,75 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn task_persistence_failure_stops_the_new_run_and_releases_the_registry() {
+        let root = temp_root();
+        let store = Arc::new(Mutex::new(HermesTaskStore::new(&root)));
+        store.lock().await.upsert_task(&task()).unwrap();
+        let blocked_journal = store.lock().await.paths.events.join("task-runner.ndjson");
+        fs::create_dir_all(&blocked_journal).unwrap();
+        let registry = Arc::new(HermesRunRegistry::default());
+        let server = FakeHermesServer::spawn(vec![
+            FakeExchange::json(
+                "POST",
+                "/v1/runs",
+                202,
+                r#"{"run_id":"run-without-local-journal","status":"started"}"#,
+            ),
+            FakeExchange::json(
+                "POST",
+                "/v1/runs/run-without-local-journal/stop",
+                200,
+                r#"{"run_id":"run-without-local-journal","status":"stopping"}"#,
+            ),
+        ])
+        .await
+        .unwrap();
+        let client = HermesApiClient::new(
+            &server.base_url,
+            "blackrain-test-bearer-runner-persistence-123456789",
+        )
+        .unwrap();
+
+        let error = match start_task_run(
+            &store,
+            &registry,
+            &client,
+            "task-runner",
+            &HermesRunCreateRequest {
+                input: serde_json::Value::String("生成报告".into()),
+                instructions: None,
+                session_id: None,
+                model: Some("office-fast".into()),
+                conversation_history: Vec::new(),
+            },
+            WorkRunPresentation {
+                user_text: "生成报告".into(),
+                project_file_refs: Vec::new(),
+                source_follow_up_id: None,
+            },
+        )
+        .await
+        {
+            Ok(_) => panic!("a run without a durable local journal must not be attached"),
+            Err(error) => error,
+        };
+
+        assert!(matches!(error.kind, WorkErrorKind::Persistence));
+        let failed_task = store.lock().await.load_task("task-runner").unwrap();
+        assert_eq!(failed_task.status, WorkTaskStatus::Draft);
+        assert_eq!(failed_task.active_run_id, None);
+        assert_eq!(failed_task.hermes_session_id, None);
+        let requests = server.finish().await.unwrap();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(requests[1].method, "POST");
+        assert_eq!(requests[1].path, "/v1/runs/run-without-local-journal/stop");
+
+        registry.reserve("task-runner").await.unwrap();
+        registry.release("task-runner", None).await;
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn continuation_preserves_the_existing_session_scope() {
         let root = temp_root();
         let store = Arc::new(Mutex::new(HermesTaskStore::new(&root)));

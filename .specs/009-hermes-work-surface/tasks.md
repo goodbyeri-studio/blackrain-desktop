@@ -205,6 +205,10 @@
   - [x] SSE 断开先查询 status，有限重连、replay 去重，耗尽后持久化 degraded/resumable
   - [ ] 真实 new-api 5xx/模型超时/断网/工具子进程崩溃 E2E
 - [ ] 失败注入：端口冲突、runtime 文件损坏、config 损坏、磁盘不足
+  - [x] 未知端口实例与 bearer mismatch fail closed，不自动接管
+  - [x] runtime 关键文件缺失报告 not installed，config 漂移/损坏要求显式 repair 并保留 last-good/quarantine
+  - [x] run 已创建但本地 journal 持久化失败时，不附着 task，best-effort stop 上游并释放 operation reserve
+  - [ ] Windows 真实磁盘不足、只读 App data、runtime 文件损坏和 repair E2E
 - [ ] 失败注入：App 强退、Hermes 强退、睡眠恢复、系统重启
 - [ ] 审核所有日志和诊断包的 secret/用户内容脱敏
 - [ ] 验证 loopback/bearer、权限和路径边界

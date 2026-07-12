@@ -155,6 +155,14 @@
 - 影响范围：`client.rs`、`runner.rs`、TaskStore、follow-up queue、阶段 12/13 真实模型故障矩阵。
 - 后续复查条件：Hermes 提供正式 idempotency key 或 request-id→run 查询 contract 后，增加可证明的创建对账；在此之前 UI 只能提示创建结果不确定并允许用户显式检查/重试，不能声称 exactly-once。
 
+## 2026-07-12：run id 返回后本地持久化失败必须停止上游
+
+- 决策：`POST /v1/runs` 成功后，若 TaskStore 无法 journal-first 写入本地用户消息或 snapshot，runner 立即取消本地 stream token、best-effort 调用 `/stop`、释放 registry，并把持久化错误返回调用方。没有耐久 task/run 映射时不启动 SSE、不向前端 emit，也不把 task 标为 running。
+- 原因：Hermes 已经可能开始执行工具；若只返回磁盘错误而不停止，上游会形成用户看不见、App 无法恢复的失控 run。反过来，先把 UI 标 running 再异步写 journal 会破坏“持久化后可见”铁律。
+- 替代方案：忽略 journal 错误继续 stream、只在内存保存 run id、或等 App 下次启动扫描 session 猜测对应 run。
+- 影响范围：`runner.rs`、TaskStore、阶段 13 磁盘/权限故障注入和 Windows App-data 验收。
+- 后续复查条件：Windows 实机注入磁盘不足、只读 App data、杀进程和 stop 请求失败；当前 fake server 只证明 stop 被尝试以及本地状态不附着，不能证明上游一定及时停止。
+
 ## 2026-07-12：Hermes supervisor 拥有完整子进程树
 
 - 决策：App `ExitRequested` 先取消受控 SSE，再等待 Hermes supervisor stop 完成后真正退出。Windows 继续使用 `taskkill /T`（超时后 `/F`）处理 Hermes 及其 stdio MCP 后代；Unix 开发运行把 Hermes 放入独立 process group，graceful stop 对整组发送 SIGTERM，父进程退出后仍对残留组发送 SIGKILL。
