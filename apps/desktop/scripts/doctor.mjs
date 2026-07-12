@@ -58,6 +58,7 @@ function verifyHermesRuntime() {
   const required = [
     "venv/Scripts/python.exe",
     "venv/Scripts/hermes.exe",
+    "blackrain-mcp-router.py",
     "packages.lock.txt",
     "provenance/runtime-manifest.json",
     "provenance/build.json",
@@ -117,11 +118,20 @@ function verifyHermesRuntime() {
     errors.push("Hermes runtime manifest does not match the frozen source manifest");
   }
   let expectedMcpVersion = null;
+  let expectedRouterSha256 = null;
   try {
     const manifest = JSON.parse(fs.readFileSync(sourceManifest, "utf8"));
     expectedMcpVersion = manifest.requiredDistributions?.mcp ?? null;
+    expectedRouterSha256 = manifest.blackrainMcpRouter?.sha256 ?? null;
     if (!expectedMcpVersion) {
       errors.push("Hermes runtime manifest does not declare the required MCP SDK version");
+    }
+    if (!expectedRouterSha256) {
+      errors.push("Hermes runtime manifest does not declare the MCP router hash");
+    } else if (
+      fileSha256(path.join(runtimeRoot, "blackrain-mcp-router.py")) !== expectedRouterSha256
+    ) {
+      errors.push("Hermes runtime MCP router does not match the frozen source hash");
     }
   } catch (error) {
     errors.push(`Hermes runtime manifest is invalid: ${error.message}`);
@@ -199,12 +209,14 @@ function verifyHermesRuntime() {
   }
 
   const python = path.join(runtimeRoot, "venv", "Scripts", "python.exe");
+  const routerScript = path.join(runtimeRoot, "blackrain-mcp-router.py");
   const expectedMcpLiteral = JSON.stringify(expectedMcpVersion ?? "__missing__");
   const smoke = spawnSync(
     python,
     [
       "-c",
-      `import asyncio, importlib.metadata as m, importlib.util; import aiohttp, mcp, yaml, hermes_cli; import gateway.platforms.api_server; import tools.mcp_tool; assert m.version('mcp') == ${expectedMcpLiteral}; assert importlib.util.find_spec('uvloop') is None; asyncio.run(asyncio.sleep(0))`,
+      `import asyncio, importlib.metadata as m, importlib.util, sys; import aiohttp, mcp, yaml, hermes_cli; import gateway.platforms.api_server; import tools.mcp_tool; assert m.version('mcp') == ${expectedMcpLiteral}; assert importlib.util.find_spec('uvloop') is None; compile(open(sys.argv[1], encoding='utf-8').read(), sys.argv[1], 'exec'); asyncio.run(asyncio.sleep(0))`,
+      routerScript,
     ],
     { encoding: "utf8", windowsHide: true, timeout: 30_000 },
   );

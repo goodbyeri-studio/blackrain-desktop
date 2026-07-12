@@ -31,6 +31,12 @@
     "mcp": "1.26.0",
     "starlette": "1.0.1"
   },
+  "blackrainMcpRouter": {
+    "source": "resources/mcp-router/blackrain_mcp_router.py",
+    "sha256": "0039d0507c1006362d34195e583c11b6867c3e88aaf42bbd3d0fc441c024016a",
+    "runtimePath": "blackrain-mcp-router.py",
+    "schemaVersion": 1
+  },
   "excludedExtras": [
     "messaging",
     "edge-tts",
@@ -54,6 +60,7 @@
   "entrypoints": {
     "hermes": "venv/Scripts/hermes.exe",
     "python": "venv/Scripts/python.exe",
+    "mcpRouter": "blackrain-mcp-router.py",
     "gatewayArgs": ["gateway"]
   }
 }

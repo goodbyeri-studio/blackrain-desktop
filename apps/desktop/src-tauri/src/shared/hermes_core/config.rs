@@ -10,6 +10,7 @@ const HERMES_WORKBENCH_BINDING_SCHEMA_VERSION: u32 = 1;
 const MAX_SKILL_TREE_ENTRIES: usize = 50_000;
 const MAX_SKILL_TREE_DEPTH: usize = 32;
 pub(crate) const PROVIDER_API_KEY_ENV: &str = "BLACKRAIN_HERMES_PROVIDER_API_KEY";
+pub(crate) const MCP_ROUTER_BEARER_ENV: &str = "BLACKRAIN_MCP_ROUTER_BEARER";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct HermesPaths {
@@ -141,6 +142,28 @@ pub(crate) struct HermesMcpServerDesiredState {
     pub(crate) supports_parallel_tool_calls: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HermesMcpRouterConfig {
+    pub(crate) url: String,
+}
+
+impl HermesMcpRouterConfig {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        let port = self
+            .url
+            .strip_prefix("http://127.0.0.1:")
+            .and_then(|value| value.strip_suffix("/mcp"))
+            .and_then(|value| value.parse::<u16>().ok())
+            .filter(|value| *value != 0)
+            .ok_or_else(|| {
+                "Hermes MCP router URL must be an exact loopback /mcp URL with a valid port."
+                    .to_string()
+            })?;
+        let _ = port;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct HermesWorkbenchBinding {
@@ -202,6 +225,7 @@ impl HermesMcpServerDesiredState {
         }
         for (child_env_key, binding) in &self.environment {
             validate_env_key(child_env_key)?;
+            validate_mcp_child_env_key(child_env_key)?;
             validate_mcp_process_env_key(&binding.process_env_key)?;
             binding.reference.validate()?;
             if binding.reference.kind == HermesEnvironmentReferenceKind::SystemCapability {
@@ -358,7 +382,9 @@ impl HermesConfigManager {
                 .map_err(|error| format!("Unable to read previous Hermes config: {error}"))?;
             atomic_write(&self.paths.last_good_config, &previous)?;
         }
-        let rendered = render_config_with_binding(desired, binding.as_ref())?;
+        let router = self.load_current_router_config()?;
+        let rendered =
+            render_config_with_binding_and_router(desired, binding.as_ref(), router.as_ref())?;
         // desired-state 是 App 的非敏感真源。先持久化它，确保随后 config 写入失败时
         // repair 仍有可用输入；反向顺序会留下无法自动修复的“新 config + 旧/缺失 desired”。
         persist_desired_state(&self.paths.desired_state, desired)?;
@@ -423,6 +449,7 @@ impl HermesConfigManager {
             Some(&binding),
             mcp_changed,
             process_environment_changed,
+            true,
         )
     }
 
@@ -448,7 +475,13 @@ impl HermesConfigManager {
                 plan.reason, plan.config_path
             ));
         }
-        self.apply_workbench_binding(provider, None, mcp_changed, process_environment_changed)
+        self.apply_workbench_binding(
+            provider,
+            None,
+            mcp_changed,
+            process_environment_changed,
+            false,
+        )
     }
 
     fn apply_workbench_binding(
@@ -457,6 +490,7 @@ impl HermesConfigManager {
         binding: Option<&HermesWorkbenchBinding>,
         mcp_changed: bool,
         process_environment_changed: bool,
+        preserve_router: bool,
     ) -> Result<HermesWorkbenchBindResult, String> {
         fs::create_dir_all(&self.paths.home).map_err(|error| {
             format!(
@@ -465,6 +499,11 @@ impl HermesConfigManager {
             )
         })?;
         let rollback = self.capture_workbench_bind_rollback()?;
+        let router = if preserve_router {
+            self.load_current_router_config()?
+        } else {
+            None
+        };
         let apply_result = (|| {
             if let Some(previous) = rollback.config.as_deref() {
                 atomic_write(&self.paths.last_good_config, previous)?;
@@ -480,7 +519,8 @@ impl HermesConfigManager {
                 )?,
             }
             persist_desired_state(&self.paths.desired_state, provider)?;
-            let rendered = render_config_with_binding(provider, binding)?;
+            let rendered =
+                render_config_with_binding_and_router(provider, binding, router.as_ref())?;
             atomic_write(&self.paths.config, rendered.as_bytes())?;
             if !self.paths.last_good_config.exists() {
                 atomic_write(&self.paths.last_good_config, rendered.as_bytes())?;
@@ -586,32 +626,13 @@ impl HermesConfigManager {
             .map(|binding| binding.workbench))
     }
 
-    pub(crate) fn load_mcp_environment_bindings(
+    pub(crate) fn load_mcp_server_desired_states(
         &self,
-    ) -> Result<Vec<HermesMcpEnvironmentBinding>, String> {
-        let Some(binding) = self.load_workbench_binding()? else {
-            return Ok(Vec::new());
-        };
-        let mut by_process_key = BTreeMap::new();
-        for environment in binding
-            .mcp_servers
-            .into_iter()
-            .flat_map(|server| server.environment.into_values())
-        {
-            match by_process_key.get(&environment.process_env_key) {
-                Some(existing) if existing != &environment => {
-                    return Err(
-                        "Hermes MCP process environment key resolves to conflicting references."
-                            .into(),
-                    );
-                }
-                Some(_) => {}
-                None => {
-                    by_process_key.insert(environment.process_env_key.clone(), environment);
-                }
-            }
-        }
-        Ok(by_process_key.into_values().collect())
+    ) -> Result<Vec<HermesMcpServerDesiredState>, String> {
+        Ok(self
+            .load_workbench_binding()?
+            .map(|binding| binding.mcp_servers)
+            .unwrap_or_default())
     }
 
     pub(crate) fn render_expected_config(
@@ -620,6 +641,58 @@ impl HermesConfigManager {
     ) -> Result<String, String> {
         let binding = self.load_workbench_binding()?;
         render_config_with_binding(desired, binding.as_ref())
+    }
+
+    pub(crate) fn apply_router_config(
+        &self,
+        desired: &HermesProviderDesiredState,
+        router: &HermesMcpRouterConfig,
+    ) -> Result<(), String> {
+        desired.validate()?;
+        router.validate()?;
+        if let HermesConfigInspection::RepairRequired(plan) = self.inspect()? {
+            return Err(format!(
+                "Hermes config requires repair before attaching the managed MCP router: {} ({})",
+                plan.reason, plan.config_path
+            ));
+        }
+        let binding = self.load_workbench_binding()?;
+        let rendered =
+            render_config_with_binding_and_router(desired, binding.as_ref(), Some(router))?;
+        if self.paths.config.is_file() {
+            let previous = fs::read(&self.paths.config)
+                .map_err(|error| format!("Unable to read previous Hermes config: {error}"))?;
+            atomic_write(&self.paths.last_good_config, &previous)?;
+        }
+        atomic_write(&self.paths.config, rendered.as_bytes())?;
+        tighten_file_permissions(&self.paths.config)
+    }
+
+    pub(crate) fn render_expected_config_with_router(
+        &self,
+        desired: &HermesProviderDesiredState,
+        router: &HermesMcpRouterConfig,
+    ) -> Result<String, String> {
+        let binding = self.load_workbench_binding()?;
+        render_config_with_binding_and_router(desired, binding.as_ref(), Some(router))
+    }
+
+    fn load_current_router_config(&self) -> Result<Option<HermesMcpRouterConfig>, String> {
+        if !self.paths.config.is_file() {
+            return Ok(None);
+        }
+        let content = fs::read_to_string(&self.paths.config)
+            .map_err(|error| format!("Unable to read Hermes config: {error}"))?;
+        let marker = "mcp_servers:\n  blackrain-router:\n    url: ";
+        let Some((_, suffix)) = content.split_once(marker) else {
+            return Ok(None);
+        };
+        let encoded = suffix.lines().next().unwrap_or_default();
+        let url = serde_json::from_str::<String>(encoded)
+            .map_err(|_| "Managed Hermes MCP router URL is invalid.".to_string())?;
+        let router = HermesMcpRouterConfig { url };
+        router.validate()?;
+        Ok(Some(router))
     }
 
     fn load_workbench_binding(&self) -> Result<Option<HermesWorkbenchBinding>, String> {
@@ -733,7 +806,9 @@ impl HermesLaunchEnvironment {
             values.insert("PATH".into(), joined.to_string_lossy().to_string());
         }
         for (key, value) in mcp_environment {
-            validate_mcp_process_env_key(key)?;
+            if key != MCP_ROUTER_BEARER_ENV {
+                validate_mcp_process_env_key(key)?;
+            }
             if value.is_empty() || value.len() > 65_536 || value.chars().any(char::is_control) {
                 return Err("Hermes MCP environment values must be non-empty, bounded, and contain no control characters.".into());
             }
@@ -752,6 +827,7 @@ impl HermesLaunchEnvironment {
             .map(|(key, value)| {
                 let safe = if key == "API_SERVER_KEY"
                     || key == PROVIDER_API_KEY_ENV
+                    || key == MCP_ROUTER_BEARER_ENV
                     || key.starts_with("BLACKRAIN_MCP_SECRET_")
                 {
                     "<redacted>".into()
@@ -784,7 +860,18 @@ fn render_config_with_binding(
     desired: &HermesProviderDesiredState,
     binding: Option<&HermesWorkbenchBinding>,
 ) -> Result<String, String> {
+    render_config_with_binding_and_router(desired, binding, None)
+}
+
+fn render_config_with_binding_and_router(
+    desired: &HermesProviderDesiredState,
+    binding: Option<&HermesWorkbenchBinding>,
+    router: Option<&HermesMcpRouterConfig>,
+) -> Result<String, String> {
     desired.validate()?;
+    if let Some(router) = router {
+        router.validate()?;
+    }
     if let Some(binding) = binding {
         binding.workbench.validate()?;
         validate_mcp_binding(&binding.workbench, &binding.mcp_servers)?;
@@ -812,40 +899,16 @@ fn render_config_with_binding(
         for root in &binding.workbench.skill_roots {
             output.push_str(&format!("    - {}\n", yaml_quote(&root.to_string_lossy())));
         }
-        if !binding.mcp_servers.is_empty() {
-            output.push_str("mcp_servers:\n");
-            for server in &binding.mcp_servers {
-                output.push_str(&format!("  {}:\n", yaml_quote(&server.id)));
-                output.push_str(&format!(
-                    "    command: {}\n",
-                    yaml_quote(&server.command.to_string_lossy())
-                ));
-                output.push_str(&format!(
-                    "    args: {}\n",
-                    serde_json::to_string(&server.args)
-                        .map_err(|error| format!("Unable to serialize MCP args: {error}"))?
-                ));
-                if !server.environment.is_empty() {
-                    output.push_str("    env:\n");
-                    for (child_env_key, environment) in &server.environment {
-                        output.push_str(&format!(
-                            "      {}: {}\n",
-                            child_env_key,
-                            yaml_quote(&format!("${{{}}}", environment.process_env_key))
-                        ));
-                    }
-                }
-                output.push_str(&format!("    timeout: {}\n", server.timeout_seconds));
-                output.push_str(&format!(
-                    "    connect_timeout: {}\n",
-                    server.connect_timeout_seconds
-                ));
-                output.push_str(&format!(
-                    "    supports_parallel_tool_calls: {}\n",
-                    server.supports_parallel_tool_calls
-                ));
-            }
-        }
+    }
+    if let Some(router) = router {
+        output.push_str("mcp_servers:\n  blackrain-router:\n");
+        output.push_str(&format!("    url: {}\n", yaml_quote(&router.url)));
+        output.push_str("    headers:\n");
+        output.push_str(&format!(
+            "      Authorization: {}\n",
+            yaml_quote(&format!("Bearer ${{{MCP_ROUTER_BEARER_ENV}}}"))
+        ));
+        output.push_str("    connect_timeout: 20\n    timeout: 3600\n    skip_preflight: true\n");
     }
     Ok(output)
 }
@@ -1115,6 +1178,35 @@ fn validate_mcp_process_env_key(value: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_mcp_child_env_key(value: &str) -> Result<(), String> {
+    const RESERVED: &[&str] = &[
+        "APPDATA",
+        "COMSPEC",
+        "HOME",
+        "LANG",
+        "LOCALAPPDATA",
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "WINDIR",
+        "CODEX_HOME",
+        "HERMES_HOME",
+    ];
+    if RESERVED
+        .iter()
+        .any(|reserved| value.eq_ignore_ascii_case(reserved))
+        || value
+            .to_ascii_uppercase()
+            .starts_with("BLACKRAIN_MCP_ROUTER_")
+    {
+        return Err("Hermes MCP child environment key is reserved by the managed runtime.".into());
+    }
+    Ok(())
+}
+
 fn validate_reference_id(value: &str) -> Result<(), String> {
     if value.is_empty()
         || value.len() > 256
@@ -1366,7 +1458,7 @@ mod tests {
     }
 
     #[test]
-    fn renders_resolved_mcp_servers_and_requires_idle_for_registration_changes() {
+    fn persists_resolved_mcp_desired_state_but_renders_only_managed_router() {
         let root = temp_root();
         let skill_root = root.join("installed-workbench").join("skills");
         fs::create_dir_all(skill_root.join("office-author")).unwrap();
@@ -1412,24 +1504,27 @@ mod tests {
         assert!(result.mcp_changed);
         assert!(result.process_environment_changed);
         assert_eq!(result.config_summary.model, "deepseek-chat");
+        let base_rendered = fs::read_to_string(&manager.paths.config).unwrap();
+        assert!(!base_rendered.contains("mcp_servers:\n"));
+        manager
+            .apply_router_config(
+                &desired("deepseek-chat"),
+                &super::HermesMcpRouterConfig {
+                    url: "http://127.0.0.1:48123/mcp".into(),
+                },
+            )
+            .unwrap();
         let rendered = fs::read_to_string(&manager.paths.config).unwrap();
         assert!(rendered.contains("mcp_servers:\n"));
-        assert!(rendered.contains("\"com.blackrain.office-files\":\n"));
-        assert!(rendered.contains("args: [\"--stdio\"]\n"));
-        assert!(rendered.contains("env:\n"));
-        assert!(rendered.contains(
-            "OFFICE_LICENSE: \"${BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF}\""
-        ));
+        assert!(rendered.contains("blackrain-router:\n"));
+        assert!(rendered.contains("url: \"http://127.0.0.1:48123/mcp\""));
+        assert!(rendered.contains("Authorization: \"Bearer ${BLACKRAIN_MCP_ROUTER_BEARER}\""));
+        assert!(!rendered.contains("com.blackrain.office-files"));
+        assert!(!rendered.contains("    command:"));
+        assert!(!rendered.contains("BLACKRAIN_MCP_SECRET_"));
         assert!(!rendered.contains("office-license-secret"));
         let persisted_binding = fs::read_to_string(&manager.paths.workbench_desired_state).unwrap();
         assert!(!persisted_binding.contains("office-license-secret"));
-        let environment_bindings = manager.load_mcp_environment_bindings().unwrap();
-        assert_eq!(environment_bindings.len(), 1);
-        assert_eq!(
-            environment_bindings[0].reference.reference_id,
-            "office-license"
-        );
-
         let unchanged = manager
             .bind_workbench(&desired("deepseek-chat"), &workbench, &mcp_servers, false)
             .unwrap();
@@ -1499,16 +1594,17 @@ mod tests {
             .unwrap();
         assert!(removed.mcp_changed);
         assert!(!removed.process_environment_changed);
-        assert!(!fs::read_to_string(&manager.paths.config)
-            .unwrap()
-            .contains("mcp_servers:"));
+        let removed_config = fs::read_to_string(&manager.paths.config).unwrap();
+        assert!(removed_config.contains("blackrain-router:\n"));
+        assert!(!removed_config.contains("com.blackrain.office-files"));
 
         manager
             .rollback_workbench_binding(&removed.rollback)
             .unwrap();
         let restored = fs::read_to_string(&manager.paths.config).unwrap();
         assert!(restored.contains("mcp_servers:\n"));
-        assert!(restored.contains("\"com.blackrain.office-files\":\n"));
+        assert!(restored.contains("blackrain-router:\n"));
+        assert!(!restored.contains("com.blackrain.office-files"));
 
         let unbound = manager
             .unbind_workbench(&desired("deepseek-chat"), true)
@@ -1517,9 +1613,9 @@ mod tests {
         assert!(unbound.process_environment_changed);
         let base_config = fs::read_to_string(&manager.paths.config).unwrap();
         assert!(!base_config.contains("skills:\n"));
-        assert!(!base_config.contains("mcp_servers:\n"));
+        assert!(!base_config.contains("blackrain-router:\n"));
+        assert!(!base_config.contains("com.blackrain.office-files"));
         assert!(!manager.paths.workbench_desired_state.exists());
-        assert!(manager.load_mcp_environment_bindings().unwrap().is_empty());
         let _ = fs::remove_dir_all(root);
     }
 
@@ -1723,6 +1819,41 @@ mod tests {
             .unwrap_err();
             assert!(error.contains("MCP process environment keys"));
         }
+    }
+
+    #[test]
+    fn plugin_binding_cannot_claim_the_core_router_bearer_key() {
+        let mut server = mcp_server(PathBuf::from("/managed/plugin.exe"));
+        server.environment.insert(
+            "PLUGIN_TOKEN".into(),
+            super::HermesMcpEnvironmentBinding {
+                process_env_key: super::MCP_ROUTER_BEARER_ENV.into(),
+                reference: super::HermesEnvironmentReference {
+                    kind: super::HermesEnvironmentReferenceKind::ManagedVariable,
+                    reference_id: "plugin-token".into(),
+                },
+            },
+        );
+        assert!(server
+            .validate()
+            .unwrap_err()
+            .contains("App-managed namespace"));
+    }
+
+    #[test]
+    fn plugin_binding_cannot_override_managed_child_process_baseline() {
+        let mut server = mcp_server(PathBuf::from("/managed/plugin.exe"));
+        server.environment.insert(
+            "PATH".into(),
+            super::HermesMcpEnvironmentBinding {
+                process_env_key: "BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF".into(),
+                reference: super::HermesEnvironmentReference {
+                    kind: super::HermesEnvironmentReferenceKind::ManagedVariable,
+                    reference_id: "plugin-path".into(),
+                },
+            },
+        );
+        assert!(server.validate().unwrap_err().contains("reserved"));
     }
 
     #[test]

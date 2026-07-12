@@ -9,12 +9,17 @@ use super::client::HermesApiClient;
 use super::client::HermesHttpTrace;
 use super::config::{
     summary, HermesConfigInspection, HermesConfigManager, HermesConfigSummary,
-    HermesEnvironmentReferenceKind, HermesLaunchEnvironment, HermesMcpServerDesiredState,
-    HermesPaths, HermesProviderDesiredState, HermesWorkbenchBindResult,
-    HermesWorkbenchBindRollback, WorkbenchHermesDesiredState,
+    HermesEnvironmentReferenceKind, HermesLaunchEnvironment, HermesMcpRouterConfig,
+    HermesMcpServerDesiredState, HermesPaths, HermesProviderDesiredState,
+    HermesWorkbenchBindResult, HermesWorkbenchBindRollback, WorkbenchHermesDesiredState,
+    MCP_ROUTER_BEARER_ENV,
 };
 use super::credential_store::{
     ensure_api_server_key, provider_secret_get, resolve_environment_reference,
+};
+use super::mcp_router::McpRouterSupervisor;
+use super::mcp_router::{
+    McpRouterDesiredGeneration, McpRouterDesiredServer, McpRouterGenerationSummary,
 };
 use super::process::HermesProcessSupervisor;
 use super::types::{WorkError, WorkErrorKind, WorkRuntimeStatus};
@@ -85,12 +90,12 @@ pub(crate) fn unbind_runtime_workbench(
 pub(crate) async fn start_runtime(
     paths: &HermesPaths,
     supervisor: &Arc<HermesProcessSupervisor>,
+    router: &Arc<McpRouterSupervisor>,
 ) -> Result<WorkRuntimeStatus, WorkError> {
     let manager = HermesConfigManager {
         paths: paths.clone(),
     };
     let desired = load_runtime_desired_state(paths, &manager)?;
-    ensure_config_matches_desired(&manager, &desired)?;
     let bearer = ensure_api_server_key(DEFAULT_PROFILE_ID, false).map_err(credential_error)?;
     let provider_secret = provider_secret_get(&desired.provider_id)
         .map_err(credential_error)?
@@ -101,13 +106,27 @@ pub(crate) async fn start_runtime(
                 false,
             )
         })?;
-    let mcp_environment = resolve_mcp_launch_environment(&manager)?;
     let system_tool_paths = resolve_system_tool_paths(paths, &manager)?;
     let write_safe_root = manager
         .load_workbench_desired_state()
         .map_err(config_error)?
         .map(|workbench| workbench.project_root);
-    let environment = HermesLaunchEnvironment::build(
+    let router_connection = router.start().await?;
+    let runtime_generation = format!("runtime-{}", uuid::Uuid::new_v4().simple());
+    if let Err(error) = sync_mcp_router(paths, router, &runtime_generation).await {
+        router.stop().await;
+        return Err(error);
+    }
+    let router_config = HermesMcpRouterConfig {
+        url: router_connection.mcp_url.clone(),
+    };
+    if let Err(error) = ensure_config_matches_desired(&manager, &desired, Some(&router_config)) {
+        router.stop().await;
+        return Err(error);
+    }
+    let mcp_environment =
+        BTreeMap::from([(MCP_ROUTER_BEARER_ENV.into(), router_connection.mcp_bearer)]);
+    let environment = match HermesLaunchEnvironment::build(
         paths,
         write_safe_root.as_deref(),
         MANAGED_HERMES_PORT,
@@ -115,9 +134,20 @@ pub(crate) async fn start_runtime(
         &provider_secret,
         &mcp_environment,
         &system_tool_paths,
-    )
-    .map_err(config_error)?;
-    supervisor.start(environment).await
+    ) {
+        Ok(environment) => environment,
+        Err(error) => {
+            router.stop().await;
+            return Err(config_error(error));
+        }
+    };
+    match supervisor.start(environment).await {
+        Ok(status) => Ok(status),
+        Err(error) => {
+            router.stop().await;
+            Err(error)
+        }
+    }
 }
 
 fn resolve_system_tool_paths(
@@ -249,54 +279,93 @@ fn is_link_like(metadata: &fs::Metadata) -> bool {
     false
 }
 
-fn resolve_mcp_launch_environment(
-    manager: &HermesConfigManager,
-) -> Result<BTreeMap<String, String>, WorkError> {
-    resolve_mcp_launch_environment_with(manager, resolve_environment_reference)
+pub(crate) async fn sync_mcp_router(
+    paths: &HermesPaths,
+    router: &Arc<McpRouterSupervisor>,
+    generation_id: &str,
+) -> Result<McpRouterGenerationSummary, WorkError> {
+    let manager = HermesConfigManager {
+        paths: paths.clone(),
+    };
+    let servers = manager
+        .load_mcp_server_desired_states()
+        .map_err(config_error)?;
+    let desired =
+        build_mcp_router_generation_with(generation_id, &servers, resolve_environment_reference)?;
+    router.start().await?;
+    router.replace(&desired).await
 }
 
-fn resolve_mcp_launch_environment_with<F>(
-    manager: &HermesConfigManager,
+fn build_mcp_router_generation_with<F>(
+    generation_id: &str,
+    servers: &[HermesMcpServerDesiredState],
     mut resolver: F,
-) -> Result<BTreeMap<String, String>, WorkError>
+) -> Result<McpRouterDesiredGeneration, WorkError>
 where
     F: FnMut(&super::config::HermesEnvironmentReference) -> Result<Option<String>, String>,
 {
-    let mut environment = BTreeMap::new();
-    for binding in manager
-        .load_mcp_environment_bindings()
-        .map_err(config_error)?
-    {
-        let value = resolver(&binding.reference)
-            .map_err(credential_error)?
-            .ok_or_else(|| {
-                runtime_error(
-                    "hermes_mcp_environment_required",
-                    &format!(
-                        "A required MCP environment reference is missing: {}.",
-                        binding.reference.reference_id
-                    ),
-                    false,
-                )
-            })?;
-        environment.insert(binding.process_env_key, value);
+    let mut desired_servers = Vec::with_capacity(servers.len());
+    for server in servers {
+        server.validate().map_err(config_error)?;
+        let mut environment = BTreeMap::new();
+        for (child_key, binding) in &server.environment {
+            let value = resolver(&binding.reference)
+                .map_err(credential_error)?
+                .ok_or_else(|| {
+                    runtime_error(
+                        "hermes_mcp_environment_required",
+                        &format!(
+                            "A required MCP environment reference is missing: {}.",
+                            binding.reference.reference_id
+                        ),
+                        false,
+                    )
+                })?;
+            environment.insert(child_key.clone(), value);
+        }
+        let command = server.command.to_str().ok_or_else(|| {
+            runtime_error(
+                "hermes_mcp_command_encoding_invalid",
+                "A verified MCP command cannot be represented for the managed router.",
+                false,
+            )
+        })?;
+        desired_servers.push(McpRouterDesiredServer {
+            id: server.id.clone(),
+            command: command.to_string(),
+            args: server.args.clone(),
+            environment,
+            connect_timeout_seconds: server.connect_timeout_seconds,
+            timeout_seconds: server.timeout_seconds,
+            supports_parallel_tool_calls: server.supports_parallel_tool_calls,
+        });
     }
-    Ok(environment)
+    desired_servers.sort_by(|left, right| left.id.cmp(&right.id));
+    Ok(McpRouterDesiredGeneration {
+        generation_id: generation_id.into(),
+        servers: desired_servers,
+    })
 }
 
 pub(crate) async fn restart_runtime(
     paths: &HermesPaths,
     supervisor: &Arc<HermesProcessSupervisor>,
+    router: &Arc<McpRouterSupervisor>,
 ) -> Result<WorkRuntimeStatus, WorkError> {
-    supervisor.stop().await?;
-    start_runtime(paths, supervisor).await
+    let hermes_stop = supervisor.stop().await;
+    router.stop().await;
+    hermes_stop?;
+    start_runtime(paths, supervisor, router).await
 }
 
 pub(crate) async fn repair_runtime(
     paths: &HermesPaths,
     supervisor: &Arc<HermesProcessSupervisor>,
+    router: &Arc<McpRouterSupervisor>,
 ) -> Result<WorkRuntimeStatus, WorkError> {
-    supervisor.stop().await?;
+    let hermes_stop = supervisor.stop().await;
+    router.stop().await;
+    hermes_stop?;
     let manager = HermesConfigManager {
         paths: paths.clone(),
     };
@@ -370,10 +439,16 @@ pub(crate) async fn runtime_api_client(
 fn ensure_config_matches_desired(
     manager: &HermesConfigManager,
     desired: &HermesProviderDesiredState,
+    router: Option<&HermesMcpRouterConfig>,
 ) -> Result<(), WorkError> {
     match manager.inspect().map_err(config_error)? {
         HermesConfigInspection::Missing => {
             manager.apply(desired).map_err(config_error)?;
+            if let Some(router) = router {
+                manager
+                    .apply_router_config(desired, router)
+                    .map_err(config_error)?;
+            }
             Ok(())
         }
         HermesConfigInspection::RepairRequired(plan) => {
@@ -394,8 +469,23 @@ fn ensure_config_matches_desired(
             let expected = manager
                 .render_expected_config(desired)
                 .map_err(config_error)?;
-            if current == expected {
+            if current == expected && router.is_none() {
                 Ok(())
+            } else if let Some(router) = router {
+                let expected_with_router = manager
+                    .render_expected_config_with_router(desired, router)
+                    .map_err(config_error)?;
+                if current == expected_with_router || strip_router_suffix(&current) == expected {
+                    manager
+                        .apply_router_config(desired, router)
+                        .map_err(config_error)
+                } else {
+                    Err(runtime_error(
+                        "hermes_config_desired_state_mismatch",
+                        "Hermes config differs from the App-owned desired state and must be repaired.",
+                        false,
+                    ))
+                }
             } else {
                 Err(runtime_error(
                     "hermes_config_desired_state_mismatch",
@@ -405,6 +495,13 @@ fn ensure_config_matches_desired(
             }
         }
     }
+}
+
+fn strip_router_suffix(content: &str) -> String {
+    content
+        .split_once("mcp_servers:\n  blackrain-router:\n")
+        .map(|(prefix, _)| prefix.to_string())
+        .unwrap_or_else(|| content.to_string())
 }
 
 fn load_runtime_desired_state(
@@ -456,9 +553,9 @@ mod tests {
     use std::path::PathBuf;
 
     use super::{
-        configure_runtime_desired_state, ensure_config_matches_desired, load_runtime_desired_state,
-        resolve_mcp_launch_environment_with, resolve_system_tool_paths, sanitize_diagnostic_status,
-        OFFICECLI_SYSTEM_CAPABILITY_ID,
+        build_mcp_router_generation_with, configure_runtime_desired_state,
+        ensure_config_matches_desired, load_runtime_desired_state, resolve_system_tool_paths,
+        sanitize_diagnostic_status, OFFICECLI_SYSTEM_CAPABILITY_ID,
     };
     use crate::shared::hermes_core::config::{
         HermesConfigManager, HermesEnvironmentReference, HermesEnvironmentReferenceKind,
@@ -497,7 +594,8 @@ mod tests {
         let manager = HermesConfigManager {
             paths: paths.clone(),
         };
-        ensure_config_matches_desired(&manager, &manager.load_desired_state().unwrap()).unwrap();
+        ensure_config_matches_desired(&manager, &manager.load_desired_state().unwrap(), None)
+            .unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -691,8 +789,9 @@ mod tests {
         let manager = HermesConfigManager {
             paths: paths.clone(),
         };
-        let error = ensure_config_matches_desired(&manager, &manager.load_desired_state().unwrap())
-            .unwrap_err();
+        let error =
+            ensure_config_matches_desired(&manager, &manager.load_desired_state().unwrap(), None)
+                .unwrap_err();
         assert_eq!(error.code, "hermes_config_desired_state_mismatch");
         fs::remove_dir_all(root).unwrap();
     }
@@ -743,21 +842,31 @@ mod tests {
             .bind_workbench(&provider, &workbench, &[server], true)
             .unwrap();
 
-        ensure_config_matches_desired(&manager, &provider).unwrap();
-        let environment = resolve_mcp_launch_environment_with(&manager, |reference| {
-            assert_eq!(reference.reference_id, "office-license");
-            Ok(Some("secret-value".into()))
-        })
+        ensure_config_matches_desired(&manager, &provider, None).unwrap();
+        let persisted_servers = manager.load_mcp_server_desired_states().unwrap();
+        let generation = build_mcp_router_generation_with(
+            "activation-office-1",
+            &persisted_servers,
+            |reference| {
+                assert_eq!(reference.reference_id, "office-license");
+                Ok(Some("secret-value".into()))
+            },
+        )
         .unwrap();
-        assert_eq!(environment.len(), 1);
+        assert_eq!(generation.servers.len(), 1);
         assert_eq!(
-            environment["BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF"],
+            generation.servers[0].environment["OFFICE_LICENSE"],
             "secret-value"
         );
+        let serialized = serde_json::to_string(&generation).unwrap();
+        assert!(!serialized.contains("BLACKRAIN_MCP_SECRET_"));
         assert_eq!(
-            resolve_mcp_launch_environment_with(&manager, |_| Ok(None))
-                .unwrap_err()
-                .code,
+            build_mcp_router_generation_with("activation-office-2", &persisted_servers, |_| {
+                Ok(None)
+            })
+            .err()
+            .unwrap()
+            .code,
             "hermes_mcp_environment_required"
         );
         fs::remove_dir_all(root).unwrap();

@@ -111,9 +111,9 @@
 - 原因：资源热更新、工作台升级和任务继续共享同一身份问题。静默改写 activation 会让历史任务无法证明执行时使用的 Skills、插件、权限和环境；active run 中迁移又会混合两个工具集合并破坏审批与事件归属。
 - 替代方案：就地修改 `activations.v1.json`、所有任务自动跟随 active version、运行中切换 generation、创建新 session 才允许升级、或由工作台/surface 自行迁移。
 - 影响范围：activation store、TaskStore、生命周期状态机、009 Hermes binding、动态 MCP router、升级/回滚/卸载引用和审计 UI。
-- 后续复查条件：shared Core migration 状态机与 audit schema 已实现；router 接入后仍需补真实 connect-before-swap、配置回滚失败、App 强退恢复和 Windows process-tree 验证。代码存在不代表产品验证完成。
+- 后续复查条件：shared Core migration 状态机、audit schema、router connect-before-swap 与代码级补偿已实现；仍需锁定 Hermes next-turn、配置回滚失败、App 强退恢复和 Windows process-tree 验证。代码存在不代表产品验证完成。
 
-> 实现更新：`WorkTask` 使用可选 `activationMigrations` 历史，旧 snapshot 通过 `serde(default)` 兼容；成功迁移把 task activation/version 与 completed audit 同文件原子写入，失败记录不改变 source generation。App command 仅接受 task、target activation 和枚举 reason，并在 `hermes_activation_gate` 内完成 verified target/plugin 复核、binding/readiness、commit 与补偿回滚。当前没有升级 UI，也不把代码级补偿逻辑当作真实 Hermes/Windows 回滚证据。
+> 实现更新：`WorkTask` 使用可选 `activationMigrations` 历史，旧 snapshot 通过 `serde(default)` 兼容；成功迁移把 task activation/version 与 completed audit 同文件原子写入，失败记录不改变 source generation。App command 仅接受 task、target activation 和枚举 reason，并在 `hermes_activation_gate` 内完成 verified target/plugin 复核、router connect-before-swap、binding/readiness、commit 与补偿回滚。当前没有升级 UI，也不把代码级补偿逻辑当作真实 Hermes/Windows 回滚证据。
 
 ## 被推翻的方案
 

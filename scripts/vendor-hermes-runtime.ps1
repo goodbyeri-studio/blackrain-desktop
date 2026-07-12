@@ -19,6 +19,7 @@ $hermes = Join-Path $repo "hermes-upstream"
 $manifestPath = Join-Path $repo "apps\desktop\src-tauri\resources\hermes-runtime\windows-x64.manifest.json"
 $target = Join-Path $repo "apps\desktop\src-tauri\resources\hermes-runtime\windows-x64"
 $inventoryScript = Join-Path $repo "scripts\hermes-runtime-inventory.py"
+$routerSource = Join-Path $repo "apps\desktop\src-tauri\resources\mcp-router\blackrain_mcp_router.py"
 
 function Invoke-Checked([scriptblock]$Command, [string]$Label) {
   & $Command
@@ -46,6 +47,12 @@ if (-not (Test-Path $manifestPath)) {
 }
 
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if (-not (Test-Path $routerSource)) {
+  throw "缺少 BlackRain MCP router 源文件: $routerSource"
+}
+if ((Get-Sha256 $routerSource) -ne $manifest.blackrainMcpRouter.sha256) {
+  throw "BlackRain MCP router hash 与 manifest 不一致。"
+}
 $actualCommit = (& git -C $hermes rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $actualCommit -ne $manifest.hermes.commit) {
   throw "Hermes commit 不匹配。期望 $($manifest.hermes.commit)，实际 $actualCommit。"
@@ -111,7 +118,7 @@ try {
   }
 
   Invoke-Checked {
-    & $venvPython -c "import asyncio, importlib.metadata as m, importlib.util; import aiohttp, mcp, yaml, hermes_cli; import gateway.platforms.api_server; import tools.mcp_tool; assert m.version('hermes-agent') == '$($manifest.hermes.version)'; assert m.version('mcp') == '$($manifest.requiredDistributions.mcp)'; assert importlib.util.find_spec('uvloop') is None; asyncio.run(asyncio.sleep(0))"
+    & $venvPython -c "import asyncio, importlib.metadata as m, importlib.util, sys; import aiohttp, mcp, yaml, hermes_cli; import gateway.platforms.api_server; import tools.mcp_tool; assert m.version('hermes-agent') == '$($manifest.hermes.version)'; assert m.version('mcp') == '$($manifest.requiredDistributions.mcp)'; assert importlib.util.find_spec('uvloop') is None; compile(open(sys.argv[1], encoding='utf-8').read(), sys.argv[1], 'exec'); asyncio.run(asyncio.sleep(0))" $routerSource
   } "Hermes import smoke"
 
   $installedJson = (& $UvExe pip list --python $venvPython --format json) -join "`n"
@@ -166,6 +173,7 @@ files are recorded in provenance/python-distributions.json and LICENSES/.
   Set-Content -LiteralPath (Join-Path $stage "NOTICE.txt") -Value ($notice.Trim() + "`n") -Encoding UTF8
 
   Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $provenanceDir "runtime-manifest.json")
+  Copy-Item -LiteralPath $routerSource -Destination (Join-Path $stage $manifest.blackrainMcpRouter.runtimePath)
   $uvVersion = (& $UvExe --version).Trim()
   $buildInfo = [ordered]@{
     schemaVersion = 1
@@ -179,6 +187,7 @@ files are recorded in provenance/python-distributions.json and LICENSES/.
     extras = @($manifest.install.extras)
     additionalPackages = @($manifest.install.additionalPackages)
     inventoryScriptSha256 = Get-Sha256 $inventoryScript
+    mcpRouterSha256 = Get-Sha256 $routerSource
   } | ConvertTo-Json -Depth 5
   Set-Content -LiteralPath (Join-Path $provenanceDir "build.json") -Value $buildInfo -Encoding UTF8
 

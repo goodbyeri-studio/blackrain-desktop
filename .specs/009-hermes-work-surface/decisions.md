@@ -139,9 +139,9 @@
 - 影响范围：`plugin_core.rs`、008 install/verify 接缝、Hermes binding 和后续插件管理 UI。
 - 后续复查条件：008 正式 installer 接通后，将 `persist_verified` 收口进安装事务并增加签名、hash、权限和卸载 ownership；不得开放通用写命令。
 
-## 2026-07-12：整体 MCP server 变更使用空闲态受控重启
+## 2026-07-12：整体 MCP server 变更使用空闲态受控重启（已被 App-managed router 决策取代）
 
-- 决策：已注册 server 内部的工具增删交给锁定 Hermes 原生 `notifications/tools/list_changed`；新增、删除或改变整个 server 时，Core 只在不存在 active WORK run 时替换版本化 workbench binding。若 Hermes 已 Ready，则取消受控 stream、重启 Hermes 并重新做 task recovery；session/task metadata 保留。binding 变更前保存旧 binding/config/last-good 的内存回滚快照；新 runtime readiness 失败时恢复旧文件并尝试重新拉起旧 runtime，返回结构化 `hermes_workbench_transition_failed` 和回滚/恢复状态。任一 active run 存在时在写 config 前 fail closed。Skills-only 变化不触发重启；project safe root 变化属于进程环境变化，必须受控重启。
+- 历史决策：已注册 server 内部的工具增删交给锁定 Hermes 原生 `notifications/tools/list_changed`；新增、删除或改变整个 server 时曾采用 idle-only binding replacement + Hermes restart。该方案在 router 实现前保持正确性，但不能满足当前对话存活的产品目标，现已由下方 App-managed router 实现取代。project safe root 等进程环境变化仍必须受控重启。
 - 锁定协议证据：`hermes-upstream` 当前为 tag `v2026.7.7.2` / commit `9de9c25f620ff7f1ce0fd5457d596052d5159596`。`tui_gateway/server.py` 确有私有 RPC `reload.mcp`、`skills.reload`，CLI 也有 `/reload-mcp`、`/reload-skills`；但 BlackRain 产品接入的 `gateway/platforms/api_server.py` 注册路由中没有 MCP/Skills register、unregister 或 reload endpoint。`notifications/tools/list_changed` 只通知已连接 server 内部工具集合改变，不能新增或移除整个 server。
 - 原因：锁定 `/v1` surface 没有 server register/unregister/reload endpoint，而直接在对话执行中杀进程会丢失不可重放的 SSE。空闲态重启能复用原装 Hermes 的启动注册路径，并确保旧 stdio 子进程随 Windows process tree 收敛。
 - 替代方案：修改 Hermes Agent loop、伪造 registry、运行中直接改 config 并假设生效、或调用未进入锁定 HTTP contract 的 CLI `/reload-mcp`。
@@ -154,11 +154,19 @@
 - 原因：锁定 `9de9c25` 的 `tools/list_changed` 只刷新已建立 MCP connection 内的工具；API Server `/v1` 没有 reload endpoint，`/v1/runs` 直接构造 AIAgent，不经过 GatewayRunner slash-command 分发。与此同时，008 activation 不可变且资源变化必须签发新 ID，现有 task continuation 又必须匹配旧 activation；没有 generation 迁移合同就热改工具会破坏任务来源证据。
 - 替代方案：调用 `tui_gateway reload.mcp`、把 `/reload-mcp now` 当用户 run、让工作台直接改 `config.yaml`、把新 secret 写入 router desired-state 文件，或静默改写旧 activation。
 - 影响范围：spec 008 activation upgrade、009 task/session identity、Hermes config、plugin runtime、router 制品与 Windows process tree/secret 验证。
-- 后续复查条件：008 已冻结并实现 `old activation → new generation` 的 shared Core、task/session 迁移和补偿接缝；下一步实现 router 的 authenticated control plane、connect-before-swap、失败保留旧集合、子进程回收和真实 `tools/list_changed` E2E，并验证真实 runtime/Windows 回滚。完成前继续使用当前空闲态 restart，不把同 server 内工具变化冒充整插件热挂拔。
+- 后续复查条件：008 已冻结并实现 `old activation → new generation` 的 shared Core、task/session 迁移和补偿接缝；router/control/connect-before-swap/子进程回收与真实 MCP ClientSession E2E 已实现，仍需验证锁定 Hermes next-turn 与真实 runtime/Windows 回滚。
 
 > 008 已冻结前置合同：新 `activationId` 表达不可变 generation；task 默认 pinned，只能在终态、无 active run、同 workbench/project 且目标资源完整验证时显式迁移；session 可保留但下一 run 使用新 generation；runtime/router 失败必须恢复旧 task activation 与工具集合。合同冻结检查点当时不代表 migration Core 或 router 已实现；当前代码水位见下方实现更新。
 
-> 实现更新：generation migration Core、task snapshot audit 与 local-only Tauri/TS 接缝已落地；命令只接受 task、target activation 和 reason enum，并在 runtime binding/readiness 后 commit。router 仍未实现，真实 runtime/Windows 补偿回滚也未验证，因此动态热挂拔总项仍不完成。
+> 实现更新：generation migration Core、task snapshot audit 与 local-only Tauri/TS 接缝已落地；命令只接受 task、target activation 和 reason enum，并在 runtime binding/router readiness 后 commit。router 与代码级补偿已实现，真实锁定 Hermes next-turn 和 Windows 补偿回滚仍未验证，因此动态热挂拔总项仍不完成。
+
+## 2026-07-12：Hermes 始终只连接一个 App-managed MCP router
+
+- 决策：Hermes `config.yaml` 只注册 loopback Streamable HTTP `blackrain-router`，Authorization 只写 `${BLACKRAIN_MCP_ROUTER_BEARER}` 占位符。App 使用随包 Hermes Python 启动 BlackRain 自有 router；MCP endpoint 与 control endpoint 使用不同随机端口和不同高熵 bearer，所有 bearer 只驻内存。下游仍限 Core verified managed stdio runtime；App 从 credential store 临时解析 child env value，经 control PUT 提交内存 generation，router 在新集合全部连接/list 成功后才原子 swap，并向现存 Hermes session 发送 `notifications/tools/list_changed`。
+- 原因：锁定 Hermes `/v1` 没有整个 server reload API，直接重启会打断当前对话；让 Hermes 长期连接稳定 router 可以在不 fork Agent loop、不调用私有 API 的前提下动态改变工具集合。双 bearer 避免 Hermes 获得 App control 权限；下游 secret 不再进入 Hermes config、Hermes process env、项目或 lease。
+- 替代方案：继续 idle-only restart、让 Hermes 直接连接全部下游、给 Hermes control bearer、把 generation/secret 落盘、调用 TUI reload，或 fork Hermes MCP registry。
+- 影响范围：Hermes runtime resource/vendor/doctor、config/launch environment、App supervisor/exit/startup audit、verified plugin runtime、task start/continue、activation migration 与 Windows process tree。
+- 后续复查条件：Python 与 Rust 自动化已覆盖真实 stdio/HTTP client、connect-before-swap、失败保留、remove cleanup、notification、双 bearer、无 secret lease 和 supervisor 生命周期；仍需锁定 Hermes 真实下一 turn、Windows bundled runtime/NSIS/强退/process tree 与 Office 工具验证。完成这些证据前不勾选阶段 11 总项。
 
 ## 2026-07-12：run 创建失败按“未附着”收敛，超时不猜测上游结果
 
@@ -216,12 +224,12 @@
 - 影响范围：008 deactivate 接缝、`workbench_core`、TaskStore、Tauri command、WORK controller/surface 和 Windows process tree 验收。
 - 后续复查条件：多 profile supervisor 落地后按 profile 精确停止；正式 008 lifecycle state 还需增加 generation/audit/installer ownership。Windows 必须验证 `taskkill /T` 覆盖真实 MCP 子进程，本地单测不能替代。
 
-## 2026-07-12：MCP environment 使用系统凭据加进程占位符
+## 2026-07-12：MCP environment 使用系统凭据加 router 内存注入
 
-- 决策：verified plugin runtime 只声明 child env key、reference kind 和 reference id；activation 必须显式授予完全相同的 typed reference。Core 为每个 server/env/reference 生成确定性的 `BLACKRAIN_MCP_SECRET_<digest>` 进程 key，`config.yaml` 只写 `${...}` 占位符。runtime start 从同一系统凭据服务读取 `providerCredential` 或 `managedVariable`，缺失即以 `hermes_mcp_environment_required` fail closed；`systemCapability` 永不转换为 secret。Hermes launch 使用 `env_clear`，只向当前进程注入本次 binding 所需值，诊断统一脱敏该 namespace。
-- 原因：把实际 token 写进 Hermes config、desired state、activation 或插件 store 会落盘泄密；把所有系统环境透传又会让不同工作台串台。锁定 Hermes 已有 `${VAR}` 插值和显式 child env 白名单，无需修改 Agent loop。
+- 决策：verified plugin runtime 只声明 child env key、reference kind 和 reference id；activation 必须显式授予完全相同的 typed reference。Core 在提交 router generation 时从系统凭据服务读取 `providerCredential` 或 `managedVariable`，缺失即以 `hermes_mcp_environment_required` fail closed；实际值只进入 control request、router 内存和对应 stdio child env。`systemCapability` 永不转换为 secret。持久 binding 中的 `BLACKRAIN_MCP_SECRET_<digest>` 只作为非秘密兼容身份，不再绑定到 Hermes config/process env；Hermes 只获得自身 MCP endpoint bearer。
+- 原因：把实际 token 写进 Hermes config、desired state、activation、插件 store 或 Hermes process env 都会扩大泄漏面；由 router 精确注入目标 child 可以避免不同工作台和 Hermes 内建工具读取下游 secret，同时无需修改 Agent loop。
 - 替代方案：生成 `.env`、把值写入 `mcp_servers.*.env`、继承用户 shell、让插件直接读 Windows Credential Manager、或把 system capability 当字符串注入。
-- 影响范围：plugin runtime schema、activation→Hermes mapping、credential store、config render、runtime start、diagnostics 和阶段 11 隔离。
+- 影响范围：plugin runtime schema、activation→router mapping、credential store、router control、下游 child env、diagnostics 和阶段 11 隔离。
 - 后续复查条件：正式 008 credential UI/installer 接通时只新增 managed-variable 写入事务，不开放任意 process env；Windows Credential Manager 与真实 MCP child env 必须实测。
 
 ## 2026-07-12：runtime 完整性使用全文件 checksum 覆盖

@@ -33,6 +33,7 @@ pub(crate) struct HermesRuntimeLayout {
     pub(crate) root: PathBuf,
     pub(crate) executable: PathBuf,
     pub(crate) python: PathBuf,
+    pub(crate) router_script: PathBuf,
     pub(crate) runtime_manifest: PathBuf,
     pub(crate) checksums: PathBuf,
 }
@@ -42,6 +43,7 @@ impl HermesRuntimeLayout {
         Self {
             executable: root.join("venv").join("Scripts").join("hermes.exe"),
             python: root.join("venv").join("Scripts").join("python.exe"),
+            router_script: root.join("blackrain-mcp-router.py"),
             runtime_manifest: root.join("provenance").join("runtime-manifest.json"),
             checksums: root.join("SHA256SUMS"),
             root,
@@ -52,6 +54,7 @@ impl HermesRuntimeLayout {
         let required = [
             ("Hermes entrypoint", &self.executable),
             ("Hermes venv Python", &self.python),
+            ("BlackRain MCP router", &self.router_script),
             ("Hermes runtime manifest", &self.runtime_manifest),
             ("Hermes runtime checksums", &self.checksums),
         ];
@@ -87,7 +90,24 @@ impl HermesRuntimeLayout {
                 false,
             )
         })?;
-        if !canonical_executable.starts_with(&canonical_root) {
+        let canonical_python = fs::canonicalize(&self.python).map_err(|error| {
+            runtime_error(
+                "hermes_runtime_python_invalid",
+                &format!("Unable to resolve Hermes runtime Python: {error}"),
+                false,
+            )
+        })?;
+        let canonical_router = fs::canonicalize(&self.router_script).map_err(|error| {
+            runtime_error(
+                "hermes_mcp_router_invalid",
+                &format!("Unable to resolve BlackRain MCP router: {error}"),
+                false,
+            )
+        })?;
+        if !canonical_executable.starts_with(&canonical_root)
+            || !canonical_python.starts_with(&canonical_root)
+            || !canonical_router.starts_with(&canonical_root)
+        {
             return Err(runtime_error(
                 "hermes_runtime_entrypoint_escaped",
                 "Hermes runtime entrypoint resolves outside the bundled runtime root.",
@@ -1157,7 +1177,7 @@ async fn terminate_child_gracefully(child: &mut Child, graceful_timeout: Duratio
     let _ = child.wait().await;
 }
 
-fn safe_parent_environment() -> Vec<(OsString, OsString)> {
+pub(crate) fn safe_parent_environment() -> Vec<(OsString, OsString)> {
     const ALLOWED: &[&str] = &[
         "COMSPEC",
         "LANG",
@@ -1178,7 +1198,9 @@ fn safe_parent_environment() -> Vec<(OsString, OsString)> {
         .collect()
 }
 
-fn isolated_user_environment(home: &Path) -> Result<Vec<(OsString, OsString)>, WorkError> {
+pub(crate) fn isolated_user_environment(
+    home: &Path,
+) -> Result<Vec<(OsString, OsString)>, WorkError> {
     let process_home = home.join("process-home");
     let app_data = process_home.join("AppData").join("Roaming");
     let local_app_data = process_home.join("AppData").join("Local");
@@ -1397,6 +1419,7 @@ mod tests {
         fs::create_dir_all(layout.runtime_manifest.parent().unwrap()).unwrap();
         fs::write(&layout.executable, script).unwrap();
         fs::write(&layout.python, b"fixture").unwrap();
+        fs::write(&layout.router_script, b"# fixture\n").unwrap();
         fs::write(
             &layout.runtime_manifest,
             br#"{"hermes":{"version":"0.18.2"}}"#,
