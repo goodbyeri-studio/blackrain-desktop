@@ -37,6 +37,7 @@ import type {
   WorkFollowUp,
   WorkTask,
   WorkbenchDeactivationResult,
+  OfficialWorkbenchActivationResult,
   WorkbenchPackageInspection,
 } from "@/features/work/types";
 import type {
@@ -1877,6 +1878,15 @@ export async function workbenchActivationRead(
   activationId: string,
 ): Promise<ActivatedWorkbenchContext> {
   return invoke<ActivatedWorkbenchContext>("workbench_activation_read", { activationId });
+}
+
+export async function workbenchOfficialActivate(
+  workbenchId: string,
+  projectPath: string,
+): Promise<OfficialWorkbenchActivationResult> {
+  return invoke<OfficialWorkbenchActivationResult>("workbench_official_activate", {
+    input: { workbenchId, projectPath },
+  });
 }
 
 export async function workbenchActivationDeactivate(

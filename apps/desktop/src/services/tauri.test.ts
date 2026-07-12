@@ -35,6 +35,7 @@ import {
   workbenchActivationList,
   workbenchActivationRead,
   workbenchActivationDeactivate,
+  workbenchOfficialActivate,
   workbenchBundledInspect,
   listThreads,
   listMcpServerStatus,
@@ -574,6 +575,10 @@ describe("tauri invoke wrappers", () => {
     await hermesRuntimeDiagnostics();
     await workbenchActivationList();
     await workbenchActivationRead("activation-office-demo");
+    await workbenchOfficialActivate(
+      "com.blackrain.office",
+      "C:\\Users\\demo\\Office Project",
+    );
     await workbenchActivationDeactivate("activation-office-demo");
     await workbenchBundledInspect("com.blackrain.office");
     await hermesTaskList();
@@ -598,6 +603,12 @@ describe("tauri invoke wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("hermes_runtime_start");
     expect(invokeMock).toHaveBeenCalledWith("hermes_runtime_diagnostics");
     expect(invokeMock).toHaveBeenCalledWith("workbench_activation_list");
+    expect(invokeMock).toHaveBeenCalledWith("workbench_official_activate", {
+      input: {
+        workbenchId: "com.blackrain.office",
+        projectPath: "C:\\Users\\demo\\Office Project",
+      },
+    });
     expect(invokeMock).toHaveBeenCalledWith("workbench_activation_read", {
       activationId: "activation-office-demo",
     });

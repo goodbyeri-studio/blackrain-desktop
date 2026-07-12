@@ -14,10 +14,11 @@ import type {
 } from "../types";
 import { buildVisibleWorkEvents, resolveProjectOutputPath } from "../state/selectors";
 import { WorkSurface } from "./WorkSurface";
-import { pickWorkProjectFiles } from "@/services/tauri";
+import { pickWorkProjectFiles, pickWorkspacePath } from "@/services/tauri";
 
 vi.mock("@/services/tauri", () => ({
   pickWorkProjectFiles: vi.fn(),
+  pickWorkspacePath: vi.fn(),
   revealPathInFileManager: vi.fn(),
 }));
 
@@ -171,6 +172,13 @@ function controller(stateOverrides: Partial<WorkState> = {}) {
     loadDiagnostics: vi.fn(),
     refreshTasks: vi.fn(),
     refreshActivations: vi.fn(),
+    activateOfficialWorkbench: vi.fn().mockResolvedValue({
+      activation,
+      installRoot: "C:\\Users\\demo\\AppData\\Roaming\\BlackRain\\workbenches\\com.blackrain.office\\versions\\0.1.0",
+      officecliRoot: "C:\\Users\\demo\\AppData\\Roaming\\BlackRain\\tools\\officecli",
+      healthChecks: ["OfficeCLI 1.0.117"],
+      projectPreserved: true,
+    }),
     deactivateActivation: vi.fn().mockResolvedValue({
       activationId: activation.activationId,
       stoppedTaskIds: [],
@@ -207,6 +215,24 @@ describe("WorkSurface", () => {
     expect(workController.startTask).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Office 工作台安装计划").textContent).toContain(
       "3 个 Skills",
+    );
+  });
+
+  it("requires project selection and explicit permission confirmation before activation", async () => {
+    vi.mocked(pickWorkspacePath).mockResolvedValue("C:\\Users\\demo\\New Office Project");
+    const workController = controller({ activations: [], bundledOffice });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "选择项目并安装激活" }));
+    expect(await screen.findByText("安装并激活 Office 工作台？")).toBeTruthy();
+    expect(screen.getByText(/New Office Project/).textContent).toContain("读写权限");
+
+    fireEvent.click(screen.getByRole("button", { name: "确认权限并激活" }));
+    await waitFor(() =>
+      expect(workController.activateOfficialWorkbench).toHaveBeenCalledWith(
+        "com.blackrain.office",
+        "C:\\Users\\demo\\New Office Project",
+      ),
     );
   });
 
