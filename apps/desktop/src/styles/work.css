@@ -91,6 +91,52 @@
   grid-template-columns: 232px minmax(0, 1fr);
 }
 
+.work-surface-failure-layout {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--surface-messages);
+}
+
+.work-surface-failure.ds-panel {
+  width: min(100%, 520px);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.work-surface-failure > strong {
+  color: var(--text-strong);
+  font-size: 16px;
+}
+
+.work-surface-failure > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.work-surface-failure-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.work-surface-failure-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.work-surface-failure-actions svg {
+  width: 14px;
+  height: 14px;
+}
+
 .work-task-sidebar.ds-panel {
   height: 100%;
   min-height: 0;

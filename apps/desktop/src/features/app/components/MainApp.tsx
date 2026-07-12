@@ -84,6 +84,7 @@ import { normalizeCodexArgsInput } from "@/utils/codexArgsInput";
 import { subscribeTrayOpenThread } from "@services/events";
 import { I18nProvider } from "@/i18n";
 import { WorkSurface } from "@/features/work/components/WorkSurface";
+import { WorkSurfaceBoundary } from "@/features/work/components/WorkSurfaceBoundary";
 import { useWorkController } from "@/features/work/hooks/useWorkController";
 
 const SettingsView = lazy(() =>
@@ -1856,10 +1857,12 @@ export default function MainApp() {
 
   const mainMessagesNode = showWorkspaceHome ? workspaceHomeNode : messagesNode;
   const primaryHomeNode = workSurfaceOpen ? (
-    <WorkSurface
-      controller={workController}
-      onClose={() => setWorkSurfaceOpen(false)}
-    />
+    <WorkSurfaceBoundary onClose={() => setWorkSurfaceOpen(false)}>
+      <WorkSurface
+        controller={workController}
+        onClose={() => setWorkSurfaceOpen(false)}
+      />
+    </WorkSurfaceBoundary>
   ) : homeNode;
   const compactThreadConnectionState: "live" | "polling" | "disconnected" =
     !activeWorkspace?.connected
