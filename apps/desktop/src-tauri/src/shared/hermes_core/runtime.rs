@@ -7,12 +7,13 @@ use serde::{Deserialize, Serialize};
 use super::client::HermesApiClient;
 use super::client::HermesHttpTrace;
 use super::config::{
-    render_config_with_workbench, summary, HermesConfigInspection, HermesConfigManager,
-    HermesConfigSummary, HermesLaunchEnvironment, HermesMcpServerDesiredState, HermesPaths,
-    HermesProviderDesiredState, HermesWorkbenchBindResult, HermesWorkbenchBindRollback,
-    WorkbenchHermesDesiredState,
+    summary, HermesConfigInspection, HermesConfigManager, HermesConfigSummary,
+    HermesLaunchEnvironment, HermesMcpServerDesiredState, HermesPaths, HermesProviderDesiredState,
+    HermesWorkbenchBindResult, HermesWorkbenchBindRollback, WorkbenchHermesDesiredState,
 };
-use super::credential_store::{ensure_api_server_key, provider_secret_get};
+use super::credential_store::{
+    ensure_api_server_key, provider_secret_get, resolve_environment_reference,
+};
 use super::process::HermesProcessSupervisor;
 use super::types::{WorkError, WorkErrorKind, WorkRuntimeStatus};
 
@@ -97,10 +98,51 @@ pub(crate) async fn start_runtime(
                 false,
             )
         })?;
-    let environment =
-        HermesLaunchEnvironment::build(paths, MANAGED_HERMES_PORT, &bearer, &provider_secret)
-            .map_err(config_error)?;
+    let mcp_environment = resolve_mcp_launch_environment(&manager)?;
+    let environment = HermesLaunchEnvironment::build(
+        paths,
+        MANAGED_HERMES_PORT,
+        &bearer,
+        &provider_secret,
+        &mcp_environment,
+    )
+    .map_err(config_error)?;
     supervisor.start(environment).await
+}
+
+fn resolve_mcp_launch_environment(
+    manager: &HermesConfigManager,
+) -> Result<BTreeMap<String, String>, WorkError> {
+    resolve_mcp_launch_environment_with(manager, resolve_environment_reference)
+}
+
+fn resolve_mcp_launch_environment_with<F>(
+    manager: &HermesConfigManager,
+    mut resolver: F,
+) -> Result<BTreeMap<String, String>, WorkError>
+where
+    F: FnMut(&super::config::HermesEnvironmentReference) -> Result<Option<String>, String>,
+{
+    let mut environment = BTreeMap::new();
+    for binding in manager
+        .load_mcp_environment_bindings()
+        .map_err(config_error)?
+    {
+        let value = resolver(&binding.reference)
+            .map_err(credential_error)?
+            .ok_or_else(|| {
+                runtime_error(
+                    "hermes_mcp_environment_required",
+                    &format!(
+                        "A required MCP environment reference is missing: {}.",
+                        binding.reference.reference_id
+                    ),
+                    false,
+                )
+            })?;
+        environment.insert(binding.process_env_key, value);
+    }
+    Ok(environment)
 }
 
 pub(crate) async fn restart_runtime(
@@ -183,11 +225,9 @@ fn ensure_config_matches_desired(
         HermesConfigInspection::Valid => {
             let current = fs::read_to_string(&manager.paths.config)
                 .map_err(|error| config_error(format!("Unable to read Hermes config: {error}")))?;
-            let workbench = manager
-                .load_workbench_desired_state()
+            let expected = manager
+                .render_expected_config(desired)
                 .map_err(config_error)?;
-            let expected =
-                render_config_with_workbench(desired, workbench.as_ref()).map_err(config_error)?;
             if current == expected {
                 Ok(())
             } else {
@@ -245,14 +285,18 @@ fn runtime_error(code: &str, message: &str, retryable: bool) -> WorkError {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::fs;
     use std::path::PathBuf;
 
     use super::{
         configure_runtime_desired_state, ensure_config_matches_desired, load_runtime_desired_state,
+        resolve_mcp_launch_environment_with,
     };
     use crate::shared::hermes_core::config::{
-        HermesConfigManager, HermesPaths, HermesProviderDesiredState,
+        HermesConfigManager, HermesEnvironmentReference, HermesEnvironmentReferenceKind,
+        HermesMcpEnvironmentBinding, HermesMcpServerDesiredState, HermesPaths,
+        HermesProviderDesiredState, WorkbenchHermesDesiredState,
     };
 
     fn desired(model: &str) -> HermesProviderDesiredState {
@@ -305,6 +349,71 @@ mod tests {
         let error = ensure_config_matches_desired(&manager, &manager.load_desired_state().unwrap())
             .unwrap_err();
         assert_eq!(error.code, "hermes_config_desired_state_mismatch");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn complete_mcp_binding_is_part_of_runtime_drift_validation() {
+        let root = temp_root();
+        let paths = HermesPaths::from_app_data_dir(&root);
+        let provider = desired("deepseek-chat");
+        configure_runtime_desired_state(&paths, &provider).unwrap();
+        let skill_root = root.join("skills");
+        fs::create_dir_all(skill_root.join("office")).unwrap();
+        fs::write(skill_root.join("office").join("SKILL.md"), "# Office").unwrap();
+        let reference = HermesEnvironmentReference {
+            kind: HermesEnvironmentReferenceKind::ManagedVariable,
+            reference_id: "office-license".into(),
+        };
+        let workbench = WorkbenchHermesDesiredState {
+            workbench_id: "com.blackrain.office".into(),
+            workbench_version: "0.1.0".into(),
+            skill_roots: vec![skill_root],
+            plugin_ids: vec!["com.blackrain.office-cli".into()],
+            mcp_server_ids: vec!["com.blackrain.office-files".into()],
+            environment_refs: vec![reference.clone()],
+            provider_secret_ref: None,
+            permission_grant_id: "grant-office".into(),
+        };
+        let server = HermesMcpServerDesiredState {
+            id: "com.blackrain.office-files".into(),
+            command: root.join("office-mcp.exe"),
+            args: vec!["--stdio".into()],
+            environment: BTreeMap::from([(
+                "OFFICE_LICENSE".into(),
+                HermesMcpEnvironmentBinding {
+                    process_env_key: "BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF".into(),
+                    reference,
+                },
+            )]),
+            timeout_seconds: 300,
+            connect_timeout_seconds: 30,
+            supports_parallel_tool_calls: false,
+        };
+        let manager = HermesConfigManager {
+            paths: paths.clone(),
+        };
+        manager
+            .bind_workbench(&provider, &workbench, &[server], true)
+            .unwrap();
+
+        ensure_config_matches_desired(&manager, &provider).unwrap();
+        let environment = resolve_mcp_launch_environment_with(&manager, |reference| {
+            assert_eq!(reference.reference_id, "office-license");
+            Ok(Some("secret-value".into()))
+        })
+        .unwrap();
+        assert_eq!(environment.len(), 1);
+        assert_eq!(
+            environment["BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF"],
+            "secret-value"
+        );
+        assert_eq!(
+            resolve_mcp_launch_environment_with(&manager, |_| Ok(None))
+                .unwrap_err()
+                .code,
+            "hermes_mcp_environment_required"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

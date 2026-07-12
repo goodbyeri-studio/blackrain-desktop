@@ -68,7 +68,7 @@
 
 ## 2026-07-12：插件安装产物与 activation 引用分离
 
-- 决策：Core 在 App data 下维护版本化 `plugins/runtimes.v1.json`，记录已安装且已验证的 plugin/version、managed install root 和受控 MCP server 描述；activation 只携带 plugin/version/MCP/environment reference，不携带 command、args、cwd、env value 或 transport。009 在创建/继续 run 前从该 store 解析并复核路径。当前 `persist_verified` 只是未来 install/verify pipeline 的内部底层接缝，不对前端暴露，也不代表安装生命周期已经完成。
+- 决策：Core 在 App data 下维护版本化 `plugins/runtimes.v1.json`，记录已安装且已验证的 plugin/version、managed install root、受控 MCP server 和 child env key→typed reference 描述；activation 只携带 plugin/version/MCP/environment reference，不携带 command、args、cwd、env value 或 transport。009 在创建/继续 run 前从该 store 解析并复核路径，实际值只从系统凭据进入当前 Hermes 进程。当前 `persist_verified` 只是未来 install/verify pipeline 的内部底层接缝，不对前端暴露，也不代表安装生命周期已经完成。
 - 原因：Manifest 是最大声明，activation 是权限收敛后的运行引用，verified runtime 才是可执行制品真源。三者合并会让包声明或 UI 输入直接变成任意进程启动能力。
 - 替代方案：让工作台把 MCP command 直接写进 Hermes config，或由每个 surface 自己管理插件安装状态。
 - 影响范围：阶段 2 install/verify/activate、插件卸载 ownership、009 MCP binding 和未来 CODE surface。

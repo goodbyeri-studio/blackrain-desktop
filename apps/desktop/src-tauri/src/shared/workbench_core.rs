@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::shared::hermes_core::config::{
-    atomic_write, HermesSecretReference, WorkbenchHermesDesiredState,
+    atomic_write, HermesEnvironmentReference, HermesEnvironmentReferenceKind,
+    HermesSecretReference, WorkbenchHermesDesiredState,
 };
 
 pub(crate) const ACTIVATED_WORKBENCH_SCHEMA_VERSION: u32 = 1;
@@ -25,7 +26,7 @@ struct ActivatedWorkbenchEnvelope {
     activations: Vec<ActivatedWorkbenchContext>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum WorkbenchEngine {
     Work,
@@ -59,7 +60,7 @@ pub(crate) struct ActivatedMcpServerRef {
     pub(crate) plugin_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum ActivatedEnvironmentRefKind {
     ProviderCredential,
@@ -218,6 +219,24 @@ impl ActivatedWorkbenchContext {
                 .mcp_servers
                 .iter()
                 .map(|server| server.id.clone())
+                .collect(),
+            environment_refs: self
+                .environment_refs
+                .iter()
+                .map(|reference| HermesEnvironmentReference {
+                    kind: match reference.kind {
+                        ActivatedEnvironmentRefKind::ProviderCredential => {
+                            HermesEnvironmentReferenceKind::ProviderCredential
+                        }
+                        ActivatedEnvironmentRefKind::ManagedVariable => {
+                            HermesEnvironmentReferenceKind::ManagedVariable
+                        }
+                        ActivatedEnvironmentRefKind::SystemCapability => {
+                            HermesEnvironmentReferenceKind::SystemCapability
+                        }
+                    },
+                    reference_id: reference.reference_id.clone(),
+                })
                 .collect(),
             provider_secret_ref,
             permission_grant_id: self.permissions.grant_id.clone(),

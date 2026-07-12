@@ -96,8 +96,32 @@ pub(crate) struct WorkbenchHermesDesiredState {
     pub(crate) skill_roots: Vec<PathBuf>,
     pub(crate) plugin_ids: Vec<String>,
     pub(crate) mcp_server_ids: Vec<String>,
+    #[serde(default)]
+    pub(crate) environment_refs: Vec<HermesEnvironmentReference>,
     pub(crate) provider_secret_ref: Option<HermesSecretReference>,
     pub(crate) permission_grant_id: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum HermesEnvironmentReferenceKind {
+    ProviderCredential,
+    ManagedVariable,
+    SystemCapability,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HermesEnvironmentReference {
+    pub(crate) kind: HermesEnvironmentReferenceKind,
+    pub(crate) reference_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HermesMcpEnvironmentBinding {
+    pub(crate) process_env_key: String,
+    pub(crate) reference: HermesEnvironmentReference,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -107,6 +131,8 @@ pub(crate) struct HermesMcpServerDesiredState {
     pub(crate) command: PathBuf,
     #[serde(default)]
     pub(crate) args: Vec<String>,
+    #[serde(default)]
+    pub(crate) environment: BTreeMap<String, HermesMcpEnvironmentBinding>,
     pub(crate) timeout_seconds: u64,
     pub(crate) connect_timeout_seconds: u64,
     #[serde(default)]
@@ -146,6 +172,13 @@ impl WorkbenchHermesDesiredState {
         if let Some(secret_ref) = &self.provider_secret_ref {
             secret_ref.validate()?;
         }
+        let mut environment_refs = HashSet::new();
+        for reference in &self.environment_refs {
+            reference.validate()?;
+            if !environment_refs.insert(reference) {
+                return Err("Hermes workbench environment references must be unique.".into());
+            }
+        }
         validate_unique_paths(&self.skill_roots)?;
         Ok(())
     }
@@ -165,12 +198,29 @@ impl HermesMcpServerDesiredState {
         {
             return Err("Hermes MCP arguments are invalid or exceed bounded limits.".into());
         }
+        for (child_env_key, binding) in &self.environment {
+            validate_env_key(child_env_key)?;
+            validate_mcp_process_env_key(&binding.process_env_key)?;
+            binding.reference.validate()?;
+            if binding.reference.kind == HermesEnvironmentReferenceKind::SystemCapability {
+                return Err(
+                    "Hermes MCP environment cannot resolve a system capability as a secret value."
+                        .into(),
+                );
+            }
+        }
         if !(1..=3600).contains(&self.timeout_seconds)
             || !(1..=300).contains(&self.connect_timeout_seconds)
         {
             return Err("Hermes MCP timeout values are outside the allowed range.".into());
         }
         Ok(())
+    }
+}
+
+impl HermesEnvironmentReference {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        validate_reference_id(&self.reference_id)
     }
 }
 
@@ -516,6 +566,42 @@ impl HermesConfigManager {
             .map(|binding| binding.workbench))
     }
 
+    pub(crate) fn load_mcp_environment_bindings(
+        &self,
+    ) -> Result<Vec<HermesMcpEnvironmentBinding>, String> {
+        let Some(binding) = self.load_workbench_binding()? else {
+            return Ok(Vec::new());
+        };
+        let mut by_process_key = BTreeMap::new();
+        for environment in binding
+            .mcp_servers
+            .into_iter()
+            .flat_map(|server| server.environment.into_values())
+        {
+            match by_process_key.get(&environment.process_env_key) {
+                Some(existing) if existing != &environment => {
+                    return Err(
+                        "Hermes MCP process environment key resolves to conflicting references."
+                            .into(),
+                    );
+                }
+                Some(_) => {}
+                None => {
+                    by_process_key.insert(environment.process_env_key.clone(), environment);
+                }
+            }
+        }
+        Ok(by_process_key.into_values().collect())
+    }
+
+    pub(crate) fn render_expected_config(
+        &self,
+        desired: &HermesProviderDesiredState,
+    ) -> Result<String, String> {
+        let binding = self.load_workbench_binding()?;
+        render_config_with_binding(desired, binding.as_ref())
+    }
+
     fn load_workbench_binding(&self) -> Result<Option<HermesWorkbenchBinding>, String> {
         if !self.paths.workbench_desired_state.exists() {
             return Ok(None);
@@ -584,6 +670,7 @@ impl HermesLaunchEnvironment {
         api_port: u16,
         api_server_key: &str,
         provider_api_key: &str,
+        mcp_environment: &BTreeMap<String, String>,
     ) -> Result<Self, String> {
         if api_port == 0 {
             return Err("Hermes API port must be non-zero.".into());
@@ -601,6 +688,13 @@ impl HermesLaunchEnvironment {
         values.insert("API_SERVER_KEY".into(), api_server_key.into());
         values.insert(PROVIDER_API_KEY_ENV.into(), provider_api_key.into());
         values.insert("CUA_DRIVER_RS_TELEMETRY_ENABLED".into(), "0".into());
+        for (key, value) in mcp_environment {
+            validate_mcp_process_env_key(key)?;
+            if value.is_empty() || value.len() > 65_536 || value.chars().any(char::is_control) {
+                return Err("Hermes MCP environment values must be non-empty, bounded, and contain no control characters.".into());
+            }
+            values.insert(key.clone(), value.clone());
+        }
         Ok(Self { values })
     }
 
@@ -612,7 +706,10 @@ impl HermesLaunchEnvironment {
         self.values
             .iter()
             .map(|(key, value)| {
-                let safe = if key == "API_SERVER_KEY" || key == PROVIDER_API_KEY_ENV {
+                let safe = if key == "API_SERVER_KEY"
+                    || key == PROVIDER_API_KEY_ENV
+                    || key.starts_with("BLACKRAIN_MCP_SECRET_")
+                {
                     "<redacted>".into()
                 } else {
                     value.clone()
@@ -684,6 +781,16 @@ fn render_config_with_binding(
                     serde_json::to_string(&server.args)
                         .map_err(|error| format!("Unable to serialize MCP args: {error}"))?
                 ));
+                if !server.environment.is_empty() {
+                    output.push_str("    env:\n");
+                    for (child_env_key, environment) in &server.environment {
+                        output.push_str(&format!(
+                            "      {}: {}\n",
+                            child_env_key,
+                            yaml_quote(&format!("${{{}}}", environment.process_env_key))
+                        ));
+                    }
+                }
                 output.push_str(&format!("    timeout: {}\n", server.timeout_seconds));
                 output.push_str(&format!(
                     "    connect_timeout: {}\n",
@@ -756,11 +863,22 @@ fn validate_mcp_binding(
     workbench: &WorkbenchHermesDesiredState,
     mcp_servers: &[HermesMcpServerDesiredState],
 ) -> Result<(), String> {
+    let allowed_environment_refs: HashSet<_> = workbench.environment_refs.iter().collect();
     let mut desired_ids = workbench.mcp_server_ids.clone();
     desired_ids.sort();
     let mut resolved_ids = Vec::with_capacity(mcp_servers.len());
     for server in mcp_servers {
         server.validate()?;
+        if server
+            .environment
+            .values()
+            .any(|binding| !allowed_environment_refs.contains(&binding.reference))
+        {
+            return Err(
+                "Hermes MCP binding requires an environment reference not granted by the workbench activation."
+                    .into(),
+            );
+        }
         resolved_ids.push(server.id.clone());
     }
     resolved_ids.sort();
@@ -913,11 +1031,47 @@ fn validate_http_url(value: &str) -> Result<(), String> {
 
 fn validate_env_key(value: &str) -> Result<(), String> {
     if value.is_empty()
+        || value.len() > 128
         || !value.chars().all(|character| {
             character.is_ascii_uppercase() || character.is_ascii_digit() || character == '_'
         })
     {
-        return Err("Hermes provider key_env must be an uppercase environment key.".into());
+        return Err(
+            "Hermes environment key must use uppercase ASCII letters, digits, or underscore."
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+fn validate_mcp_process_env_key(value: &str) -> Result<(), String> {
+    const PREFIX: &str = "BLACKRAIN_MCP_SECRET_";
+    let Some(suffix) = value.strip_prefix(PREFIX) else {
+        return Err(
+            "Hermes MCP process environment keys must use the App-managed namespace.".into(),
+        );
+    };
+    if suffix.len() != 32
+        || !suffix
+            .chars()
+            .all(|character| character.is_ascii_digit() || matches!(character, 'A'..='F'))
+    {
+        return Err(
+            "Hermes MCP process environment keys must contain a 32-character uppercase hex suffix."
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+fn validate_reference_id(value: &str) -> Result<(), String> {
+    if value.is_empty()
+        || value.len() > 256
+        || value.chars().any(|character| {
+            !(character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-' | ':'))
+        })
+    {
+        return Err("Hermes environment reference id is invalid.".into());
     }
     Ok(())
 }
@@ -1013,6 +1167,7 @@ mod tests {
         HermesMcpServerDesiredState, HermesPaths, HermesProviderDesiredState,
         WorkbenchHermesDesiredState, PROVIDER_API_KEY_ENV,
     };
+    use std::collections::BTreeMap;
     use std::fs;
     use std::path::PathBuf;
     use uuid::Uuid;
@@ -1039,6 +1194,10 @@ mod tests {
             skill_roots: vec![skill_root],
             plugin_ids: vec!["com.blackrain.office-cli".into()],
             mcp_server_ids: Vec::new(),
+            environment_refs: vec![super::HermesEnvironmentReference {
+                kind: super::HermesEnvironmentReferenceKind::ProviderCredential,
+                reference_id: "blackrain-new-api".into(),
+            }],
             provider_secret_ref: Some(super::HermesSecretReference::ProviderCredential {
                 provider_id: "blackrain-new-api".into(),
             }),
@@ -1051,6 +1210,7 @@ mod tests {
             id: "com.blackrain.office-files".into(),
             command,
             args: vec!["--stdio".into()],
+            environment: BTreeMap::new(),
             timeout_seconds: 300,
             connect_timeout_seconds: 30,
             supports_parallel_tool_calls: false,
@@ -1164,7 +1324,24 @@ mod tests {
         fs::write(&command, "fixture").unwrap();
         let mut workbench = workbench(skill_root);
         workbench.mcp_server_ids = vec!["com.blackrain.office-files".into()];
-        let mcp_servers = vec![mcp_server(command)];
+        workbench
+            .environment_refs
+            .push(super::HermesEnvironmentReference {
+                kind: super::HermesEnvironmentReferenceKind::ManagedVariable,
+                reference_id: "office-license".into(),
+            });
+        let mut server = mcp_server(command);
+        server.environment.insert(
+            "OFFICE_LICENSE".into(),
+            super::HermesMcpEnvironmentBinding {
+                process_env_key: "BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF".into(),
+                reference: super::HermesEnvironmentReference {
+                    kind: super::HermesEnvironmentReferenceKind::ManagedVariable,
+                    reference_id: "office-license".into(),
+                },
+            },
+        );
+        let mcp_servers = vec![server];
         let manager = HermesConfigManager::new(&root);
         manager.apply(&desired("deepseek-chat")).unwrap();
 
@@ -1182,11 +1359,44 @@ mod tests {
         assert!(rendered.contains("mcp_servers:\n"));
         assert!(rendered.contains("\"com.blackrain.office-files\":\n"));
         assert!(rendered.contains("args: [\"--stdio\"]\n"));
+        assert!(rendered.contains("env:\n"));
+        assert!(rendered.contains(
+            "OFFICE_LICENSE: \"${BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF}\""
+        ));
+        assert!(!rendered.contains("office-license-secret"));
+        let persisted_binding = fs::read_to_string(&manager.paths.workbench_desired_state).unwrap();
+        assert!(!persisted_binding.contains("office-license-secret"));
+        let environment_bindings = manager.load_mcp_environment_bindings().unwrap();
+        assert_eq!(environment_bindings.len(), 1);
+        assert_eq!(
+            environment_bindings[0].reference.reference_id,
+            "office-license"
+        );
 
         let unchanged = manager
             .bind_workbench(&desired("deepseek-chat"), &workbench, &mcp_servers, false)
             .unwrap();
         assert!(!unchanged.mcp_changed);
+
+        let mut different_environment_workbench = workbench.clone();
+        different_environment_workbench.environment_refs[1].reference_id = "finance-license".into();
+        let mut different_environment_servers = mcp_servers.clone();
+        let environment = different_environment_servers[0]
+            .environment
+            .get_mut("OFFICE_LICENSE")
+            .unwrap();
+        environment.process_env_key =
+            "BLACKRAIN_MCP_SECRET_FFEEDDCCBBAA99887766554433221100".into();
+        environment.reference.reference_id = "finance-license".into();
+        assert!(manager
+            .bind_workbench(
+                &desired("deepseek-chat"),
+                &different_environment_workbench,
+                &different_environment_servers,
+                false,
+            )
+            .unwrap_err()
+            .contains("while any WORK run is active"));
 
         let mut without_mcp = workbench.clone();
         without_mcp.mcp_server_ids.clear();
@@ -1223,6 +1433,7 @@ mod tests {
         assert!(!base_config.contains("skills:\n"));
         assert!(!base_config.contains("mcp_servers:\n"));
         assert!(!manager.paths.workbench_desired_state.exists());
+        assert!(manager.load_mcp_environment_bindings().unwrap().is_empty());
         let _ = fs::remove_dir_all(root);
     }
 
@@ -1317,8 +1528,18 @@ mod tests {
     fn launch_environment_is_loopback_only_and_redacted() {
         let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
         let api_key = "a".repeat(64);
-        let environment =
-            HermesLaunchEnvironment::build(&paths, 8642, &api_key, "provider-secret").unwrap();
+        let mcp_environment = BTreeMap::from([(
+            "BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF".into(),
+            "office-license-secret".into(),
+        )]);
+        let environment = HermesLaunchEnvironment::build(
+            &paths,
+            8642,
+            &api_key,
+            "provider-secret",
+            &mcp_environment,
+        )
+        .unwrap();
         assert_eq!(environment.values()["API_SERVER_HOST"], "127.0.0.1");
         assert_eq!(environment.values()["API_SERVER_ENABLED"], "true");
         assert_eq!(environment.values()["CUA_DRIVER_RS_TELEMETRY_ENABLED"], "0");
@@ -1330,6 +1551,10 @@ mod tests {
             environment.redacted_summary()[PROVIDER_API_KEY_ENV],
             "<redacted>"
         );
+        assert_eq!(
+            environment.redacted_summary()["BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF"],
+            "<redacted>"
+        );
         assert!(!environment
             .redacted_summary()
             .values()
@@ -1339,9 +1564,36 @@ mod tests {
     #[test]
     fn launch_environment_rejects_weak_api_server_keys() {
         let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
-        let error =
-            HermesLaunchEnvironment::build(&paths, 8642, "short", "provider-secret").unwrap_err();
+        let error = HermesLaunchEnvironment::build(
+            &paths,
+            8642,
+            "short",
+            "provider-secret",
+            &BTreeMap::new(),
+        )
+        .unwrap_err();
         assert!(error.contains("too short"));
+    }
+
+    #[test]
+    fn rejects_noncanonical_mcp_process_environment_keys() {
+        let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
+        for key in [
+            "BLACKRAIN_MCP_SECRET_",
+            "BLACKRAIN_MCP_SECRET_NOT_HEX_________________________",
+            "BLACKRAIN_MCP_SECRET_00112233445566778899aabbccddeeff",
+            "OTHER_SECRET_00112233445566778899AABBCCDDEEFF",
+        ] {
+            let error = HermesLaunchEnvironment::build(
+                &paths,
+                8642,
+                &"a".repeat(64),
+                "provider-secret",
+                &BTreeMap::from([(key.into(), "secret".into())]),
+            )
+            .unwrap_err();
+            assert!(error.contains("MCP process environment keys"));
+        }
     }
 
     #[test]
