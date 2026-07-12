@@ -215,6 +215,11 @@
   - [x] resume/focus/visible/online 触发 runtime/tasks/recovery/activation 受控对账
   - [ ] Windows App 强退、Hermes 强退、睡眠恢复、系统重启与真实 Job/process-tree E2E
 - [ ] 审核所有日志和诊断包的 secret/用户内容脱敏
+  - [x] Hermes stdout/stderr 不保存正文，只记录受控占位信号；supervisor 自有日志只写固定文案和安全 error code
+  - [x] HTTP trace 只保存 request id、method、受校验 path、status、白名单 outcome 和 elapsed，不保存 header/body
+  - [x] 上游 HTTP error message 不进入 WorkError，error code/request id 仅接受有界安全 token；diagnostics status 清空 message 原文/details/不安全 request id
+  - [x] unknown event diagnostics 只保存 event type、字段名和原因，不保存 payload value
+  - [ ] Windows 真实日志文件、诊断复制、崩溃记录和长会话人工脱敏审计
 - [ ] 验证 loopback/bearer、权限和路径边界
 - [ ] 验证工作台不能修改全局 `~/.hermes` / `~/.codex`
 - [ ] 验证 WORK 失败不拖垮 CODE surface
