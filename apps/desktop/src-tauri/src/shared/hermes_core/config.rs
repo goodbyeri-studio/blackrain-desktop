@@ -93,6 +93,8 @@ impl HermesProviderDesiredState {
 pub(crate) struct WorkbenchHermesDesiredState {
     pub(crate) workbench_id: String,
     pub(crate) workbench_version: String,
+    #[serde(default)]
+    pub(crate) project_root: PathBuf,
     pub(crate) skill_roots: Vec<PathBuf>,
     pub(crate) plugin_ids: Vec<String>,
     pub(crate) mcp_server_ids: Vec<String>,
@@ -275,6 +277,7 @@ pub(crate) struct HermesConfigSummary {
 pub(crate) struct HermesWorkbenchBindResult {
     pub(crate) config_summary: HermesConfigSummary,
     pub(crate) mcp_changed: bool,
+    pub(crate) process_environment_changed: bool,
     pub(crate) rollback: HermesWorkbenchBindRollback,
 }
 
@@ -383,8 +386,14 @@ impl HermesConfigManager {
             .map(|binding| binding.mcp_servers.as_slice())
             .unwrap_or(&[]);
         let mcp_changed = previous_mcp != mcp_servers;
-        if mcp_changed && !allow_mcp_change {
-            return Err("Hermes MCP binding cannot change while any WORK run is active.".into());
+        let process_environment_changed = previous_binding
+            .as_ref()
+            .map(|binding| binding.workbench.project_root.as_path())
+            != Some(workbench.project_root.as_path());
+        if (mcp_changed || process_environment_changed) && !allow_mcp_change {
+            return Err(
+                "Hermes process binding cannot change while any WORK run is active.".into(),
+            );
         }
         if let Some(HermesSecretReference::ProviderCredential { provider_id }) =
             &workbench.provider_secret_ref
@@ -397,6 +406,7 @@ impl HermesConfigManager {
             }
         }
         validate_skill_roots_for_binding(&workbench.skill_roots)?;
+        validate_project_root_for_binding(&workbench.project_root)?;
         if let HermesConfigInspection::RepairRequired(plan) = self.inspect()? {
             return Err(format!(
                 "Hermes config requires repair before binding a workbench: {} ({})",
@@ -408,7 +418,12 @@ impl HermesConfigManager {
             workbench: workbench.clone(),
             mcp_servers: mcp_servers.to_vec(),
         };
-        self.apply_workbench_binding(provider, Some(&binding), mcp_changed)
+        self.apply_workbench_binding(
+            provider,
+            Some(&binding),
+            mcp_changed,
+            process_environment_changed,
+        )
     }
 
     pub(crate) fn unbind_workbench(
@@ -421,8 +436,11 @@ impl HermesConfigManager {
         let mcp_changed = previous_binding
             .as_ref()
             .is_some_and(|binding| !binding.mcp_servers.is_empty());
-        if mcp_changed && !allow_mcp_change {
-            return Err("Hermes MCP binding cannot change while any WORK run is active.".into());
+        let process_environment_changed = previous_binding.is_some();
+        if (mcp_changed || process_environment_changed) && !allow_mcp_change {
+            return Err(
+                "Hermes process binding cannot change while any WORK run is active.".into(),
+            );
         }
         if let HermesConfigInspection::RepairRequired(plan) = self.inspect()? {
             return Err(format!(
@@ -430,7 +448,7 @@ impl HermesConfigManager {
                 plan.reason, plan.config_path
             ));
         }
-        self.apply_workbench_binding(provider, None, mcp_changed)
+        self.apply_workbench_binding(provider, None, mcp_changed, process_environment_changed)
     }
 
     fn apply_workbench_binding(
@@ -438,6 +456,7 @@ impl HermesConfigManager {
         provider: &HermesProviderDesiredState,
         binding: Option<&HermesWorkbenchBinding>,
         mcp_changed: bool,
+        process_environment_changed: bool,
     ) -> Result<HermesWorkbenchBindResult, String> {
         fs::create_dir_all(&self.paths.home).map_err(|error| {
             format!(
@@ -479,6 +498,7 @@ impl HermesConfigManager {
         Ok(HermesWorkbenchBindResult {
             config_summary: summary(provider),
             mcp_changed,
+            process_environment_changed,
             rollback,
         })
     }
@@ -644,6 +664,9 @@ impl HermesConfigManager {
         }
         binding.workbench.validate()?;
         validate_skill_roots_for_binding(&binding.workbench.skill_roots)?;
+        if !binding.workbench.project_root.as_os_str().is_empty() {
+            validate_project_root_for_binding(&binding.workbench.project_root)?;
+        }
         validate_mcp_binding(&binding.workbench, &binding.mcp_servers)?;
         Ok(Some(binding))
     }
@@ -667,6 +690,7 @@ pub(crate) struct HermesLaunchEnvironment {
 impl HermesLaunchEnvironment {
     pub(crate) fn build(
         paths: &HermesPaths,
+        write_safe_root: Option<&Path>,
         api_port: u16,
         api_server_key: &str,
         provider_api_key: &str,
@@ -689,6 +713,13 @@ impl HermesLaunchEnvironment {
         values.insert("API_SERVER_KEY".into(), api_server_key.into());
         values.insert(PROVIDER_API_KEY_ENV.into(), provider_api_key.into());
         values.insert("CUA_DRIVER_RS_TELEMETRY_ENABLED".into(), "0".into());
+        if let Some(write_safe_root) = write_safe_root {
+            validate_project_root_for_binding(write_safe_root)?;
+            values.insert(
+                "HERMES_WRITE_SAFE_ROOT".into(),
+                write_safe_root.to_string_lossy().to_string(),
+            );
+        }
         if !tool_paths.is_empty() {
             if tool_paths.iter().any(|path| !is_safe_absolute_path(path)) {
                 return Err("Hermes system tool paths must be absolute safe paths.".into());
@@ -972,6 +1003,13 @@ fn validate_skill_roots_for_binding(paths: &[PathBuf]) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_project_root_for_binding(project_root: &Path) -> Result<(), String> {
+    if !is_safe_absolute_path(project_root) || !project_root.is_dir() {
+        return Err("Hermes workbench project root must be an existing directory.".into());
+    }
+    reject_symlink(project_root, "project root")
+}
+
 fn reject_symlink(path: &Path, label: &str) -> Result<(), String> {
     let metadata = fs::symlink_metadata(path).map_err(|error| {
         format!(
@@ -1201,9 +1239,14 @@ mod tests {
     }
 
     fn workbench(skill_root: PathBuf) -> WorkbenchHermesDesiredState {
+        let project_root = skill_root
+            .parent()
+            .expect("fixture skill root has a parent")
+            .to_path_buf();
         WorkbenchHermesDesiredState {
             workbench_id: "com.blackrain.office".into(),
             workbench_version: "0.1.0".into(),
+            project_root,
             skill_roots: vec![skill_root],
             plugin_ids: vec!["com.blackrain.office-cli".into()],
             mcp_server_ids: Vec::new(),
@@ -1367,6 +1410,7 @@ mod tests {
             .bind_workbench(&desired("deepseek-chat"), &workbench, &mcp_servers, true)
             .unwrap();
         assert!(result.mcp_changed);
+        assert!(result.process_environment_changed);
         assert_eq!(result.config_summary.model, "deepseek-chat");
         let rendered = fs::read_to_string(&manager.paths.config).unwrap();
         assert!(rendered.contains("mcp_servers:\n"));
@@ -1390,6 +1434,33 @@ mod tests {
             .bind_workbench(&desired("deepseek-chat"), &workbench, &mcp_servers, false)
             .unwrap();
         assert!(!unchanged.mcp_changed);
+        assert!(!unchanged.process_environment_changed);
+
+        let mut different_project = workbench.clone();
+        different_project.project_root = root.join("another-project");
+        fs::create_dir_all(&different_project.project_root).unwrap();
+        assert!(manager
+            .bind_workbench(
+                &desired("deepseek-chat"),
+                &different_project,
+                &mcp_servers,
+                false,
+            )
+            .unwrap_err()
+            .contains("while any WORK run is active"));
+        let changed_project = manager
+            .bind_workbench(
+                &desired("deepseek-chat"),
+                &different_project,
+                &mcp_servers,
+                true,
+            )
+            .unwrap();
+        assert!(!changed_project.mcp_changed);
+        assert!(changed_project.process_environment_changed);
+        manager
+            .rollback_workbench_binding(&changed_project.rollback)
+            .unwrap();
 
         let mut different_environment_workbench = workbench.clone();
         different_environment_workbench.environment_refs[1].reference_id = "finance-license".into();
@@ -1427,6 +1498,7 @@ mod tests {
             .bind_workbench(&desired("deepseek-chat"), &without_mcp, &[], true)
             .unwrap();
         assert!(removed.mcp_changed);
+        assert!(!removed.process_environment_changed);
         assert!(!fs::read_to_string(&manager.paths.config)
             .unwrap()
             .contains("mcp_servers:"));
@@ -1442,6 +1514,7 @@ mod tests {
             .unbind_workbench(&desired("deepseek-chat"), true)
             .unwrap();
         assert!(unbound.mcp_changed);
+        assert!(unbound.process_environment_changed);
         let base_config = fs::read_to_string(&manager.paths.config).unwrap();
         assert!(!base_config.contains("skills:\n"));
         assert!(!base_config.contains("mcp_servers:\n"));
@@ -1463,9 +1536,11 @@ mod tests {
         let manager = HermesConfigManager::new(&root);
         manager.apply(&desired("deepseek-chat")).unwrap();
         let legacy = workbench(skill_root);
+        let mut legacy_value = serde_json::to_value(&legacy).unwrap();
+        legacy_value.as_object_mut().unwrap().remove("projectRoot");
         fs::write(
             &manager.paths.workbench_desired_state,
-            serde_json::to_vec_pretty(&legacy).unwrap(),
+            serde_json::to_vec_pretty(&legacy_value).unwrap(),
         )
         .unwrap();
 
@@ -1473,6 +1548,13 @@ mod tests {
         assert!(fs::read_to_string(&manager.paths.config)
             .unwrap()
             .contains("skills:\n"));
+        let rebound = manager
+            .bind_workbench(&desired("glm-5"), &legacy, &[], true)
+            .unwrap();
+        assert!(rebound.process_environment_changed);
+        assert!(fs::read_to_string(&manager.paths.workbench_desired_state)
+            .unwrap()
+            .contains("projectRoot"));
 
         let mut unresolved = legacy;
         unresolved.mcp_server_ids = vec!["com.blackrain.office-files".into()];
@@ -1547,6 +1629,7 @@ mod tests {
         )]);
         let environment = HermesLaunchEnvironment::build(
             &paths,
+            None,
             8642,
             &api_key,
             "provider-secret",
@@ -1576,10 +1659,39 @@ mod tests {
     }
 
     #[test]
+    fn launch_environment_limits_file_writes_to_the_verified_project() {
+        let root = temp_root();
+        let paths = HermesPaths::from_app_data_dir(&root);
+        let project_root = root.join("verified-project");
+        fs::create_dir_all(&project_root).unwrap();
+        let environment = HermesLaunchEnvironment::build(
+            &paths,
+            Some(&project_root),
+            8642,
+            &"a".repeat(64),
+            "provider-secret",
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
+
+        assert_eq!(
+            environment.values()["HERMES_WRITE_SAFE_ROOT"],
+            project_root.to_string_lossy()
+        );
+        assert_eq!(
+            environment.redacted_summary()["HERMES_WRITE_SAFE_ROOT"],
+            project_root.to_string_lossy()
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn launch_environment_rejects_weak_api_server_keys() {
         let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
         let error = HermesLaunchEnvironment::build(
             &paths,
+            None,
             8642,
             "short",
             "provider-secret",
@@ -1601,6 +1713,7 @@ mod tests {
         ] {
             let error = HermesLaunchEnvironment::build(
                 &paths,
+                None,
                 8642,
                 &"a".repeat(64),
                 "provider-secret",
@@ -1618,6 +1731,7 @@ mod tests {
         let tool_root = PathBuf::from("/app-data/blackrain/tools/officecli");
         let environment = HermesLaunchEnvironment::build(
             &paths,
+            None,
             8642,
             &"a".repeat(64),
             "provider-secret",
@@ -1637,6 +1751,7 @@ mod tests {
         let payload = serde_json::json!({
             "workbenchId": "office-agent",
             "workbenchVersion": "0.1.0",
+            "projectRoot": "/tmp/project",
             "skillRoots": ["/tmp/skills"],
             "pluginIds": ["office-cli"],
             "mcpServerIds": [],
@@ -1655,6 +1770,7 @@ mod tests {
         let state: WorkbenchHermesDesiredState = serde_json::from_value(serde_json::json!({
             "workbenchId": "office-agent",
             "workbenchVersion": "0.1.0",
+            "projectRoot": "/tmp/project",
             "skillRoots": ["/tmp/skills"],
             "pluginIds": ["office-cli"],
             "mcpServerIds": [],

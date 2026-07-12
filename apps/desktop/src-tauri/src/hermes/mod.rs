@@ -161,12 +161,13 @@ fn ensure_no_conflicting_activation(
     Ok(())
 }
 
-async fn restart_runtime_for_mcp_change(
+async fn restart_runtime_for_workbench_change(
     state: &AppState,
     app: &AppHandle,
     binding: &crate::shared::hermes_core::config::HermesWorkbenchBindResult,
 ) -> Result<(), WorkError> {
-    if !binding.mcp_changed || state.hermes_runtime.status().await.state != WorkRuntimeState::Ready
+    if !(binding.mcp_changed || binding.process_environment_changed)
+        || state.hermes_runtime.status().await.state != WorkRuntimeState::Ready
     {
         return Ok(());
     }
@@ -188,15 +189,15 @@ async fn restart_runtime_for_mcp_change(
                 schedule_task_recovery(state, app.clone(), false);
             }
             let mut error = restart_error;
-            error.code = "hermes_mcp_transition_failed".into();
+            error.code = "hermes_workbench_transition_failed".into();
             error.message = if rollback_result.is_ok() && recovery_result.is_ok() {
-                "Hermes could not start with the new MCP binding; the previous binding and runtime were restored."
+                "Hermes could not start with the new workbench binding; the previous binding and runtime were restored."
                     .into()
             } else if rollback_result.is_ok() {
-                "Hermes could not start with the new MCP binding; the previous binding was restored but the runtime still requires repair."
+                "Hermes could not start with the new workbench binding; the previous binding was restored but the runtime still requires repair."
                     .into()
             } else {
-                "Hermes could not start with the new MCP binding and its previous binding could not be restored; runtime repair is required."
+                "Hermes could not start with the new workbench binding and its previous binding could not be restored; runtime repair is required."
                     .into()
             };
             error.retryable = rollback_result.is_ok();
@@ -657,7 +658,7 @@ pub(crate) async fn hermes_task_start(
         &mcp_servers,
         !has_active_runs,
     )?;
-    restart_runtime_for_mcp_change(&state, &app, &binding).await?;
+    restart_runtime_for_workbench_change(&state, &app, &binding).await?;
     let now = now_unix_seconds();
     let task_id = format!("task-{}", uuid::Uuid::new_v4().simple());
     let task = WorkTask {
@@ -834,7 +835,7 @@ async fn continue_task_inner(
         &mcp_servers,
         !has_active_runs,
     )?;
-    restart_runtime_for_mcp_change(state, app, &binding).await?;
+    restart_runtime_for_workbench_change(state, app, &binding).await?;
     let session_id = task.hermes_session_id.ok_or_else(|| {
         command_error(
             "work_task_session_missing",

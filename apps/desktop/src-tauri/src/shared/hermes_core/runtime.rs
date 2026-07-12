@@ -103,8 +103,13 @@ pub(crate) async fn start_runtime(
         })?;
     let mcp_environment = resolve_mcp_launch_environment(&manager)?;
     let system_tool_paths = resolve_system_tool_paths(paths, &manager)?;
+    let write_safe_root = manager
+        .load_workbench_desired_state()
+        .map_err(config_error)?
+        .map(|workbench| workbench.project_root);
     let environment = HermesLaunchEnvironment::build(
         paths,
+        write_safe_root.as_deref(),
         MANAGED_HERMES_PORT,
         &bearer,
         &provider_secret,
@@ -544,6 +549,7 @@ mod tests {
                 &WorkbenchHermesDesiredState {
                     workbench_id: "com.blackrain.office".into(),
                     workbench_version: "0.1.0".into(),
+                    project_root: root.clone(),
                     skill_roots: vec![skill_root],
                     plugin_ids: Vec::new(),
                     mcp_server_ids: Vec::new(),
@@ -597,6 +603,7 @@ mod tests {
                 &WorkbenchHermesDesiredState {
                     workbench_id: "com.blackrain.office".into(),
                     workbench_version: "0.1.0".into(),
+                    project_root: root.clone(),
                     skill_roots: vec![skill_root],
                     plugin_ids: Vec::new(),
                     mcp_server_ids: Vec::new(),
@@ -640,6 +647,7 @@ mod tests {
                 &WorkbenchHermesDesiredState {
                     workbench_id: "com.blackrain.office".into(),
                     workbench_version: "0.1.0".into(),
+                    project_root: root.clone(),
                     skill_roots: vec![skill_root],
                     plugin_ids: Vec::new(),
                     mcp_server_ids: Vec::new(),
@@ -705,6 +713,7 @@ mod tests {
         let workbench = WorkbenchHermesDesiredState {
             workbench_id: "com.blackrain.office".into(),
             workbench_version: "0.1.0".into(),
+            project_root: root.clone(),
             skill_roots: vec![skill_root],
             plugin_ids: vec!["com.blackrain.office-cli".into()],
             mcp_server_ids: vec!["com.blackrain.office-files".into()],

@@ -336,6 +336,18 @@ impl HermesProcessSupervisor {
             logs.set_secrets(secrets);
             logs.append("supervisor", "Starting managed Hermes runtime.");
         }
+        let isolated_user_environment = match isolated_user_environment(&self.home) {
+            Ok(environment) => environment,
+            Err(error) => {
+                self.set_failed(
+                    WorkRuntimeState::RepairRequired,
+                    error.clone(),
+                    Some(base_url),
+                )
+                .await;
+                return Err(error);
+            }
+        };
 
         let mut command = tokio_command(&self.layout.executable);
         #[cfg(unix)]
@@ -348,6 +360,7 @@ impl HermesProcessSupervisor {
             .current_dir(&self.home)
             .env_clear()
             .envs(safe_parent_environment())
+            .envs(isolated_user_environment)
             .envs(environment.values())
             .env("PYTHONUTF8", "1")
             .env("PYTHONDONTWRITEBYTECODE", "1")
@@ -1146,17 +1159,13 @@ async fn terminate_child_gracefully(child: &mut Child, graceful_timeout: Duratio
 
 fn safe_parent_environment() -> Vec<(OsString, OsString)> {
     const ALLOWED: &[&str] = &[
-        "APPDATA",
         "COMSPEC",
-        "HOME",
         "LANG",
-        "LOCALAPPDATA",
         "PATH",
         "PATHEXT",
         "SYSTEMROOT",
         "TEMP",
         "TMP",
-        "USERPROFILE",
         "WINDIR",
     ];
     std::env::vars_os()
@@ -1167,6 +1176,42 @@ fn safe_parent_environment() -> Vec<(OsString, OsString)> {
                 .any(|allowed| key.eq_ignore_ascii_case(allowed))
         })
         .collect()
+}
+
+fn isolated_user_environment(home: &Path) -> Result<Vec<(OsString, OsString)>, WorkError> {
+    let process_home = home.join("process-home");
+    let app_data = process_home.join("AppData").join("Roaming");
+    let local_app_data = process_home.join("AppData").join("Local");
+    for directory in [&process_home, &app_data, &local_app_data] {
+        fs::create_dir_all(directory).map_err(|error| {
+            runtime_error(
+                "hermes_process_home_create_failed",
+                &format!(
+                    "Unable to create isolated Hermes process home {}: {error}",
+                    directory.display()
+                ),
+                false,
+            )
+        })?;
+    }
+    Ok(vec![
+        (
+            OsString::from("HOME"),
+            process_home.as_os_str().to_os_string(),
+        ),
+        (
+            OsString::from("USERPROFILE"),
+            process_home.as_os_str().to_os_string(),
+        ),
+        (
+            OsString::from("APPDATA"),
+            app_data.as_os_str().to_os_string(),
+        ),
+        (
+            OsString::from("LOCALAPPDATA"),
+            local_app_data.as_os_str().to_os_string(),
+        ),
+    ])
 }
 
 fn spawn_log_reader<R>(reader: R, source: &'static str, logs: Arc<StdMutex<LogState>>)
@@ -1314,9 +1359,10 @@ mod tests {
     use std::time::Duration;
 
     use super::{
-        classify_port_conflict, read_runtime_lease, redact_log_line, remove_runtime_lease,
-        validate_runtime_lease, write_runtime_lease, HermesProcessSupervisor, HermesRuntimeLayout,
-        HermesRuntimeLease, HermesSupervisorOptions, LogState, RUNTIME_LEASE_SCHEMA_VERSION,
+        classify_port_conflict, isolated_user_environment, read_runtime_lease, redact_log_line,
+        remove_runtime_lease, safe_parent_environment, validate_runtime_lease, write_runtime_lease,
+        HermesProcessSupervisor, HermesRuntimeLayout, HermesRuntimeLease, HermesSupervisorOptions,
+        LogState, RUNTIME_LEASE_SCHEMA_VERSION,
     };
     use crate::shared::hermes_core::client::HermesHttpTraceSink;
     use crate::shared::hermes_core::config::{HermesLaunchEnvironment, HermesPaths};
@@ -1376,6 +1422,7 @@ mod tests {
                 desired_state: home.join("desired-state.v1.json"),
                 workbench_desired_state: home.join("workbench-desired-state.v1.json"),
             },
+            None,
             port,
             "br_fixture_0123456789abcdef0123456789abcdef",
             "provider-fixture-secret",
@@ -1391,6 +1438,42 @@ mod tests {
         let layout = HermesRuntimeLayout::from_root(root.clone());
         let error = layout.inspect().unwrap_err();
         assert_eq!(error.code, "hermes_runtime_not_installed");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn child_user_directories_are_isolated_under_hermes_home() {
+        let root = temp_dir("process-home");
+        let home = root.join("hermes-home");
+        let environment = isolated_user_environment(&home)
+            .unwrap()
+            .into_iter()
+            .map(|(key, value)| (key.to_string_lossy().to_string(), PathBuf::from(value)))
+            .collect::<std::collections::BTreeMap<_, _>>();
+
+        let process_home = home.join("process-home");
+        assert_eq!(environment["HOME"], process_home);
+        assert_eq!(environment["USERPROFILE"], process_home);
+        assert_eq!(
+            environment["APPDATA"],
+            process_home.join("AppData").join("Roaming")
+        );
+        assert_eq!(
+            environment["LOCALAPPDATA"],
+            process_home.join("AppData").join("Local")
+        );
+        assert!(environment.values().all(|path| path.starts_with(&home)));
+        assert!(environment.values().all(|path| path.is_dir()));
+        let inherited = safe_parent_environment()
+            .into_iter()
+            .map(|(key, _)| key.to_string_lossy().to_ascii_uppercase())
+            .collect::<std::collections::HashSet<_>>();
+        assert!(!inherited.contains("HOME"));
+        assert!(!inherited.contains("USERPROFILE"));
+        assert!(!inherited.contains("APPDATA"));
+        assert!(!inherited.contains("LOCALAPPDATA"));
+        assert!(!inherited.contains("CODEX_HOME"));
+        assert!(!inherited.contains("HERMES_HOME"));
         fs::remove_dir_all(root).unwrap();
     }
 

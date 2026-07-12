@@ -221,7 +221,15 @@
   - [x] unknown event diagnostics 只保存 event type、字段名和原因，不保存 payload value
   - [ ] Windows 真实日志文件、诊断复制、崩溃记录和长会话人工脱敏审计
 - [ ] 验证 loopback/bearer、权限和路径边界
+  - [x] client 只接受 `http://127.0.0.1:<port>`、强 bearer、受限 resource id；runtime 固定受控端口且未知实例不接管
+  - [x] activation project root 进入版本化 Hermes binding，变更时仅空闲态受控 restart；启动注入 `HERMES_WRITE_SAFE_ROOT`
+  - [x] Hermes 子进程的 `HOME`、`USERPROFILE`、`APPDATA`、`LOCALAPPDATA` 全部重定向到 App-data `HERMES_HOME/process-home`
+  - [x] 锁定 Hermes file tools 在 safe root 外拒绝写入，Hermes 配置/敏感路径 terminal 变更进入 dangerous approval
+  - [ ] Windows NTFS/reparse point、terminal 绕过尝试、拒绝审批和真实项目外读写矩阵
 - [ ] 验证工作台不能修改全局 `~/.hermes` / `~/.codex`
+  - [x] BlackRain 不继承用户 `HERMES_HOME`/`CODEX_HOME`，默认 `~` 和 AppData 回落均指向 App-owned process home
+  - [x] file tools 写边界锁定为 activation project，工作台/前端不能传任意 safe root/env
+  - [ ] Windows 实机证明未触碰用户原有 `~/.hermes` / `~/.codex`，并覆盖 terminal/显式绝对路径攻击
 - [ ] 验证 WORK 失败不拖垮 CODE surface
 - [ ] 性能分析：冷启动、事件吞吐、长会话内存、任务列表规模
 - [ ] 建立上游 Hermes 升级 contract regression 流程
