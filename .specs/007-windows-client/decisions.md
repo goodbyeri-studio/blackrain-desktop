@@ -15,6 +15,14 @@
 - 影响范围：Windows 本机发布耗时、失败诊断、spec 007/009 发布矩阵。
 - 后续复查条件：首次 Windows 实跑记录完整耗时；后续可通过缓存优化，但不得降低门禁覆盖。
 
+## 2026-07-12：普通 PR 的 Windows CI 覆盖 JS 与 Rust WORK 专项，不构建 NSIS
+
+- 决策：`windows-checks` 在 `windows-latest` 运行 npm ci、typecheck/test/lint/DS/codemod，以及 Rust check/Hermes/workbench/plugin 专项；Ubuntu JS job 保留。普通 PR CI 不 vendor/启动 Hermes、不构建 Tauri/NSIS。
+- 原因：Windows 编译和路径差异需要尽早暴露，但 runtime vendor、GUI、签名和安装矩阵成本高且含人工步骤，不应伪装成普通单元 CI。
+- 替代方案：继续只跑 Windows cargo check、每个 PR 打 NSIS、或删除 Ubuntu 快速反馈 job。
+- 影响范围：CI 时长、Windows 代码级回归覆盖、spec 007/009 证据边界。
+- 后续复查条件：workflow 首次真实运行后记录结果；若要发布制品，另建带签名/制品保留策略的发布流程，不扩张本 job 的完成声明。
+
 ## 2026-06-30:MVP 仅发行 Windows 版,macOS 推迟到 post-MVP
 
 - 决策:**v1 / MVP 只发行 Windows 客户端;macOS 客户端整体推迟到 post-MVP**(具体节点未定,或在 MVP 跑通后另起仓 / 独立维护通道)。本仓 `apps/desktop` 仍是单一代码库,但日常开发、CI、打包、发布、用户支持全部按 Windows-only 推进。

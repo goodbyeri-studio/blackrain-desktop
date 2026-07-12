@@ -11,7 +11,7 @@
 | 2026-07-12 | Codex 稳定锁升级候选基础验证 | `cargo check -p codex-app-server-protocol -p codex-app-server` | 部分通过 | rust-v0.144.1 / `44918ea` 在 macOS 编译检查通过；Windows 协议、GUI、NSIS 与真实对话均未跑 |
 | 2026-07-11 | NSIS/Windows 资源配置存在性 | 检查 `tauri.windows.conf.json` | 配置存在 | 已锁 `targets:["nsis"]` 并映射 codex/Python/gateway/OfficeCLI/plugins/workbench;未执行构建/解包 smoke |
 | 2026-07-12 | Windows 本机发布脚本存在性 | 静态检查 `scripts/release-client-win.ps1` | 代码存在 | 会先跑 Hermes static contract，vendor runtime，并调用前端 typecheck/test/lint/DS/doctor、Rust check/Hermes/workbench/plugin 专项和 `tauri:build:win`；当前 macOS 无 `pwsh`，未有 Windows 实跑产物 |
-| 2026-07-11 | CI 现状 | 检查 `.github/workflows/ci.yml` | 部分存在 | Ubuntu 跑 JS typecheck/test,Windows 跑 Rust cargo check;不打 NSIS,不等于 Windows 发布矩阵 |
+| 2026-07-12 | CI workflow 接线 | 静态检查 `.github/workflows/ci.yml` | 配置存在，未运行 | Ubuntu 保留 JS typecheck/test；Windows 新增 npm ci + typecheck/test/lint/DS/codemod + Rust check/Hermes/workbench/plugin 专项；不 vendor Hermes、不打 NSIS、不等于 Windows 发布矩阵 |
 | YYYY-MM-DD | doctor.mjs 实跑 | `cd apps\desktop; npm run doctor:win` | 未跑 | 缺 cmake / clang 时应给出 choco 提示 |
 | YYYY-MM-DD | dev-client.ps1 启动 | `pwsh scripts/dev-client.ps1` | 未跑 | 期望 90 秒内 GUI 首帧 + 能选模型 |
 | YYYY-MM-DD | dev 模式真实对话 | dev-client.ps1 起后 GUI 内手发一条对话 | 未跑 | DeepSeek flash 走 BlackRain Gateway 返回真实回复 |
@@ -59,7 +59,7 @@
 - **品牌兼容**:base `productName` 已是 BlackRain，但 Windows title、About、tray 与 keyring service 仍有 `BlackRain2049`；特别是凭据 service 改名需要迁移验证。
 - **Win10/Win11 支持边界**:Mica 仅 Win11;是否官方支持 Win10 纯色降级尚未决策,两系统安装/启动均未验。
 - **uvloop 在 Windows 不可用**(`.specs/003` 已知问题):本仓 gateway.py 是纯 stdlib 不依赖 uvloop,但若将来切 Hermes Python 引擎要重检。
-- **CI 覆盖不完整**:已有 Ubuntu JS + Windows Rust check,但 Windows 上的 typecheck/test、Tauri/NSIS build、安装包制品尚无 CI 保障。
+- **CI 覆盖不完整**:workflow 已配置 Ubuntu JS + Windows JS/Rust WORK 专项，但本分支未 push，Windows job 尚无真实 run 证据；Tauri GUI、Hermes runtime、NSIS build、安装包制品仍无 CI 保障。
 
 ## 失败记录
 

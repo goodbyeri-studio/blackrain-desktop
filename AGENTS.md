@@ -132,7 +132,7 @@ AGPL/GPL 有传染性，进了产品会要求整个 SaaS 开源，摧毁商业�
 - Windows 主入口不得漂移：本地客户端用 `pwsh scripts/dev-client.ps1`；壳开发/打包用 `npm run tauri:dev:win` / `npm run tauri:build:win`；正式本机构建用 `pwsh scripts/release-client-win.ps1`。
 - 前端/Rust 基线命令仍是 `npm run typecheck`、`npm run test`、`npm run lint`、`npm run lint:ds`、`npm run codemod:ds:dry` 与 `cargo check`；具体工作目录和顺序见 `docs/commands.md`。
 - Windows MVP 环境、NSIS、Credential Manager、真实对话、Office 自动化和安装/卸载必须在 Windows 实机验证；CI 不能替代这些验收。
-- 当前 CI 只覆盖 Ubuntu 上的 JS typecheck/test 与 Windows 上的 Rust `cargo check`；不含 GUI、NSIS、真实双引擎或 macOS 验证。
+- 当前 CI 覆盖 Ubuntu 上的 JS typecheck/test，以及 Windows 上的 JS typecheck/test/lint/DS/codemod、Rust `cargo check` 与 Hermes/workbench/plugin 专项；不含 GUI、Hermes runtime、NSIS、真实双引擎或 macOS 验证。
 - 非 Windows 跨平台开发边界见 [docs/cross-platform-dev.md](docs/cross-platform-dev.md)；Windows 验证矩阵见 [.specs/007-windows-client/verification.md](.specs/007-windows-client/verification.md)。
 
 ## 协作流程（GitHub Flow）

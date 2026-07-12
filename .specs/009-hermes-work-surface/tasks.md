@@ -247,6 +247,7 @@
 ## 阶段 14：Windows 发布闭环
 
 - [x] `release-client-win.ps1` 在 vendor/build 前接入 Hermes static contract，并在 checks 中覆盖 typecheck/test/lint/DS/doctor 与 Hermes/workbench/plugin Rust 专项
+- [x] Windows CI 配置前端 typecheck/test/lint/DS/codemod 与 Rust check/Hermes/workbench/plugin 专项；不把 workflow 配置存在写成已运行
 - [ ] Windows x64 完成前端 typecheck/test/lint/DS checks
 - [ ] Windows Rust `cargo check` 和相关测试通过
 - [ ] 构建 NSIS 并检查 Hermes runtime、LICENSES、provenance、checksums
