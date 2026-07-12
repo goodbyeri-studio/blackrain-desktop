@@ -707,13 +707,9 @@ impl HermesProcessSupervisor {
                 );
                 state.child = None;
                 state.port = None;
-                state.status.state = if exit.success() {
-                    WorkRuntimeState::Stopped
-                } else {
-                    WorkRuntimeState::Crashed
-                };
+                state.status.state = WorkRuntimeState::Crashed;
                 state.status.pid = None;
-                state.status.last_error = (!exit.success()).then_some(error);
+                state.status.last_error = Some(error);
                 remove_runtime_lease(&self.lease_path);
             }
             Ok(None) => state.status.pid = child.id(),
@@ -1612,6 +1608,81 @@ mod tests {
                 tokio::time::sleep(Duration::from_millis(20)).await;
             }
             assert_ne!(unsafe { libc::kill(mcp_child_pid, 0) }, 0);
+            fs::remove_dir_all(root).unwrap();
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ready_process_exit_is_always_reported_as_a_crash() {
+        run_async(async {
+            let root = temp_dir("ready-exit");
+            let layout = create_layout(&root.join("runtime"), b"#!/bin/sh\nsleep 1\nexit 0\n");
+            let home = root.join("home");
+            let supervisor = HermesProcessSupervisor::with_options(
+                layout,
+                home.clone(),
+                root.join("hermes.log"),
+                HermesSupervisorOptions {
+                    startup_timeout: Duration::from_secs(2),
+                    poll_interval: Duration::from_millis(20),
+                    graceful_stop_timeout: Duration::from_millis(100),
+                    log_max_bytes: 1024,
+                    log_backups: 1,
+                    log_memory_lines: 50,
+                },
+            );
+            let port = free_port();
+            let environment = launch_environment(&home, port);
+            let server_task = tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(30)).await;
+                FakeHermesServer::spawn_on(
+                    port,
+                    vec![
+                        FakeExchange::json(
+                            "GET",
+                            "/health",
+                            200,
+                            include_str!("../../../test-fixtures/hermes/v2026.7.7.2/health.json"),
+                        ),
+                        FakeExchange::json(
+                            "GET",
+                            "/v1/capabilities",
+                            200,
+                            include_str!(
+                                "../../../test-fixtures/hermes/v2026.7.7.2/capabilities.json"
+                            ),
+                        ),
+                        FakeExchange::json(
+                            "GET",
+                            "/v1/models",
+                            200,
+                            include_str!("../../../test-fixtures/hermes/v2026.7.7.2/models.json"),
+                        ),
+                    ],
+                )
+                .await
+                .unwrap()
+            });
+
+            assert_eq!(
+                supervisor.start(environment).await.unwrap().state,
+                WorkRuntimeState::Ready
+            );
+            let server = server_task.await.unwrap();
+            assert_eq!(server.finish().await.unwrap().len(), 3);
+            assert!(supervisor.lease_path.is_file());
+
+            tokio::time::sleep(Duration::from_millis(1_100)).await;
+            let status = supervisor.status().await;
+            assert_eq!(status.state, WorkRuntimeState::Crashed);
+            assert_eq!(
+                status.last_error.as_ref().map(|error| error.code.as_str()),
+                Some("hermes_process_exited")
+            );
+            assert!(status.last_error.as_ref().unwrap().retryable);
+            assert_eq!(status.pid, None);
+            assert!(!supervisor.lease_path.exists());
             fs::remove_dir_all(root).unwrap();
         });
     }

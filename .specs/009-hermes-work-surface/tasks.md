@@ -210,6 +210,10 @@
   - [x] run 已创建但本地 journal 持久化失败时，不附着 task，best-effort stop 上游并释放 operation reserve
   - [ ] Windows 真实磁盘不足、只读 App data、runtime 文件损坏和 repair E2E
 - [ ] 失败注入：App 强退、Hermes 强退、睡眠恢复、系统重启
+  - [x] Ready 后 Hermes 无论退出码是否为 0，只要不是受控 stop 都收敛为 crashed，保留 retryable error 并移除 lease
+  - [x] App 正常退出等待 SSE cancel + supervisor process-tree stop；下次启动通过 lease/进程身份/bearer/capabilities 审计孤儿
+  - [x] resume/focus/visible/online 触发 runtime/tasks/recovery/activation 受控对账
+  - [ ] Windows App 强退、Hermes 强退、睡眠恢复、系统重启与真实 Job/process-tree E2E
 - [ ] 审核所有日志和诊断包的 secret/用户内容脱敏
 - [ ] 验证 loopback/bearer、权限和路径边界
 - [ ] 验证工作台不能修改全局 `~/.hermes` / `~/.codex`
