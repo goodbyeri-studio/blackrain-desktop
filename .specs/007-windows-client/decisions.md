@@ -23,6 +23,14 @@
 - 影响范围：CI 时长、Windows 代码级回归覆盖、spec 007/009 证据边界。
 - 后续复查条件：workflow 首次真实运行后记录结果；若要发布制品，另建带签名/制品保留策略的发布流程，不扩张本 job 的完成声明。
 
+## 2026-07-13：PR CI 按改动范围分流并停止重复消耗 Windows 分钟
+
+- 决策：纯 Markdown/Word 文档 PR 不启动 workflow；其他普通 PR 先在 Ubuntu 判断改动路径。前端相关改动在 Ubuntu 跑 typecheck/test/lint/DS/codemod，只有 Rust、WORK、gateway、plugin、workbench 或对应脚本变化才启用 Windows Rust job。Windows 使用单一 test profile 一次编译全部 test targets，再跑 Hermes/workbench/plugin 专项，不再重复执行 JS 和 `cargo check`。同一 PR 新提交自动取消旧 run；普通 squash 到 `main` 不重复跑，只有 Cargo manifest/lock 变化时在 `main` 预热可供后续 PR 读取的 Windows cache；保留手动全量触发入口。
+- 原因：GitHub Free 每月 2000 分钟，hosted Windows 按 2 倍计费。2026-07-13 实跑显示旧矩阵一次跨层 PR 为 Ubuntu 3m20s + Windows 26m25s，约 56 个计费分钟；合并后重复触发和 stacked PR 旧 SHA 会再次消耗同等额度。JS 静态检查不需要 Windows，`cargo check` 与随后 test profile 的双重编译也没有对应收益。
+- 替代方案：所有 PR 固定跑完整 Windows、完全删除 Windows PR 门禁、或只依赖开发者手工验证。前者浪费额度，后两者无法尽早发现 Windows 编译和路径差异。
+- 影响范围：`.github/workflows/ci.yml`、CI required check 名称、Windows cache、普通 PR 反馈时间和 GitHub Actions 额度。
+- 后续复查条件：累计 10 个 PR 后比较 Windows job 触发率、平均计费分钟和漏检；Windows 开发机稳定在线后，优先迁为 self-hosted runner，GitHub-hosted Windows 改为手动兜底。
+
 ## 2026-06-30:MVP 仅发行 Windows 版,macOS 推迟到 post-MVP
 
 - 决策:**v1 / MVP 只发行 Windows 客户端;macOS 客户端整体推迟到 post-MVP**(具体节点未定,或在 MVP 跑通后另起仓 / 独立维护通道)。本仓 `apps/desktop` 仍是单一代码库,但日常开发、CI、打包、发布、用户支持全部按 Windows-only 推进。
