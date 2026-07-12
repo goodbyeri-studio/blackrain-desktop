@@ -480,6 +480,14 @@
 - 影响范围：Hermes runtime model gate、task/follow-up commands、未来模型选择器、config renderer 和 002 provider producer。
 - 后续复查条件：account broker 返回版本化 allowed-model catalog 后，App 可生成只含 alias/model/`custom:blackrain-new-api` provider 的 routes，并以 `/v1/models` 真实发现结果驱动 UI；必须补 route 切换、token model limit、未知 alias 和 secret 不落盘验证。
 
+## 2026-07-12：首版不把工作台映射为 Hermes named Profile
+
+- 决策：首版继续使用单个 App-owned `HERMES_HOME`、单 supervisor 和单受控 API Server。工作台隔离由 008 的不可变 activation generation、Core-owned binding、task/session 身份和 active-run 冲突门禁完成；不创建、切换、克隆、导入或删除 Hermes named Profile，也不向工作台或前端暴露 `hermes profile` 命令。Hermes Profile 不作为 workbench、project、user 或账号的产品身份。
+- 原因：锁定 Hermes Profile 是完整独立状态树，拥有自己的 config、`.env`、provider key、memory、session、skills、cron、logs 和 gateway；它解决“同机运行多个独立 Hermes agent”，但不提供文件系统 sandbox。把每个 activation 再映射为 Profile 会复制 008 的安装/升级/迁移/卸载状态，产生第二个配置写入者，并把上游 CLI alias、sticky active profile、gateway service 和端口生命周期带进 BlackRain。当前单 runtime 已在 run 边界原子重绑 generation，并在另一 activation 有 active run 时 fail closed，因此首版没有引入这套并发复杂度的必要。
+- 替代方案：每个工作台一个 named Profile、每个项目一个 Profile、直接启用上游 multiplex gateway，或把用户账号映射为 Profile。multiplex 主要按入站 platform/profile 路由，仍会扩展 `/p/<profile>`、credential、session namespace 和 port-binding contract，不能替代 BlackRain 的 activation 权限边界。
+- 影响范围：HermesPaths 保持单 `hermes-home`；App 不增加 Profile UI/API；008 activation store 继续是工作台 generation 真源；Memory/session 的产品策略不能借 Profile 隐式决定。
+- 后续复查条件：只有真实需求证明多个工作台必须并发运行，且单 runtime 的切换门禁不可接受时，才设计 Core-owned 多 runtime slot。届时每个 slot 必须使用不透明 ID、独立 `HERMES_HOME + port + supervisor + credential namespace`，补资源上限、进程回收、任务路由、Windows 包体/内存和跨 slot 串台矩阵；仍不得让工作台直接写 Profile。
+
 ## 被推翻的方案
 
 ### 2026-07-12：先做一个静态 WORK 页面再说
