@@ -124,6 +124,14 @@
 - 影响范围：`tasks.md` 和 `verification.md` 不再把“服务端通过”概括成“账号计费交付完成”。
 - 后续复查条件：007 Windows 环境准备完成并跑通双引擎 credit/BYOK 矩阵。
 
+## 2026-07-12：WORK 不把自动刷新的 Supabase access JWT 直接注入 Hermes
+
+- 决策：Supabase access JWT 只用于向 BlackRain account broker 证明用户身份；broker 必须返回长期、可撤销、可限额的 model token，App 将该 token 存入 WORK 独立系统凭据 namespace，并仅在 Hermes 启动时注入 `key_env`。未完成 broker、撤销、quota/ledger 单一真源和 token 轮换合同前，不把现有 CODE `api_key_file` 方案复制到 WORK。
+- 原因：CODE 本地网关每次请求读取 JWT 文件，所以 SDK 静默刷新可立即生效；锁定 Hermes 则在进程/agent 创建时读取 provider `key_env`，运行中的长任务继续持有旧 JWT。把一小时级 access JWT 直接接入会产生“钥匙串已刷新但活着的 Hermes 仍鉴权失败”的隐蔽漂移。new-api 当前上游提供长期、可撤销、带过期/额度/模型限制的 token，形态与 Hermes 更匹配，但 BlackRain 尚无 Supabase→new-api 的签发 broker。
+- 替代方案：每次 Supabase 刷新强杀 Hermes、把 refresh token 当模型 bearer、让 WORK 经过 CODE 翻译网关、或继续假设 new-api 原生识别 Supabase JWT。
+- 影响范围：WORK provider producer、账号 broker、new-api 用户/token 映射、余额展示、登出撤销、Windows Credential Manager 和 009 真实模型纵切。
+- 后续复查条件：必须先决定 new-api quota 还是 Supabase `profiles.credits`/`credit_ledger` 为计费真源，并部署可真实验证的 broker；届时补登录、刷新、登出、撤销、长任务跨 JWT 刷新和双引擎同余额测试。
+
 ## 被推翻的方案
 
 ### 2026-06-25：出厂自带「默认可用模型」让用户直接对话

@@ -61,6 +61,7 @@
   - 纯逻辑单测：credit_math 9 + proxy 8 用例通过。
 - 仍需起 Windows 桌面 App 才能验的项（会话钥匙串持久、CODE credit、JWT 过期刷新、余额耗尽提示）已在矩阵标注。
 - WORK/Hermes credit、Plus BYOK 和最终 new-api/`proxy.py` 组合尚未实现，不能由现有 CODE 过渡代理证据外推。
+- 2026-07-12 provider 鉴权审计：锁定 Hermes `key_env` 在进程/agent 生命周期解析，不能复用 CODE 网关的逐请求 `api_key_file` 刷新。读取 new-api `7c28993` 的 `/api/token` controller/model，确认上游 token 支持撤销、过期、余额和模型限制；这只证明候选凭据形态，不证明 BlackRain 已有 broker、用户映射或统一 credit 真源。
 
 ## 未验证风险
 
@@ -70,6 +71,7 @@
 - 并发超卖（接受小幅为负、下次充值补齐）的实际损失规模未观测；若偏大需上预授权冻结。
 - `proxy.py` 的一次性 DO/Caddy 部署已实操，但持续监控、备份、轮换、故障恢复和生产 new-api 迁移尚未验证。
 - Windows Credential Manager 中的会话持久、GUI credit 闭环、WORK/Hermes credit、BYOK 权益后端门禁均未验证。
+- Supabase→长期 model token 的 account broker 尚不存在；不得把自动刷新的 access JWT 直接放进 Hermes，也不得把 new-api 上游 token API 存在写成签发链路完成。
 - 当前注册赠送 trigger 在 `auth.users insert` 时执行，可能早于邮箱 OTP 确认；真实未确认注册行为与防滥用策略未验证。
 
 ## 失败记录

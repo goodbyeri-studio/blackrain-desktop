@@ -15,7 +15,7 @@ use crate::shared::hermes_core::runner::{
 use crate::shared::hermes_core::runtime::{
     bind_runtime_workbench, repair_runtime, restart_runtime, rollback_runtime_workbench,
     runtime_api_client, runtime_diagnostics, start_runtime, sync_mcp_router,
-    HermesRuntimeDiagnostics,
+    validate_runtime_model_selection, HermesRuntimeDiagnostics,
 };
 use crate::shared::hermes_core::tasks::HermesTaskRecoveryState;
 use crate::shared::hermes_core::types::{
@@ -604,6 +604,7 @@ pub(crate) async fn hermes_follow_up_enqueue(
     if let Some(model) = &input.model {
         validate_bounded_text("model", model, 256)?;
     }
+    validate_runtime_model_selection(&state.hermes_paths, input.model.as_deref())?;
     validate_follow_up_against_activation(
         &state,
         &input.task_id,
@@ -633,6 +634,7 @@ pub(crate) async fn hermes_follow_up_edit(
     if let Some(model) = &input.model {
         validate_bounded_text("model", model, 256)?;
     }
+    validate_runtime_model_selection(&state.hermes_paths, input.model.as_deref())?;
     validate_follow_up_against_activation(
         &state,
         &input.task_id,
@@ -713,6 +715,7 @@ pub(crate) async fn hermes_task_start(
     if let Some(model) = &input.model {
         validate_bounded_text("model", model, 256)?;
     }
+    validate_runtime_model_selection(&state.hermes_paths, input.model.as_deref())?;
     let _activation_guard = state.hermes_activation_gate.lock().await;
     let activation = state
         .workbench_activations
@@ -867,6 +870,7 @@ async fn continue_task_inner(
     if let Some(model) = &input.model {
         validate_bounded_text("model", model, 256)?;
     }
+    validate_runtime_model_selection(&state.hermes_paths, input.model.as_deref())?;
     let _activation_guard = state.hermes_activation_gate.lock().await;
     let task = state.hermes_tasks.lock().await.load_task(&input.task_id)?;
     if task.active_run_id.is_some() || !is_terminal_status(&task.status) {

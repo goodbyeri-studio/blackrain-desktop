@@ -49,6 +49,28 @@ pub(crate) fn configure_runtime_desired_state(
     .map_err(config_error)
 }
 
+pub(crate) fn validate_runtime_model_selection(
+    paths: &HermesPaths,
+    requested: Option<&str>,
+) -> Result<(), WorkError> {
+    let Some(requested) = requested else {
+        return Ok(());
+    };
+    let desired = HermesConfigManager {
+        paths: paths.clone(),
+    }
+    .load_desired_state()
+    .map_err(config_error)?;
+    if requested == desired.model {
+        return Ok(());
+    }
+    Err(runtime_error(
+        "hermes_model_route_unavailable",
+        "The requested WORK model is not present in the App-managed Hermes model catalog.",
+        false,
+    ))
+}
+
 pub(crate) fn bind_runtime_workbench(
     paths: &HermesPaths,
     workbench: &WorkbenchHermesDesiredState,
@@ -555,7 +577,8 @@ mod tests {
     use super::{
         build_mcp_router_generation_with, configure_runtime_desired_state,
         ensure_config_matches_desired, load_runtime_desired_state, resolve_system_tool_paths,
-        sanitize_diagnostic_status, OFFICECLI_SYSTEM_CAPABILITY_ID,
+        sanitize_diagnostic_status, validate_runtime_model_selection,
+        OFFICECLI_SYSTEM_CAPABILITY_ID,
     };
     use crate::shared::hermes_core::config::{
         HermesConfigManager, HermesEnvironmentReference, HermesEnvironmentReferenceKind,
@@ -596,6 +619,24 @@ mod tests {
         };
         ensure_config_matches_desired(&manager, &manager.load_desired_state().unwrap(), None)
             .unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn task_model_selection_is_limited_to_the_app_managed_default() {
+        let root = temp_root();
+        let paths = HermesPaths::from_app_data_dir(&root);
+        configure_runtime_desired_state(&paths, &desired("deepseek-v4-flash")).unwrap();
+
+        validate_runtime_model_selection(&paths, None).unwrap();
+        validate_runtime_model_selection(&paths, Some("deepseek-v4-flash")).unwrap();
+        assert_eq!(
+            validate_runtime_model_selection(&paths, Some("deepseek-v4-pro"))
+                .unwrap_err()
+                .code,
+            "hermes_model_route_unavailable"
+        );
+
         fs::remove_dir_all(root).unwrap();
     }
 

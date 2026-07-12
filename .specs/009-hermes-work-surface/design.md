@@ -307,6 +307,8 @@ ActivatedWorkbenchContext
 
 Core 将它转成 Hermes 可读状态。工作台不能自己修改 `config.yaml`，也不能把任意环境变量注入全局进程。
 
+首版逐任务 `model` 不是自由字符串。锁定 Hermes 只有命中 `platforms.api_server.extra.model_routes` alias 才会按请求切换 provider/model，未知值会静默回到全局默认。BlackRain 在 account broker/可信模型目录完成前只允许省略 `model` 或显式使用当前 App-managed desired-state 默认模型；未来 route 只能由 App 根据服务端允许目录生成，并引用 `custom:blackrain-new-api` 的 `key_env`，不得在 route 中写 inline `api_key`。
+
 ## Runtime 和制品
 
 目标 Windows 布局由实际 Tauri resources 配置冻结，概念上包括：
