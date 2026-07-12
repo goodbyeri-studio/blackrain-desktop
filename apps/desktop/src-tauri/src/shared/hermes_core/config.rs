@@ -1377,6 +1377,12 @@ mod tests {
         }
     }
 
+    fn absolute_test_path(components: &[&str]) -> PathBuf {
+        let mut path = std::env::temp_dir();
+        path.extend(components);
+        path
+    }
+
     #[test]
     fn renders_named_provider_without_inline_secrets() {
         let rendered = render_config(&desired("deepseek-chat")).unwrap();
@@ -1445,7 +1451,7 @@ mod tests {
 
     #[test]
     fn paths_are_isolated_under_app_data() {
-        let root = PathBuf::from("/app-data/blackrain");
+        let root = absolute_test_path(&["app-data", "blackrain"]);
         let paths = HermesPaths::from_app_data_dir(&root);
         assert_eq!(paths.home, root.join("hermes-home"));
         assert_eq!(
@@ -1770,7 +1776,7 @@ mod tests {
 
     #[test]
     fn launch_environment_is_loopback_only_and_redacted() {
-        let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
+        let paths = HermesPaths::from_app_data_dir(&absolute_test_path(&["app-data", "blackrain"]));
         let api_key = "a".repeat(64);
         let mcp_environment = BTreeMap::from([(
             "BLACKRAIN_MCP_SECRET_00112233445566778899AABBCCDDEEFF".into(),
@@ -1837,7 +1843,7 @@ mod tests {
 
     #[test]
     fn launch_environment_rejects_weak_api_server_keys() {
-        let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
+        let paths = HermesPaths::from_app_data_dir(&absolute_test_path(&["app-data", "blackrain"]));
         let error = HermesLaunchEnvironment::build(
             &paths,
             None,
@@ -1853,7 +1859,7 @@ mod tests {
 
     #[test]
     fn rejects_noncanonical_mcp_process_environment_keys() {
-        let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
+        let paths = HermesPaths::from_app_data_dir(&absolute_test_path(&["app-data", "blackrain"]));
         for key in [
             "BLACKRAIN_MCP_SECRET_",
             "BLACKRAIN_MCP_SECRET_NOT_HEX_________________________",
@@ -1876,7 +1882,7 @@ mod tests {
 
     #[test]
     fn plugin_binding_cannot_claim_the_core_router_bearer_key() {
-        let mut server = mcp_server(PathBuf::from("/managed/plugin.exe"));
+        let mut server = mcp_server(absolute_test_path(&["managed", "plugin.exe"]));
         server.environment.insert(
             "PLUGIN_TOKEN".into(),
             super::HermesMcpEnvironmentBinding {
@@ -1895,7 +1901,7 @@ mod tests {
 
     #[test]
     fn plugin_binding_cannot_override_managed_child_process_baseline() {
-        let mut server = mcp_server(PathBuf::from("/managed/plugin.exe"));
+        let mut server = mcp_server(absolute_test_path(&["managed", "plugin.exe"]));
         server.environment.insert(
             "PATH".into(),
             super::HermesMcpEnvironmentBinding {
@@ -1911,8 +1917,8 @@ mod tests {
 
     #[test]
     fn launch_environment_prepends_only_core_resolved_system_tool_paths() {
-        let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
-        let tool_root = PathBuf::from("/app-data/blackrain/tools/officecli");
+        let paths = HermesPaths::from_app_data_dir(&absolute_test_path(&["app-data", "blackrain"]));
+        let tool_root = absolute_test_path(&["app-data", "blackrain", "tools", "officecli"]);
         let environment = HermesLaunchEnvironment::build(
             &paths,
             None,
@@ -1932,11 +1938,13 @@ mod tests {
 
     #[test]
     fn workbench_desired_state_rejects_arbitrary_environment_fields() {
+        let project_root = absolute_test_path(&["project"]);
+        let skill_root = absolute_test_path(&["skills"]);
         let payload = serde_json::json!({
             "workbenchId": "office-agent",
             "workbenchVersion": "0.1.0",
-            "projectRoot": "/tmp/project",
-            "skillRoots": ["/tmp/skills"],
+            "projectRoot": project_root,
+            "skillRoots": [skill_root],
             "pluginIds": ["office-cli"],
             "mcpServerIds": [],
             "providerSecretRef": {
@@ -1951,11 +1959,13 @@ mod tests {
 
     #[test]
     fn workbench_desired_state_accepts_only_structured_secret_references() {
+        let project_root = absolute_test_path(&["project"]);
+        let skill_root = absolute_test_path(&["skills"]);
         let state: WorkbenchHermesDesiredState = serde_json::from_value(serde_json::json!({
             "workbenchId": "office-agent",
             "workbenchVersion": "0.1.0",
-            "projectRoot": "/tmp/project",
-            "skillRoots": ["/tmp/skills"],
+            "projectRoot": project_root,
+            "skillRoots": [skill_root],
             "pluginIds": ["office-cli"],
             "mcpServerIds": [],
             "providerSecretRef": {
