@@ -1,12 +1,17 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
-use crate::shared::hermes_core::config::{atomic_write, HermesMcpServerDesiredState};
+use crate::shared::hermes_core::config::{
+    atomic_write, HermesEnvironmentReference, HermesEnvironmentReferenceKind,
+    HermesMcpEnvironmentBinding, HermesMcpServerDesiredState,
+};
 use crate::shared::workbench_core::{
-    ActivatedComponentRef, ActivatedEnvironmentRef, ActivatedMcpServerRef,
+    ActivatedComponentRef, ActivatedEnvironmentRef, ActivatedEnvironmentRefKind,
+    ActivatedMcpServerRef,
 };
 
 pub(crate) const VERIFIED_PLUGIN_RUNTIME_SCHEMA_VERSION: u32 = 1;
@@ -44,11 +49,24 @@ pub(crate) struct VerifiedMcpServerRuntime {
     #[serde(default)]
     pub(crate) args: Vec<String>,
     #[serde(default)]
-    pub(crate) environment_refs: Vec<String>,
+    pub(crate) environment: BTreeMap<String, VerifiedMcpEnvironmentReference>,
+    #[serde(
+        default,
+        rename = "environmentRefs",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    legacy_environment_refs: Vec<String>,
     pub(crate) timeout_seconds: u64,
     pub(crate) connect_timeout_seconds: u64,
     #[serde(default)]
     pub(crate) supports_parallel_tool_calls: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct VerifiedMcpEnvironmentReference {
+    pub(crate) kind: ActivatedEnvironmentRefKind,
+    pub(crate) reference_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -133,7 +151,7 @@ impl VerifiedPluginRuntimeStore {
     ) -> Result<Vec<HermesMcpServerDesiredState>, String> {
         let allowed_environment_refs: HashSet<_> = environment_refs
             .iter()
-            .map(|reference| reference.reference_id.as_str())
+            .map(|reference| (reference.kind, reference.reference_id.as_str()))
             .collect();
         let mut resolved = Vec::with_capacity(mcp_servers.len());
         for reference in mcp_servers {
@@ -158,26 +176,50 @@ impl VerifiedPluginRuntimeStore {
                         plugin.id, plugin.version, reference.id
                     )
                 })?;
-            if server
-                .environment_refs
-                .iter()
-                .any(|reference_id| !allowed_environment_refs.contains(reference_id.as_str()))
-            {
-                return Err(format!(
-                    "MCP server {} requires an environment reference that was not granted by the activation.",
-                    server.id
-                ));
-            }
-            if !server.environment_refs.is_empty() {
-                return Err(format!(
-                    "MCP server {} requires environment reference resolution that is not implemented yet.",
-                    server.id
-                ));
+            let mut environment = BTreeMap::new();
+            for (child_env_key, environment_ref) in server.environment {
+                if !allowed_environment_refs
+                    .contains(&(environment_ref.kind, environment_ref.reference_id.as_str()))
+                {
+                    return Err(format!(
+                        "MCP server {} requires an environment reference that was not granted by the activation.",
+                        server.id
+                    ));
+                }
+                if environment_ref.kind == ActivatedEnvironmentRefKind::SystemCapability {
+                    return Err(format!(
+                        "MCP server {} cannot inject a system capability as an environment value.",
+                        server.id
+                    ));
+                }
+                environment.insert(
+                    child_env_key.clone(),
+                    HermesMcpEnvironmentBinding {
+                        process_env_key: mcp_process_env_key(
+                            &server.id,
+                            &child_env_key,
+                            &environment_ref,
+                        ),
+                        reference: HermesEnvironmentReference {
+                            kind: match environment_ref.kind {
+                                ActivatedEnvironmentRefKind::ProviderCredential => {
+                                    HermesEnvironmentReferenceKind::ProviderCredential
+                                }
+                                ActivatedEnvironmentRefKind::ManagedVariable => {
+                                    HermesEnvironmentReferenceKind::ManagedVariable
+                                }
+                                ActivatedEnvironmentRefKind::SystemCapability => unreachable!(),
+                            },
+                            reference_id: environment_ref.reference_id,
+                        },
+                    },
+                );
             }
             resolved.push(HermesMcpServerDesiredState {
                 id: server.id,
                 command: PathBuf::from(server.command),
                 args: server.args,
+                environment,
                 timeout_seconds: server.timeout_seconds,
                 connect_timeout_seconds: server.connect_timeout_seconds,
                 supports_parallel_tool_calls: server.supports_parallel_tool_calls,
@@ -290,9 +332,15 @@ impl VerifiedMcpServerRuntime {
         for argument in &self.args {
             validate_argument(argument)?;
         }
-        validate_unique_refs("MCP environment", &self.environment_refs)?;
-        for reference in &self.environment_refs {
-            validate_identifier("MCP environment reference", reference)?;
+        for (env_key, reference) in &self.environment {
+            validate_environment_key(env_key)?;
+            validate_identifier("MCP environment reference", &reference.reference_id)?;
+        }
+        if !self.legacy_environment_refs.is_empty() {
+            return Err(
+                "Verified MCP legacy environmentRefs are ambiguous and must be reverified with explicit environment keys."
+                    .into(),
+            );
         }
         if !(1..=3600).contains(&self.timeout_seconds)
             || !(1..=300).contains(&self.connect_timeout_seconds)
@@ -363,6 +411,46 @@ fn validate_argument(value: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_environment_key(value: &str) -> Result<(), String> {
+    if value.is_empty()
+        || value.len() > 128
+        || !value.chars().all(|character| {
+            character.is_ascii_uppercase() || character.is_ascii_digit() || character == '_'
+        })
+    {
+        return Err(
+            "Verified MCP environment keys must use uppercase ASCII letters, digits, or underscore."
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+fn mcp_process_env_key(
+    server_id: &str,
+    child_env_key: &str,
+    reference: &VerifiedMcpEnvironmentReference,
+) -> String {
+    let mut digest = Sha256::new();
+    digest.update(server_id.as_bytes());
+    digest.update([0]);
+    digest.update(child_env_key.as_bytes());
+    digest.update([0]);
+    digest.update([match reference.kind {
+        ActivatedEnvironmentRefKind::ProviderCredential => 1,
+        ActivatedEnvironmentRefKind::ManagedVariable => 2,
+        ActivatedEnvironmentRefKind::SystemCapability => 3,
+    }]);
+    digest.update([0]);
+    digest.update(reference.reference_id.as_bytes());
+    let digest = digest.finalize();
+    let suffix = digest[..16]
+        .iter()
+        .map(|byte| format!("{byte:02X}"))
+        .collect::<String>();
+    format!("BLACKRAIN_MCP_SECRET_{suffix}")
+}
+
 fn validate_managed_path(label: &str, managed_root: &Path, value: &str) -> Result<(), String> {
     if value.is_empty()
         || value.contains('\0')
@@ -401,16 +489,6 @@ fn path_contains(root: &str, candidate: &str) -> bool {
     candidate == root || candidate.starts_with(&format!("{root}/"))
 }
 
-fn validate_unique_refs(label: &str, values: &[String]) -> Result<(), String> {
-    let mut seen = HashSet::new();
-    for value in values {
-        if !seen.insert(value.as_str()) {
-            return Err(format!("Verified {label} references must be unique."));
-        }
-    }
-    Ok(())
-}
-
 fn reject_symlink(path: &Path, label: &str) -> Result<(), String> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| format!("Unable to inspect {label} {}: {error}", path.display()))?;
@@ -422,14 +500,18 @@ fn reject_symlink(path: &Path, label: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::fs;
     use std::path::{Path, PathBuf};
 
     use super::{
-        VerifiedMcpServerRuntime, VerifiedMcpTransport, VerifiedPluginRuntime,
-        VerifiedPluginRuntimeStore, VERIFIED_PLUGIN_RUNTIME_SCHEMA_VERSION,
+        VerifiedMcpEnvironmentReference, VerifiedMcpServerRuntime, VerifiedMcpTransport,
+        VerifiedPluginRuntime, VerifiedPluginRuntimeStore, VERIFIED_PLUGIN_RUNTIME_SCHEMA_VERSION,
     };
-    use crate::shared::workbench_core::{ActivatedComponentRef, ActivatedMcpServerRef};
+    use crate::shared::workbench_core::{
+        ActivatedComponentRef, ActivatedEnvironmentRef, ActivatedEnvironmentRefKind,
+        ActivatedMcpServerRef,
+    };
 
     fn temp_root() -> PathBuf {
         let root = std::env::temp_dir().join(format!(
@@ -463,7 +545,8 @@ mod tests {
                 transport: VerifiedMcpTransport::Stdio,
                 command: command.to_string_lossy().to_string(),
                 args: vec!["--stdio".into()],
-                environment_refs: Vec::new(),
+                environment: BTreeMap::new(),
+                legacy_environment_refs: Vec::new(),
                 timeout_seconds: 300,
                 connect_timeout_seconds: 30,
                 supports_parallel_tool_calls: false,
@@ -523,7 +606,13 @@ mod tests {
 
         let runtime = fixture(&root);
         let mut runtime_with_env = runtime.clone();
-        runtime_with_env.mcp_servers[0].environment_refs = vec!["office-license".into()];
+        runtime_with_env.mcp_servers[0].environment.insert(
+            "OFFICE_LICENSE".into(),
+            VerifiedMcpEnvironmentReference {
+                kind: ActivatedEnvironmentRefKind::ManagedVariable,
+                reference_id: "office-license".into(),
+            },
+        );
         runtime_with_env.plugin_version = "0.1.1".into();
         runtime_with_env.install_root = runtime_with_env.install_root.replace("0.1.0", "0.1.1");
         let old_command = PathBuf::from(&runtime_with_env.mcp_servers[0].command);
@@ -544,12 +633,110 @@ mod tests {
                 }],
                 &[ActivatedMcpServerRef {
                     id: "com.blackrain.office-files".into(),
-                    plugin_id: runtime_with_env.plugin_id,
+                    plugin_id: runtime_with_env.plugin_id.clone(),
                 }],
                 &[],
             )
             .unwrap_err();
         assert!(error.contains("was not granted"));
+
+        let resolved = store
+            .resolve_mcp_servers(
+                &[ActivatedComponentRef {
+                    id: runtime_with_env.plugin_id.clone(),
+                    version: runtime_with_env.plugin_version.clone(),
+                }],
+                &[ActivatedMcpServerRef {
+                    id: "com.blackrain.office-files".into(),
+                    plugin_id: runtime_with_env.plugin_id,
+                }],
+                &[ActivatedEnvironmentRef {
+                    kind: ActivatedEnvironmentRefKind::ManagedVariable,
+                    reference_id: "office-license".into(),
+                }],
+            )
+            .unwrap();
+        let binding = &resolved[0].environment["OFFICE_LICENSE"];
+        assert!(binding.process_env_key.starts_with("BLACKRAIN_MCP_SECRET_"));
+        assert_eq!(binding.reference.reference_id, "office-license");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_legacy_system_capability_and_mismatched_typed_environment_refs() {
+        let root = temp_root();
+        let store = VerifiedPluginRuntimeStore::new(&root);
+
+        let mut legacy = fixture(&root);
+        legacy.mcp_servers[0].legacy_environment_refs = vec!["office-license".into()];
+        assert!(store
+            .persist_verified(legacy)
+            .unwrap_err()
+            .contains("must be reverified"));
+
+        let mut runtime = fixture(&root);
+        runtime.mcp_servers[0].environment.insert(
+            "OFFICE_LICENSE".into(),
+            VerifiedMcpEnvironmentReference {
+                kind: ActivatedEnvironmentRefKind::SystemCapability,
+                reference_id: "office-installed".into(),
+            },
+        );
+        store.persist_verified(runtime.clone()).unwrap();
+        let plugins = [ActivatedComponentRef {
+            id: runtime.plugin_id.clone(),
+            version: runtime.plugin_version.clone(),
+        }];
+        let servers = [ActivatedMcpServerRef {
+            id: "com.blackrain.office-files".into(),
+            plugin_id: runtime.plugin_id.clone(),
+        }];
+        let system_capability = [ActivatedEnvironmentRef {
+            kind: ActivatedEnvironmentRefKind::SystemCapability,
+            reference_id: "office-installed".into(),
+        }];
+        assert!(store
+            .resolve_mcp_servers(&plugins, &servers, &system_capability)
+            .unwrap_err()
+            .contains("cannot inject a system capability"));
+
+        let mut typed = runtime;
+        typed.mcp_servers[0]
+            .environment
+            .get_mut("OFFICE_LICENSE")
+            .unwrap()
+            .kind = ActivatedEnvironmentRefKind::ManagedVariable;
+        typed.plugin_version = "0.1.1".into();
+        typed.install_root = typed.install_root.replace("0.1.0", "0.1.1");
+        let command_name = PathBuf::from(&typed.mcp_servers[0].command)
+            .file_name()
+            .unwrap()
+            .to_owned();
+        let command = PathBuf::from(&typed.install_root).join(command_name);
+        fs::create_dir_all(&typed.install_root).unwrap();
+        fs::write(&command, "fixture").unwrap();
+        typed.mcp_servers[0].command = command.to_string_lossy().to_string();
+        store.persist_verified(typed.clone()).unwrap();
+
+        let provider_with_same_id = [ActivatedEnvironmentRef {
+            kind: ActivatedEnvironmentRefKind::ProviderCredential,
+            reference_id: "office-installed".into(),
+        }];
+        assert!(store
+            .resolve_mcp_servers(
+                &[ActivatedComponentRef {
+                    id: typed.plugin_id.clone(),
+                    version: typed.plugin_version.clone(),
+                }],
+                &[ActivatedMcpServerRef {
+                    id: "com.blackrain.office-files".into(),
+                    plugin_id: typed.plugin_id,
+                }],
+                &provider_with_same_id,
+            )
+            .unwrap_err()
+            .contains("was not granted"));
+
         fs::remove_dir_all(root).unwrap();
     }
 

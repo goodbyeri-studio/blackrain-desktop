@@ -1,7 +1,9 @@
 use keyring::{Entry, Error as KeyringError};
 use uuid::Uuid;
 
-use super::config::HermesSecretReference;
+use super::config::{
+    HermesEnvironmentReference, HermesEnvironmentReferenceKind, HermesSecretReference,
+};
 
 const SERVICE: &str = "BlackRain Hermes WORK";
 
@@ -24,6 +26,13 @@ fn provider_username(provider_id: &str) -> Result<String, String> {
     Ok(format!(
         "provider:{}",
         normalize_id("provider id", provider_id)?
+    ))
+}
+
+fn managed_variable_username(reference_id: &str) -> Result<String, String> {
+    Ok(format!(
+        "managed-variable:{}",
+        normalize_id("managed variable reference id", reference_id)?
     ))
 }
 
@@ -90,6 +99,35 @@ pub(crate) fn provider_secret_clear(provider_id: &str) -> Result<(), String> {
     clear(&provider_username(provider_id)?)
 }
 
+pub(crate) fn managed_variable_get(reference_id: &str) -> Result<Option<String>, String> {
+    read(&managed_variable_username(reference_id)?)
+}
+
+pub(crate) fn managed_variable_set(reference_id: &str, value: &str) -> Result<(), String> {
+    write(&managed_variable_username(reference_id)?, value)
+}
+
+pub(crate) fn managed_variable_clear(reference_id: &str) -> Result<(), String> {
+    clear(&managed_variable_username(reference_id)?)
+}
+
+pub(crate) fn resolve_environment_reference(
+    reference: &HermesEnvironmentReference,
+) -> Result<Option<String>, String> {
+    reference.validate()?;
+    match reference.kind {
+        HermesEnvironmentReferenceKind::ProviderCredential => {
+            provider_secret_get(&reference.reference_id)
+        }
+        HermesEnvironmentReferenceKind::ManagedVariable => {
+            managed_variable_get(&reference.reference_id)
+        }
+        HermesEnvironmentReferenceKind::SystemCapability => {
+            Err("Hermes system capabilities cannot be resolved as environment values.".into())
+        }
+    }
+}
+
 pub(crate) fn resolve_secret_reference(
     secret_ref: &HermesSecretReference,
 ) -> Result<Option<String>, String> {
@@ -105,10 +143,12 @@ pub(crate) fn resolve_secret_reference(
 mod tests {
     use super::{
         api_server_username, clear_api_server_key, ensure_api_server_key, generate_api_server_key,
-        provider_secret_clear, provider_secret_get, provider_secret_set, provider_username,
-        resolve_secret_reference,
+        managed_variable_username, provider_secret_clear, provider_secret_get, provider_secret_set,
+        provider_username, resolve_environment_reference, resolve_secret_reference,
     };
-    use crate::shared::hermes_core::config::HermesSecretReference;
+    use crate::shared::hermes_core::config::{
+        HermesEnvironmentReference, HermesEnvironmentReferenceKind, HermesSecretReference,
+    };
     use uuid::Uuid;
 
     #[test]
@@ -120,6 +160,10 @@ mod tests {
         assert_eq!(
             provider_username("blackrain-new-api").unwrap(),
             "provider:blackrain-new-api"
+        );
+        assert_eq!(
+            managed_variable_username("office-license").unwrap(),
+            "managed-variable:office-license"
         );
         assert!(api_server_username(" ").is_err());
         assert!(provider_username("\n").is_err());
@@ -140,6 +184,17 @@ mod tests {
             provider_id: "INVALID PROVIDER".into(),
         };
         assert!(resolve_secret_reference(&secret_ref).is_err());
+    }
+
+    #[test]
+    fn system_capability_is_never_resolved_as_an_environment_secret() {
+        let reference = HermesEnvironmentReference {
+            kind: HermesEnvironmentReferenceKind::SystemCapability,
+            reference_id: "office-installed".into(),
+        };
+        assert!(resolve_environment_reference(&reference)
+            .unwrap_err()
+            .contains("cannot be resolved"));
     }
 
     #[test]

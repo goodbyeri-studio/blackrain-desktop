@@ -247,7 +247,8 @@ mcp_servers:
 边界：
 
 - `register_mcp_servers()` 在 Hermes agent build 时按当前配置注册 server，并把 server tools 加入原生 registry；BlackRain 不修改 Agent loop。
-- stdio `command` 支持绝对路径。BlackRain 不使用 Hermes 的 `cwd`、任意 `env`、HTTP/SSE transport 或 OAuth 配置；命令和参数只能来自 Core 的 verified plugin runtime store。
+- stdio `command` 支持绝对路径。BlackRain 不使用 Hermes 的 `cwd`、任意明文 `env`、HTTP/SSE transport 或 OAuth 配置；命令、参数和 child env key/reference 只能来自 Core 的 verified plugin runtime store。
+- 锁定 Hermes 会递归解析 MCP config 中的 `${VAR}` / `${env:VAR}`，优先使用 active secret scope，再回退到当前进程环境；`_build_safe_env()` 只把安全基线变量和 config 显式声明的 env 传给 stdio child。BlackRain 因此只在 config 写 `${BLACKRAIN_MCP_SECRET_*}` 占位符，把实际值从系统凭据注入专属 Hermes 进程，既不落盘也不继承用户 shell 的任意 secret。
 - server 自己发出 `notifications/tools/list_changed` 后，上游后台重新执行 `tools/list`，原子刷新该 server 的工具集合并移除 stale tools；不需要 BlackRain 重建或伪造 tool registry。
 - `tools/list_changed` 只覆盖“已注册 server 内部的工具集合变化”，不等于新增或删除整个 server。锁定版本没有供 BlackRain HTTP surface 调用的 server unregister/reload API。
 - 因此首版整体 server 注册/注销采用 idle-only config replacement + Hermes 受控 restart：有任何 active WORK run 时 fail closed；空闲时停止旧 Hermes（Windows 使用 process-tree 回收）、写入新 binding、重启并恢复 task/session metadata。Skills-only binding 变化不触发 restart。
@@ -264,3 +265,13 @@ hermes-upstream/.venv/bin/python -m pytest \
 ```
 
 该证据证明锁定 Hermes 的注册与 `list_changed` contract，不证明 BlackRain Windows runtime、真实 MCP 子进程或 Office 工具已实测。
+
+环境占位符额外验证：
+
+```text
+hermes-upstream/.venv/bin/python -m pytest \
+  hermes-upstream/tests/hermes_cli/test_mcp_config.py \
+  hermes-upstream/tests/gateway/test_multiplex_credential_isolation.py \
+  -q -k 'interpolate'
+8 passed
+```

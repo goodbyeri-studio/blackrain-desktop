@@ -132,7 +132,7 @@
 
 ## 2026-07-12：MCP 可执行配置只来自 Core verified plugin runtime store
 
-- 决策：App data 下建立 `plugins/runtimes.v1.json` 和 `plugins/installed/` 管理根。只有未来 008 install/verify pipeline 能持久化 `VerifiedPluginRuntime`；普通前端、工作台包和 activation 都只能引用 plugin/version/MCP id，不能提交 command、args、env、cwd 或 transport。首版仅允许 managed stdio MCP，执行前重新验证绝对路径、插件版本目录、managed root、完整祖先链无 symlink、文件存在、参数/超时/数量有界和资源身份不可变。
+- 决策：App data 下建立 `plugins/runtimes.v1.json` 和 `plugins/installed/` 管理根。只有未来 008 install/verify pipeline 能持久化 `VerifiedPluginRuntime`；普通前端、工作台包和 activation 都只能引用 plugin/version/MCP/environment id，不能提交 command、args、env value/config fragment、cwd 或 transport。verified runtime 可声明受限 child env key → typed environment reference 映射，但不保存值。首版仅允许 managed stdio MCP，执行前重新验证绝对路径、插件版本目录、managed root、完整祖先链无 symlink、文件存在、参数/超时/数量有界和资源身份不可变。
 - 原因：activation 只证明引用被授权，不应同时成为可执行配置来源；否则前端或包内容可以绕过安装验证启动任意进程。运行前复核还能防止已验证后磁盘路径被 symlink 替换。
 - 替代方案：把 MCP command 放进 activation/Manifest 后直接写入 Hermes config，或允许用户界面添加任意本地 MCP server。
 - 影响范围：`plugin_core.rs`、008 install/verify 接缝、Hermes binding 和后续插件管理 UI。
@@ -153,6 +153,14 @@
 - 替代方案：前端直接删除 activation JSON、只隐藏入口、停用时删除项目、或在另一个 activation 仍运行时停止共享 supervisor。
 - 影响范围：008 deactivate 接缝、`workbench_core`、TaskStore、Tauri command、WORK controller/surface 和 Windows process tree 验收。
 - 后续复查条件：多 profile supervisor 落地后按 profile 精确停止；正式 008 lifecycle state 还需增加 generation/audit/installer ownership。Windows 必须验证 `taskkill /T` 覆盖真实 MCP 子进程，本地单测不能替代。
+
+## 2026-07-12：MCP environment 使用系统凭据加进程占位符
+
+- 决策：verified plugin runtime 只声明 child env key、reference kind 和 reference id；activation 必须显式授予完全相同的 typed reference。Core 为每个 server/env/reference 生成确定性的 `BLACKRAIN_MCP_SECRET_<digest>` 进程 key，`config.yaml` 只写 `${...}` 占位符。runtime start 从同一系统凭据服务读取 `providerCredential` 或 `managedVariable`，缺失即以 `hermes_mcp_environment_required` fail closed；`systemCapability` 永不转换为 secret。Hermes launch 使用 `env_clear`，只向当前进程注入本次 binding 所需值，诊断统一脱敏该 namespace。
+- 原因：把实际 token 写进 Hermes config、desired state、activation 或插件 store 会落盘泄密；把所有系统环境透传又会让不同工作台串台。锁定 Hermes 已有 `${VAR}` 插值和显式 child env 白名单，无需修改 Agent loop。
+- 替代方案：生成 `.env`、把值写入 `mcp_servers.*.env`、继承用户 shell、让插件直接读 Windows Credential Manager、或把 system capability 当字符串注入。
+- 影响范围：plugin runtime schema、activation→Hermes mapping、credential store、config render、runtime start、diagnostics 和阶段 11 隔离。
+- 后续复查条件：正式 008 credential UI/installer 接通时只新增 managed-variable 写入事务，不开放任意 process env；Windows Credential Manager 与真实 MCP child env 必须实测。
 
 ## 2026-07-12：runtime 完整性使用全文件 checksum 覆盖
 
@@ -296,7 +304,7 @@
 - 原因：锁定 Hermes 已原生支持 external dirs，并按 config mtime 重新解析；使用它能继续白嫖上游而不 fork。复制目录会制造第二份生命周期和更新真源；把多个工作台 roots 合并则会让 skill catalog 串台。当前 supervisor 只有一个进程/端口，因此在另一 activation 存在 active run 时拒绝切换，比静默并存更安全。
 - 替代方案：复制/软链到 `HERMES_HOME/skills`、把所有 activation roots 做并集、让前端传任意 external dirs、运行 `/reload-skills` 伪装成隔离，或立即引入多 profile supervisor。
 - 影响范围：Hermes config/runtime、task start/continue、AppState activation gate、阶段 11 Skills 隔离和未来多 profile 评估。
-- 后续复查条件：真实 Windows 并行工作台需求出现时，评估每 activation/profile 独立 `HERMES_HOME + port + supervisor`；在此之前不得放松 active-run 冲突门禁。MCP/env/session 仍需独立实现和验证，不能用本决策冒充整项隔离完成。
+- 后续复查条件：真实 Windows 并行工作台需求出现时，评估每 activation/profile 独立 `HERMES_HOME + port + supervisor`；在此之前不得放松 active-run 冲突门禁。当前代码级隔离仍需真实 Windows 多 activation/MCP/credential E2E 才能升级为产品验收结论。
 
 ## 被推翻的方案
 

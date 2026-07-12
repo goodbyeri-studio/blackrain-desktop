@@ -1288,6 +1288,7 @@ fn now_unix_seconds() -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::fs;
     use std::future::Future;
     use std::net::TcpListener;
@@ -1362,6 +1363,7 @@ mod tests {
             port,
             "br_fixture_0123456789abcdef0123456789abcdef",
             "provider-fixture-secret",
+            &BTreeMap::new(),
         )
         .unwrap()
     }
