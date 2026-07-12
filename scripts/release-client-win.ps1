@@ -76,14 +76,8 @@ try {
     Invoke-Checked { & npm.cmd run lint:ds }
     Invoke-Checked { & npm.cmd run codemod:ds:dry }
     Invoke-Checked { & npm.cmd run doctor:win }
-    Push-Location "src-tauri"
-    try {
-      Invoke-Checked { & cargo check }
-      Invoke-Checked { & cargo test hermes --lib }
-      Invoke-Checked { & cargo test workbench_core --lib }
-      Invoke-Checked { & cargo test plugin_core --lib }
-    } finally {
-      Pop-Location
+    Invoke-Checked {
+      & pwsh -NoProfile -File (Join-Path $repo "scripts\check-windows-rust.ps1")
     }
   }
 

@@ -28,7 +28,7 @@
 - [x] **NSIS target + Windows 资源映射代码已落**:`tauri.windows.conf.json` 已显式 `targets = ["nsis"]`,并映射 codex/Python/gateway/OfficeCLI/plugins/workbench。此勾选只表示配置存在。
 - [ ] **NSIS 元数据收口**:publisher / shortcut / 签名 hook 依签名待决结论落地。
 - [ ] **Windows 品牌元数据收口**:窗口标题、About、tray、Credential Manager service 从 `BlackRain2049` 迁到 `BlackRain`；凭据 service 改名必须设计兼容读取/迁移，不能让已有登录/key 静默丢失。
-- [x] **本机发布脚本已落**:`scripts/release-client-win.ps1` 已会跑 Hermes static contract、vendor Windows/Hermes runtime、执行 typecheck/test/lint/DS/doctor 与 cargo check/Hermes/workbench/plugin 专项，再调 `tauri:build:win`;尚未有本 spec 的 Windows 实跑记录。
+- [x] **本机发布脚本已落**:`scripts/release-client-win.ps1` 已会跑 Hermes static contract、vendor Windows/Hermes runtime、执行 typecheck/test/lint/DS/doctor 与统一 Rust/WORK 专项脚本，再调 `tauri:build:win`;尚未有本 spec 的 Windows 实跑记录。
 - [ ] **跑 `npm run tauri:build:win`**:产出 `.exe` 安装包,记打包时长 / 体积。
 - [ ] **安装包资源 smoke**:解包验证 `office-cli/windows-x64/officecli.exe`、`gateway/gateway.py`、`plugins/office-cli/`、`workbenches/office-agent/` 都在。
 - [ ] **区分资源存在与工作台可安装**：在 verification 明确记录 Office 目录入包只属于静态资源 smoke，不得标记 008 的 inspect/install/activate/verify/uninstall 已完成。
@@ -49,6 +49,8 @@
 
 - [x] `.github/workflows/ci.yml` 已存在：Ubuntu 先按 diff 分流，前端相关改动跑 JS typecheck/test/lint/DS/codemod；Rust/WORK 相关改动才启用 Windows Hermes/workbench/plugin 专项。此勾选只表示 workflow 接线存在。
 - [x] Windows runner 只承担无法由 Ubuntu 替代的 Rust/WORK 代码级回归；同一 PR 旧 run 自动取消，普通 `main` push 不重复跑，Cargo 依赖变化才预热默认分支 cache。暂不加入 Tauri/NSIS build，避免把未签名制品和实机验收混入普通 PR CI。
+- [x] CI、本机和正式发布共用 `scripts/check-windows-rust.ps1`；`WINDOWS_RUNNER` 未设置时回退 `windows-latest`，设置后切换唯一 label 的 self-hosted Windows，fork PR 不进入开发机。
+- [ ] 在受控 Windows 开发机注册 `blackrain-windows` runner，使用非管理员专用服务账号，并连续验证 3 个 Rust/WORK PR。
 - [ ] NSIS 正式包仍只在 Windows 本机构建;若未来改为 CI 出包,需单独处理制品签名与密钥。
 - [ ] **明确不建 macos-latest runner**——decisions 已锁,CI 与代码库节奏同步。
 

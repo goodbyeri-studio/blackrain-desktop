@@ -31,6 +31,14 @@
 - 影响范围：`.github/workflows/ci.yml`、CI required check 名称、Windows cache、普通 PR 反馈时间和 GitHub Actions 额度。
 - 后续复查条件：累计 10 个 PR 后比较 Windows job 触发率、平均计费分钟和漏检；Windows 开发机稳定在线后，优先迁为 self-hosted runner，GitHub-hosted Windows 改为手动兜底。
 
+## 2026-07-13：Windows Rust 检查可切换 self-hosted，签名留在受控发布环境
+
+- 决策：CI 与本机发布共用 `scripts/check-windows-rust.ps1`。Windows job 的 `runs-on` 由 repository variable `WINDOWS_RUNNER` 选择；未设置时使用 `windows-latest`，设置为开发机唯一 label `blackrain-windows` 时使用 self-hosted。self-hosted 只执行本仓库内可信分支 PR，fork PR 不进入开发机。
+- 原因：Windows hosted 分钟按 2 倍计费，而 Windows 编译仍是 MVP 必要门禁。可切换 runner 能在开发机在线时消除 hosted Windows 计费，离线时保留明确回退；统一脚本避免本机、CI 和发布入口的命令漂移。
+- 边界：普通 PR CI 仍不构建 NSIS、不签名、不持有长期 `.pfx`、私钥或 EV USB token。正式包在受控 Windows 机器构建、签名并实机验证；未来自动发布只能使用专用签名 runner 与 GitHub Environment 人工审批。
+- 影响范围：`.github/workflows/ci.yml`、`scripts/check-windows-rust.ps1`、`scripts/release-client-win.ps1`、Windows runner 运维和发布文档。
+- 后续复查条件：self-hosted runner 注册并连续完成 3 个 Rust/WORK PR 后，记录在线率、排队时间和实际节省分钟；签名方案拍板后另行实现签名与 Draft Release 流程。
+
 ## 2026-06-30:MVP 仅发行 Windows 版,macOS 推迟到 post-MVP
 
 - 决策:**v1 / MVP 只发行 Windows 客户端;macOS 客户端整体推迟到 post-MVP**(具体节点未定,或在 MVP 跑通后另起仓 / 独立维护通道)。本仓 `apps/desktop` 仍是单一代码库,但日常开发、CI、打包、发布、用户支持全部按 Windows-only 推进。

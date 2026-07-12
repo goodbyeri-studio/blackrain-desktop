@@ -15,10 +15,11 @@
 
 | Job | Runner | 覆盖 |
 |---|---|---|
-| `js-checks` | `ubuntu-latest` | `npm ci`、`npm run typecheck`、`npm run test` |
-| `windows-checks` | `windows-latest` | JS typecheck/test/lint/DS/codemod + Rust `cargo check`、Hermes/workbench/plugin 专项 |
+| `changes` | `ubuntu-latest` | 按 diff 判断是否需要 JS 或 Windows Rust/WORK 检查 |
+| `js-checks` | `ubuntu-latest` | typecheck/test/lint/DS/codemod |
+| `windows-rust-checks` | `WINDOWS_RUNNER`，未设置时为 `windows-latest` | 一次编译全部 Rust test targets，再跑 Hermes/workbench/plugin 专项 |
 
-CI **不包含** macOS runner，也不包含 GUI、Tauri dev、Hermes runtime vendor/启动、NSIS、Credential Manager、真实模型对话、Office 或安装/卸载验证。PR 中不能写“CI 绿 = Windows 客户端已验证”。
+纯 Markdown/Word PR 不启动 workflow；普通 `main` push 不重复检查，只有 Cargo manifest/lock 变化时预热 Windows cache。self-hosted Windows 只运行本仓库内可信分支，fork PR 不进入开发机。CI **不包含** macOS runner，也不包含 GUI、Tauri dev、Hermes runtime vendor/启动、NSIS、Credential Manager、真实模型对话、Office、签名或安装/卸载验证。PR 中不能写“CI 绿 = Windows 客户端已验证”。
 
 ## 代码边界矩阵
 
@@ -55,7 +56,7 @@ CI **不包含** macOS runner，也不包含 GUI、Tauri dev、Hermes runtime ve
 
 1. 在仓库根核对双引擎 `HEAD` 是否等于目标锁定版本。
 2. 运行 `pwsh scripts/dev-client.ps1` 启动真实 Windows GUI。
-3. 按改动范围运行 `typecheck`、`test`、`lint`、`cargo check`。
+3. 按改动范围运行前端检查或 `pwsh scripts/check-windows-rust.ps1`。
 4. 涉及平台行为时完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 对应实机项。
 5. 发布前运行 `pwsh scripts/release-client-win.ps1`，再手动安装、启动、对话和卸载。
 
