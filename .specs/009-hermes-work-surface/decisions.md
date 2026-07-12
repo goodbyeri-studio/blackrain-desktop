@@ -140,7 +140,7 @@
 
 ## 2026-07-12：整体 MCP server 变更使用空闲态受控重启
 
-- 决策：已注册 server 内部的工具增删交给锁定 Hermes 原生 `notifications/tools/list_changed`；新增、删除或改变整个 server 时，Core 只在不存在 active WORK run 时替换版本化 workbench binding。若 Hermes 已 Ready，则取消受控 stream、重启 Hermes 并重新做 task recovery；session/task metadata 保留。binding 变更前保存旧 binding/config/last-good 的内存回滚快照；新 runtime readiness 失败时恢复旧文件并尝试重新拉起旧 runtime，返回结构化 `hermes_mcp_transition_failed` 和回滚/恢复状态。任一 active run 存在时在写 config 前 fail closed。Skills-only 变化不触发重启。
+- 决策：已注册 server 内部的工具增删交给锁定 Hermes 原生 `notifications/tools/list_changed`；新增、删除或改变整个 server 时，Core 只在不存在 active WORK run 时替换版本化 workbench binding。若 Hermes 已 Ready，则取消受控 stream、重启 Hermes 并重新做 task recovery；session/task metadata 保留。binding 变更前保存旧 binding/config/last-good 的内存回滚快照；新 runtime readiness 失败时恢复旧文件并尝试重新拉起旧 runtime，返回结构化 `hermes_workbench_transition_failed` 和回滚/恢复状态。任一 active run 存在时在写 config 前 fail closed。Skills-only 变化不触发重启；project safe root 变化属于进程环境变化，必须受控重启。
 - 锁定协议证据：`hermes-upstream` 当前为 tag `v2026.7.7.2` / commit `9de9c25f620ff7f1ce0fd5457d596052d5159596`。`tui_gateway/server.py` 确有私有 RPC `reload.mcp`、`skills.reload`，CLI 也有 `/reload-mcp`、`/reload-skills`；但 BlackRain 产品接入的 `gateway/platforms/api_server.py` 注册路由中没有 MCP/Skills register、unregister 或 reload endpoint。`notifications/tools/list_changed` 只通知已连接 server 内部工具集合改变，不能新增或移除整个 server。
 - 原因：锁定 `/v1` surface 没有 server register/unregister/reload endpoint，而直接在对话执行中杀进程会丢失不可重放的 SSE。空闲态重启能复用原装 Hermes 的启动注册路径，并确保旧 stdio 子进程随 Windows process tree 收敛。
 - 替代方案：修改 Hermes Agent loop、伪造 registry、运行中直接改 config 并假设生效、或调用未进入锁定 HTTP contract 的 CLI `/reload-mcp`。
@@ -186,6 +186,14 @@
 - 替代方案：继续维护敏感词表、允许用户手动勾选后复制完整日志、或把 stdout/stderr 原文只写磁盘不展示 UI。
 - 影响范围：`process.rs`、`client.rs`、`runtime.rs`、WORK diagnostics 面板和阶段 13 隐私审计。
 - 后续复查条件：若未来需要更丰富的上游诊断，只能增加结构化、逐字段白名单事件，不得恢复任意 stdout/stderr 或 HTTP body；Windows 需检查 App-data 滚动日志、剪贴板和 crash dump。
+
+## 2026-07-12：Hermes 用户目录与文件写入范围双重隔离
+
+- 决策：启动 Hermes 前将 `HOME`、`USERPROFILE`、`APPDATA`、`LOCALAPPDATA` 全部重定向到 App-data `HERMES_HOME/process-home`，并从父环境白名单移除这些变量以及任何 `HERMES_HOME`/`CODEX_HOME`。`ActivatedWorkbenchContext.project.path` 进入 Core-owned workbench binding，runtime 启动时映射为锁定 Hermes 原生 `HERMES_WRITE_SAFE_ROOT`。project root 改变属于 process environment change，只能在无 active run 时受控 restart；失败复用完整 binding/runtime 回滚。旧 binding 若缺 `projectRoot` 只允许读取以便 rebind/unbind，runtime 启动仍 fail closed；下一次当前 activation 重绑会原子升级该字段。
+- 原因：仅设置 `HERMES_HOME` 不能证明某个上游模块或子工具不会用 `Path.home()`、Windows AppData 或默认 `~/.hermes` 回落；仅靠 prompt 又不能阻止 file tool 写出项目。进程 home 隔离保护默认目录，`HERMES_WRITE_SAFE_ROOT` 则让 `write_file`/`patch` 在项目外直接拒绝。
+- 替代方案：继承用户 HOME/AppData、只在 instructions 中要求“不要越界”、由前端传 safe root、或让不同项目共用一个旧进程环境。
+- 影响范围：activation→Hermes desired state、config binding、runtime launch environment、supervisor spawn、空闲态 restart/rollback 和阶段 13 权限矩阵。
+- 后续复查条件：锁定 Hermes 的 terminal 仍依赖 dangerous-path approval 而非 OS sandbox；Windows 必须覆盖显式绝对路径、NTFS reparse point、拒绝审批和用户原有 `.hermes/.codex` 未变。若要限制项目外读取，需要独立 Windows sandbox/受控工具策略，不能把 write-safe-root 夸大为完整读隔离。
 
 ## 2026-07-12：deactivate 先收敛执行资源，最后移除 activation
 

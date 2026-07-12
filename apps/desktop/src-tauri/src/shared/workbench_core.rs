@@ -213,6 +213,7 @@ impl ActivatedWorkbenchContext {
         let desired = WorkbenchHermesDesiredState {
             workbench_id: self.workbench_id.clone(),
             workbench_version: self.workbench_version.clone(),
+            project_root: PathBuf::from(&self.project.path),
             skill_roots: self.skill_roots.iter().map(PathBuf::from).collect(),
             plugin_ids: self
                 .plugins
@@ -625,6 +626,7 @@ mod tests {
         assert_eq!(desired.plugin_ids, vec!["com.blackrain.office-cli"]);
         assert_eq!(desired.mcp_server_ids, vec!["com.blackrain.office-files"]);
         assert_eq!(desired.permission_grant_id, "grant-office-demo");
+        assert_eq!(desired.project_root, PathBuf::from(&context.project.path));
         assert!(desired.provider_secret_ref.is_some());
     }
 
