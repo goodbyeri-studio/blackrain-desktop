@@ -20,7 +20,7 @@ GUI 拆三层，每层对 Codex 的态度不同——**「神似」和「保留 
 
 ## 架构边界
 
-- 属于 `apps/desktop` 的逻辑：**绝大部分**。改动集中在 `src/styles/ds-tokens.css` + `themes.*.css`（token 层）、`src/features/design-system/*`（共享原语）、各 feature 的 `components/*.tsx` 与 `src/styles/*.css`（界面层）。
+- 属于 `apps/desktop` 的逻辑:**绝大部分**。包括 token/主题、DS 原语、组件样式,也包括搜索弹层、导航历史、侧栏层级等前端状态与交互。已有 42 个 app-server 方法的壳层接线归 spec 006;本 spec 只消费其中已可用的 IPC,不把「接线存在」写成「GUI 已完成」。
 - 属于 `gateway` 的逻辑：**有一处依赖**。两级模型菜单的「推理档」要真生效，网关须接收并透传 `reasoning_effort` 请求参数（现状仅响应侧翻译 `reasoning_content`，请求侧不读不转）。此为跨 spec 依赖，归 [spec 001](../001-providers-model-gateway/)，在本 spec 双向标注，见下「两级模型菜单」。
 - 属于 `plugins` / `workbenches` 的内容：无。
 - 明确不改 `codex-upstream` 的部分：全部内核与协议；后端 `src/shared/*`、`lib.rs`、`rpc.rs` 不因视觉对齐而改（除非对齐暴露了纯前端拿不到的状态，那种情况单独评审）。
@@ -56,7 +56,7 @@ GUI 拆三层，每层对 Codex 的态度不同——**「神似」和「保留 
 
 ## 数据流
 
-本 spec 不改数据流，只改渲染层。对齐动作的「数据流」是工程流程：
+本 spec 不改 agent 运行时边界,但可以改前端状态与已有 IPC 的触发方式。视觉量化流程与功能交互流程分开:
 
 ```text
 Codex 范本(你提供的截图/录屏)
@@ -66,11 +66,17 @@ Codex 范本(你提供的截图/录屏)
   -> 落地 design-system 原语(button/modal/popover/toast/panel...)
   -> 逐界面套用(Home/Composer/Settings/...)
   -> 对比验证(并排截图 + lint:ds + typecheck + test)
+
+用户触发 CODE 界面交互
+  -> feature hook / reducer
+  -> 已有 @services/tauri.ts IPC(如 threadSearch)
+  -> 壳已接线的 app-server 方法
+  -> 结果回到 UI
 ```
 
 ## 接口与配置
 
-- Tauri command / JSON-RPC：不涉及。
+- Tauri command / JSON-RPC:本 spec 不新增协议方法;允许调用 spec 006 已接线的 IPC。若方法仍受 `experimentalApi`、OpenAI 认证或上游 stub 门控,UI 必须显式降级,不得假定可用。
 - `config.toml` / `CODEX_HOME`：不涉及。
 - 环境变量：不涉及。
 - 文件布局（改动面）：
@@ -90,8 +96,8 @@ Codex 范本(你提供的截图/录屏)
 
 ## 测试策略
 
-- 单元测试：`npm run test`（基线 1061 通过）；改组件后跑相关 `*.test.tsx`，不得回归。
-- 集成测试：不涉及后端集成。
+- 单元测试:`npm run test`;改组件/hook/reducer 后跑相关 `*.test.ts(x)`,以当前收集到的用例为准,不锁历史数量。
+- 集成测试:搜索、侧栏、导航等功能若调用已有 IPC,需补组件/hook 级集成测试;不新增内核协议测试。
 - 协议探针：不涉及。
 - DS 守卫：`npm run lint:ds`（每次碰共享 chrome/弹层后必跑）。
-- 人工验证：每个对齐界面，BlackRain 截图与 Codex 范本**并排对比**；记录 diff 点直至收敛。verification.md 存对比结论与 token 表。
+- 人工验证:每个对齐界面在 Windows 实机上与 Codex 范本并排对比,并验证真实交互;记录 diff 点直至收敛。macOS/iOS 不进 MVP 验收。

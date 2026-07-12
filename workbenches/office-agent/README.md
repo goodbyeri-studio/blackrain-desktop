@@ -1,29 +1,49 @@
-# Office Agent 工作台
+# Office 参考工作台
 
-面向下沉市场的办公智能体工作台。目标不是让用户学习 Office 操作,而是让用户直接说任务,系统帮他产出真正能交付的文档。
+Office 是 BlackRain 第一套参考工作台，用于验证“专家环境如何被声明、安装、激活、执行、验证和卸载”。它不是 BlackRain 最终只做办公助手的产品定位。
 
-## 典型任务
+> **当前状态**：本目录只有内容和注入骨架，尚未迁移到 [.specs/008](../../.specs/008-expert-workbench-package/) 的目标 Manifest。资源已进入 Windows bundle mapping，但 NSIS 尚未 build/unpack/install 验证；WORK/Hermes surface、工作台生命周期和 Office 质量基线均未完成。
 
-- 写一份通知、总结、方案、汇报材料
-- 按模板批量生成合同、报价单、申请表
-- 从 Excel 数据生成分析结论和图表
-- 自动做汇报 PPT
-- 对现有 Word / Excel / PPT 做修改、润色、统一格式
+## 想复制的专家环境
 
-## 默认能力
+一位高阶 Office 用户的电脑通常包含：
 
-- 内置 OfficeCLI 文档引擎
-- 可与本地文件、模板、表格数据联动
-- 后续可扩展 Windows COM 兜底能力
+- 文档、表格、PPT 和 PDF 工具
+- 批处理脚本和命令
+- 公司模板和标准目录
+- 文件命名、格式和交付规范
+- 数据核对和预览习惯
+- 修改前备份和失败恢复
 
-## 内置技能
+本工作台的长期目标是把这些内容封装成小白可以直接使用的专业环境，而不是只提供一个办公聊天机器人。
 
-- `generate-office-deliverable`: 直接产出 Word / Excel / PPT 文件
-- `fix-office-formatting`: 修正文档版式和结构问题
-- `render-office-preview`: 渲染预览结果并做交付前检查
+## 候选任务
 
-## 交互原则
+- 批量整理、改名和归档文件
+- 从 PDF/扫描件提取结构化数据
+- 合并多份 Excel 并发现缺失、重复和异常
+- 根据模板批量生成 Word / Excel / PPT
+- 修正文档版式并生成交付前预览
 
-- 入口是任务,不是功能
-- 默认给选项,不是白纸输入框
-- 每一步尽量落成文件成果
+任务入口应优先选择批量、跨文件、跨格式、多步骤的工作，避免与普通聊天产品的单文档生成正面同质化。
+
+## 当前已有资源
+
+- `AGENTS.md`：Office 工作规则
+- `skills/generate-office-deliverable`
+- `skills/fix-office-formatting`
+- `skills/render-office-preview`
+- `plugins/office-cli/`：配套工具内容
+- OfficeCLI runtime 资源和部分 Tauri 注入代码
+
+## 进入可发布状态前必须补齐
+
+- 工作台 Manifest 和依赖/权限声明
+- OfficeCLI 来源、License、checksum 和 NOTICE
+- Windows 安装后健康检查
+- 用户项目模板和任务入口
+- 修改前备份、预览、diff 和恢复
+- 5 个核心场景 × 10 次真实质量基线
+- 升级失败回滚和卸载保留项目
+
+当前 README 描述的是目标，不是已发布能力。

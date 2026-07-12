@@ -4,19 +4,19 @@
 
 - [x] 确认壳里无任何自有账号/后端（命中的 AccountSnapshot/CreditsSnapshot 均为 Codex 内核 ChatGPT 用量，非自有）。
 - [x] 确认 DeepSeek pro:flash = 3:1（官方价：输入 1→3 元、输出 2→6 元 / 1M 缓存未命中）。
-- [x] 选定后端栈 = Supabase（Auth + Postgres）；对外形态 = 最小服务端代理（以后迁 new-api）。
-- [x] 决定最小代理部署形态：复用 `gateway.py` 部署成常驻服务（不用 Edge Function）。
-- [x] 决定 credit 实时性：强一致（前置门禁 + 出对话原子扣减），接受并发小幅超卖。
+- [x] 选定账号/余额栈 = Supabase（Auth + Postgres），并验证最小过渡代理；最终 new-api/适配层组合待决。
+- [x] 验证过渡代理部署形态：独立 `gateway/proxy.py` Chat 转发器常驻运行（不用 Edge Function）。
+- [x] 验证 credit 记账：前置门禁 + 出对话单事务扣减，接受并发小幅超卖；不再称全局严格强一致。
 
 ## 阶段 1（M-A1）：账号地基（credit 只存不扣）
 
-- [x] Supabase 项目：建 `profiles`（plan/credits）与 `credit_ledger` 表 + RLS。（`supabase/migrations/*_profiles_and_ledger.sql`；待用户接真实项目应用）
+- [x] Supabase 项目：建 `profiles`（plan/credits）与 `credit_ledger` 表 + RLS，并已应用真实新加坡项目。
 - [x] 注册赠送 trigger：`auth.users` insert → 建 profile（free, credits 占位）+ 写 signup_grant。（`*_signup_grant_trigger.sql`）
 - [x] 桌面接入 Supabase JS SDK：注册、登录、登出。（`features/accounts/{config,supabaseClient,accountService}.ts`）
-- [x] 会话态持久：session token 存系统钥匙串，重开 App 自动恢复，过期静默刷新。（Rust `account_session*` + 前端 `keychainStorage` adapter + `useAccount`）
+- [x] 会话持久代码接线：session token 存系统钥匙串，包含自动恢复/静默刷新逻辑。（Rust `account_session*` + 前端 `keychainStorage` adapter + `useAccount`；Windows 重开实机未跑）
 - [x] 登录/注册 UI（design-system 原语，复用 chrome）。（`AccountAuthCard`，复用 ModalShell + settings 输入样式）
 - [x] 首页展示当前 plan + credit 余额；设置展示 plan 与（占位）三档。（首页 `Home` 余额徽标/登录入口 + 设置区 `SettingsAccountSection` 三档）
-- [x] 未登录门禁：对话入口引导登录。（`Home` blockEntry/shouldPromptLogin：signed-out 弹登录卡片，loading 静默等待，unconfigured 不拦截）
+- [x] 未登录门禁：`AccountProvider` + 全屏 `AccountGate` 四态分支；`unconfigured` 保留开发态本地可用。
 - [x] 模型选择器显示 flash(0.5x)/pro(1.5x) 倍率标签。（`HomeModelMenu` + `creditPricing`）
 
 ## 阶段 2（M-A2）：最小代理 + credit 计量
@@ -27,7 +27,8 @@
 - [x] usage 计量：收尾读 input/output token，按倍率算 credit 消耗。（`credit_math`，混合单价 × 倍率 / 10000）
 - [x] 原子扣 `profiles.credits` + 写 `credit_ledger`。（`spend_credits` RPC，单事务，真实云端验证）
 - [x] 本地网关 credit 模式：base_url 指向代理、Authorization 带 JWT。（`gateway_registry_env_with_secrets` credit override + `api_key_file` 每请求读 JWT + `useCreditGatewaySync` 登录写文件/切模式重启；GUI 端到端待用户跑）
-- [x] 余额耗尽 → 网关转 `response.failed` → 前端提示升级/充值。（`ProviderHTTPError` + `do_POST._emit_failed` 把代理 402 转带 code 的 `response.failed`；前端提示文案待 GUI 联调）
+- [x] 代理 402 已由网关转成带 code 的 `response.failed`。（`ProviderHTTPError` + `do_POST._emit_failed`）
+- [ ] Windows GUI 联调余额耗尽提示、升级/充值文案和余额刷新。
 - [x] 代理日志脱敏（平台 key、JWT、用户内容）。（`redact()`，真实日志扫描无泄漏）
 
 ## 阶段 3：BYOK 锁 Plus
@@ -38,15 +39,21 @@
 
 ## 阶段 4：迁移接缝（仅预留，不实现）
 
-- [ ] 固定代理对桌面的 `base_url + Bearer <jwt>` 约定，记录到 design，供 new-api 顶替。
+- [x] 在 design/decisions 记录桌面侧 `base_url + Bearer <jwt>` 接缝目标。
+- [ ] 决定并验证生产 new-api 如何完成 Supabase JWT 校验、credit 扣款；确认 `proxy.py` 保留、替换或重定位。
+- [ ] 为 WORK/Hermes 接入同一 credit 余额与结构化错误链路。
+- [ ] 统一 001/002/003 对 BYOK 是否绕过 new-api 的口径，不在本次文档治理中拍板。
 
 ## 阶段 5：验证和收口
 
-- [ ] `npm run typecheck` / 相关前端测试 / `npm run lint`。
-- [ ] 改 Rust 后 `cargo check` + 相关 shared core 单测。
-- [ ] credit 费率换算单测（3:1 比值）。
-- [ ] 代理：JWT 校验 / 扣余额原子性 / ledger 落账 集成测试。
-- [ ] RLS：前端改不动 credits。
+- [x] `npm run typecheck` / 相关前端测试 / `npm run lint`。（2026-06-25，最高记录 1055 前端用例）
+- [x] 改 Rust 后 `cargo check` + 相关模块检查。
+- [x] credit 费率换算单测（3:1 比值）。
+- [ ] 后续代码改动时清理 `gateway/credit_math.py`、`gateway/test_credit_math.py`、Supabase migration 注释与前端类型注释中的旧“1M pro-等效”措辞；不得只改注释而不核对公式。
+- [x] 代理：JWT 校验 / 扣余额原子性 / ledger 落账真实集成验证。
+- [x] RLS：前端改不动 credits。
 - [ ] 人工：注册→登录→看余额→对话→余额下降；Plus BYOK 不扣；耗尽被拦。
-- [ ] 在 `verification.md` 记录每次真实验证结果。
+- [x] 在 `verification.md` 记录已有真实验证结果，并区分代码/云端/GUI。
 - [ ] 更新受影响文档（README 状态、docs/commands 若新增命令）。
+- [ ] Windows 实机：钥匙串 session 恢复/刷新、CODE credit GUI E2E、耗尽提示。
+- [ ] 当前锁定双引擎下：WORK credit GUI E2E 与 Plus BYOK 不计费。

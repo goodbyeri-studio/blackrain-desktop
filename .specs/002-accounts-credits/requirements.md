@@ -2,10 +2,10 @@
 
 ## 背景
 
-- BlackRain2049 当前是纯本地 Tauri 壳：无账号、无后端、无计费。模型走 BYOK（用户自带 key，存系统钥匙串）经本地网关驱动 Codex 内核。
+- 本 spec 创建时（2026-06-25），BlackRain 还是无自有账号、无计费的本地 Tauri 壳；后续 M-A1/M-A2 已实现账号骨干和过渡代理，当前状态以 tasks/verification 为准。
 - 商业模式定调为「模型广场 token 差价 = 利润发动机（应用内消耗）」，需要账号 + credit 计量才能成立。
-- 本 spec 覆盖 M-A 主线：账号体系（注册/登录）、Free/Plus/Pro 三档占位、credit 余额与计量、最小服务端代理（持平台 DeepSeek key、按真实用量扣 credit）、BYOK 锁在 Plus。
-- 关联 [[001-providers-model-gateway]]：模型选择器、provider registry、网关 sidecar 已就位，本 spec 在其上加账号/计费层。
+- 本 spec 覆盖 M-A 主线：账号体系（注册/登录）、Free/Plus/Pro 三档占位、credit 余额与计量、已验证过渡代理（持平台 DeepSeek key、按真实用量扣 credit）、BYOK 锁在 Plus，以及与双引擎生产 credit 路由的待决接缝。
+- 关联 [[001-providers-model-gateway]]：CODE 模型选择器、provider registry、网关 sidecar 已就位，本 spec 在其上加账号/计费层；关联 [[003-dual-engine-architecture]]：WORK/Hermes 的 credit 路径不经过 CODE 翻译网关，生产接线仍待统一。
 
 ## 用户目标
 
@@ -19,7 +19,7 @@
 
 - 不做团队版 / 多租户 / 组织管理（仅个人版）。
 - 不在本阶段定死 Plus/Pro 的价格与额度（先留占位字段）。
-- 不在本阶段搭建完整中转站（new-api）；只做能对外的「最小服务端代理」，接缝预留以后迁移。
+- 不在本 spec 内替产品拍板最终的 `proxy.py` / new-api 拓扑。`proxy.py` 已作为过渡代理完成真实验证；生产 new-api、Supabase credit 适配和双引擎接线仍待 002/003 联合定案。
 - 不做除 DeepSeek 外的 credit 套餐对接（BYOK 可接任意 OpenAI 兼容，但平台赠送的 credit 只覆盖 DeepSeek）。
 - 不改 Codex 内核；不恢复 `wire_api="chat"`。
 
@@ -36,7 +36,7 @@
 ## 约束
 
 - 后端用 Supabase（Auth + Postgres）；不自建鉴权。
-- 平台代理是「最小 OpenAI 兼容转发 + 计量」，对外可用；以后替换为 new-api，须保留稳定接缝（base_url + 鉴权约定不变）。
+- 已验证过渡代理是「最小 OpenAI 兼容转发 + 计量」；桌面侧希望保留稳定的 `base_url + Bearer` 接缝，但 new-api 如何校验 Supabase 身份、扣 credit，以及是否仍需适配层，尚未定案。
 - credit 计量依赖上游返回的 usage（gateway.py 已能从 DeepSeek 流式响应取 usage）。
 - 计费按 token：DeepSeek 输出价 = 输入 2 倍、缓存命中输入更便宜；MVP 用混合单价近似，已知会轻微低估输出/思考重的任务（见 decisions）。
 - `apps/desktop/**` 改动遵守双运行时纪律：领域逻辑先落 `src-tauri/src/shared/*`，App 与 Daemon 只做薄适配。
@@ -44,12 +44,16 @@
 
 ## 开放问题
 
-- [ ] credit 绝对锚定：1 credit = 多少 token？（暂定「100 credit ≈ 1M pro-等效 token」，即 1 credit ≈ 1万 pro-等效 token；待定价定稿）
+- [ ] credit 绝对锚定是否沿用当前实现：1 credit = 10,000 个 1x 等效 token；按现倍率，100 credit ≈ 666,667 pro token 或 2,000,000 flash token。正式定价仍待拍板。
 - [ ] Plus/Pro 的价格、月度 credit 额度、是否含 BYOK 之外的赠送额。
 - [ ] 输入/输出分别计价 还是 混合单价？（MVP 倾向混合，后续精细化）
 - [ ] 思考模式（DeepSeek 默认开）产生的 reasoning token 如何计入（算输出价）。
+- [ ] 生产 credit 入口由 new-api 直接承担、由 `proxy.py` 继续做身份/扣款适配，还是采用其他组合。
+- [ ] WORK/Hermes 如何获得并刷新 credit 鉴权，且与 CODE/Gateway 共用同一余额和错误语义。
+- [ ] Plus BYOK 是允许直连上游的 new-api 例外，还是仍经平台中转但不扣 credit；需与 003“平台调用汇入 new-api”的口径统一。
+- [ ] 当前 `auth.users after insert` trigger 会在邮箱 OTP 确认前创建 profile/赠送 credit；是否改为确认后赠送。
 
-## 已定案（原开放问题，详见 decisions.md）
+## 已验证的过渡方案与已定约束（详见 decisions.md）
 
-- 最小代理形态：复用 `gateway.py` 部署成常驻服务（不重写为 Edge Function）。
-- credit 实时性：强一致——前置门禁（余额>0 才转发）+ 出对话后原子扣减；接受并发在途任务把余额扣到小幅为负，下次充值补齐。
+- 过渡代理形态：独立 `gateway/proxy.py` Chat Completions 常驻服务，已完成真实 Supabase/DeepSeek/HTTPS 验证；它不是最终生产拓扑的定案。
+- credit 记账约束：前置门禁（余额>0 才转发）+ 出对话后单事务扣减；单次记账原子，但没有预授权，接受并发在途任务把余额扣到小幅为负。

@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-07-11:42 方法表示壳层接线数,不表示无门控可用或 GUI 完成
+
+- 决策:继续保留「42 个方法走完 5 层」的历史实装结论,同时强制附带三类状态:当前锁定内核重验、上游门控/stub、GUI 落地。
+- 原因:RPC 包装可以编译且接受参数 shape,但运行时仍可能被 `experimentalApi`、OpenAI 认证、平台或上游 stub 拦截;前端也可能尚无入口。
+- 影响范围:本 spec 与 spec 005 的所有「已接入/已就绪」表述。
+- 后续复查条件:每次升级 codex 锁定版本都重跑探针;只有完成 Windows GUI E2E 的方法才能标为产品可用。
+
 ## 2026-06-28：接入范围按 code-mode-boundary 四类切,只接 A+B
 
 - 决策：只接「可用」的 ClientRequest(A 类 bdd282f 新增 + B 类真缺口)；C 类(OpenAI 后端绑定)、D 类(realtime/remoteControl/feedback)不接。

@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-07-12：双引擎目标锁升级到最新稳定 release，发布状态仍受 Windows 验收约束
+
+- Codex 从 `da4c8ca` 升级到 rust-v0.144.1 / `44918ea10c0f99151c6710411b4322c2f5c96bea`。
+- Hermes 从 v2026.7.1 / `7c1a029` 升级到 v2026.7.7.2 / `9de9c25f620ff7f1ce0fd5457d596052d5159596`。
+- 选择稳定 release 而不是 `main` HEAD；`scripts/fetch-references.sh` 校验 tag 解引用后的完整 SHA，并使用 detached HEAD 保持可复现。
+- Codex 相对旧锁的 ClientRequest、ServerRequest 和 ServerNotification 方法集合没有增删；schema 存在向后兼容扩展，仍需重跑 BlackRain capability shape 与 Windows GUI 探针。
+- Hermes `/v1/chat/completions`、Responses、runs/SSE 接缝保留，macOS 上游相关测试 `315 passed`；这不等于 Tauri WORK surface 或 Windows 产品验证完成。
+- 两个引擎继续保持原装黑盒，不修改 agent loop。许可证仍分别为 Apache-2.0 与 MIT；Hermes 发行前仍需对实际打包依赖树逐包审计。
+
 ## 2026-06-25：引擎策略 = 双引擎，不二选一
 
 - 决策：保留 codex 内核当 **CODE 引擎**（强编码），引入 Hermes 当 **WORK 引擎**（通用任务/记忆/skills/多渠道）。引擎躲在协议接缝后（CODE 走 app-server JSON-RPC，WORK 走 HTTP `/v1`），可并存、可换。
@@ -16,9 +25,9 @@
 - 影响范围：合规边界，关联 `docs/07`、`CONTRIBUTING.md`、memory `codex-fork-license-obligations`。
 - 后续复查条件：升级所借 Hermes 版本时重验 LICENSE 与依赖树。
 
-## 2026-06-25：token 闭环 = WORK 零网关、CODE 经网关，全汇 new-api
+## 2026-06-25：平台 token 闭环 = WORK 零翻译网关、CODE 经翻译网关，汇入受控计量入口
 
-- 决策：利润发动机是 new-api 计量 + 差价。WORK 路径 Hermes→Chat Completions 直入 new-api（**网关消失**）；CODE 路径 codex→Responses→网关翻译→Chat→new-api。
+- 决策：利润发动机是 new-api/受控服务端入口计量 + 差价。WORK 路径 Hermes→Chat Completions，不经过 Responses 翻译网关；CODE 路径 codex→Responses→网关翻译→Chat→计量入口。Plus BYOK 是否允许绕过 new-api，待与 002 统一。
 - 原因：中转站（new-api/one-api）成熟计量锁在 `/v1/chat/completions`，对 `/v1/responses` 基本空白。Hermes 默认 Chat-native，国产模型零翻译；codex 只发 Responses，必须先翻译才能进中转计量。
 - 替代方案：让 codex 直连中转——不可行，Responses 在中转层无计量。
 - 影响范围：`gateway` 定位收窄为「仅 CODE 路径」；关联 spec `001`、`002`。
@@ -44,7 +53,7 @@
 - 真竞品：国内 no-code agent 平台（字节 Coze 系），见 `docs/02`、memory `no-code-agent-platform-landscape-2026`。
 - 后续复查条件：Nous 若转身做中文+非开发者+国产模型闭环（战略掉头，概率极低，有长预警期）则升级为竞品。
 
-## 2026-06-26：交付模型 = 纯本地,Hermes 胖安装包(内嵌 Python + 预构建 venv)
+## 2026-06-26：交付模型 = Windows 本地胖安装包（模型推理仍走云）
 
 - 背景：codex 是单二进制好办;Hermes 是 Python 3.11 + uv + (可选 Node/ffmpeg) 一整套。早先一度结论为「隔离镜像 + 本地microVM vs 云待拍」,**现已推翻**(见被推翻方案「云端工作台/容器编排」)。产品转向**纯本地**后,交付问题收敛成一个常规打包活。
 - **决策(已定):胖安装包 = Tauri 壳 + codex 单二进制 + 内嵌 Python + 预构建 Hermes venv,不冻结。**
@@ -55,7 +64,7 @@
   - **v1 基础包 ≈ 230-250MB**(壳15 + codex 60-80 + 内嵌Python 40 + venv 104 + ripgrep 5),**砍掉 Node/ffmpeg**(浏览器自动化/语音是可选功能,v1 不需要)。
   - 全功能(+Node 40 +ffmpeg 80)≈ 350-380MB。参照 VS Code ~90MB / Electron 应用 150-300MB,**250MB 属轻量,用户可接受**(用户语:500MB 以下都算轻量)。
   - 工作台(office 等)**独立按需下载,不进主包**。
-- **真实工程活**:CI 为 Win/Mac/Linux **各构建一份 venv**(原生 wheel 平台相关:cryptography/PIL/pydantic_core/uvloop)。注意 **uvloop 在 Windows 不可用**(Hermes 自动降级 asyncio,不阻断)。
+- **真实工程活**:MVP 只在 Windows CI/打包链路构建一份 venv（原生 wheel 平台相关:cryptography/PIL/pydantic_core）。注意 **uvloop 在 Windows 不可用**，需由 007 实测降级 asyncio。Mac/Linux 构建推迟 post-MVP。
 - **API server 依赖**:实测要 **aiohttp**(Apache-2.0,单装合规),**不是** fastapi——而 aiohttp 只在 messaging extra 里捆 LGPL 包,故单装 `aiohttp` 本体、不装整个 extra。
 - 影响范围:`apps/desktop` 安装器、CI 打包流水线。
 - 后续复查条件:Hermes 升级或 v1 需启用 Node/ffmpeg 功能时重算体量。
@@ -94,19 +103,19 @@
 - 承重假设(spike 已部分验证,见 verification):Hermes 原生支持 `tools/list_changed` 动态工具发现 + 自动重连(已挂载工作台中途变工具 ✅);**对话中途新挂/拔掉整个 MCP server** 仍需 spike 实测(高度可能,底层标准 MCP)。
 - 影响范围:`apps/desktop`(右侧工作台面板)、工作台打包规范。
 
-## 2026-06-26：交付定位 = 纯本地,云端工作台/公司全部砍掉
+## 2026-06-26：工作台交付定位 = 本地下载运行，云端工作台/公司全部砍掉
 
 - 决策：工作台/公司**全部本地下载 + 热拔插,不走云端**。容器不托管在云,运行时跑在用户机器。
 - 原因:一刀砍掉三座工程山——① 本地↔云文件桥(原工程大头);② 云容器即消即毁编排(最不成熟,需 K8S);③ 每用户云容器的 compute/存储成本。代价仅「下载几百 MB 工作台」,极划算。且数据天然不进我方云,数据立场矛盾自然消解。
 - 认下的取舍:① 失去网页版「零门槛试用」引流(可选:留一个极薄的官方工作台在线 demo 橱窗,v1 可不做);② 首个工作台下载是流失点(压体积)。
-- **唯一减不掉的服务器负担 = new-api 中转**(token 差价闭环物理前提),它是全产品命脉单点,需 HA/容灾(见待攻坚)。
+- **模型推理链路减不掉的服务器负担 = new-api/受控计量入口**(平台 token 差价闭环物理前提)；账号/credit 另依赖 Supabase，`proxy.py` 的生产定位待与 002 统一。计量入口是模型调用命脉单点,需 HA/容灾(见待攻坚)。
   - > 2026-06-29 补:本轮 MVP **不在架构考虑范围**——信任自家 new-api 稳定性,HA/容灾待真实流量规模后再评估。本条「需 HA/容灾」是后期目标,非 MVP 阻塞。
 - 影响范围:砍掉云沙箱/容器编排整块基建。
 
 ## 2026-06-26：数据立场松绑 = 不强制,用户自担
 
 - 决策：不再强制「数据不出本地/不追高敏垂类」。用户使用云端类能力(或高敏场景)的风险由用户自担,不再限制产品。
-- 原因:纯本地形态下,对话模式数据本就不出本地;是否碰高敏由用户自选,产品不替其兜底,也不设限。
+- 原因:本地工作台形态下，文件、编排和工作台进程在用户机器；但使用云模型时 prompt/输出会发送给用户选择的模型服务。是否碰高敏由用户自选,产品不替其兜底,也不设限。
 - 仍守(零成本底线,与高敏无关):BlackRain 自己不训练/不留存用户内容;new-api 中转只记计量元数据、不落内容明文。
 - 影响范围:`docs/07` 数据立场段需相应放宽(从「不追高敏」改为「不强制、用户自担」)。
 
@@ -136,11 +145,33 @@
 - 背景：仓库真实进度与「WORK 是主战场（docs/04,90% 产品精力）」倒挂——CODE 复刻已 ~90%、42 个 RPC 全接入，而 WORK 侧 S2–S5 全部未跑、Hermes 壳内集成为零。当前最大的未验证产品假设是「Hermes + 国产模型能否可靠跑完真实办公任务」：S1 spike 证明的是链路（计量/流式/工具调用穿透），不是任务完成质量；而 office 工作台恰是长链路任务（单步 95% 准、20 步端到端只剩约 1/3，docs/04 §八）。
 - 决策（2026-07-06 用户认可外部分析建议后确认）：
   1. **S4（跨模式端到端）、S5（整 server 热拔插，工作台形态承重墙）与 office 场景端到端质量基线**（建议口径：5 个核心场景 × 10 次运行，≥8/10 无人工干预完成）列为当前最高优先验证，排在 CODE 侧一切非必须收尾之前。
-  2. **CODE 复刻冻结在当前 ~90% 水位**：只做品牌切割等最小收尾；Skills/MCP 管理 UI、像素级 GUI 打磨、`da4c8ca` 底账全量重核，后置到 WORK 侧承重验证有结论后再解冻。
+  2. **CODE 复刻冻结在当前 ~90% 水位**：只做品牌切割等最小收尾；Skills/MCP 管理 UI、像素级 GUI 打磨、当前 `44918ea` 底账全量重核，后置到 WORK 侧承重验证有结论后再解冻。
   3. office 工作台的任务入口按「聊天类产品结构性做不了」的标准选（docs/04 §三 2026-07-06 增补）。
 - 待决（同日，未拍板）：小白发行版是否默认隐藏 CODE 入口（收进高级设置）——「编码」入口对目标人群是「程序员工具」信号，与拆形态墙相悖；隐藏只影响首印象，不影响 CODE 能力存在与开发者路径。
 - 影响范围：README 当前优先级、.specs/005/006 排期让位、本 spec tasks.md（S4/S5 标 P0）。
 - 后续复查条件：S4/S5 + office 质量基线出结论——通过则 CODE 解冻收尾；不通过则回 design 重议 WORK 引擎接法（调优 Hermes prompt/工具流，或重评引擎选型）。
+
+## 2026-07-11：状态治理——WORK 仍是 spike，42 RPC 与能力底账分开表述
+
+- 状态：当前 CODE 壳记录为 42 个 RPC 接入、约 90% 本地半边；`code-mode-boundary.md` 附录中的 23/24 方法是 2026-06-28 历史快照。Codex/Hermes capability ledger 分别基于旧 commit，尚未按 `44918ea` / `9de9c25` 全量重核。
+- 状态：WORK 只完成独立 Hermes→new-api→DeepSeek spike，尚无 Tauri 壳集成；S3、S4、S5 和 office 5×10 质量基线均未完成。
+- 决策：文档必须同时保留“现有代码接入数量”和“旧源码能力底账”两个口径，不能用旧附录覆盖当前代码，也不能用 42 RPC 推导 WORK 已完成。
+- 影响范围：`tasks.md`、`verification.md`、`code-mode-boundary.md` 与两份 ledger 的页首警告。
+
+## 2026-07-12：产品第一入口改为工作台，双引擎降为执行实现
+
+- 决策：不再把 WORK/CODE 作为品牌和首页的第一层分类。用户优先从工作台、项目和任务进入；普通工作台默认走 Hermes，软件开发工作台进入 codex surface。正式产品关系改为 `Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室`。
+- 原因：BlackRain 的核心定位是复制和分发领域高手的数字工作环境，不是通用办公 Agent；双引擎对用户没有直接购买价值。Codex 是程序员垂类的成功样板，软件开发也可以被视为官方专业工作台。
+- 替代方案：继续维持两个平级首页入口，工作台只属于 WORK。
+- 影响范围：`README.md`、`docs/01`～`docs/09`、GUI 信息架构、工作台包、市场和路线图。底层进程拓扑不变；工作台包生命周期拆到 [.specs/008](../008-expert-workbench-package/)。
+- 后续复查条件：工作台导航无法承载开发者所需的 codex 原生控制力时，只调整进入方式，不恢复引擎优先的品牌定位。
+
+## 2026-07-11：生产 credit/new-api/`proxy.py`/BYOK 路由保持待决
+
+- 已定约束：平台 key 只在服务端；WORK 不经过 Responses 翻译网关；CODE 必须经过翻译网关；Supabase 是账号/余额真源。
+- 待决：new-api 是否直接承担 Supabase credit、是否保留 `proxy.py` 适配层、WORK/Hermes 的鉴权接法、Plus BYOK 是否允许绕过 new-api。
+- 决策：本次文档治理只消除“已经定案/已经完成”的错误表述，不替产品选择最终拓扑。
+- 影响范围：002/003 requirements/design/tasks/verification。
 
 ## 被推翻的方案
 

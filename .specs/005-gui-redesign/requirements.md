@@ -1,5 +1,7 @@
 # Requirements — GUI 重做
 
+> **范围与事实口径（2026-07-12）**：本 spec 负责用户进入“软件开发工作台”后的 CODE surface Windows 界面产品化，不负责工作台货架、安装和生命周期 UI（见 008）。不改 Agent 行为或内核协议。“42 个 RPC 已接线”不等于 GUI 已落地，实际完成度以 `verification.md` 和代码为准。
+
 ## 背景
 
 - 这个功能为什么现在要做：老板的打法是「先把能用的 GUI 客户端掏出来给人看，再慢慢加功能」。现状壳是 CodexMonitor fork，骨架完整可用，但视觉是 CodexMonitor 自己的语言，不够商业级。原本设想吸收 Hermes Desktop 的前端省事，实测 Hermes GUI 过于简陋，**Codex 官方 app 的 GUI 才是商业级标杆**。因此目标转为：以 Codex app 为视觉范本，把 BlackRain GUI 对齐到商业级，作为给老板演示与对外的第一张脸。
@@ -17,13 +19,13 @@
 
 ## 非目标
 
-- 本阶段明确不做：不加新功能（不做工作台/公司/插件市集 UI）；不改 agent 行为；不动后端命令链路。纯视觉/交互层对齐。
+- 本阶段明确不做：工作台货架、安装/升级/卸载、工作室和专家市场 UI；不改 Agent 行为；不在本 spec 新增 app-server 协议接线。进入 CODE surface 后的搜索、导航历史、侧栏层级等前端功能属于本 spec；缺后端能力转交 001/006。
 - 不改变的架构边界：不碰 `codex-upstream` 内核；不碰 `gateway`；后端 `src/shared/*`、`lib.rs`、`rpc.rs` 不因视觉对齐而改。
 - **不照搬 OpenAI 专有资源**：见「约束 / License」——这是硬边界，不是本阶段才生效。
 
 ## 成功标准
 
-- 功能行为：对齐后所有界面功能不回归（`npm run test` 全绿，当前基线 1061 tests）。
+- 功能行为:对齐后所有现有界面功能不回归,`npm run test` 以当次代码实际收集的测试集为准,不把历史用例数当固定基线。
 - 用户体验：核心界面与 Codex 范本并排对比，布局结构/间距节奏/色彩层级/字阶/圆角/交互态「一眼像同级产品」；遵守「无渲染动效」硬规则（组件平面固定，hover 只许变色，禁位移/抖动/入场滑入；chevron 旋转/spinner/pulse 例外）。
 - 安全/合规：**零** OpenAI 专有字节进仓库（图标 path / 字体文件 / 私有 bundle 代码）；新增或替换的每个图标资源记录来源（自绘 or 开源库如 lucide）。
 - 性能/稳定性：`npm run typecheck` 0 报错；`npm run lint` 0 报错；`npm run lint:ds` 0 报错。
@@ -36,10 +38,10 @@
   - **可以**：观察 Codex app 渲染出的界面，量出设计语言（色值、字号、间距、圆角、阴影、动效时长、布局结构、交互态），在 BlackRain 自己的 DS 里重实现；自绘仿其字形风格的图标。
   - **绝不**：复制 OpenAI 的图标 SVG path 字节、字体文件、任何 private path 里的源码/bundle；不 fork、不照抄。
   - 先例：#43 末尾已因此把一个手绘仿 Codex 图标换成 `lucide folder-git-2`。本 spec 沿用「能自绘则自绘、拿不准用 permissive 开源库（lucide=ISC）」的纪律。
-- 平台差异：对齐需在 macOS 与 Windows 两套主题下都成立（窗口 chrome、滚动条、字体回退不同）；本阶段优先 macOS，Windows 差异记录待跑。
+- 平台差异:MVP 只验收 Windows(以 Win11 实机为当前主验证环境);Mica、自绘标题栏、WebView2、缩放和系统字体都必须在 Windows 实测。macOS/iOS 只作 post-MVP/上游资产,不进当前验收矩阵。
 
 ## 开放问题
 
-- [ ] **参考像素来源**：Codex app 是 OpenAI 登录态 web/cloud 产品，agent 大概率无法自行进入抓计算样式。默认由你（莓莓）提供截图/录屏作为像素范本；agent 负责量化成 token 表并落地。是否有其他可稳定访问的参考面？（待确认）
-- [ ] **对齐范围与优先级**：核心界面清单与先后顺序（建议：首页收尾 → 对话页 → 设置 → 全局弹层/toast → 侧栏/工作区）是否认可？
-- [ ] **像素级 vs 神似**：是逐像素复刻，还是「同级精致但保留 BlackRain 自我」？（影响工作量与品牌识别度，建议后者，待拍）
+- [x] **参考像素来源**:由用户提供可合法观察的截图/录屏,agent 负责量化与独立重实现;不抓取或复制 OpenAI 专有资源。
+- [x] **对齐范围与优先级**:按 `tasks.md` 阶段 2 执行;视觉/交互任务与 `codex-ui-copy-checklist.md` 的功能级清单统一排期。
+- [x] **像素级 vs 神似**:已决定「骨架神似 + BlackRain 皮肤/内容」,不做逐字节或绝对像素复刻。

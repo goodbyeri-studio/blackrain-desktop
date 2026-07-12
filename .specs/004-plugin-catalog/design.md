@@ -1,16 +1,19 @@
 # Design
 
+> **状态（2026-07-12）**：本文是长期插件候选目录，不是 MVP 实现说明。表中出现某个库/引擎，只表示候选供给单元，不表示已进代码、通过 License 审计或可发行。Office 是参考工作台；完整工作台包协议见 [.specs/008](../008-expert-workbench-package/)。
+
 ## 总体方案
 
-一句话：**插件按「引擎 / 格式适配器」切，任务按「配方」铺，工作台按「项目」装。** 用户按领域浏览(7 大类货架)，系统按运行时 + license 打包(~34 单元)，两层解耦；真正的功能覆盖面靠数百个 skill 配方扩展，而非靠堆插件。
+一句话：**插件按“工具/格式/系统适配器”切，Skill 按任务方法铺，工作台把插件、Skill、环境、资源和验证组合成专家数字工作环境。** 用户按领域和岗位浏览工作台；系统按运行时与 License 管理插件制品。
 
 ## OS 心智模型(定位一切的尺子)
 
 ```text
-Agent 底座 (codex / Hermes)  = 操作系统内核
-插件 / skill                 = 装进系统的「包」(apt 的一个 package，如 imagemagick)
-工作台 (workbench)           = 预装好包 + 配好环境的「项目目录」
-对话 + @插件                 = 临时 apt install 一个包来用
+Agent 底座 (codex / Hermes)  = 执行内核
+插件                          = 可安装工具包/适配器
+Skill                         = 专家操作手册与任务方法
+工作台                        = 专家配置好的可复现电脑环境
+项目                          = 用户基于工作台创建的运行实例
 ```
 
 关键推论：**不会给每个任务做一个包。** 没人做 `apt install 把视频转竖屏`——只装 `ffmpeg` 包，再用脚本(skill)组合它。这把尺子决定了插件数量锁在 ~30 量级，而任务覆盖面靠数百 skill 配方扩展。
@@ -22,9 +25,9 @@ Agent 底座 (codex / Hermes)  = 操作系统内核
 
 | 层 | 是什么 | 数量级 | 谁造 |
 |---|---|---|---|
-| 插件层 | 引擎 / 格式适配器 | ~34 稳定 | 我们(偶尔创作者) |
-| skill 配方层 | 任务级组合(纯 Markdown) | 数百 | 创作者为主 |
-| 工作台层 | 插件 + 配方 + 环境模板 | 按垂类 | 创作者 |
+| 插件层 | 工具 / 格式 / 系统适配器 | ~34 候选 | 平台、工具作者、封装者 |
+| Skill 层 | 任务方法、模板和辅助资源 | 数百 | 领域专家与封装者 |
+| 工作台层 | 插件 + Skill + 环境 + 资源 + 验证 | 按岗位/垂类 | 专家与封装者共同完成 |
 
 ## 切分规则(终结「合并还是拆」之争)
 
@@ -87,10 +90,10 @@ Agent 底座 (codex / Hermes)  = 操作系统内核
 | stats | statsmodels/scipy/rpy2 | [铺] | 统计流程跑数 + 出表 |
 | spss-stata-gen | 生成 .sps/.do | [铺] | 给宿主软件生成可执行语法 |
 | design-driver | PS/AI ExtendScript-UXP | [控] | 需 PS/AI：批量动作/原生滤镜 |
-| blender | bpy(headless) | [铺] | 3D 批渲染/格式转换(独立进程调用) |
+| 3d-headless | 待选宽松许可证引擎/自研适配器 | [铺·待选] | 3D 批渲染/格式转换 |
 | nle-driver | Premiere/DaVinci Python API | [控] | 需 NLE：原生时间线/渲染队列 |
 
-> blender 走 CLI 独立进程聚合调用、不链接源码，规避 GPL 传染；FFmpeg 取 LGPL build。详见 [decisions](decisions.md)。
+> Blender 为 GPL，只能放在仓库外作架构参考，不进入 BlackRain 仓库或安装包；`3d-headless` 必须另选宽松许可证引擎。FFmpeg LGPL build 仍只是候选技术路线，是否进入 Windows 安装包待链接方式、许可证义务、依赖树和最终制品审计，详见 [decisions](decisions.md)。
 
 ### E 行业数据交换(4 [铺] + 1 [控])
 
@@ -132,16 +135,19 @@ Agent 底座 (codex / Hermes)  = 操作系统内核
 
 ## 架构边界
 
+> 以下是未来实现边界。当前代码状态必须回到 `verification.md` 与仓库代码核对。
+
 - 属于 `apps/desktop` 的逻辑：插件管理界面、`@` 调用入口、工作台右侧挂载面板、验证脚手架的可视化呈现(dry-run/diff/确认节点 UI)。
 - 属于 `gateway` 的逻辑：无。插件不经网关；网关只管 CODE 路径的 responses⇄chat 翻译。
-- 属于 `plugins` / `workbenches` 的内容：每个插件 = 一个目录(`SKILL.md` + 可选 `scripts/`/`assets/` + MCP server)；工作台 = 预装插件 + 配方 + 环境模板的便携包。
+- 属于 `plugins` / `workbenches` 的内容：插件是可复用工具适配器及配套资源；工作台是按 008 声明依赖、环境、任务和验证的专家环境包。
 - 明确不改 `codex-upstream` 的部分：agent 循环、工具调用、沙箱、审批。插件全部走 skill/MCP/ACP 扩展机制接入。
 
 ## 数据流
 
 ```text
-用户 @ 一个插件 / 挂一个工作台
-  -> App UI(挂载 = 起 MCP 进程 + 动态注册 skill+tools)
+用户安装/激活工作台，或在任务中临时启用插件
+  -> App UI / 工作台生命周期（008）
+  -> 按需起 MCP/CLI 进程并注册 skill+tools
   -> Hermes(working)或 codex(coding)调插件 tool
   -> 插件驱动 [铺]无头库 / [控]宿主软件 API
   -> 结果经验证脚手架(可视化 / diff / 自检断言)
@@ -150,9 +156,9 @@ Agent 底座 (codex / Hermes)  = 操作系统内核
 
 ## 接口与配置
 
-- Tauri command / JSON-RPC：插件挂载/卸载 = 起停 MCP 进程 + 对活着的 Hermes 会话 `tools/list_changed` 动态注册/注销(承重假设，见 [003 decisions](../003-dual-engine-architecture/decisions.md))。
+- Tauri command / JSON-RPC：插件激活可包含起停 MCP 进程和 `tools/list_changed`；完整工作台 inspect/install/activate/uninstall 由 008 另行实现。
 - `config.toml` / `CODEX_HOME`：插件资产放进专属 `CODEX_HOME/plugins/<name>/`；不污染用户原有 `~/.codex`。
-- 文件布局：每包 = `<name>/{SKILL.md, scripts/, assets/, NOTICE}`；`[控]` 包额外声明宿主软件依赖与版本。
+- 文件布局：插件包的最终 manifest 与资源布局需和 008 对齐；`[控]` 包必须声明宿主软件依赖、版本、权限和不可再分发边界。
 - license 元数据：每包标注 license + `[铺]`/`[控]` + 依赖树扫描结果(GPL/AGPL/BSL 一律拦)。
 
 ## 失败模式
@@ -166,10 +172,7 @@ Agent 底座 (codex / Hermes)  = 操作系统内核
 
 ## 测试策略
 
-- 单元测试：每个 `[铺]` 包核心操作的 smoke test(能 headless 跑通)。
-- 集成测试：工作台挂载 → 动态注册工具 → 拔载注销的全链路。
+- 单元测试：未来进入实现的每个 `[铺]` 包,首先在 Windows x64 跑核心操作 headless smoke。
+- 集成测试：未来在 Windows 上验证工作台挂载 → 动态注册工具 → 拔载注销的全链路。
 - 协议探针：MCP server 起停 + `tools/list_changed` 动态发现(对话中途挂/拔整个 server，见 003 待实测项)。
 - 人工验证：每垂类拿真实文件抽样跑一遍，核对验证脚手架力度是否匹配该档验证成本。
-
-
-

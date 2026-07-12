@@ -7,11 +7,13 @@
 - `migrations/` — Postgres schema 与策略，按文件名时间戳顺序执行：
   - `*_profiles_and_ledger.sql` — `profiles`（plan + credits）、`credit_ledger`（流水）+ RLS。
   - `*_signup_grant_trigger.sql` — 注册即建 free profile + 赠送占位 credit。
-- 扣减 RPC（`spend_credits`）属于 M-A2（最小代理 + 计量），本阶段（M-A1，credit 只存不扣）尚未加入。
+  - `*_spend_credits_rpc.sql` — service-role 专用的原子扣减 + ledger 写入 RPC。
+
+M-A1/M-A2 的数据库与过渡代理骨干已经实现并有 2026-06-25 的历史真实云端验证；桌面 Windows E2E、BYOK 和双引擎统一计费仍未完成。最新状态以 `.specs/002-accounts-credits/verification.md` 为准。
 
 ## 如何应用
 
-云端项目已用 Supabase CLI 建好（新加坡区 `ap-southeast-1`，project ref `jhetzgklmmkekpicutlg`），并已 `link` + `db push` 两个 migration。本仓库不含任何 Supabase 密钥（service-role / access token / db 密码全在 gitignored 的根 `.env`）。
+历史验证使用的新加坡区项目 ref 为 `jhetzgklmmkekpicutlg`：M-A1 先 `link` + `db push` 前两条 migration（profiles/ledger、signup trigger），M-A2 随后应用第三条 `spend_credits` migration 并实测 RPC。本仓库不含任何 Supabase 密钥（service-role / access token / db 密码全在 gitignored 的根 `.env`）。外部项目、代理和 TLS 状态会漂移，不能只凭本段认定当前线上仍健康；需要运维时应重新探测并回填 spec verification。
 
 日常用 CLI 管理（凭据从根 `.env` 读，不进命令行明文）：
 
@@ -24,7 +26,7 @@ supabase db pull                         # 从云端拉回 schema 变更（如�
 
 新增 migration：在 `migrations/` 下加 `<时间戳>_<名>.sql`（或 `supabase migration new <名>`），改完 `db push`。
 
-桌面端连云后端的配置已写入 `apps/desktop/.env.local`（gitignored）：
+开发机可在 `apps/desktop/.env.local`（gitignored）配置桌面端云后端：
 
 ```
 VITE_SUPABASE_URL=https://jhetzgklmmkekpicutlg.supabase.co

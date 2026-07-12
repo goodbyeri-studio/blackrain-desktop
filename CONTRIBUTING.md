@@ -55,20 +55,26 @@ gh pr create                             # 5. 开 PR（或网页开）
 - **填 PR 模板**：改了什么、怎么测的、有无风险。
 - **自测过再请人看**：本地 build/跑过，别让 Review 帮你抓低级错误。
 - **跨层大功能同步 living spec**：触发条件见 [.specs/README.md](.specs/README.md)。有对应 spec 的 PR，必须同步更新 `tasks.md` / `verification.md`；关键取舍写进 `decisions.md`。
+- **Windows MVP 证据写清楚**：涉及 GUI、双引擎、系统凭据、Office、NSIS 或安装流程时，PR 必须说明 Windows 实机验证结果；未跑就明确写“未验证”，不能用 macOS 结果或 CI 代替。
+- **第三方来源先过 License**：新增依赖、复制代码或引入上游资产时，PR 必须列出来源、许可证和 NOTICE/署名处理。
+- **工作台变更同步 008**：新增或改变工作台 Manifest、依赖、权限、安装、验证、升级或卸载语义时，必须同步 `.specs/008-expert-workbench-package/`；只有内容骨架时不得写成可安装工作台。
+- **提交前做密钥检查**：确认 diff、日志、截图、fixture 和文档中没有真实 key、JWT、cookie、私有 URL 或未脱敏用户数据。
 
 ## 文档约定
 
 - 文档入口和分层见 [docs/README.md](docs/README.md)。
-- 可复制命令统一写在 [docs/commands.md](docs/commands.md)，其他文档只链接，避免多处复制后漂移。
+- 日常启动、构建、发布与通用验证命令统一写在 [docs/commands.md](docs/commands.md)，其他文档只链接。模块 README/runbook 可保留不重复的局部诊断或协议探针示例，但必须写清工作目录和适用范围。
 - 新文档默认不要放仓库根。优先放 `docs/`、`.specs/` 或对应模块目录。
 - 改行为就同步改文档；只改文档也按正常 PR 走。
 
 ## 本项目特有约定
 
 - **`apps/desktop/` 是 subtree（来自 CodexMonitor）**：日常改它就是普通 commit，无需特殊操作。但**同步上游**（`git subtree pull`）是维护者动作，别随手做，约定一人负责。详见 [docs/08](docs/08-仓库结构与上游策略.md)。
-- **`codex-upstream/` 内核不入库**：本地克隆、黑盒子进程，已在 `.gitignore`。
+- **`codex-upstream/` / `hermes-upstream/` 内核不入库**：本地克隆、黑盒子进程，已在 `.gitignore`。目标锁定版本见 [docs/REFERENCES.md](docs/REFERENCES.md)；当前 `scripts/fetch-references.sh` 不会强制 checkout，构建和验收前必须核对 `HEAD`。
+- **MVP 仅发行 Windows**：macOS / iOS 只保留为 post-MVP 或上游资产。非 Windows 开发可以做静态检查和共享逻辑测试，但发布级结论必须来自 Windows 实机矩阵。
 - **密钥绝不入库**：API key 等放本地 `.env`（已 gitignore，从 `.env.example` 复制填写）或本地环境变量，永不写进会提交的文件、也不在聊天/IM 里明文发送。
 - **`.scratch/` 是个人草稿区**：实验脚本、临时产物放这里，不入库、不评审。
+- **工作台不是作者电脑镜像**：不得提交作者凭据、Cookie、客户数据、商业软件副本或无权再分发的工具；用声明和用户提供依赖表达。
 
 ## 不做什么（避免过度工程）
 
@@ -103,7 +109,7 @@ gh api --method PATCH repos/goodbyeri-studio/BlackRain \
 
 ## 第三方代码 License 纪律（红线，全员遵守）
 
-本产品是**闭源商业 B2B**，引入第三方代码必须先看许可证。一条分界线记牢：
+本产品按**闭源商业 B2B**纪律开发，引入第三方代码必须先看许可证。本仓库或部分组件最终采用何种对外许可证仍是待决事项；在定案前按更严格的闭源分发边界执行。一条分界线记牢：
 
 > **MIT / Apache-2.0 → 可进仓库、可借用代码（保留 NOTICE 署名）。
 > AGPL / GPL / BSL / 无许可证 → 只能看、只能学架构、要自己重写；绝不进仓库、绝不复制源码、绝不 fork 到组织账号。**

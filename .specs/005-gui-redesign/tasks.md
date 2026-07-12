@@ -1,11 +1,13 @@
 # Tasks — GUI 重做
 
+> 本 spec 不是「纯 CSS」项目:视觉/token 与搜索、导航、侧栏层级等前端交互都在范围内;新增内核/Gateway 能力分别归 spec 006/001。任务勾选只表示真实完成,不能因 RPC 包装已存在就勾 GUI。MVP 只验收 Windows。
+
 ## 阶段 0：确认边界
 
 - [x] 阅读相关 `README.md` / `docs/` / `AGENTS.md`：依据 CLAUDE.md「壳内部架构」+ `apps/desktop/AGENTS.md`（DS 复用纪律）。
 - [x] 确认是否涉及 `apps/desktop/AGENTS.md`：**涉及**。共享 chrome 必须复用 DS 原语 + token，禁在 feature CSS 重造 modal/toast/panel/popover，由 `lint:ds` 守。
 - [x] 确认是否触碰 `codex-upstream`：**不触碰**。纯前端。
-- [ ] 列出需要验证的真实命令：`typecheck` / `test` / `lint` / `lint:ds`（每阶段收尾跑）。
+- [x] 列出需要验证的真实命令:`typecheck` / `test` / `lint` / `lint:ds`;实际执行结果只写 `verification.md`。
 - [x] **3 个开放问题已拍板**（2026-06-26）：① 参考像素来源=莓莓供图，agent 量化；② 目标=**神似**（骨/皮/内容三层），保留 BR 玻璃噪点皮肤；③ 范围顺序见阶段 2。另定：权限砍到 3 档、模型菜单两级随能力显隐、玻璃皮肤清晰优先。
 
 ## 阶段 1：最小可用（量化 + 基础 token 对齐）
@@ -19,7 +21,7 @@
 
 > 功能级照抄清单（P0/P1/P2 分级 + 照抄决策矩阵 + 依赖的内核接口）见 [codex-ui-copy-checklist.md](codex-ui-copy-checklist.md)（2026-07-06 自 `docs/` 迁入）；本节是视觉/形态级任务，两者互补。
 
-### 2a. 首页静态对齐（低风险，纯 CSS，可先做）
+### 2a. 首页视觉 + 结构对齐(含非 CSS 交互)
 - [ ] 标题字号 ~40→~30px、色 `#fff`→略灰白；标题↔composer 间距收窄。
 - [ ] composer：两段分离 → **一体化**（输入+控件+项目入口同框，圆角 ~16→~12px）。⚠️ 改结构非纯 CSS，碰 [composer](../../apps/desktop/src/features/composer)。
 - [ ] 发送按钮 ↑：弱化细箭头 → **实心圆背景**（Codex 形态），玻璃皮肤渲染。
@@ -53,8 +55,8 @@
 ## 阶段 3：收口
 
 - [ ] 更新文档和 spec：token 表与对比结论入 verification.md；图标来源与关键取舍入 decisions.md。
-- [ ] 跑完验证：`typecheck` / `test`（≥1061 不回归）/ `lint` / `lint:ds` 全绿。
-- [ ] 记录未解决风险：Windows 主题差异、未对齐的次要界面、像素级 vs 神似的遗留取舍。
+- [ ] 跑完验证:`typecheck` / `test`(当前收集到的全量用例)/ `lint` / `lint:ds` 全绿。
+- [ ] 记录未解决风险:Windows 实机视觉/交互差异、未对齐的次要界面、上游方法门控/stub。「骨架神似 + BR 皮肤」已决定,不再当开放问题。
 
 ## 已知坑（随实现补）
 

@@ -1,12 +1,12 @@
 # 能力 → GUI 落点映射表(像素级复刻用)
 
-> 用途:#3 已把 42 个 codex-rs ClientRequest 全 5 层接入、后端面暴露完毕。本表给**像素级复刻 GUI** 时用——每个能力对应:① `tauri.ts` 函数名(直接调用)→ ② 该落到哪个 feature 模块 / GUI 表面 → ③ 建议承载组件/交互。
-> 口径:后端已就绪,前端「调得通」靠 `@services/tauri.ts` 的导出函数;本表只指「放哪、怎么触发」,不替你定视觉。
-> 基线:main `73b22849`(含 #50/#51/#52),内核 `bdd282f`。当前仓库锁定已更新到 `da4c8ca`;本文是 GUI 映射旧基线,下一轮 CODE GUI 收尾前需重跑能力探针并刷新。
+> 用途:42 个 codex-rs ClientRequest 已有 5 层包装代码与历史验证;本表给 GUI 落地时用——每个能力对应:① `tauri.ts` 函数名 → ② feature/GUI 表面 → ③ 建议交互。
+> 口径:`@services/tauri.ts` 导出函数存在只表示壳层调用面存在,不表示 GUI 已落地或上游方法无门控。
+> 基线:映射来自 `bdd282f`→`cfead68` 历史探针;当前锁定 rust-v0.144.1 / `44918ea` 尚未完成 capability/GUI 重验。MVP GUI 只在 Windows 验收。
 
 ## 阅读约定
 
-- **fn**:`src/services/tauri.ts` 的导出函数(已就绪,直接 import 调)。
+- **fn**:`src/services/tauri.ts` 的导出函数（调用封装已存在，可从前端 import；运行是否成功仍取决于当前内核、认证、实验开关和平台门控）。
 - **模块**:`src/features/<module>/`,建议把 UI/hook 放这。
 - **落点**:codex-app 里该能力通常出现的位置(供复刻对齐)。
 - ⚠️:已知非缺陷约束(见 verification.md),复刻时要在 UI 上体现降级/提示。
@@ -23,7 +23,7 @@
 | 取消归档 | `threadUnarchive` | 归档列表里的会话行「恢复」 |
 | 会话搜索 | `threadSearch` | Sidebar 顶部搜索框(全文检索过往会话) |
 | 列已加载会话 | `threadLoadedList` | 内部分页/刷新,一般非直接按钮 |
-| 列会话内 item | `threadItemsList` | 会话历史浏览/跳转。⚠️ `bdd282f` 内核回「not supported yet」——UI 先留入口、灰显或捕获该错给占位,待内核 bump 点亮 |
+| 列会话内 item | `threadItemsList` | 会话历史浏览/跳转。⚠️ `bdd282f`/`cfead68` 内核回「not supported yet」;`da4c8ca` 待重验。未点亮时 UI 灰显或捕获该错,不做假入口 |
 | 会话目标-读/设/清 | `threadGoalGet` / `threadGoalSet` / `threadGoalClear` | 会话顶部「目标(Goal)」面板:显示当前目标 + 编辑(set 走 Value 透传,前端构造 `{threadId,objective,status,tokenBudget?}`)+ 清除 |
 | 记忆模式开关 | `threadMemoryModeSet` | 会话设置里「记忆:开/关」切换(mode = `enabled`/`disabled`) |
 | 会话设置更新 | `threadSettingsUpdate` | 会话顶部「模型/审批/沙箱/推理档…」设置面板(Value 透传,前端只放要改的字段) |
@@ -43,12 +43,12 @@
 | 技能配置写(启/禁) | `skillsConfigWrite` | 技能管理列表每行「启用/禁用」开关(enabled + path 或 name 定位) |
 | 技能额外根目录 | `skillsExtraRootsSet` | 设置里「技能搜索路径」编辑器(传 extraRoots 字符串数组) |
 | hooks 列表 | `hooksList` | 「生命周期 hooks」只读列表(传 cwds 数组) |
-| 插件列表(可装) | `pluginList` | 插件市场「可安装」标签页 |
-| 已装插件 | `pluginInstalled` | 插件市场「已安装」标签页 |
+| Codex 原生插件列表（可装） | `pluginList` | 软件开发工作台内的 codex plugin「可安装」标签页；不是 BlackRain 专家工作台市场 |
+| Codex 原生已装插件 | `pluginInstalled` | 软件开发工作台内的 codex plugin「已安装」标签页 |
 | 插件详情 | `pluginRead` | 点插件卡片看详情(需 pluginName + marketplacePath 或 remoteMarketplaceName 二选一,否则语义报错) |
-| 安装/卸载插件 | `pluginInstall` / `pluginUninstall` | 插件卡片「安装」/「卸载」按钮。⚠️ 远程目录的卸载/读取需 OpenAI auth;**本地插件正常** |
+| 安装/卸载插件 | `pluginInstall` / `pluginUninstall` | 插件卡片「安装」/「卸载」按钮。⚠️ 远程目录路径可需 OpenAI auth,部分上游 uninstall 行为仍标注 under development;只有经当前内核与 Windows E2E 验证的本地路径才能在 UI 开放 |
 | 读插件内技能 | `pluginSkillRead` | 插件详情里预览其技能。⚠️ 远程目录需 OpenAI auth |
-| 市场-增/删/升级 | `marketplaceAdd` / `marketplaceRemove` / `marketplaceUpgrade` | 「插件市场源」管理:添加源(source = owner/repo 或 git URL 或本地路径,格式错会语义报错)/ 移除 / 升级 |
+| Codex marketplace 源增/删/升级 | `marketplaceAdd` / `marketplaceRemove` / `marketplaceUpgrade` | CODE surface 的原生插件源管理；不得冒充 BlackRain 工作台市场或 008 生命周期 |
 
 ## 三、模型 / 实验 / 权限 → 模块 `models`、`settings`
 
@@ -71,8 +71,8 @@
 
 | 能力 | fn | 落点 / 交互 |
 |---|---|---|
-| 沙箱 setup 启动 | `windowsSandboxSetupStart` | Windows 上首次需要沙箱时的「安装/启用沙箱」向导按钮(mode = `elevated`/`unelevated`) |
-| 沙箱就绪查询 | `windowsSandboxReadiness` | 启动时/设置里查询沙箱是否就绪,据此显示状态徽标 |
+| 沙箱 setup 启动 | `windowsSandboxSetupStart` | Windows 上首次需要沙箱时的向导按钮(mode = `elevated`/`unelevated`)。⚠️ 只有包装代码,未 Windows 实跑 |
+| 沙箱就绪查询 | `windowsSandboxReadiness` | 启动时/设置里查询就绪状态。⚠️ 未 Windows 实跑,不得展示虚假「已保护」状态 |
 
 ## 六、外部迁移(获客钩子)→ 模块 `settings` 或首启「从其他工具导入」
 
@@ -96,7 +96,7 @@
 2. **技能/插件/市场(二)** 是决策 #3 的头号目标(补 codex-app 的扩展管理界面),第二优先。
 3. **MCP 深度(四)、外部迁移(六)** 是进阶/获客,可后置。
 4. **Windows 沙箱(五)** 跟 MVP 仅 Windows 节奏做。
-5. ⚠️ 三处「已知非缺陷」务必在 UI 上体现:`threadItemsList` 内核 stub 要捕获报错给占位;远程插件/MCP 需 OpenAI auth 的,本地可用、远程要提示登录。
+5. ⚠️ 门控务必在 UI 上体现:`threadItemsList` 旧基线 stub;远程 plugin/MCP 认证;实验 API opt-in;Windows sandbox 未就绪。本地路径也要以当前锁定版本实测为准。
 
 ## 关联
 

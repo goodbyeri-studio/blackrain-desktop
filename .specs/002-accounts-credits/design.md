@@ -2,44 +2,46 @@
 
 ## 总体方案
 
-在现有本地壳（Codex 内核 + 本地网关，见 [[001-providers-model-gateway]]）之上，加一层**账号 + credit 计量**。两类用户跑两条链路：
+在现有本地壳之上加一层**账号 + credit 计量**。2026-06-25 已真实验证的是 CODE 路径的过渡链路；003 双引擎定稿后，WORK/Hermes 的生产 credit 接线和最终 new-api/`proxy.py` 边界仍待统一，不能把过渡实现写成最终架构。
 
-- **credit 用户（Free/Plus/Pro 用平台赠送额）**：对话经**平台云端代理**，代理持平台 DeepSeek key、按真实 token 用量扣 credit。
-- **BYOK 用户（仅 Plus+）**：对话走**本地网关**，用用户自己的 key，不消耗平台 credit。
+- **CODE credit（过渡实现已验证）**：Codex → 本地翻译网关 → `proxy.py` → DeepSeek；代理持平台 key 并按真实 usage 扣 credit。
+- **WORK credit（待接线）**：Hermes 原生 Chat 应接生产 credit 入口/new-api，不经过 CODE 翻译网关；鉴权与扣款适配尚未定案。
+- **BYOK（仅 Plus+，尚未实现）**：目标是不消耗平台 credit；直连上游还是仍经 new-api，待与 003 统一。
 
-账号、plan、credit 余额由 **Supabase（Auth + Postgres）** 管理，桌面 App 通过 Supabase JS SDK 登录、读余额；服务端代理用 Supabase service-role 校验 JWT、扣余额。
+账号、plan、credit 余额由 **Supabase（Auth + Postgres）** 管理，桌面 App 通过 Supabase JS SDK 登录、读余额；当前过渡代理用 Supabase service-role 校验 JWT、扣余额。
 
 ```text
-注册/登录:   桌面 App --Supabase SDK--> Supabase Auth (邮箱+密码)
-对话(credit): 桌面 -> 本地网关(Responses⇄Chat) -> 平台代理(校验JWT+查余额+持平台key+计量扣credit) -> DeepSeek
-对话(BYOK):   桌面 -> 本地网关(Responses⇄Chat, 用户key) -> DeepSeek            (Plus 才可配)
-余额展示:     桌面 --Supabase SDK--> profiles.credits
+注册/登录:       桌面 App --Supabase SDK--> Supabase Auth (邮箱+密码+OTP)
+CODE credit(已验): Codex -> 本地网关(Responses⇄Chat) -> proxy.py(过渡) -> DeepSeek
+WORK credit(待决): Hermes(Chat) -> 生产 credit 入口/new-api 组合待定 -> 国产模型
+BYOK(待实现):     Plus+ 权益门禁 + 路由待定；不消耗平台 credit
+余额展示:         桌面 --Supabase SDK--> profiles.credits
 ```
 
 ## 架构边界
 
 - 属于 `apps/desktop`（前端）：登录/注册 UI、会话态持久、首页/设置展示 plan 与 credit、模型选择器显示倍率、BYOK 入口的 Plus 门禁。
 - 属于 `apps/desktop`（Tauri 后端）：Supabase 会话 token 的安全存取（钥匙串）、把「当前模式（credit/BYOK）」翻译成网关 provider 配置。
-- 属于**平台代理**（新增，独立部署）：OpenAI 兼容转发、校验 Supabase JWT、查/扣 credit、持平台 DeepSeek key、usage 计量、余额耗尽拦截。
+- 属于**过渡代理 `gateway/proxy.py`**（已部署验证）：OpenAI 兼容转发、校验 Supabase JWT、查/扣 credit、持平台 DeepSeek key、usage 计量、余额耗尽拦截。最终是否保留该层待决。
 - 属于 **Supabase**：用户认证、`profiles`（plan + credits）、`credit_ledger`（流水）、RLS 策略。
 - 明确不改 `codex-upstream`：内核只发 Responses，仍只连本地网关。
-- 与 new-api 的接缝：平台代理对桌面暴露的 `base_url + Bearer` 约定固定；以后用 new-api 顶替代理实现，桌面侧零改动。
+- 与 new-api 的接缝目标：桌面侧尽量保持 `base_url + Bearer` 稳定；但 new-api 的 Supabase JWT 校验和 `spend_credits` 适配不是现成能力，“桌面少改”不等于“服务端零实现”，生产组合待决。
 
 ## 关键判断：平台 key 必须只在服务端
 
-credit 用户花的是平台的钱，平台 DeepSeek key **绝不能**打包进桌面 App（会被扒包白嫖）。因此 credit 链路**必须**经服务端代理。这是「送 token」的硬性物理约束，没有纯本地的捷径。
+credit 用户花的是平台的钱，平台 DeepSeek key **绝不能**打包进桌面 App（会被扒包白嫖）。因此 credit 链路**必须**经过服务端受控入口。这是「送 token」的硬性物理约束；该入口最终由 new-api、`proxy.py` 适配层还是二者组合承担，尚未定案。
 
-- 本地网关在 credit 模式下，`base_url` 指向平台代理（如 `https://proxy.blackrain.app/v1`），`Authorization` 带用户 Supabase JWT（不是 DeepSeek key）。
-- 平台代理用 JWT 认出用户 → 查余额 → 转发到真实 DeepSeek（注入平台 key）→ 读 usage → 扣 credit。
-- BYOK 模式下，本地网关 `base_url` 指向 `https://api.deepseek.com`、`Authorization` 带用户自己的 key，完全不经代理。
+- 当前 CODE 过渡实现中，本地网关把 `base_url` 指向 `proxy.py`，`Authorization` 带用户 Supabase JWT（不是 DeepSeek key）。
+- 过渡代理用 JWT 认出用户 → 查余额 → 转发到真实 DeepSeek（注入平台 key）→ 读 usage → 扣 credit。
+- WORK/Hermes credit 和 Plus BYOK 的最终路由尚未实现，不在本文静默假定。
 
 ## Credit 模型
 
 - 面向用户的唯一单位是 **credit**。每个模型有「每 token 扣多少 credit」的费率，费率比值由 DeepSeek 真实价钉死。
 - DeepSeek 实测：pro 输入/输出均为 flash 的 **3 倍**（输入 1→3 元、输出 2→6 元 / 1M，缓存未命中）。故倍率 **flash 0.5x / pro 1.5x**（比值 3:1）成立。
-- 暂定锚定：**100 credit ≈ 1M pro-等效 token**，即 `1 credit ≈ 1万 pro-等效 token`。等效换算：
-  - pro：1.5x → 1 credit ≈ 6,667 pro token
-  - flash：0.5x → 1 credit ≈ 20,000 flash token（同样 100 credit 可用约 3M flash token）
+- 当前实现锚定：**1 credit = 10,000 个 1x 等效 token**，即 `cost = tokens × multiplier / 10000`。换算：
+  - pro：1.5x → 1 credit ≈ 6,667 pro token；100 credit ≈ 666,667 pro token
+  - flash：0.5x → 1 credit = 20,000 flash token；100 credit = 2,000,000 flash token
 - 上述绝对数都是**占位**，正式定价时在代理配置/Supabase 里集中改，不散落代码。
 - MVP 用「混合单价」（输入+输出按一个等效价），已知会轻微低估输出/思考重的任务；后续可拆输入/输出分计（见 decisions 待定项）。
 
@@ -67,9 +69,9 @@ credit_ledger (
 ```
 
 - RLS：用户只能读自己的 `profiles` / `credit_ledger`；**写余额只允许服务端 service-role**（代理），前端无法改余额。
-- 注册赠送：用 Supabase trigger（`auth.users` insert → 建 profile + 写一条 `signup_grant`）。
+- 注册赠送当前实现：Supabase trigger 在 `auth.users` insert 后立即建 profile + 写一条 `signup_grant`。邮箱 OTP 控制确认/登录，但当前 trigger **不是确认后才赠送**；是否调整为确认后赠送列为待决。
 
-## 平台代理接口（最小面，固定接缝）
+## 过渡代理接口（已验证的最小面）
 
 Codex-facing（本地网关在 credit 模式转发到这里）：
 
@@ -79,11 +81,11 @@ Codex-facing（本地网关在 credit 模式转发到这里）：
   - `stream=true` 时用 `stream_options.include_usage` 拿 usage（gateway.py 现有能力）。
 - `GET /v1/models`：返回平台允许的模型（flash/pro）及倍率元数据。
 
-约定：以后 new-api 顶替时，保持同样的 `base_url` 与 `Bearer <jwt>` 约定，桌面侧零改动。
+目标约定：生产迁移尽量保持相同 `base_url` 与 `Bearer <jwt>` 客户端形状；是否需要在 new-api 前后保留 Supabase 鉴权/扣款适配层，待实现验证。
 
-## 代理部署形态（定案）
+## 代理部署形态（已验证过渡形态，非最终生产定案）
 
-最小代理 = 独立的 **OpenAI Chat Completions 转发器**（`gateway/proxy.py`），部署成**常驻服务**（Fly.io / Railway / 小 VPS）。职责单一：校验 JWT + 查/扣 credit + 注入平台 DeepSeek key + usage 计量。
+过渡代理 = 独立的 **OpenAI Chat Completions 转发器**（`gateway/proxy.py`），已按常驻服务完成真实部署验证。职责单一：校验 JWT + 查/扣 credit + 注入平台 DeepSeek key + usage 计量。
 
 **协议边界（关键）：代理入站/出站都说 Chat Completions，不做 responses⇄chat 翻译。** 翻译只留本地网关 `gateway.py` 一份（铁律 2）。两种模式的数据流：
 
@@ -94,7 +96,7 @@ Codex-facing（本地网关在 credit 模式转发到这里）：
 
 不重写为 Supabase Edge Function：计量须看完整流（usage 在 `chunk.usage`），agent 长任务会撞 edge 执行时限。详见 decisions。
 
-## Credit 强一致扣减（定案）
+## Credit 前置门禁 + 后置原子记账（已验证）
 
 - **转发前门禁**：查 `profiles.credits > 0` 才转发；≤0 直接拒（`insufficient_credits`）。
 - **转发后原子扣减**：拿到 usage 后，调 Supabase Postgres RPC，在**单事务**内扣余额 + 写流水：
@@ -112,19 +114,20 @@ begin
 end $$;
 ```
 
-- **并发取舍**：同一用户并发多轮可能都过门禁、各自扣到负——**接受**小幅为负，下次充值补齐（桌面单用户并发低）。不上预授权冻结（列为后续可选）。
+- **一致性边界**：`spend_credits` 保证单次扣款与流水在一个事务内原子；它不是预授权/余额冻结。同一用户并发多轮可能都过门禁、各自扣到负——当前接受小幅为负，下次充值补齐。
 - 扣减只允许服务端 service-role 调用；前端无权改余额（RLS）。
 
-## 模式切换（桌面 → 网关 provider 配置）
+## 模式切换（当前 CODE 过渡接线 + 待补双引擎）
 
-App 按「当前账号 + 是否启用 BYOK」决定写入网关的 provider：
+当前代码只完成 CODE credit provider override；完整目标如下，未完成项不得按已实现理解：
 
 | 模式 | base_url | Authorization | 计 credit |
 |---|---|---|---|
-| credit（Free/Plus/Pro 用赠送额） | 平台代理 `…/v1` | 用户 Supabase JWT | 是 |
-| BYOK（仅 Plus+） | `https://api.deepseek.com` | 用户自己的 key | 否 |
+| CODE credit（代码接线完成，GUI E2E 未跑） | 过渡代理 `…/v1` | 用户 Supabase JWT | 是 |
+| WORK credit（待接线） | new-api/credit 入口组合待决 | Supabase JWT 或平台 token 适配待决 | 是 |
+| BYOK（仅 Plus+，待实现） | 直连或经 new-api 待决 | 用户自己的 key | 否 |
 
-- 默认 credit 模式；Plus 用户在设置里开 BYOK 后切到 BYOK 模式。
+- 默认 credit 模式；Plus 用户的 BYOK 权益、路由和模式切换尚未完成。
 - JWT 过期：App 用 Supabase SDK 静默刷新；刷新失败则提示重登。
 
 ## 失败模式
@@ -134,9 +137,9 @@ App 按「当前账号 + 是否启用 BYOK」决定写入网关的 provider：
 - 离线宽限：缓存会话已恢复但后端连不上时仍进 App，credit 按 `online` 降级（余额「暂不可用」、credit 对话失败才提示），BYOK/本地/git 不受影响。
 - credit 耗尽：代理返回结构化错误（如 402 + `{code:"insufficient_credits"}`），网关转成 Codex 可消费的 `response.failed`，前端提示「额度不足，去升级/充值」。
 - JWT 无效/过期：代理 401；App 触发刷新或要求重登。
-- 代理不可达：前端提示平台服务不可用；BYOK 用户不受影响（走本地直连）。
+- 生产 credit 入口不可达：前端提示平台服务不可用；BYOK 的目标是不受平台 credit 服务影响，但其直连或 new-api 路由尚未定案。
 - Supabase 不可达：登录态走本地缓存的 session；余额展示降级为「暂不可用」，但不放行无计量对话（credit 模式必须能扣才放行）。
-- BYOK 误用：Free 用户尝试启用 BYOK → 前端门禁拦截 + 升级引导（后端代理也不为 BYOK 请求计费，天然隔离）。
+- BYOK 误用（目标行为，未实现）：Free 用户尝试启用 BYOK → 权益门禁拦截 + 升级引导；不能只依赖隐藏 UI。
 
 ## 测试策略
 
@@ -148,8 +151,9 @@ App 按「当前账号 + 是否启用 BYOK」决定写入网关的 provider：
   - 注册 → trigger 建 profile + 赠送 credit。
   - 代理：JWT 校验、扣余额原子性、ledger 落账。
   - RLS：前端无法改 `credits`。
+  - CODE credit 和 WORK credit 使用同一余额、同一错误语义；生产 new-api/适配层组合确定后补。
 - 人工验证：
   - 注册 → 登录 → 首页看余额 → 选 flash/pro 对话 → 余额按用量下降。
   - Plus 开 BYOK → 对话不扣 credit。
   - 余额耗尽 → 对话被拦 + 提示。
-
+  - Windows 桌面实机完成会话恢复、CODE credit、WORK credit、BYOK 权益门禁与余额刷新。

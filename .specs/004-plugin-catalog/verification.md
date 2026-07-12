@@ -1,6 +1,6 @@
 # Verification
 
-> 本 spec 是目录与粒度规则的活文档，尚无实现，故下表全部为「未跑」。撒网落地时(见 [tasks.md](tasks.md))逐包填实测结果，只写真实跑过的，不写「应该可以」。每个 `[铺]` 包的最低门槛 = **能 headless 跑通**(无 GUI、无宿主软件依赖)。
+> 本 spec 是 post-MVP 目录与粒度规则,尚无目录实现,故下表全部为「未跑」。未来落地时只写真实跑过的结果,并分开记录「代码/配置存在」、「Windows 验证通过」、「发布可分发」。当前 MVP 不验收这张全目录。
 
 ## 验证矩阵
 
@@ -25,7 +25,7 @@
 | — | D/geo | GeoPandas/GDAL | 未跑 | |
 | — | D/stats | statsmodels | 未跑 | |
 | — | D/spss-stata-gen | 生成 .sps/.do | 未跑 | |
-| — | D/blender | bpy headless 渲染 | 未跑 | 独立进程聚合，GPL 合规待确认 |
+| — | D/3d-headless | 宽松许可证引擎选型 + headless 渲染 | 未跑 | Blender(GPL) 已按全仓红线排除，不作为候选实现 |
 | — | E/edi | pyx12/badX12 转换 | 未跑 | |
 | — | E/hl7-fhir | hl7apy 解析 | 未跑 | |
 | — | E/dicom | pydicom 元数据/脱敏 | 未跑 | |
@@ -46,7 +46,8 @@
 - **动态挂/拔整个 MCP server**：Hermes 原生支持 `tools/list_changed`(已挂载工作台中途变工具已部分验证，见 [003 verification](../003-dual-engine-architecture/verification.md))，但「对话中途新挂/拔掉整个 server」仍待实测。
 - **`[控]` 包触达率**：依赖用户是否已装正版宿主软件，无法在我方环境完整验证，需真实用户环境抽测。
 - **离线模型体积**：PaddleOCR / rembg 等离线模型会推高胖包体积，与 [003](../003-dual-engine-architecture/decisions.md) 的 230-250MB 基础包目标的冲突待测(大概率独立按需下载，不进主包)。
-- **平台 wheel 差异**：cryptography/PIL/pydicom 等原生 wheel 需 Win/Mac/Linux 各构建。
+- **平台 wheel 差异**:MVP 若抽取单包使用,只验收 Windows x64;其他平台是 post-MVP 资产。
+- **许可证分发合规**：GPL/AGPL/BSL/无许可证组件已按全仓红线排除；FFmpeg LGPL build 尚未完成法务与 Windows 安装包制品审计，不得视为可发行。
 
 ## 失败记录
 

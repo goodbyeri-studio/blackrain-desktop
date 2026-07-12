@@ -1,6 +1,8 @@
 # CodexMonitor iOS Remote Blueprint (Tailscale + TCP)
 
-This document is the canonical runbook for iOS remote usage with a desktop-hosted CodexMonitor backend over Tailscale.
+> **BlackRain scope note:** this is retained upstream/post-MVP material. BlackRain MVP is Windows-only; iOS is not an active delivery target, is not covered by current CI, and must not be presented as a supported BlackRain workflow. Use this document only if iOS work is explicitly reactivated later.
+
+This document is the retained upstream runbook for iOS remote usage with a desktop-hosted backend over Tailscale.
 
 ## Scope
 
@@ -41,11 +43,11 @@ Headless alternative (no desktop UI required):
 
 1. Build daemon + daemonctl:
    - `cd src-tauri`
-   - `cargo build --bin codex_monitor_daemon --bin codex_monitor_daemonctl`
+   - `cargo build --bin blackrain_daemon --bin blackrain_daemonctl`
 2. Start daemon from CLI:
-   - `./target/debug/codex_monitor_daemonctl start`
+   - `./target/debug/blackrain_daemonctl start`
 3. Verify daemon status:
-   - `./target/debug/codex_monitor_daemonctl status`
+   - `./target/debug/blackrain_daemonctl status`
 
 ## iOS Setup
 

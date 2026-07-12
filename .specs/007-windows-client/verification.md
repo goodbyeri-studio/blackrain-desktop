@@ -8,20 +8,26 @@
 | 2026-06-30 | Codex 内核 Windows 构建 | `cd codex-upstream\codex-rs; $env:CARGO_NET_GIT_FETCH_WITH_CLI="true"; cargo build -p codex-cli --bin codex` | 通过 | 8 分 40 秒首次完成,产物 `target\debug\codex.exe`;LLVM 22.1.8 + CMake 4.3.3 + Rust(scoop) 工具链通过 |
 | 2026-06-30 | dictation/whisper-rs Windows 兼容 | `cargo build` 试编 | **失败 → 已绕过** | whisper-rs 0.12 的 bindgen 与 LLVM 22 不兼容(`whisper_full_params` 全字段被打成 `_address`,72 errors)。绕法:Cargo.toml 把 whisper-rs 守卫成「非 Windows」+ `dictation/mod.rs` Windows 走 `stub.rs`。dictation 在 Windows 上暂不可用,不阻塞 dev。详见「失败记录 2026-06-30」 |
 | 2026-07-03 | Codex 版本锁定更新 | `codex-upstream` checkout `da4c8ca`;`codex.exe --version` | 部分通过 | CLI 编译与 quick-xml 安全修复已确认;app-server 编译、协议四探针、Windows 客户端 E2E 仍未跑,下方矩阵继续追 |
+| 2026-07-12 | Codex 稳定锁升级候选基础验证 | `cargo check -p codex-app-server-protocol -p codex-app-server` | 部分通过 | rust-v0.144.1 / `44918ea` 在 macOS 编译检查通过；Windows 协议、GUI、NSIS 与真实对话均未跑 |
+| 2026-07-11 | NSIS/Windows 资源配置存在性 | 检查 `tauri.windows.conf.json` | 配置存在 | 已锁 `targets:["nsis"]` 并映射 codex/Python/gateway/OfficeCLI/plugins/workbench;未执行构建/解包 smoke |
+| 2026-07-11 | Windows 本机发布脚本存在性 | 检查 `scripts/release-client-win.ps1` | 代码存在 | 会 vendor runtime 并调用检查/`tauri:build:win`;未有实跑产物 |
+| 2026-07-11 | CI 现状 | 检查 `.github/workflows/ci.yml` | 部分存在 | Ubuntu 跑 JS typecheck/test,Windows 跑 Rust cargo check;不打 NSIS,不等于 Windows 发布矩阵 |
 | YYYY-MM-DD | doctor.mjs 实跑 | `cd apps\desktop; npm run doctor:win` | 未跑 | 缺 cmake / clang 时应给出 choco 提示 |
 | YYYY-MM-DD | dev-client.ps1 启动 | `pwsh scripts/dev-client.ps1` | 未跑 | 期望 90 秒内 GUI 首帧 + 能选模型 |
 | YYYY-MM-DD | dev 模式真实对话 | dev-client.ps1 起后 GUI 内手发一条对话 | 未跑 | DeepSeek flash 走 BlackRain Gateway 返回真实回复 |
 | YYYY-MM-DD | 前端 typecheck (Windows) | `cd apps\desktop; npm run typecheck` | 未跑 | macOS 已通过,Windows 是首次 |
-| YYYY-MM-DD | 前端 test (Windows) | `cd apps\desktop; npm run test` | 未跑 | 期望 1032 tests 全绿 |
+| YYYY-MM-DD | 前端 test (Windows) | `cd apps\desktop; npm run test` | 未跑 | 以当前收集到的全量用例为准,不锁历史数量 |
 | YYYY-MM-DD | Rust 后端 cargo check (Windows) | `cd apps\desktop\src-tauri; cargo check` | 未跑 | 期望只有仓库既有 dead_code warnings |
-| YYYY-MM-DD | model_gateway cargo test (Windows) | `cd apps\desktop\src-tauri; cargo test model_gateway` | 未跑 | 6+1 tests,与 macOS 同 |
-| YYYY-MM-DD | 协议四探针 (Windows) | `python3 .scratch/m0_protocol_probe.py "<CODEX_HOME>" "<工作区>"` | 未跑 | 对当前锁定 `da4c8ca` 验 initialize / model-list / thread-start / turn-start 全绿 |
+| YYYY-MM-DD | model_gateway cargo test (Windows) | `cd apps\desktop\src-tauri; cargo test model_gateway` | 未跑 | 以当前收集到的测试为准，不锁历史数量 |
+| YYYY-MM-DD | 协议四探针 (Windows) | `python3 .scratch/m0_protocol_probe.py "<CODEX_HOME>" "<工作区>"` | 未跑 | 对当前锁定 rust-v0.144.1 / `44918ea` 验 initialize / model-list / thread-start / turn-start 全绿 |
 | YYYY-MM-DD | 真实 DeepSeek 工具调用 (Windows) | `BLACKRAIN_GATEWAY_API_KEY=local-test-gateway python3 .scratch/m0_tool_driver.py ...` + `STRIP_TOOLS=0` Gateway | 未跑 | 期望生成 hello.txt 内容 `2049`,对等 macOS 2026-06-24 |
+| YYYY-MM-DD | App 托管 sidecar 工具调用 | 不预起 Gateway，由 App spawn 后在 GUI 发真实工具任务 | 未跑 | 当前 spawn 未设置 `STRIP_TOOLS=0`，默认会剥工具；修复前为发布阻塞 |
 | YYYY-MM-DD | Windows Credential Manager smoke | `cd apps\desktop\src-tauri; $env:BLACKRAIN_KEYCHAIN_SMOKE="1"; cargo test real_system_credential_store_smoke_when_enabled -- --nocapture` | 未跑 | lib + daemon 目标真实写读清理 |
-| YYYY-MM-DD | NSIS 打包 | `cd apps\desktop; npm run tauri:build:win` | 未跑 | 期望产出 `BlackRain2049_<ver>_x64-setup.exe` |
+| YYYY-MM-DD | NSIS 打包 | `cd apps\desktop; npm run tauri:build:win` | 未跑 | 以当前 `productName=BlackRain` 验证真实产物名；不得沿用历史 `BlackRain2049` 名称猜测 |
 | YYYY-MM-DD | NSIS 安装包资源 smoke | 解包 .exe 检查 `office-cli/windows-x64/officecli.exe` / `gateway/gateway.py` / `plugins/office-cli/` / `workbenches/office-agent/` | 未跑 | 与 macOS dmg 资源 smoke 对等 |
-| YYYY-MM-DD | NSIS 安装实测 | 双击安装 → 开始菜单点击 → 启动 → 登录 → 对话 | 未跑 | SmartScreen 警告页应能点「仍要运行」放行 |
-| YYYY-MM-DD | NSIS 卸载实测 | 控制面板卸载 | 未跑 | `%ProgramFiles%\BlackRain2049\` 清空;`%APPDATA%` 决策默认保留 |
+| YYYY-MM-DD | NSIS 第三方归属 smoke | 解包检查 OfficeCLI license/vendor metadata + 审核发行 NOTICE | 未跑 | `apps/desktop/NOTICE` 尚未登记 OfficeCLI；发布前必须补齐 |
+| YYYY-MM-DD | NSIS 安装实测 | 双击安装 → 开始菜单点击 → 启动 → 登录 → 对话 | 未跑 | 若最终选择未签名发行，必须实测 SmartScreen 放行路径与用户可理解性；签名方案仍待决 |
+| YYYY-MM-DD | NSIS 卸载实测 | 控制面板卸载 | 未跑 | `%ProgramFiles%\BlackRain\` 清空;`%APPDATA%` 决策默认保留 |
 | YYYY-MM-DD | `windowsSandbox/*` 探针 | 扩展 `.scratch/m0_protocol_probe.py` 加 `windowsSandbox/setupStart` + `readiness` | 未跑 | `.specs/006` 链路在 Windows 上首次实跑;UI 复刻不在本 spec |
 
 ## 已知历史验证(macOS,本 spec 不重做)
@@ -36,19 +42,24 @@
 ## 已验证
 
 - spec 目录和五个文档已创建。
-- Windows 边界已明确:**MVP 仅发行 Windows**(2026-06-30 决策)、NSIS 不签名、同代码库不分库、macOS 代码保留作历史资产。
+- Windows 边界已明确:**MVP 仅发行 Windows**(2026-06-30 决策)、NSIS-only target、同代码库不分库、macOS 代码保留作历史资产。是否带正式代码签名仍待决。
 - 已盘点的现有 Windows 分叉点(不属本 spec 改动范围,只列在 requirements.md 背景段作 baseline)。
+- `tauri.windows.conf.json` 中 NSIS-only target 与 Windows 资源映射已存在;**未验证真实打包产物**。
+- `release-client-win.ps1` 与 CI workflow 已存在;**前者未实跑,后者只是部分检查**。
 
 ## 未验证风险
 
-- **dictation(语音输入)在 Windows 上不可用**(2026-06-30 决策):whisper-rs 0.12 + LLVM 22 bindgen 不兼容,临时让 Windows 走 stub.rs。等价 macOS/Linux 仍走 real.rs,功能不受影响。
+- **dictation(语音输入)在 Windows 上不可用**(2026-06-30 决策):whisper-rs 0.12 + LLVM 22 bindgen 不兼容,临时让 Windows 走 stub.rs。其他平台 real.rs 仅作 post-MVP 历史资产,不影响当前 Windows 风险判定。
 - **Codex 内核 Windows 构建**:已通过(2026-06-30,8m40s)。
-- **NSIS 打包默认 targets**:`tauri.windows.conf.json` 当前 `bundle` 段未显式锁 targets,继承上层 `tauri.conf.json` 的 `"all"` 可能触发 MSI 工具链。本 spec 要先显式锁 NSIS。
+- **NSIS 可交付性**:targets 已锁 NSIS,但尚未构建、解包、安装、首启、卸载;资源映射是否真正入包仍未验。
 - **Mica + bearer 校验交互**:网关 bearer 校验逻辑跨平台相同,但 Mica 窗口 + Webview2 fetch 跨 origin 行为未实测。
 - **whisper-rs 在 Windows ARM64**:doctor.mjs 检 LLVM 但 ARM64 wheel/clang-cl 是否全可用未实测。
 - **SmartScreen 实际通过率**:未签名 NSIS 在 Win11 SmartScreen 的真实用户体验未做。
+- **签名方案**:未签名/OV/EV 待决,publisher/签名 hook 尚未收口。
+- **品牌兼容**:base `productName` 已是 BlackRain，但 Windows title、About、tray 与 keyring service 仍有 `BlackRain2049`；特别是凭据 service 改名需要迁移验证。
+- **Win10/Win11 支持边界**:Mica 仅 Win11;是否官方支持 Win10 纯色降级尚未决策,两系统安装/启动均未验。
 - **uvloop 在 Windows 不可用**(`.specs/003` 已知问题):本仓 gateway.py 是纯 stdlib 不依赖 uvloop,但若将来切 Hermes Python 引擎要重检。
-- **CI 缺失**:`.github/workflows/` 不存在,Windows build 仅靠开发主机本地跑,容易回归。
+- **CI 覆盖不完整**:已有 Ubuntu JS + Windows Rust check,但 Windows 上的 typecheck/test、Tauri/NSIS build、安装包制品尚无 CI 保障。
 
 ## 失败记录
 

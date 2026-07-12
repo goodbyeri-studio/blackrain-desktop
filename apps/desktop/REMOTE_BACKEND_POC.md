@@ -1,8 +1,8 @@
 # Remote Backend POC (daemon)
 
-> 状态说明(2026-07):本文是早期 POC 记录,用于保留 daemon 的手动启动与线分隔 JSON-RPC 协议样例。当前 daemon 方法面和桌面壳接线已明显扩展,不要把本文的 "initial" 方法清单当成功能完整度真源。改远程后端前优先看 `apps/desktop/AGENTS.md`、`apps/desktop/docs/codebase-map.md` 和实际 `src-tauri/src/bin/codex_monitor_daemon.rs` / `src-tauri/src/daemon/rpc.rs`。
+> 状态说明（2026-07）：本文只保留早期 POC 的手动启动与线分隔 JSON-RPC 样例。当前 daemon 已重命名为 `blackrain_daemon`，方法面也明显扩展；不要把下方 initial 清单当成功能完整度真源。改远程后端前优先看 `apps/desktop/AGENTS.md`、`apps/desktop/docs/codebase-map.md` 和实际 `src-tauri/src/bin/blackrain_daemon.rs` / `src-tauri/src/bin/blackrain_daemon/rpc.rs`。
 
-This fork includes a **proof-of-concept** daemon that runs CodexMonitor's backend logic in a separate process (intended for WSL2/Linux), exposing a simple **line-delimited JSON-RPC** protocol over TCP.
+BlackRain retains a **proof-of-concept** daemon that runs desktop backend logic in a separate process, exposing a simple **line-delimited JSON-RPC** protocol over TCP.
 
 This document is useful to validate the protocol manually, but it may lag behind current desktop UI and service wiring.
 
@@ -11,14 +11,14 @@ This document is useful to validate the protocol manually, but it may lag behind
 From the repo root:
 
 ```bash
-cd src-tauri
+cd apps/desktop/src-tauri
 
 # pick a strong token (or export CODEX_MONITOR_DAEMON_TOKEN)
 TOKEN="change-me"
 
-cargo run --bin codex_monitor_daemon -- \
+cargo run --bin blackrain_daemon -- \
   --listen 127.0.0.1:4732 \
-  --data-dir "$HOME/.local/share/codex-monitor-daemon" \
+  --data-dir "$HOME/.local/share/blackrain-daemon" \
   --token "$TOKEN"
 ```
 
@@ -44,10 +44,14 @@ First request must be:
 ## Quick test with netcat
 
 ```bash
-printf '{\"id\":1,\"method\":\"auth\",\"params\":{\"token\":\"change-me\"}}\\n' | nc -w 1 127.0.0.1 4732
-printf '{\"id\":2,\"method\":\"ping\"}\\n' | nc -w 1 127.0.0.1 4732
-printf '{\"id\":3,\"method\":\"list_workspaces\",\"params\":{}}\\n' | nc -w 1 127.0.0.1 4732
+{
+  printf '{"id":1,"method":"auth","params":{"token":"change-me"}}\n'
+  printf '{"id":2,"method":"ping"}\n'
+  printf '{"id":3,"method":"list_workspaces","params":{}}\n'
+} | nc -w 2 127.0.0.1 4732
 ```
+
+Authentication is connection-scoped. If you open a new `nc` connection for another request, send `auth` again first.
 
 ## Implemented methods (initial)
 

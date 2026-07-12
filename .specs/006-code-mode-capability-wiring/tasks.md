@@ -1,6 +1,6 @@
 # Tasks
 
-> 每簇完成判据:`cd apps/desktop/src-tauri && cargo check` 通过 + `cd apps/desktop && npm run typecheck` 通过。
+> 历史批次勾选表示「5 层包装 + 当时基线编译/shape 验证」,不表示当前 rust-v0.144.1 / `44918ea` 已重验或 GUI 已落地。MVP 只接受 Windows 冒烟结果。
 
 ## 第 1 批:A 类 bdd282f 新增(验证 pattern)✅ 完成 2026-06-28
 - [x] `thread/delete` 全 5 层(clone archive)— **验证 pattern 样板,cargo check + typecheck 双绿**
@@ -29,5 +29,7 @@
 - 12 方法全 5 层(10 typed + 2 Value);cargo check 6.37s 零错误;shape 探针 12/12 OK
 
 ## 收尾
-- [ ] 用户 `tauri dev` 冒烟测试(字段级兼容 + GUI 接得上)
-- [ ] verification.md 记录实测命令与结果
+- [x] `verification.md` 已记录 `bdd282f`→`cfead68` 的编译/typecheck/shape 实测结果
+- [ ] 对当前锁定 `44918ea` 重跑全量 capability shape 探针,刷新 stub/认证/实验门控结论
+- [ ] Windows `npm run tauri:dev:win` 冒烟(IPC→command→daemon→app-server 粘合 + GUI 能调用/能降级)
+- [ ] spec 005 逐项落地 GUI;不因 `@services/tauri.ts` 导出函数存在就勾选

@@ -2,10 +2,10 @@
 
 ## 背景
 
-- BlackRain2049 的模型层不能写死 DeepSeek，也不能变成某一家模型的客户端。
+- BlackRain 的模型层不能写死 DeepSeek，也不能变成某一家模型的客户端。
 - Codex 内核保持原装，只发 Responses 协议；大量第三方/国产模型仍以 Chat Completions 或 OpenAI-compatible API 为主。
-- 现有 `gateway/gateway.py` 已证明 DeepSeek 经 Responses⇄Chat 翻译可以驱动 Codex 内核，但它仍是最小原型，不是产品级模型网关。
-- 本 spec 覆盖 M1 主线：Providers / 模型网关设置页、专属 `CODEX_HOME` 写入、Gateway sidecar、对话模型选择器。
+- 现有 `gateway/gateway.py` 已证明 DeepSeek 经 Responses⇄Chat 翻译可以驱动 Codex 内核，但它仍是最小原型，不是产品级模型网关；后续被 App 托管、打包和 smoke 通过也不改变这一定位。
+- 本 spec 覆盖 M1 主线：Providers / 模型网关设置页、专属 `CODEX_HOME` 写入、Gateway sidecar、对话模型选择器。自 003 双引擎架构定稿后，本 spec 只负责 **CODE 路径**，WORK/Hermes 不经过该翻译网关。
 
 ## 用户目标
 
@@ -40,11 +40,14 @@
 - API key 存储要走本地安全存储优先；开发态允许 `.env` fallback，但产品态不要求用户手动写 `.env`。
 - Provider 配置和模型 registry 属于 BlackRain App/Gateway，不属于 Codex 内核配置。
 - `apps/desktop/**` 改动必须遵守双运行时规则：共享领域逻辑先落 `src-tauri/src/shared/*`，App 与 Daemon 只做薄适配。
+- 当前 MVP 仅发行 Windows。本文 2026-06-24 的 macOS Keychain/app/dmg 结果只作为历史工程证据；Windows Credential Manager、NSIS 包内 sidecar 运行和签名属于发布前必补证据，统一关联 007 Windows spec。
+- 产品态工具调用必须由 App 托管 sidecar 显式启用。当前 `gateway.py` 默认 `STRIP_TOOLS=1`，App spawn 又未覆盖；修复前只能声称 `STRIP_TOOLS=0` 的开发/探针链路已验证，不能声称普通 App 启动后工具可用。
 
 ## 开放问题
 
 - [x] 产品态 API key 存储方案：公开 MVP 使用系统凭据存储，开发态保留环境变量 fallback。
 - [ ] Gateway sidecar 长期保留 Python，还是迁移到 Rust/Go。
 - [ ] 模型 registry 是由 Gateway 提供 HTTP control API，还是由 App 直接管理配置并生成 Gateway 启动参数。
-- [ ] 对话级模型选择应存在线程 metadata、App 本地 settings，还是 Codex thread settings。
+- [ ] 线程级模型覆盖当前已可持久化；长期唯一真源应是线程 metadata、App 本地 settings 还是 Codex thread settings，仍待定。
 - [ ] 自定义 provider 的能力标签是否允许用户手动编辑。
+- [ ] App 托管 Gateway 如何固定 `STRIP_TOOLS=0`，并防止发布配置回退到纯文本诊断模式。

@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-07-11:签名与 Win10/Win11 正式支持基线均待决
+
+- 决策:保留 2026-06-30 「未签名可先跑技术验证」的历史背景,但不再把它写成 MVP 发行定案。未签名/OV/EV 与 Win11-only/Win10 降级支持尚需根据 SmartScreen、杀毒误报、真实安装与用户转化数据收口。
+- 原因:当前配置存在不等于小白用户能安全顺利安装;Mica 又是 Win11-only,旧文同时写「Win10+Win11 目标」与「Win10 不在 MVP」,必须显式待决。
+- 影响范围:发布元数据、支持文案、安装验证矩阵和 Mica 降级策略。
+- 后续复查条件:首个真实 NSIS 包在 Win11 与至少一台 Win10 环境完成 SmartScreen/安装/启动实测,并获得证书成本报价后拍板。
+
 ## 2026-06-30:MVP 仅发行 Windows 版,macOS 推迟到 post-MVP
 
 - 决策:**v1 / MVP 只发行 Windows 客户端;macOS 客户端整体推迟到 post-MVP**(具体节点未定,或在 MVP 跑通后另起仓 / 独立维护通道)。本仓 `apps/desktop` 仍是单一代码库,但日常开发、CI、打包、发布、用户支持全部按 Windows-only 推进。
@@ -39,9 +46,9 @@
 - 影响范围:整个 `apps/desktop` 结构不动;所有 Windows 适配通过新增分叉点或扩充 Tauri windows.conf override 完成;macOS 代码冻结。
 - 后续复查条件:若 post-MVP 决定复活 macOS,优先评估「另起仓库」vs「本仓恢复 macOS CI」哪个工程负担更小。
 
-## 2026-06-30:v1 Windows 不做 EV 代码签名
+## 2026-06-30:v1 Windows 未签名候选方案(已进入重新评估)
 
-- 决策:v1 发行未签名 NSIS 安装包,用户首次安装需在 SmartScreen 警告页手动点「仍要运行」。
+- 当时决策:技术验证可先用未签名 NSIS 安装包,用户需在 SmartScreen 警告页手动放行。是否允许该形态成为 MVP 公开发行包,已由 2026-07-11 待决条目重新打开。
 - 原因:① EV 代码签名证书价格 ~¥3000-7000/年 + 需硬件 USB key,小团队前期成本不划算;② 没有签名的 NSIS 安装包在 Windows 上仍能装、能用,只是会过 SmartScreen 警告;③ 比起签名,「Windows 上能装能用」是更紧迫的里程碑。
 - 替代方案:① 立即买 EV 证书;② 用免费的 self-signed(等于没签,SmartScreen 一样警告);③ 走 Microsoft Store 上架(审核周期长,Win11 SmartScreen 仍可能拦)。
 - 为什么不用替代方案:① 现金流不优先;② 没收益;③ 上架周期与 v1 节奏不匹配。
@@ -54,10 +61,10 @@
 - 决策:`useLiquidGlassEffect.ts` 的 Windows 分支固定用 `Effect.Mica`,不判断系统 build number、不为 Win10 保留 `Effect.Acrylic` 分支。配套在 `base.css` / `themes.*.css` 新增装饰性背景层(径向渐变 + 噪点纹理 + 呼吸动画)补偿 Mica 材质本身比 Acrylic 更「实」的视觉落差。
 - 原因:
   1. **Mica 是 Win11 Fluent Design 规范的主窗口材质**,Acrylic 在 Win11 设计语言里已降级为仅用于临时性 UI(右键菜单/flyout/tooltip)。BlackRain 定位「复刻 codex-app 视觉水准」,主窗口该用 Win11 当前"对"的材质。
-  2. **Win10 完全不在当前开发精力范围内**——目标版本是 Win10+Win11,但当前 MVP 阶段开发机是 Win11,精力优先 Win11,Win10 兼容明确往后放,不在这批改动引入版本判断分支增加复杂度。
+  2. **当时实现精力只投 Win11**——Win10 未做版本分支与实测;它是否属于 MVP 官方支持已在 2026-07-11 重新打开,本条只记录 Mica 实现选择,不得用来宣称 Win10 可用或不可用。
   3. **Mica 是 Win11 专属 DWM 能力**,Win10 系统层面不存在,无法在不分支的情况下"两边一样都用 Mica";已确认按版本分支(Win11 用 Mica / Win10 用 Acrylic)技术可行(`windows-version` crate 读 build number,≥22000 为 Win11),但本次不做,留给 Win10 兼容阶段一起处理。
 - 替代方案:① 两边统一用 Acrylic(不分支,但 Win11 拿不到原生 Mica 质感,与"Win11 优先"目标不符);② 按 build number 分支(Win11 Mica / Win10 Acrylic,技术可行但增加一个 Rust command + 前端异步判断的复杂度,不匹配当前"减少复杂度"的开发节奏)。
-- 为什么不用替代方案:当前阶段目标明确是"只对 Win11 开发,Win10/macOS 都不在 MVP 范围",引入版本分支属于为不在 MVP 范围内的平台预先花精力,与团队开发精力有限的现实不匹配。
+- 当时为什么不用替代方案:先用 Win11 Mica 收敛开发复杂度;Win10 官方支持范围现为待决,需以安装/启动/降级实测而非这条历史取舍结论。
 - 影响范围:Win10 用户在这批改动后运行 BlackRain,`window.setEffects({ effects: [Effect.Mica] })` 调用在 Win10 上会静默失败或无效(取决于 `tauri-plugin-liquid-glass-api` 底层行为,未实测),窗口退化为纯色背景,不再有毛玻璃效果——这是已知且接受的降级,不是 bug。
 - 性能注记(2026-07-04 评估,原 `docs/windows-mica-evaluation.md` 已并入本条):Mica 由 Windows DWM 合成器层完成、GPU 加速,应用仅启动时调一次 `setEffects()`,CPU 开销≈0。三条不要:不要用 CSS `backdrop-filter` 模拟(性能与质感都差)、不要运行时频繁切换效果(触发 DWM 重组合)、视觉增强只调 CSS 装饰层不动 Mica 本身。
 - 后续复查条件:进入 Win10 兼容阶段时,按已验证可行的方案(`windows_version::OsVersion::current().build >= 22000` 判断)补 Win11/Win10 双材质分支,同步恢复 `useLiquidGlassEffect.test.tsx` 里对应的 Acrylic 测试用例。
@@ -78,4 +85,3 @@
 - 原方案:Win/Mac 同等首发,每个 PR 在两边都跑通才合并。
 - 为什么推翻:① 与目标受众错位,会把 macOS 上的精致工程优势浪费在小众平台;② 4 人小团队没能力每 PR 跑两平台验证,会拖慢整个开发节奏。
 - 替代方案:见上「MVP 只发 Windows」。
-
