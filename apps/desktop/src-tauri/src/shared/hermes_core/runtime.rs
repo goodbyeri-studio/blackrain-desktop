@@ -8,8 +8,8 @@ use super::client::HermesApiClient;
 use super::client::HermesHttpTrace;
 use super::config::{
     render_config_with_workbench, summary, HermesConfigInspection, HermesConfigManager,
-    HermesConfigSummary, HermesLaunchEnvironment, HermesPaths, HermesProviderDesiredState,
-    WorkbenchHermesDesiredState,
+    HermesConfigSummary, HermesLaunchEnvironment, HermesMcpServerDesiredState, HermesPaths,
+    HermesProviderDesiredState, HermesWorkbenchBindResult, WorkbenchHermesDesiredState,
 };
 use super::credential_store::{ensure_api_server_key, provider_secret_get};
 use super::process::HermesProcessSupervisor;
@@ -42,13 +42,15 @@ pub(crate) fn configure_runtime_desired_state(
 pub(crate) fn bind_runtime_workbench(
     paths: &HermesPaths,
     workbench: &WorkbenchHermesDesiredState,
-) -> Result<HermesConfigSummary, WorkError> {
+    mcp_servers: &[HermesMcpServerDesiredState],
+    allow_mcp_change: bool,
+) -> Result<HermesWorkbenchBindResult, WorkError> {
     let manager = HermesConfigManager {
         paths: paths.clone(),
     };
     let provider = manager.load_desired_state().map_err(config_error)?;
     manager
-        .bind_workbench(&provider, workbench)
+        .bind_workbench(&provider, workbench, mcp_servers, allow_mcp_change)
         .map_err(config_error)
 }
 

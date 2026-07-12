@@ -17,11 +17,18 @@
   },
   "install": {
     "mode": "uv-sync-frozen-no-dev-no-editable",
-    "extras": [],
+    "extras": [
+      "mcp"
+    ],
     "additionalPackages": [
       "aiohttp==3.14.1"
     ],
-    "reason": "Hermes API server imports aiohttp, but BlackRain must not install the full messaging extra."
+    "reason": "Hermes API server imports aiohttp without a dedicated extra; WORK plugin activation requires the locked mcp extra. BlackRain still excludes the full messaging extra."
+  },
+  "requiredDistributions": {
+    "aiohttp": "3.14.1",
+    "mcp": "1.26.0",
+    "starlette": "1.0.1"
   },
   "excludedExtras": [
     "messaging",

@@ -90,8 +90,12 @@ try {
 
   Invoke-Checked { & $UvExe venv $venv --python $pythonExe --relocatable --clear } "uv venv"
   $env:VIRTUAL_ENV = $venv
+  $syncArgs = @("sync", "--frozen", "--no-dev", "--no-editable", "--active", "--project", $hermes, "--python", $venvPython)
+  foreach ($extra in @($manifest.install.extras)) {
+    $syncArgs += @("--extra", $extra)
+  }
   Invoke-Checked {
-    & $UvExe sync --frozen --no-dev --no-editable --active --project $hermes --python $venvPython
+    & $UvExe @syncArgs
   } "uv sync Hermes core"
 
   Invoke-Checked {
@@ -104,7 +108,7 @@ try {
   }
 
   Invoke-Checked {
-    & $venvPython -c "import asyncio, importlib.metadata as m, importlib.util; import aiohttp, yaml, hermes_cli; import gateway.platforms.api_server; assert m.version('hermes-agent') == '$($manifest.hermes.version)'; assert importlib.util.find_spec('uvloop') is None; asyncio.run(asyncio.sleep(0))"
+    & $venvPython -c "import asyncio, importlib.metadata as m, importlib.util; import aiohttp, mcp, yaml, hermes_cli; import gateway.platforms.api_server; import tools.mcp_tool; assert m.version('hermes-agent') == '$($manifest.hermes.version)'; assert m.version('mcp') == '$($manifest.requiredDistributions.mcp)'; assert importlib.util.find_spec('uvloop') is None; asyncio.run(asyncio.sleep(0))"
   } "Hermes import smoke"
 
   $installedJson = (& $UvExe pip list --python $venvPython --format json) -join "`n"
@@ -120,6 +124,15 @@ try {
     $normalized = Normalize-PackageName $forbidden
     if ($installedNames.ContainsKey($normalized)) {
       throw "禁止依赖进入 Hermes runtime：$forbidden==$($installedNames[$normalized])"
+    }
+  }
+  foreach ($required in $manifest.requiredDistributions.PSObject.Properties) {
+    $normalized = Normalize-PackageName $required.Name
+    if (-not $installedNames.ContainsKey($normalized)) {
+      throw "Hermes runtime 缺少必需依赖：$($required.Name)==$($required.Value)"
+    }
+    if ($installedNames[$normalized] -ne [string]$required.Value) {
+      throw "Hermes runtime 必需依赖版本不匹配：$($required.Name)，期望 $($required.Value)，实际 $($installedNames[$normalized])"
     }
   }
 
@@ -160,7 +173,7 @@ files are recorded in provenance/python-distributions.json and LICENSES/.
     hermesVersion = $manifest.hermes.version
     pythonVersion = $actualPython
     uvVersion = $uvVersion
-    extras = @()
+    extras = @($manifest.install.extras)
     additionalPackages = @($manifest.install.additionalPackages)
     inventoryScriptSha256 = Get-Sha256 $inventoryScript
   } | ConvertTo-Json -Depth 5

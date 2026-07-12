@@ -229,3 +229,38 @@ hermes-upstream/.venv/bin/python -m pytest \
 ```
 
 BlackRain 只把 008 已验证且运行时再次检查的 roots 写入该字段；不允许工作台或前端直接提供 config 片段。
+
+## MCP config、注册和工具变更 contract
+
+锁定 commit `9de9c25` 的 `tools/mcp_tool.py` 原生读取 `config.yaml` 顶层 `mcp_servers`。BlackRain 首版只使用 stdio transport，受控配置字段为：
+
+```yaml
+mcp_servers:
+  "com.blackrain.office-files":
+    command: "C:\\...\\plugins\\installed\\...\\office-mcp.exe"
+    args: ["--stdio"]
+    timeout: 300
+    connect_timeout: 30
+    supports_parallel_tool_calls: false
+```
+
+边界：
+
+- `register_mcp_servers()` 在 Hermes agent build 时按当前配置注册 server，并把 server tools 加入原生 registry；BlackRain 不修改 Agent loop。
+- stdio `command` 支持绝对路径。BlackRain 不使用 Hermes 的 `cwd`、任意 `env`、HTTP/SSE transport 或 OAuth 配置；命令和参数只能来自 Core 的 verified plugin runtime store。
+- server 自己发出 `notifications/tools/list_changed` 后，上游后台重新执行 `tools/list`，原子刷新该 server 的工具集合并移除 stale tools；不需要 BlackRain 重建或伪造 tool registry。
+- `tools/list_changed` 只覆盖“已注册 server 内部的工具集合变化”，不等于新增或删除整个 server。锁定版本没有供 BlackRain HTTP surface 调用的 server unregister/reload API。
+- 因此首版整体 server 注册/注销采用 idle-only config replacement + Hermes 受控 restart：有任何 active WORK run 时 fail closed；空闲时停止旧 Hermes（Windows 使用 process-tree 回收）、写入新 binding、重启并恢复 task/session metadata。Skills-only binding 变化不触发 restart。
+- runtime 必须安装锁定的 `mcp` extra；否则 `tools.mcp_tool` 的 SDK import 不完整，配置存在也不能作为 MCP 可用证据。
+
+本仓锁定上游验证：
+
+```text
+hermes-upstream/.venv/bin/python -m pytest \
+  hermes-upstream/tests/tools/test_mcp_register_wakes_stale.py \
+  hermes-upstream/tests/tools/test_mcp_tool.py::TestMCPServerTask::test_refresh_tools_deregisters_removed_tools \
+  hermes-upstream/tests/tools/test_mcp_tool.py::TestRegisterMcpServers -q
+8 passed, 1 条既有 unknown mark warning
+```
+
+该证据证明锁定 Hermes 的注册与 `list_changed` contract，不证明 BlackRain Windows runtime、真实 MCP 子进程或 Office 工具已实测。

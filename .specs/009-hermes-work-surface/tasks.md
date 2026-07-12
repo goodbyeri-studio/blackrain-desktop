@@ -175,14 +175,14 @@
 - [x] 定义 `ActivatedWorkbenchContext` contract
 - [x] 接收 workbench id/version、project、task、skill roots、plugins/MCP、env refs、permissions
 - [x] 将 Skills 映射到专属 Hermes 环境
-- [ ] 注册/注销受控 MCP server，并验证 `tools/list_changed`
+- [x] 注册/注销受控 MCP server，并验证 `tools/list_changed`
 - [ ] 动态挂载/拔出插件时不重启当前对话，失败可恢复
 - [ ] 停用工作台时停止其受控进程但保留用户项目
 - [ ] 防止不同工作台环境变量、Skills、MCP 和 session 串台
 - [ ] Office 官方工作台进入 WORK surface，而不是 CODE 临时路径
 - [x] 工作台未通过 008 activate/verify 时禁止创建正式任务
 
-> 2026-07-12：shared `workbench_core` 已冻结并持久化 `ActivatedWorkbenchContext v1`，Rust/TypeScript 共用 fixture。App data 下的版本化 activation store 只提供 local-only list/read 前端命令，写入方法仅保留给未来 008 install/verify pipeline；store 拒绝未知 schema、重复 ID、非法 context、文件/目录 symlink 和超过 1024 条记录，同一 activationId 只允许刷新 `verifiedAt`，资源变化必须签发新 ID。WORK controller 启动与前台对账会刷新 activation 列表，surface 只允许选择已验证 context；`hermes_task_start` 只接受 `activationId + prompt`，从 Core store 读取并校验完整 context，再把 activation/workbench/version/project 身份写入持久任务。没有 activation 时 Composer 禁用，前端不能传 workbench/version/project、env、MCP command、binary、host 或 port。创建/继续新 run 前，Core 将 context 的 skill roots 重新校验为存在、含 `SKILL.md`、无重复且整棵树无 symlink，然后以锁定 Hermes 原生 `skills.external_dirs` 写入专属 `HERMES_HOME/config.yaml`；binding 另存非敏感 `workbench-desired-state.v1.json`，provider 更新/repair 不会抹掉它。单 supervisor MVP 在另一个 activation 有 active run 时拒绝切换，legacy 无 activation 的 task 不能新建 continuation。MCP/env/session 的完整跨工作台隔离仍未完成；008 Manifest/install/verify/activate 生产者也仍不存在，因此 Office 当前没有正式 activation。
+> 2026-07-12：shared `workbench_core` 已冻结并持久化 `ActivatedWorkbenchContext v1`，Rust/TypeScript 共用 fixture。App data 下的版本化 activation store 只提供 local-only list/read 前端命令，写入方法仅保留给未来 008 install/verify pipeline；store 拒绝未知 schema、重复 ID、非法 context、文件/目录 symlink 和超过 1024 条记录，同一 activationId 只允许刷新 `verifiedAt`，资源变化必须签发新 ID。WORK controller 启动与前台对账会刷新 activation 列表，surface 只允许选择已验证 context；`hermes_task_start` 只接受 `activationId + prompt`，从 Core store 读取并校验完整 context，再把 activation/workbench/version/project 身份写入持久任务。没有 activation 时 Composer 禁用，前端不能传 workbench/version/project、env、MCP command、binary、host 或 port。创建/继续新 run 前，Core 将 context 的 skill roots 重新校验为存在、含 `SKILL.md`、无重复且整棵树无 symlink，然后以锁定 Hermes 原生 `skills.external_dirs` 写入专属 `HERMES_HOME/config.yaml`；binding 另存版本化非敏感 envelope，provider 更新/repair 不会抹掉它。MCP command/args 只从 Core-owned verified plugin runtime store 解析，首版仅允许 managed stdio；注册/注销整个 server 在空闲态通过 config replacement + Hermes 受控 restart，active run 时写配置前拒绝，server 内工具变化交给上游 `tools/list_changed`。Windows runtime manifest 已加入锁定 `mcp` extra；真实 Windows MCP 子进程与 process-tree 验收仍未执行。单 supervisor MVP 在另一个 activation 有 active run 时拒绝切换，legacy 无 activation 的 task 不能新建 continuation。env value resolver、deactivate 和完整跨工作台隔离仍未完成；008 Manifest/install/verify/activate 生产者也仍不存在，因此 Office 当前没有正式 activation。
 
 ## 阶段 12：真实模型、工具和 Office 纵切
 

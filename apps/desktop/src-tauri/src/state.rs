@@ -10,6 +10,7 @@ use crate::shared::codex_core::CodexLoginCancelState;
 use crate::shared::hermes_core::process::{HermesProcessSupervisor, HermesRuntimeLayout};
 use crate::shared::hermes_core::runner::HermesRunRegistry;
 use crate::shared::hermes_core::tasks::{HermesTaskRecoveryState, HermesTaskStore};
+use crate::shared::plugin_core::VerifiedPluginRuntimeStore;
 use crate::shared::workbench_core::ActivatedWorkbenchStore;
 use crate::storage::{read_settings, read_workspaces};
 use crate::types::{
@@ -89,6 +90,7 @@ pub(crate) struct AppState {
     pub(crate) hermes_task_recovery: Arc<Mutex<HermesTaskRecoveryState>>,
     pub(crate) hermes_runs: Arc<HermesRunRegistry>,
     pub(crate) hermes_activation_gate: Arc<Mutex<()>>,
+    pub(crate) plugin_runtimes: Arc<Mutex<VerifiedPluginRuntimeStore>>,
     pub(crate) workbench_activations: Arc<Mutex<ActivatedWorkbenchStore>>,
 }
 
@@ -123,6 +125,7 @@ impl AppState {
         let hermes_task_recovery =
             HermesTaskRecoveryState::from_result(hermes_tasks.audit_local_recovery());
         let workbench_activations = ActivatedWorkbenchStore::new(&data_dir);
+        let plugin_runtimes = VerifiedPluginRuntimeStore::new(&data_dir);
         if std::env::var_os("CODEX_HOME").is_none() {
             std::env::set_var("CODEX_HOME", data_dir.join("codex-home"));
         }
@@ -147,6 +150,7 @@ impl AppState {
             hermes_task_recovery: Arc::new(Mutex::new(hermes_task_recovery)),
             hermes_runs: Arc::new(HermesRunRegistry::default()),
             hermes_activation_gate: Arc::new(Mutex::new(())),
+            plugin_runtimes: Arc::new(Mutex::new(plugin_runtimes)),
             workbench_activations: Arc::new(Mutex::new(workbench_activations)),
         }
     }

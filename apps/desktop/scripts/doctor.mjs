@@ -116,6 +116,16 @@ function verifyHermesRuntime() {
   ) {
     errors.push("Hermes runtime manifest does not match the frozen source manifest");
   }
+  let expectedMcpVersion = null;
+  try {
+    const manifest = JSON.parse(fs.readFileSync(sourceManifest, "utf8"));
+    expectedMcpVersion = manifest.requiredDistributions?.mcp ?? null;
+    if (!expectedMcpVersion) {
+      errors.push("Hermes runtime manifest does not declare the required MCP SDK version");
+    }
+  } catch (error) {
+    errors.push(`Hermes runtime manifest is invalid: ${error.message}`);
+  }
 
   const checksumLines = fs
     .readFileSync(path.join(runtimeRoot, "SHA256SUMS"), "utf8")
@@ -189,11 +199,12 @@ function verifyHermesRuntime() {
   }
 
   const python = path.join(runtimeRoot, "venv", "Scripts", "python.exe");
+  const expectedMcpLiteral = JSON.stringify(expectedMcpVersion ?? "__missing__");
   const smoke = spawnSync(
     python,
     [
       "-c",
-      "import asyncio, importlib.util; import aiohttp, yaml, hermes_cli; import gateway.platforms.api_server; assert importlib.util.find_spec('uvloop') is None; asyncio.run(asyncio.sleep(0))",
+      `import asyncio, importlib.metadata as m, importlib.util; import aiohttp, mcp, yaml, hermes_cli; import gateway.platforms.api_server; import tools.mcp_tool; assert m.version('mcp') == ${expectedMcpLiteral}; assert importlib.util.find_spec('uvloop') is None; asyncio.run(asyncio.sleep(0))`,
     ],
     { encoding: "utf8", windowsHide: true, timeout: 30_000 },
   );

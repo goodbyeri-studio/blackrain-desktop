@@ -122,13 +122,29 @@
 - 影响范围：阶段 2、4、5、Windows Credential Manager 验收和诊断脱敏。
 - 后续复查条件：企业 secret broker 成为正式能力时，把 keyring 实现替换为 secret reference resolver；仍不得把明文写入工作台或项目。
 
-## 2026-07-12：Windows runtime 使用锁定基础依赖加最小 API server 补包
+## 2026-07-12：Windows runtime 使用锁定基础依赖、MCP extra 和最小 API server 补包
 
-- 决策：Windows x64 runtime 使用 uv-managed CPython 3.12.8，按 Hermes `uv.lock` 执行 `uv sync --frozen --no-dev --no-editable`，不启用任何 extra；仅从锁定的 `messaging` 解析结果中约束并额外安装 API server 直接需要的 `aiohttp==3.14.1`。
-- 原因：`gateway.platforms.api_server` 直接 import `aiohttp`，但启用完整 `messaging` 会同时引入 Telegram、Discord、Slack 等桌面 MVP 不需要的渠道依赖，扩大包体、License 和攻击面。
+- 决策：Windows x64 runtime 使用 uv-managed CPython 3.12.8，按 Hermes `uv.lock` 执行 `uv sync --frozen --no-dev --no-editable --extra mcp`；另外仅从锁定的 `messaging` 解析结果中约束并安装 API server 直接需要的 `aiohttp==3.14.1`。manifest 额外冻结并由 vendor/doctor 精确检查 `mcp==1.26.0`、`starlette==1.0.1` 和 `aiohttp==3.14.1`。
+- 原因：`gateway.platforms.api_server` 直接 import `aiohttp`；工作台插件接入又依赖 Hermes 原生 `tools.mcp_tool` 和 MCP SDK。若保持无 extra，MCP config 会成为无法注册工具的空壳。启用完整 `messaging` 仍会引入 Telegram、Discord、Slack 等桌面 MVP 不需要的渠道依赖，扩大包体、License 和攻击面。
 - 替代方案：安装 `hermes-agent[messaging]`、随首启联网安装、PyInstaller/Nuitka 单文件封装、要求用户预装 Python。
 - 影响范围：`windows-x64.manifest.json`、`vendor-hermes-runtime.ps1`、release、doctor、NSIS resources 和第三方清单。
 - 后续复查条件：锁定 Hermes 将 API server 依赖移入 core，或 BlackRain 正式决定支持某个消息渠道；任何变更都需重新生成 inventory/checksum 并跑 Windows 矩阵。
+
+## 2026-07-12：MCP 可执行配置只来自 Core verified plugin runtime store
+
+- 决策：App data 下建立 `plugins/runtimes.v1.json` 和 `plugins/installed/` 管理根。只有未来 008 install/verify pipeline 能持久化 `VerifiedPluginRuntime`；普通前端、工作台包和 activation 都只能引用 plugin/version/MCP id，不能提交 command、args、env、cwd 或 transport。首版仅允许 managed stdio MCP，执行前重新验证绝对路径、插件版本目录、managed root、完整祖先链无 symlink、文件存在、参数/超时/数量有界和资源身份不可变。
+- 原因：activation 只证明引用被授权，不应同时成为可执行配置来源；否则前端或包内容可以绕过安装验证启动任意进程。运行前复核还能防止已验证后磁盘路径被 symlink 替换。
+- 替代方案：把 MCP command 放进 activation/Manifest 后直接写入 Hermes config，或允许用户界面添加任意本地 MCP server。
+- 影响范围：`plugin_core.rs`、008 install/verify 接缝、Hermes binding 和后续插件管理 UI。
+- 后续复查条件：008 正式 installer 接通后，将 `persist_verified` 收口进安装事务并增加签名、hash、权限和卸载 ownership；不得开放通用写命令。
+
+## 2026-07-12：整体 MCP server 变更使用空闲态受控重启
+
+- 决策：已注册 server 内部的工具增删交给锁定 Hermes 原生 `notifications/tools/list_changed`；新增、删除或改变整个 server 时，Core 只在不存在 active WORK run 时替换版本化 workbench binding。若 Hermes 已 Ready，则取消受控 stream、重启 Hermes 并重新做 task recovery；session/task metadata 保留。任一 active run 存在时在写 config 前 fail closed。Skills-only 变化不触发重启。
+- 原因：锁定 `/v1` surface 没有 server register/unregister/reload endpoint，而直接在对话执行中杀进程会丢失不可重放的 SSE。空闲态重启能复用原装 Hermes 的启动注册路径，并确保旧 stdio 子进程随 Windows process tree 收敛。
+- 替代方案：修改 Hermes Agent loop、伪造 registry、运行中直接改 config 并假设生效、或调用未进入锁定 HTTP contract 的 CLI `/reload-mcp`。
+- 影响范围：阶段 4/11、task start/continue、App exit、Windows process tree 和 deactivate。
+- 后续复查条件：上游提供稳定且可鉴权的动态 server 生命周期 API，并完成运行中无事件丢失的真实验证后，可去掉 restart；在此之前“动态挂拔不重启进程”仍未完成。
 
 ## 2026-07-12：runtime 完整性使用全文件 checksum 覆盖
 
