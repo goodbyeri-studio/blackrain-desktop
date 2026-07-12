@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -8,8 +9,9 @@ use super::client::HermesApiClient;
 use super::client::HermesHttpTrace;
 use super::config::{
     summary, HermesConfigInspection, HermesConfigManager, HermesConfigSummary,
-    HermesLaunchEnvironment, HermesMcpServerDesiredState, HermesPaths, HermesProviderDesiredState,
-    HermesWorkbenchBindResult, HermesWorkbenchBindRollback, WorkbenchHermesDesiredState,
+    HermesEnvironmentReferenceKind, HermesLaunchEnvironment, HermesMcpServerDesiredState,
+    HermesPaths, HermesProviderDesiredState, HermesWorkbenchBindResult,
+    HermesWorkbenchBindRollback, WorkbenchHermesDesiredState,
 };
 use super::credential_store::{
     ensure_api_server_key, provider_secret_get, resolve_environment_reference,
@@ -19,6 +21,7 @@ use super::types::{WorkError, WorkErrorKind, WorkRuntimeStatus};
 
 pub(crate) const MANAGED_HERMES_PORT: u16 = 8642;
 const DEFAULT_PROFILE_ID: &str = "default";
+pub(crate) const OFFICECLI_SYSTEM_CAPABILITY_ID: &str = "officecli-1.0.117";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -99,15 +102,132 @@ pub(crate) async fn start_runtime(
             )
         })?;
     let mcp_environment = resolve_mcp_launch_environment(&manager)?;
+    let system_tool_paths = resolve_system_tool_paths(paths, &manager)?;
     let environment = HermesLaunchEnvironment::build(
         paths,
         MANAGED_HERMES_PORT,
         &bearer,
         &provider_secret,
         &mcp_environment,
+        &system_tool_paths,
     )
     .map_err(config_error)?;
     supervisor.start(environment).await
+}
+
+fn resolve_system_tool_paths(
+    paths: &HermesPaths,
+    manager: &HermesConfigManager,
+) -> Result<Vec<PathBuf>, WorkError> {
+    let Some(workbench) = manager
+        .load_workbench_desired_state()
+        .map_err(config_error)?
+    else {
+        return Ok(Vec::new());
+    };
+    let app_data = paths.home.parent().ok_or_else(|| {
+        runtime_error(
+            "hermes_app_data_path_invalid",
+            "Unable to resolve App data root for Hermes system capabilities.",
+            false,
+        )
+    })?;
+    let mut resolved = Vec::new();
+    for reference in workbench
+        .environment_refs
+        .iter()
+        .filter(|reference| reference.kind == HermesEnvironmentReferenceKind::SystemCapability)
+    {
+        let tool_root = match reference.reference_id.as_str() {
+            OFFICECLI_SYSTEM_CAPABILITY_ID => app_data.join("tools").join("officecli"),
+            _ => {
+                return Err(runtime_error(
+                    "hermes_system_capability_unsupported",
+                    "WORK activation references an unsupported system capability.",
+                    false,
+                ));
+            }
+        };
+        validate_system_tool_root(app_data, &tool_root)?;
+        resolved.push(tool_root);
+    }
+    resolved.sort();
+    resolved.dedup();
+    Ok(resolved)
+}
+
+fn validate_system_tool_root(app_data: &Path, root: &Path) -> Result<(), WorkError> {
+    let app_data_metadata = fs::symlink_metadata(app_data).map_err(|_| {
+        runtime_error(
+            "hermes_system_capability_missing",
+            "BlackRain App data is unavailable for a verified WORK system capability.",
+            false,
+        )
+    })?;
+    if !app_data_metadata.is_dir() || app_data_metadata.file_type().is_symlink() {
+        return Err(runtime_error(
+            "hermes_system_capability_invalid",
+            "BlackRain App data is invalid for a verified WORK system capability.",
+            false,
+        ));
+    }
+    let relative = root.strip_prefix(app_data).map_err(|_| {
+        runtime_error(
+            "hermes_system_capability_invalid",
+            "A verified WORK system capability escaped App data.",
+            false,
+        )
+    })?;
+    let mut current = app_data.to_path_buf();
+    for component in relative.components() {
+        current.push(component.as_os_str());
+        let metadata = fs::symlink_metadata(&current).map_err(|_| {
+            runtime_error(
+                "hermes_system_capability_missing",
+                "A verified WORK system capability is not installed.",
+                false,
+            )
+        })?;
+        if metadata.file_type().is_symlink() {
+            return Err(runtime_error(
+                "hermes_system_capability_invalid",
+                "A verified WORK system capability path contains a symlink.",
+                false,
+            ));
+        }
+    }
+    if !root.is_dir() {
+        return Err(runtime_error(
+            "hermes_system_capability_invalid",
+            "A verified WORK system capability root is invalid.",
+            false,
+        ));
+    }
+    let binary = [root.join("officecli.exe"), root.join("officecli")]
+        .into_iter()
+        .find(|path| path.is_file())
+        .ok_or_else(|| {
+            runtime_error(
+                "hermes_system_capability_missing",
+                "A verified WORK system capability executable is missing.",
+                false,
+            )
+        })?;
+    let metadata = fs::symlink_metadata(&binary).map_err(|_| {
+        runtime_error(
+            "hermes_system_capability_missing",
+            "A verified WORK system capability executable is missing.",
+            false,
+        )
+    })?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(runtime_error(
+            "hermes_system_capability_invalid",
+            "A verified WORK system capability executable is invalid.",
+            false,
+        ));
+    }
+    Ok(())
 }
 
 fn resolve_mcp_launch_environment(
@@ -291,7 +411,8 @@ mod tests {
 
     use super::{
         configure_runtime_desired_state, ensure_config_matches_desired, load_runtime_desired_state,
-        resolve_mcp_launch_environment_with,
+        resolve_mcp_launch_environment_with, resolve_system_tool_paths,
+        OFFICECLI_SYSTEM_CAPABILITY_ID,
     };
     use crate::shared::hermes_core::config::{
         HermesConfigManager, HermesEnvironmentReference, HermesEnvironmentReferenceKind,
@@ -329,6 +450,147 @@ mod tests {
         };
         ensure_config_matches_desired(&manager, &manager.load_desired_state().unwrap()).unwrap();
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn resolves_only_installed_core_owned_system_tool_capabilities() {
+        let root = temp_root();
+        let paths = HermesPaths::from_app_data_dir(&root);
+        let manager = HermesConfigManager {
+            paths: paths.clone(),
+        };
+        manager.apply(&desired("deepseek-chat")).unwrap();
+        let skill_root = root.join("workbenches/office/skills/generate");
+        fs::create_dir_all(&skill_root).unwrap();
+        fs::write(skill_root.join("SKILL.md"), "# Generate\n").unwrap();
+        manager
+            .bind_workbench(
+                &desired("deepseek-chat"),
+                &WorkbenchHermesDesiredState {
+                    workbench_id: "com.blackrain.office".into(),
+                    workbench_version: "0.1.0".into(),
+                    skill_roots: vec![skill_root],
+                    plugin_ids: Vec::new(),
+                    mcp_server_ids: Vec::new(),
+                    environment_refs: vec![HermesEnvironmentReference {
+                        kind: HermesEnvironmentReferenceKind::SystemCapability,
+                        reference_id: OFFICECLI_SYSTEM_CAPABILITY_ID.into(),
+                    }],
+                    provider_secret_ref: None,
+                    permission_grant_id: "grant-office".into(),
+                },
+                &[],
+                true,
+            )
+            .unwrap();
+        let tool_root = root.join("tools/officecli");
+        fs::create_dir_all(&tool_root).unwrap();
+        fs::write(tool_root.join("officecli"), b"fixture").unwrap();
+        assert_eq!(
+            resolve_system_tool_paths(&paths, &manager).unwrap(),
+            vec![tool_root]
+        );
+
+        let mut unsupported = manager.load_workbench_desired_state().unwrap().unwrap();
+        unsupported.environment_refs[0].reference_id = "untrusted-tool".into();
+        manager
+            .bind_workbench(&desired("deepseek-chat"), &unsupported, &[], true)
+            .unwrap();
+        assert_eq!(
+            resolve_system_tool_paths(&paths, &manager)
+                .unwrap_err()
+                .code,
+            "hermes_system_capability_unsupported"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn missing_system_tool_capability_fails_closed() {
+        let root = temp_root();
+        let paths = HermesPaths::from_app_data_dir(&root);
+        let manager = HermesConfigManager {
+            paths: paths.clone(),
+        };
+        manager.apply(&desired("deepseek-chat")).unwrap();
+        let skill_root = root.join("workbenches/office/skills/generate");
+        fs::create_dir_all(&skill_root).unwrap();
+        fs::write(skill_root.join("SKILL.md"), "# Generate\n").unwrap();
+        manager
+            .bind_workbench(
+                &desired("deepseek-chat"),
+                &WorkbenchHermesDesiredState {
+                    workbench_id: "com.blackrain.office".into(),
+                    workbench_version: "0.1.0".into(),
+                    skill_roots: vec![skill_root],
+                    plugin_ids: Vec::new(),
+                    mcp_server_ids: Vec::new(),
+                    environment_refs: vec![HermesEnvironmentReference {
+                        kind: HermesEnvironmentReferenceKind::SystemCapability,
+                        reference_id: OFFICECLI_SYSTEM_CAPABILITY_ID.into(),
+                    }],
+                    provider_secret_ref: None,
+                    permission_grant_id: "grant-office".into(),
+                },
+                &[],
+                true,
+            )
+            .unwrap();
+        assert_eq!(
+            resolve_system_tool_paths(&paths, &manager)
+                .unwrap_err()
+                .code,
+            "hermes_system_capability_missing"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_system_tool_capability_fails_closed() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root();
+        let paths = HermesPaths::from_app_data_dir(&root);
+        let manager = HermesConfigManager {
+            paths: paths.clone(),
+        };
+        manager.apply(&desired("deepseek-chat")).unwrap();
+        let skill_root = root.join("workbenches/office/skills/generate");
+        fs::create_dir_all(&skill_root).unwrap();
+        fs::write(skill_root.join("SKILL.md"), "# Generate\n").unwrap();
+        manager
+            .bind_workbench(
+                &desired("deepseek-chat"),
+                &WorkbenchHermesDesiredState {
+                    workbench_id: "com.blackrain.office".into(),
+                    workbench_version: "0.1.0".into(),
+                    skill_roots: vec![skill_root],
+                    plugin_ids: Vec::new(),
+                    mcp_server_ids: Vec::new(),
+                    environment_refs: vec![HermesEnvironmentReference {
+                        kind: HermesEnvironmentReferenceKind::SystemCapability,
+                        reference_id: OFFICECLI_SYSTEM_CAPABILITY_ID.into(),
+                    }],
+                    provider_secret_ref: None,
+                    permission_grant_id: "grant-office".into(),
+                },
+                &[],
+                true,
+            )
+            .unwrap();
+        let external = temp_root();
+        fs::write(external.join("officecli"), b"fixture").unwrap();
+        fs::create_dir_all(root.join("tools")).unwrap();
+        symlink(&external, root.join("tools/officecli")).unwrap();
+        assert_eq!(
+            resolve_system_tool_paths(&paths, &manager)
+                .unwrap_err()
+                .code,
+            "hermes_system_capability_invalid"
+        );
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(external).unwrap();
     }
 
     #[test]

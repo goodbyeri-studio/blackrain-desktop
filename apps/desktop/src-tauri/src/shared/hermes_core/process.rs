@@ -1380,6 +1380,7 @@ mod tests {
             "br_fixture_0123456789abcdef0123456789abcdef",
             "provider-fixture-secret",
             &BTreeMap::new(),
+            &[],
         )
         .unwrap()
     }
