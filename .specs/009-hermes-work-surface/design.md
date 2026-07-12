@@ -315,6 +315,8 @@ Core 将它转成 Hermes 可读状态。工作台不能自己修改 `config.yaml
 
 同一个 App-owned `HERMES_HOME` 会被不同 activation 复用，因此首版 managed config 必须显式关闭 Hermes 内置 `MEMORY.md`、`USER.md`、external memory provider、`memory` 和 `session_search` toolset。工作台随包专业知识只进入 008 管理的 Skills/资源，任务历史只由 BlackRain TaskStore 按 task/activation 持久化。未来共享记忆不能直接复用 Hermes 的全局开关；必须先建立 App-owned scope（至少区分 user/workbench/project）、逐项授权、来源和删除/导出策略，再由 Core 生成受限 provider 配置。
 
+首版不把 Hermes session export 当作用户交付或合规审计。锁定 `/v1` 只提供 session list/read/messages，没有版本化 export 端点；BlackRain 也不得读取 Hermes 内部 SQLite `SessionDB`。用户交付物必须是工作台在已验证项目根生成的真实文件。TaskStore 的 normalized event journal 是 WORK surface 显示与恢复真源，但因主动脱敏、丢弃 raw payload 且未做签名，只能称为任务记录。未来若增加导出，应从单个 task/activation 生成用户主动触发的 Markdown/版本化 JSON，并另行定义字段白名单、reasoning/tool 参数处理、附件、完整性、权限、保留和删除合同。
+
 目标 Windows 布局由实际 Tauri resources 配置冻结，概念上包括：
 
 ```text
