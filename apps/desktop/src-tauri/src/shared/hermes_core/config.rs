@@ -671,6 +671,7 @@ impl HermesLaunchEnvironment {
         api_server_key: &str,
         provider_api_key: &str,
         mcp_environment: &BTreeMap<String, String>,
+        tool_paths: &[PathBuf],
     ) -> Result<Self, String> {
         if api_port == 0 {
             return Err("Hermes API port must be non-zero.".into());
@@ -688,6 +689,18 @@ impl HermesLaunchEnvironment {
         values.insert("API_SERVER_KEY".into(), api_server_key.into());
         values.insert(PROVIDER_API_KEY_ENV.into(), provider_api_key.into());
         values.insert("CUA_DRIVER_RS_TELEMETRY_ENABLED".into(), "0".into());
+        if !tool_paths.is_empty() {
+            if tool_paths.iter().any(|path| !is_safe_absolute_path(path)) {
+                return Err("Hermes system tool paths must be absolute safe paths.".into());
+            }
+            let mut entries = tool_paths.to_vec();
+            if let Some(parent_path) = std::env::var_os("PATH") {
+                entries.extend(std::env::split_paths(&parent_path));
+            }
+            let joined = std::env::join_paths(entries)
+                .map_err(|error| format!("Unable to compose Hermes system tool PATH: {error}"))?;
+            values.insert("PATH".into(), joined.to_string_lossy().to_string());
+        }
         for (key, value) in mcp_environment {
             validate_mcp_process_env_key(key)?;
             if value.is_empty() || value.len() > 65_536 || value.chars().any(char::is_control) {
@@ -1538,6 +1551,7 @@ mod tests {
             &api_key,
             "provider-secret",
             &mcp_environment,
+            &[],
         )
         .unwrap();
         assert_eq!(environment.values()["API_SERVER_HOST"], "127.0.0.1");
@@ -1570,6 +1584,7 @@ mod tests {
             "short",
             "provider-secret",
             &BTreeMap::new(),
+            &[],
         )
         .unwrap_err();
         assert!(error.contains("too short"));
@@ -1590,10 +1605,31 @@ mod tests {
                 &"a".repeat(64),
                 "provider-secret",
                 &BTreeMap::from([(key.into(), "secret".into())]),
+                &[],
             )
             .unwrap_err();
             assert!(error.contains("MCP process environment keys"));
         }
+    }
+
+    #[test]
+    fn launch_environment_prepends_only_core_resolved_system_tool_paths() {
+        let paths = HermesPaths::from_app_data_dir(&PathBuf::from("/app-data/blackrain"));
+        let tool_root = PathBuf::from("/app-data/blackrain/tools/officecli");
+        let environment = HermesLaunchEnvironment::build(
+            &paths,
+            8642,
+            &"a".repeat(64),
+            "provider-secret",
+            &BTreeMap::new(),
+            std::slice::from_ref(&tool_root),
+        )
+        .unwrap();
+        let first = std::env::split_paths(std::ffi::OsStr::new(&environment.values()["PATH"]))
+            .next()
+            .unwrap();
+        assert_eq!(first, tool_root);
+        assert!(!environment.values().contains_key("BLACKRAIN_TOOL_PATH"));
     }
 
     #[test]

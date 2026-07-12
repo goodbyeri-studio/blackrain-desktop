@@ -89,6 +89,14 @@
 - 影响范围：阶段 2 deactivate、阶段 3 uninstall、009 WORK command 和 UI 文案。
 - 后续复查条件：正式 lifecycle state machine 接通后，deactivate 先写入 generation/audit；uninstall 仅清理明确归 Core 所有且引用为零的资源。
 
+## 2026-07-12：system capability 只携带 Core allowlist 资源身份
+
+- 决策：activation 中的 `systemCapability` 只保存 Core 认识的无值资源 ID。首个 allowlist 项为 `officecli-1.0.117`；009 只能把它解析到 BlackRain App data 下的受控 OfficeCLI 安装根，并在启动 Hermes 时前置到该子进程的 `PATH`。Manifest、前端和工作台均不能提供可执行路径或任意 PATH 片段。
+- 原因：系统能力不是 secret，也不是任意环境变量。如果 activation 可以携带路径，包声明或 UI 就能绕过 install/verify，将任意目录提升为 Hermes 工具来源。
+- 替代方案：把 OfficeCLI 绝对路径写入 activation、使用通用 `PATH` environment reference、继承用户 shell 中偶然存在的 OfficeCLI，或将 system capability 交给凭据解析器。
+- 影响范围：008 dependency install/verify/activation producer、009 Hermes launch environment 和 Office 黄金流程。
+- 后续复查条件：正式 installer 必须把 OfficeCLI 安装到版本化受控目录，校验锁定 SHA-256 与 `--version` 后才签发该 capability；升级时通过新 activation/generation 切换，不能就地复用未经复验的身份。
+
 ## 被推翻的方案
 
 ### 2026-07-12：工作台主要是纯 Markdown
