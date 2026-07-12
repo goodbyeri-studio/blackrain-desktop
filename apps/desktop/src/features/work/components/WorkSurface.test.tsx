@@ -328,9 +328,11 @@ describe("WorkSurface", () => {
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByLabelText("编辑后续任务 1"));
-    expect((screen.getByLabelText("Office 任务指令") as HTMLTextAreaElement).value).toBe(
+    const composer = screen.getByLabelText("Office 任务指令") as HTMLTextAreaElement;
+    expect(composer.value).toBe(
       followUp.prompt,
     );
+    expect(document.activeElement).toBe(composer);
     fireEvent.change(screen.getByLabelText("Office 任务指令"), {
       target: { value: "生成董事会摘要" },
     });
@@ -477,8 +479,46 @@ describe("WorkSurface", () => {
     expect(screen.getByText("quarterly.xlsx")).toBeTruthy();
     expect(screen.getByText("report.docx")).toBeTruthy();
     expect(screen.getByText("Hermes 请求执行操作")).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "拒绝" }));
+    expect(screen.getByRole("log").getAttribute("aria-relevant")).toBe("additions text");
+    expect(screen.getByRole("navigation", { name: "Office 任务列表" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "仅本次允许" }));
     expect(workController.approveTask).toHaveBeenCalledWith("task-1", "once");
+  });
+
+  it("focuses the composer for a new task", () => {
+    const workController = controller({
+      tasks: { "task-1": { task, events: [], eventIds: {}, followUps: [] } },
+      taskOrder: ["task-1"],
+      selectedTaskId: "task-1",
+    });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByLabelText("新建 Office 任务"));
+
+    expect(document.activeElement).toBe(screen.getByLabelText("Office 任务指令"));
+  });
+
+  it("manages diagnostics focus and closes the panel with Escape", async () => {
+    const workController = controller();
+    vi.mocked(workController.loadDiagnostics).mockResolvedValue({
+      status: runtime,
+      configState: "valid",
+      configSummary: null,
+      recentLogs: [],
+      recentRequests: [],
+    });
+    render(<WorkSurface controller={workController} onClose={vi.fn()} />);
+    const trigger = screen.getByRole("button", { name: "诊断" });
+
+    trigger.focus();
+    fireEvent.click(trigger);
+    const close = await screen.findByRole("button", { name: "关闭诊断" });
+    expect(document.activeElement).toBe(close);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByLabelText("关闭诊断")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 
   it("coalesces live deltas and hides them once the completed message arrives", () => {

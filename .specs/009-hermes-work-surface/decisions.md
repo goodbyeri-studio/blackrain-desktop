@@ -420,6 +420,14 @@
 - 影响范围：WORK header/action、TaskStore 既有 metadata removal、共享 ModalShell 可访问性、阶段 9 键盘/焦点验证。
 - 后续复查条件：Windows Tauri WebView 需人工验证屏幕阅读器、Escape、Tab/Shift+Tab、200% 缩放和删除后的下一任务焦点；在这些证据完成前不勾选阶段 9 无障碍总项。
 
+## 2026-07-12：高缩放触发窄布局时保留完整任务导航
+
+- 决策：`760px` 以下不再隐藏 WORK task sidebar，而是把同一 DS panel/nav 原语重排为有界高度、可横向滚动的紧凑任务导航；`520px` 以下只收紧 header 文案，不移除新建、任务切换、停用或删除命令。approval 出现时默认聚焦“拒绝”，新建/编辑后聚焦 Composer，非模态诊断抽屉负责 Escape 关闭与焦点归还，transcript 使用 `role=log`。
+- 原因：Windows 125%–200% 缩放和窄窗口会落入相同 CSS breakpoint；直接 `display:none` 会让用户失去任务列表和新建入口。安全审批需要明确可发现的键盘起点，诊断抽屉也不能在关闭后把焦点丢到 document。
+- 替代方案：窄布局完全隐藏 task sidebar、另建第二套 mobile navigation、自动聚焦“本任务允许”、把诊断改成无焦点管理的绝对定位浮层，或只依赖鼠标。
+- 影响范围：WORK task navigation、Composer、approval、diagnostics、共享 Panel primitive 属性透传和阶段 9 无障碍验证。
+- 后续复查条件：当前证据只覆盖 jsdom contract 和 CSS breakpoint；必须在 Windows Tauri WebView 实测高 DPI、浏览器缩放等效场景、Tab 顺序、屏幕阅读器播报和无重叠后，才能勾选阶段 9 总项。
+
 ## 2026-07-12：Skills 使用 Hermes 原生 external_dirs，单 runtime 切换时 fail closed
 
 - 决策：不复制 Skills 到 Hermes 自有目录，也不修改 Agent loop。Core 在创建或继续新 run 前，将 activation 的受控 `skillRoots` 写入专属 `HERMES_HOME/config.yaml` 的原生 `skills.external_dirs`，并把非敏感 binding 持久化为 `workbench-desired-state.v1.json`。绑定前递归拒绝不存在、无 `SKILL.md`、重复、超过 50,000 项/32 层或包含 symlink 的技能树；provider credential ref 必须匹配当前 App-owned provider。provider 更新、runtime restart 和 repair 都保留并重新验证该 binding。

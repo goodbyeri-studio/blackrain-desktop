@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
 import Paperclip from "lucide-react/dist/esm/icons/paperclip";
 import Square from "lucide-react/dist/esm/icons/square";
@@ -13,6 +13,7 @@ type WorkComposerProps = {
   projectFileRefs: string[];
   canAttach: boolean;
   attachmentError: string | null;
+  focusRequestId: number;
   onChange: (value: string) => void;
   onAddFiles: () => void;
   onRemoveFile: (path: string) => void;
@@ -30,6 +31,7 @@ export function WorkComposer({
   projectFileRefs,
   canAttach,
   attachmentError,
+  focusRequestId,
   onChange,
   onAddFiles,
   onRemoveFile,
@@ -39,6 +41,12 @@ export function WorkComposer({
 }: WorkComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const canSubmit = value.trim().length > 0 && !disabled;
+
+  useEffect(() => {
+    if (focusRequestId > 0 && !disabled) {
+      textareaRef.current?.focus();
+    }
+  }, [disabled, focusRequestId]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -88,6 +96,11 @@ export function WorkComposer({
             rows={1}
             disabled={disabled}
             aria-label="Office 任务指令"
+            aria-describedby={
+              attachmentError
+                ? "work-composer-error work-composer-help"
+                : "work-composer-help"
+            }
           />
           <div className="work-composer-actions">
             <button
@@ -121,8 +134,12 @@ export function WorkComposer({
           </div>
         </div>
       </div>
-      {attachmentError ? <small role="alert">{attachmentError}</small> : null}
-      <small>
+      {attachmentError ? (
+        <small id="work-composer-error" role="alert">
+          {attachmentError}
+        </small>
+      ) : null}
+      <small id="work-composer-help">
         {running
           ? "后续任务会持久化排队；当前 run 结束前不会发送给 Hermes。"
           : "Hermes 可能调用本工作台声明的工具；高影响操作会先请求审批。"}

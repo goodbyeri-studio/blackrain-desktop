@@ -2,13 +2,14 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 import { joinClassNames } from "../classNames";
 
-type PanelFrameProps = {
-  children: ReactNode;
-  className?: string;
-};
+type PanelFrameProps = ComponentPropsWithoutRef<"aside">;
 
-export function PanelFrame({ children, className }: PanelFrameProps) {
-  return <aside className={joinClassNames("ds-panel", className)}>{children}</aside>;
+export function PanelFrame({ children, className, ...props }: PanelFrameProps) {
+  return (
+    <aside className={joinClassNames("ds-panel", className)} {...props}>
+      {children}
+    </aside>
+  );
 }
 
 type PanelHeaderProps = {
@@ -60,13 +61,14 @@ export function PanelSearchField({
   );
 }
 
-type PanelNavListProps = {
-  children: ReactNode;
-  className?: string;
-};
+type PanelNavListProps = ComponentPropsWithoutRef<"div">;
 
-export function PanelNavList({ children, className }: PanelNavListProps) {
-  return <div className={joinClassNames("ds-panel-nav", className)}>{children}</div>;
+export function PanelNavList({ children, className, ...props }: PanelNavListProps) {
+  return (
+    <div className={joinClassNames("ds-panel-nav", className)} {...props}>
+      {children}
+    </div>
+  );
 }
 
 type PanelNavItemProps = Omit<ComponentPropsWithoutRef<"button">, "children"> & {
