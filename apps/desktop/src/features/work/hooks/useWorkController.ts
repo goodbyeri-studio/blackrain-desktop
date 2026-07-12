@@ -217,7 +217,7 @@ export function useWorkController() {
   }, [runExclusive]);
 
   const startRuntime = useCallback(async () => {
-    const runtime = await runExclusive("runtime:start", hermesRuntimeStart);
+    const runtime = await runExclusive("runtime:mutation", hermesRuntimeStart);
     dispatch({ type: "runtimeUpdated", runtime });
     if (runtime.state === "ready") {
       void hermesRuntimeModels()
@@ -228,14 +228,14 @@ export function useWorkController() {
   }, [runExclusive]);
 
   const stopRuntime = useCallback(async () => {
-    const runtime = await runExclusive("runtime:stop", hermesRuntimeStop);
+    const runtime = await runExclusive("runtime:mutation", hermesRuntimeStop);
     dispatch({ type: "runtimeUpdated", runtime });
     dispatch({ type: "modelsLoaded", models: [] });
     return runtime;
   }, [runExclusive]);
 
   const restartRuntime = useCallback(async () => {
-    const runtime = await runExclusive("runtime:restart", hermesRuntimeRestart);
+    const runtime = await runExclusive("runtime:mutation", hermesRuntimeRestart);
     dispatch({ type: "runtimeUpdated", runtime });
     if (runtime.state === "ready") {
       void hermesRuntimeModels()
@@ -246,7 +246,7 @@ export function useWorkController() {
   }, [runExclusive]);
 
   const repairRuntime = useCallback(async () => {
-    const runtime = await runExclusive("runtime:repair", hermesRuntimeRepair);
+    const runtime = await runExclusive("runtime:mutation", hermesRuntimeRepair);
     dispatch({ type: "runtimeUpdated", runtime });
     if (runtime.state === "ready") {
       void hermesRuntimeModels()

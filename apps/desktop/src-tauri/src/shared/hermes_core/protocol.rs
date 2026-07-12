@@ -147,6 +147,9 @@ impl HermesSseDecoder {
 
         let mut frames = Vec::new();
         while let Some((frame_end, separator_len)) = find_sse_separator(&self.buffer) {
+            if frame_end > MAX_SSE_BUFFER_BYTES {
+                return Err("Hermes SSE frame exceeded 1 MiB.".into());
+            }
             let block = self.buffer[..frame_end].to_vec();
             self.buffer.drain(..frame_end + separator_len);
             let text = std::str::from_utf8(&block)
@@ -257,6 +260,7 @@ mod tests {
         parse_sse_transcript, HermesApprovalRequest, HermesApprovalResponse, HermesCapabilities,
         HermesErrorEnvelope, HermesHealth, HermesModelList, HermesRawEvent, HermesRunStarted,
         HermesRunStatus, HermesSseDecoder, HermesSseFrame, HermesStopResponse,
+        MAX_SSE_BUFFER_BYTES,
     };
 
     const FIXTURE_ROOT: &str = "../../../test-fixtures/hermes/v2026.7.7.2";
@@ -345,6 +349,18 @@ mod tests {
         let mut decoder = HermesSseDecoder::default();
         decoder.push(&payload[..80]).unwrap();
         assert!(decoder.finish().is_err());
+    }
+
+    #[test]
+    fn incremental_decoder_rejects_oversized_complete_frames() {
+        let mut payload = vec![b'x'; MAX_SSE_BUFFER_BYTES + 1];
+        payload.extend_from_slice(b"\n\n");
+        let mut decoder = HermesSseDecoder::default();
+
+        assert!(decoder
+            .push(&payload)
+            .unwrap_err()
+            .contains("exceeded 1 MiB"));
     }
 
     #[test]

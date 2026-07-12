@@ -101,6 +101,9 @@ function mergeEvents(current: WorkEvent[], incoming: WorkEvent[]): WorkEvent[] {
 }
 
 function projectTaskFromEvent(task: WorkTask, event: WorkEvent): WorkTask {
+  if (event.sequence < task.lastEventSequence) {
+    return task;
+  }
   let status: WorkTaskStatus = task.status;
   if (event.type === "taskStatusChanged") {
     status = event.status;

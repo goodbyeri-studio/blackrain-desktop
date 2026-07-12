@@ -57,6 +57,18 @@ describe("Hermes WORK contracts", () => {
     ).toBe(false);
   });
 
+  it("accepts normalized usage updates", () => {
+    expect(
+      isWorkEvent({
+        ...workAgentDelta,
+        type: "usageUpdated",
+        inputTokens: 12,
+        outputTokens: 8,
+        totalTokens: 20,
+      }),
+    ).toBe(true);
+  });
+
   it("accepts the Rust-shared activated workbench context fixture", () => {
     expect(isActivatedWorkbenchContext(activatedWorkbench)).toBe(true);
     expect(

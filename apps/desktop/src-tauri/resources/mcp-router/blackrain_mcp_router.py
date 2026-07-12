@@ -390,6 +390,8 @@ class RouterState:
 
     async def observe_hermes_session(self, session: Any, initialized: bool) -> None:
         async with self._lock:
+            if session is not self._hermes_session:
+                self._hermes_initialized = False
             self._hermes_session = session
             self._hermes_initialized = self._hermes_initialized or initialized
 
