@@ -339,6 +339,14 @@
 - 影响范围：WORK reducer/selectors、Hermes supervisor test、阶段 13 性能分析和阶段 14 Windows 发布验收。
 - 后续复查条件：Windows 实机必须测冷启动 P50/P95、Hermes/受控 MCP RSS、WebView 长会话 heap、事件积压/掉帧和 5,000 任务可交互性；获得三轮稳定数据后再制定产品 SLA，并据此调整当前宽松 guardrail。
 
+## 2026-07-12：Hermes 升级必须通过单一 contract regression 入口
+
+- 决策：`scripts/check-hermes-contract.py` 是 Hermes 锁升级的可执行门禁。静态层交叉校验 Windows runtime manifest、`fetch-references.sh`、干净 exact-tag checkout、MIT LICENSE/pyproject/uv.lock SHA-256、从上游 Python AST 提取的必需路由、当前 tag fixtures 与必需 capabilities；完整层继续运行锁定上游 API/Windows/Skills/file safety/approval pytest、BlackRain Hermes Rust tests 和前端 types/events/Tauri wrapper tests。日常命令只维护在 `docs/commands.md`。
+- 原因：只校验 commit 或只跑 BlackRain fake fixtures，都无法发现上游 route、事件、安全门禁、依赖锁或许可证变化；手工复制多条命令又容易漏项。单入口让升级 PR 可以先 fail closed，再基于明确 diff 更新 contract。
+- 替代方案：跟随 Hermes `main`、只跑 `cargo check`、直接覆盖旧 fixtures、依赖 README 路由清单、或由 runtime vendor 阶段才发现许可证/依赖漂移。
+- 影响范围：Hermes 版本升级、Windows runtime manifest/vendor、spec 003/009 verification、fixtures 与维护者 runbook。
+- 后续复查条件：上游测试重命名或协议升级时必须先让旧入口失败，再审阅上游 diff、更新 route/feature/fixture allowlist 和存证；脚本通过仍不替代真实 new-api/Windows/Office 产品验收。
+
 ## 2026-07-12：系统恢复、前台或网络在线时只重新对账并挂接已有 run
 
 - 决策：Tauri 在 `RunEvent::Resumed` 发出唯一 `work-environment-reconcile` 事件；WORK controller 将它与 window focus、document visible 和 browser online 合并，250ms 去抖后并行刷新 runtime/tasks/recovery/activations。只有 runtime Ready 且 TaskStore 返回 `degraded + activeRunId` 时才调用现有 resume command。多个同时到达的环境事件合并成一次对账，组件卸载时清理 Tauri/browser listener 和 timer。

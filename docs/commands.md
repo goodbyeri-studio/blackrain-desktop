@@ -40,9 +40,20 @@ Set-Location ..\..
 
 ## 拉取并对齐双引擎
 
-### Windows 推荐：显式 clone + checkout
+### 有 POSIX shell：自动锁定入口
 
-`scripts/fetch-references.sh` 当前只克隆默认分支，不会强制 checkout 目标锁定版本。Windows 构建/验证前使用下面的显式流程：
+Git for Windows 自带 Git Bash 时，优先使用仓库脚本。脚本会 clone/fetch 精确 tag、校验 tag 解引用后的完整 SHA，并 detached checkout；上游有已跟踪改动时会 fail closed：
+
+```powershell
+sh scripts/fetch-references.sh
+python scripts/check-hermes-contract.py --static-only
+```
+
+第二条只做 Hermes 锁、LICENSE/lockfile hash、AST 路由和 fixtures 静态审计，不安装依赖。
+
+### 纯 PowerShell 回退：显式 clone + checkout
+
+纯 PowerShell 环境没有 `sh` 时，Windows 构建/验证前使用下面的显式流程：
 
 ```powershell
 if (-not (Test-Path codex-upstream)) {
@@ -68,17 +79,32 @@ git -C hermes-upstream checkout --detach 9de9c25f620ff7f1ce0fd5457d596052d515959
 git -C codex-upstream rev-parse --short HEAD
 git -C hermes-upstream rev-parse --short HEAD
 # 预期分别为 44918ea10c0f99151c6710411b4322c2f5c96bea、9de9c25f620ff7f1ce0fd5457d596052d5159596
+
+python scripts/check-hermes-contract.py --static-only
 ```
 
-目标锁定值与脚本风险见 [REFERENCES](REFERENCES.md)。不要把本机 gitignored 克隆的 `HEAD` 当成仓库已完成状态。
+目标锁定值与边界见 [REFERENCES](REFERENCES.md)。不要把本机 gitignored 克隆的 `HEAD` 当成仓库已完成状态。
 
-### 已有 POSIX shell 时的便利入口
+### Hermes 上游升级 contract regression
 
 ```powershell
-sh scripts/fetch-references.sh
+Set-Location hermes-upstream
+uv sync --frozen --extra dev --extra mcp
+Set-Location ..
+
+python scripts/check-hermes-contract.py
 ```
 
-这条命令只准备目录；仍必须执行上面的 fetch / checkout / `rev-parse` 校验。纯 PowerShell 环境没有 `sh` 时直接使用推荐流程。
+完整入口依次验证：
+
+- runtime manifest、`fetch-references.sh`、上游 exact tag/commit 一致；
+- 上游工作树干净，`LICENSE`、`pyproject.toml`、`uv.lock` SHA-256 与存证一致；
+- 从 `api_server.py` AST 提取的必需 `/v1`/session 路由仍存在；
+- 当前 tag 的 capabilities/SSE/run/approval/stop fixtures 完整；
+- 锁定上游 API/Windows/Skills/file safety/approval 专项 pytest；
+- BlackRain Hermes Rust contract 与前端 types/events/Tauri wrapper tests。
+
+升级 Hermes 时先更新 `scripts/fetch-references.sh` 与 Windows runtime manifest 的 tag、完整 commit、版本及三个 hash；重新生成并审阅新 tag fixture 目录，更新 spec 003/009 存证，再运行完整入口。最后仍须在 Windows 执行 runtime vendor、NSIS 和 spec 007/009 产品矩阵；该脚本不替代 Windows 实机验收。
 
 ## 构建 CODE 内核
 
