@@ -313,6 +313,8 @@ Core 将它转成 Hermes 可读状态。工作台不能自己修改 `config.yaml
 
 首版只运行一个由 BlackRain 管理的 Hermes home/runtime，不把工作台或 activation 映射为 Hermes named Profile，也不暴露 `hermes profile` 的创建、切换、克隆、导入或删除入口。工作台隔离继续由不可变 activation generation、Core-owned binding、任务身份和 active-run 冲突门禁完成。Hermes Profile 是包含 config、provider secret、memory、session、skills、cron 和 gateway 的完整第二状态树，并不提供文件系统 sandbox；直接映射会与 008 生命周期和 App 唯一配置写入者重复。未来只有并发运行多个工作台成为已验证需求时，才评估由 Core 分配不透明 runtime slot，每个 slot 独立 `HERMES_HOME + port + supervisor + credential namespace`，不能让工作台直接管理上游 Profile。
 
+同一个 App-owned `HERMES_HOME` 会被不同 activation 复用，因此首版 managed config 必须显式关闭 Hermes 内置 `MEMORY.md`、`USER.md`、external memory provider、`memory` 和 `session_search` toolset。工作台随包专业知识只进入 008 管理的 Skills/资源，任务历史只由 BlackRain TaskStore 按 task/activation 持久化。未来共享记忆不能直接复用 Hermes 的全局开关；必须先建立 App-owned scope（至少区分 user/workbench/project）、逐项授权、来源和删除/导出策略，再由 Core 生成受限 provider 配置。
+
 目标 Windows 布局由实际 Tauri resources 配置冻结，概念上包括：
 
 ```text
