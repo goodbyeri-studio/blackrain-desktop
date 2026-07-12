@@ -118,6 +118,8 @@ Core 激活工作台时，负责把声明的 Skills、插件、环境变量、�
 
 工作台不得直接成为引擎配置的第二写入者。
 
+激活是不可变的运行 generation：项目、工作台版本、Skills、插件、环境引用或权限变化时，Core 必须在 install / verify / permission 全部通过后签发新的 `activationId`，不得原地改写旧 activation。既有任务默认继续绑定原 generation；迁移必须由 Core 显式执行并留下审计记录。
+
 ### R6：验证
 
 工作台至少提供：
@@ -134,6 +136,10 @@ Core 激活工作台时，负责把声明的 Skills、插件、环境变量、�
 
 - 升级先构建新版本，再原子切换激活状态。
 - 新版本健康检查失败时回滚旧版本。
+- 新 generation 不得覆盖或删除仍被任务引用的旧 activation；运行中的任务不得迁移。
+- 仅同一工作台、同一用户项目、当前无 active run 且新 generation 已完成安装、验证和权限确认的任务可以显式迁移。
+- 迁移记录必须包含 task、旧/新 activation、时间、原因和结果；session 可以保留，但下一次 run 必须使用新 generation。
+- 引擎配置、插件 runtime 或路由切换失败时，任务绑定和 active activation 必须一起回滚，不得留下半迁移状态。
 - 卸载只删除工作台受控资源，默认保留用户项目。
 - 依赖被多个工作台共享时不得误删。
 - 卸载后应报告残留项和保留原因。

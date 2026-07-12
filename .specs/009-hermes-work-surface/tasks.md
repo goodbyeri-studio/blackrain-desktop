@@ -181,12 +181,18 @@
 - [x] 将 Skills 映射到专属 Hermes 环境
 - [x] 注册/注销受控 MCP server，并验证 `tools/list_changed`
 - [ ] 动态挂载/拔出插件时不重启当前对话，失败可恢复
+  - [x] 审计锁定 Hermes：`tools/list_changed` 只更新已连接 server 的工具；API Server `/v1` 无 MCP reload 控制端点，TUI/消息 gateway 私有 reload 不可调用
+  - [x] 与 spec 008 冻结 activation generation 升级与既有 task/session 迁移合同，资源变化不能静默改写旧 activation
+  - [ ] 实现始终注册的 App-managed MCP router 与 loopback bearer 内存控制面，动态 secret 不落盘
+  - [ ] 覆盖 connect-before-swap、失败保留旧工具、移除回收子进程、`tools/list_changed` 和下个 turn 工具快照刷新
 - [x] 停用工作台时停止其受控进程但保留用户项目
 - [x] 防止不同工作台环境变量、Skills、MCP 和 session 串台
 - [x] Office 官方工作台进入 WORK surface，而不是 CODE 临时路径
 - [x] 工作台未通过 008 activate/verify 时禁止创建正式任务
 
 > 2026-07-12：shared `workbench_core` 已冻结并持久化 `ActivatedWorkbenchContext v1`，Rust/TypeScript 共用 fixture。App data 下的版本化 activation store 只提供 local-only list/read 前端命令，写入只由 008 lifecycle 调用；store 拒绝未知 schema、重复 ID、非法 context、文件/目录 symlink 和超过 1024 条记录，同一 activationId 只允许刷新 `verifiedAt`，资源变化必须签发新 ID。WORK controller 启动与前台对账会刷新 activation 列表，surface 只允许选择已验证 context；`hermes_task_start` 只接受 `activationId + prompt`，从 Core store 读取并校验完整 context，再把 activation/workbench/version/project 身份写入持久任务。没有 activation 时 Composer 禁用，前端不能传 workbench/version/project、env、MCP command、binary、host 或 port。创建/继续新 run 前，Core 将 context 的 skill roots 重新校验为存在、含 `SKILL.md`、无重复且整棵树无 symlink，然后以锁定 Hermes 原生 `skills.external_dirs` 写入专属 `HERMES_HOME/config.yaml`；binding 另存版本化非敏感 envelope，provider 更新/repair 不会抹掉它。MCP command/args/child env reference 只从 Core-owned verified plugin runtime store 解析，首版仅允许 managed stdio；config 只写 App-managed `${BLACKRAIN_MCP_SECRET_*}`，实际 provider/managed-variable 值从系统凭据注入专属 Hermes 进程，system capability 不可冒充 secret。`officecli-1.0.117` 已作为首个 Core allowlist system capability，从 App-data 受控工具根解析并仅前置当前 Hermes 子进程 PATH；缺失、unsupported 和 symlink 均 fail closed。不同 environment reference 会改变 binding 并触发空闲态 restart，旧进程环境随 supervisor 收敛；active run 期间拒绝切换。Skills 不做并集，MCP ID 一一解析，continuation 必须匹配任务持久化 activation/session，因此代码级四类串台门禁已闭合。注册/注销整个 server 仍通过受控 restart，server 内工具变化交给上游 `tools/list_changed`；新 binding readiness 失败时恢复旧 binding/config/last-good 和旧 runtime。由于整个 Hermes 进程仍会重启，“动态挂拔不重启进程”的总项保持未完成。停用命令由 Core 串行执行：拒绝其他 activation/legacy active run，尽力请求 stop 后关闭单 supervisor process tree，取消 stream，把匹配任务收敛为 cancelled，移除 Skills/MCP binding，最后删除 activation；WORK surface 使用现有 ModalShell 明示用户项目保留。官方 Office v0.1.0 现已通过 Windows x64 allowlist command、staging/版本安装、OfficeCLI SHA/version health、项目目录选择和权限确认签发正式 activation，并由同一 WORK surface 创建任务，不再依赖 CODE 临时路径。该勾选只证明代码级路由闭合；真实 Windows 安装、OfficeCLI→Hermes 工具发现、Office smoke/黄金流程、升级/回滚/卸载仍未验证。
+
+> 动态挂拔补充审计：锁定 `/v1/runs` 直接构造 AIAgent，不经过 GatewayRunner 的 slash-command 分发；因此不能发送伪造 `/reload-mcp` 用户 run。008 已冻结不可变 activation 的 generation 升级和既有 task/session 迁移合同；下一步仍需实现 shared Core migration 与始终注册的 App-managed MCP router。在实现和真实 E2E 前继续使用当前空闲态 restart，动态总项保持未完成。
 
 ## 阶段 12：真实模型、工具和 Office 纵切
 

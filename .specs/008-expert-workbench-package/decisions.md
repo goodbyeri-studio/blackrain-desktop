@@ -105,6 +105,14 @@
 - 影响范围：shared lifecycle、App command、WORK controller/surface、Office 资源准备和 009 阶段 11。
 - 后续复查条件：当前只支持首次安装/复用同版本，不代表升级事务。进入升级前必须增加 generation、旧 active 备份、失败回滚、共享依赖引用计数和崩溃恢复；Windows 实机证据仍是发布门禁。
 
+## 2026-07-12：activation generation 不可变，任务只在 run 边界显式迁移
+
+- 决策：继续用新 `activationId` 表达每个不可变 generation，不给旧 activation 增加可变资源 revision。既有 task 默认 pinned 到原 activation；只有同 workbench、同规范化 project、无 active run 且目标 activation 的 install / verify / permission 全部通过时，Core 才能显式迁移。Hermes session 可保留，但下一次 run 必须从新 activation 生成 binding。迁移先持久化 pending audit，再以 connect-before-swap 准备 runtime/router；失败时原子恢复旧 task binding、旧 active generation 和旧工具集合。
+- 原因：资源热更新、工作台升级和任务继续共享同一身份问题。静默改写 activation 会让历史任务无法证明执行时使用的 Skills、插件、权限和环境；active run 中迁移又会混合两个工具集合并破坏审批与事件归属。
+- 替代方案：就地修改 `activations.v1.json`、所有任务自动跟随 active version、运行中切换 generation、创建新 session 才允许升级、或由工作台/surface 自行迁移。
+- 影响范围：activation store、TaskStore、生命周期状态机、009 Hermes binding、动态 MCP router、升级/回滚/卸载引用和审计 UI。
+- 后续复查条件：实现 shared Core migration 状态机时冻结 audit schema 与崩溃恢复；router 接入后补真实 connect-before-swap、失败回滚和 Windows process-tree 验证。合同存在不代表实现完成。
+
 ## 被推翻的方案
 
 ### 2026-07-12：工作台主要是纯 Markdown

@@ -148,6 +148,16 @@
 - 影响范围：阶段 4/11、task start/continue、App exit、Windows process tree 和 deactivate。
 - 后续复查条件：上游提供稳定且可鉴权的动态 server 生命周期 API，并完成运行中无事件丢失的真实验证后，可去掉 restart；在此之前“动态挂拔不重启进程”仍未完成。Windows 还必须故障注入验证新旧 MCP 子进程都随对应 process tree 收敛。
 
+## 2026-07-12：整 server 热挂拔需要 App-managed MCP router 和 activation 升级合同
+
+- 决策：不通过 `/v1/runs` 发送伪造的 `/reload-mcp` 用户输入，也不调用 TUI/消息 gateway 私有 reload 接口。若要在 Hermes 进程与当前对话存活时增加/移除整个 MCP server，目标架构是让 Hermes 始终只连接一个 BlackRain-owned MCP router；App 通过 loopback + 高熵 bearer 的内存控制面向 router 提交 Core 已验证的 server runtime 与短期 secret，router 先连接新子进程再原子切换工具集合，并向 Hermes 发 `notifications/tools/list_changed`。
+- 原因：锁定 `9de9c25` 的 `tools/list_changed` 只刷新已建立 MCP connection 内的工具；API Server `/v1` 没有 reload endpoint，`/v1/runs` 直接构造 AIAgent，不经过 GatewayRunner slash-command 分发。与此同时，008 activation 不可变且资源变化必须签发新 ID，现有 task continuation 又必须匹配旧 activation；没有 generation 迁移合同就热改工具会破坏任务来源证据。
+- 替代方案：调用 `tui_gateway reload.mcp`、把 `/reload-mcp now` 当用户 run、让工作台直接改 `config.yaml`、把新 secret 写入 router desired-state 文件，或静默改写旧 activation。
+- 影响范围：spec 008 activation upgrade、009 task/session identity、Hermes config、plugin runtime、router 制品与 Windows process tree/secret 验证。
+- 后续复查条件：008 已冻结 `old activation → new generation` 的用户授权、task/session 迁移和回滚语义；下一步实现 migration shared Core 与 router 的 authenticated control plane、connect-before-swap、失败保留旧集合、子进程回收和真实 `tools/list_changed` E2E。完成前继续使用当前空闲态 restart，不把同 server 内工具变化冒充整插件热挂拔。
+
+> 008 已冻结前置合同：新 `activationId` 表达不可变 generation；task 默认 pinned，只能在无 active run、同 workbench/project 且目标资源完整验证时显式迁移；session 可保留但下一 run 使用新 generation；runtime/router 失败必须恢复旧 task activation 与工具集合。该更新只关闭合同子项，不代表 migration Core 或 router 已实现。
+
 ## 2026-07-12：run 创建失败按“未附着”收敛，超时不猜测上游结果
 
 - 决策：只有 `POST /v1/runs` 返回可解析的 `run_id` 后，Core 才把 run/session 和本地用户消息 journal 原子附着到 task。明确 4xx/5xx 或连接错误会释放 registry reserve；不会创建本地 active run，也不会在 client/runner 内自动重放。请求超时时同样保持 task 原状态，但明确记录“上游可能已接受、BlackRain 无法确认”的协议风险。
