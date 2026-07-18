@@ -55,7 +55,7 @@ BlackRain（Tauri，subtree 自 CodexMonitor）= 工作台 Core + 双 surface + 
 |---|---|---|
 | `apps/desktop/` | 桌面壳，**git subtree** 自 CodexMonitor（MIT）。**住在里面、持续魔改的底盘**。 | 日常直接改 + 普通 commit。魔改只砸壳外围（Providers 面板、工作台 UI），**不动保真核心**。`git subtree pull` 是维护者动作，别随手做。 |
 | `gateway/` | responses⇄chat 翻译网关（`gateway.py`，纯 stdlib 零依赖）。**可行性验证原型，非生产代码**；边界与命门约束见 [gateway/README.md](gateway/README.md)。 | 可替换的 sidecar 槽位。**只挂在 CODE 路径**（codex→gateway→new-api）。 |
-| `codex-upstream/` | **CODE 引擎**：codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 目标锁定 `rust-v0.144.1` (`44918ea`，2026-07-09)。只读、不改循环；`scripts/fetch-references.sh` 会校验 tag 对应的完整 commit 并 detached checkout。当前仅完成 macOS `cargo check` 与协议方法集合审计，Windows 发布矩阵仍待跑。 |
+| `codex-upstream/` | **CODE 引擎**：codex 内核本地克隆（**gitignored，不入库**），编译产物即黑盒进程。 | 目标锁定 `rust-v0.144.5` (`87db9bc`，2026-07-15；同 0.144 patch 线，`app-server-protocol`/features/浏览器文件相对 0.144.1 无变化，纯 bug fix + Windows 沙箱/`is_dangerous_command` 修复）。只读、不改循环；`scripts/fetch-references.sh` 会校验 tag 对应的完整 commit 并 detached checkout。⚠️ 本次为源码 re-pin：未在 0.144.5 上构建、未跑 `cargo check`、未做 Windows 验收；旧的 macOS `cargo check` 与协议审计证据属于 0.144.1，不自动继承。 |
 | `hermes-upstream/` | **WORK 引擎**：Hermes Agent 本地克隆（**gitignored，不入库**），HTTP `/v1` 接缝黑盒纳管。 | 目标锁定 v2026.7.7.2 (`9de9c25`，v0.18.2，2026-07-07)。可借其 Desktop MIT React 组件（摘零件抄进来，不 fork 整个 Desktop）；`fetch-references.sh` 同样强制校验并 checkout。零翻译直入 new-api（Chat Completions）；Windows 产品验收仍以 spec 007 为准。 |
 | `plugins/` | 工具/数据源/软件适配器及配套 Skills，可能包含 MCP、CLI、代码、二进制和独立进程。 | 每个第三方制品都要声明来源、License、权限和验证；不等同工作台。 |
 | `workbenches/` | 专家工作台包；目标包含 Manifest、Skills、插件依赖、环境、模板、任务和验证。 | 当前 `office-agent` 只是内容/注入骨架；完整生命周期按 008 落地，不能再写成“纯 Markdown 即完整工作台”。 |

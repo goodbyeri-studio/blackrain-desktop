@@ -4,7 +4,7 @@
 > 基于 BlackRain 产品形态（docs/04）+ codex 内核能力底账（.specs/003）+ 当前截图对比，分析 CODE 模式的前端该照抄哪些。
 > 
 > **核心原则：** 用户从“软件开发工作台”进入 CODE surface 后，界面尽量对齐 codex-app，只做汉化、国产模型和品牌切割。工作台货架与生命周期属于外层 Core/008，不在 CODE surface 内重造；工作室也不属于本 spec。
-> **状态图例(2026-07-12)**:本文中「照抄/纳入」表示产品决策,不表示代码已完成。壳层已有 42 个 app-server 方法包装的历史验证,但 GUI 落点仍按 `tasks.md` / `verification.md` 判定;当前锁定 rust-v0.144.1 / `44918ea` 仍须重跑能力探针。MVP 只验收 Windows。
+> **状态图例(2026-07-12)**:本文中「照抄/纳入」表示产品决策,不表示代码已完成。壳层已有 42 个 app-server 方法包装的历史验证,但 GUI 落点仍按 `tasks.md` / `verification.md` 判定;当前锁定 rust-v0.144.5 / `87db9bc` 仍须重跑能力探针。MVP 只验收 Windows。
 
 ---
 
@@ -24,7 +24,7 @@
 
 - ✅ **已复刻 ~90%** codex-app 本地半边（对话/diff/approval/plan/文件/终端/沙箱/worktree）
 - ✅ **壳层包装历史记录**:spec 006 记录 42 个 app-server 方法已走完 5 层接线,cargo check/typecheck/shape 探针基线为 `cfead68`。
-- ⚠️ **仍待完成**:Skills/MCP 管理、搜索、导航历史等 GUI;上游 stub/OpenAI 认证/`experimentalApi` 门控需在 UI 降级;当前锁定 `44918ea` 需重验。
+- ⚠️ **仍待完成**:Skills/MCP 管理、搜索、导航历史等 GUI;上游 stub/OpenAI 认证/`experimentalApi` 门控需在 UI 降级;当前锁定 `87db9bc` 需重验。
 
 ---
 
@@ -343,7 +343,7 @@ const labels = {
 
 **壳层支持:** ✅ `experimentalFeature/list` 与 `experimentalFeature/enablement/set` 已在 spec 006 的 42 方法历史基线中接线。
 
-**照抄建议:**前端尚需落管理 UI,并在当前锁定 `44918ea` 重验;RPC 包装存在不等于功能已完成。
+**照抄建议:**前端尚需落管理 UI,并在当前锁定 `87db9bc` 重验;RPC 包装存在不等于功能已完成。
 
 ---
 
@@ -466,7 +466,7 @@ const labels = {
 ## 🔍 已接线能力的门控与 GUI 缺口(关联 spec 006)
 
 - spec 006 已记录 42 个方法在 `cfead68` 基线走完 5 层包装与 shape 探针;不再把上述方法列为「待补接口」。
-- 当前真缺口是:GUI 调用与交互、Windows 实机验证、以及当前锁定 `44918ea` 重跑探针。
+- 当前真缺口是:GUI 调用与交互、Windows 实机验证、以及当前锁定 `87db9bc` 重跑探针。
 - 已知门控:`thread/items/list` 在旧基线为上游 stub;部分远程 plugin 操作需 OpenAI 认证;实验方法需 `experimentalApi`;Windows sandbox 只有接线记录,尚未 Windows 实跑。
 
 ---
@@ -503,7 +503,7 @@ const labels = {
 
 ## ✅ 下一步行动
 
-1. **先重验能力基线**:在当前锁定 `44918ea` 重跑 spec 006 探针,标出 stub/认证/平台门控。
+1. **先重验能力基线**:在当前锁定 `87db9bc` 重跑 spec 006 探针,标出 stub/认证/平台门控。
 2. **P0 前端实现**:搜索、导航、三级侧栏、权限 pill、账号入口;完成状态回填 `tasks.md`。
 3. **网关配套**:`reasoning_effort` 透传归 spec 001,未通前不得把模型档位菜单标为完成。
 4. **Windows 实机验收**:视觉并排对比 + 真实交互 + `typecheck/test/lint/lint:ds`;不以历史工期估算代替任务状态。

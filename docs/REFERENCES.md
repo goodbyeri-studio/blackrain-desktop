@@ -10,7 +10,7 @@ MVP 仅发行 Windows。`scripts/fetch-references.sh` 是 POSIX shell 脚本；�
 
 | 项目 | 用途 | 许可证 | 本地路径 | **目标锁定版本** |
 |---|---|---|---|---|
-| [openai/codex](https://github.com/openai/codex) | **CODE 引擎**(强编码);参考其 `codex-rs` 的 skills / AGENTS.md / app-server-protocol / 沙箱 | Apache-2.0 | `codex-upstream/` | `44918ea` / **rust-v0.144.1**(2026-07-09；相对 `da4c8ca` 前进 123 commits；app-server 方法集合不变，payload schema 有扩展) |
+| [openai/codex](https://github.com/openai/codex) | **CODE 引擎**(强编码);参考其 `codex-rs` 的 skills / AGENTS.md / app-server-protocol / 沙箱 | Apache-2.0 | `codex-upstream/` | `87db9bc` / **rust-v0.144.5**(2026-07-15；相对 `44918ea` / 0.144.1 前进 53 commits，同为 0.144 patch 线；`app-server-protocol` 无变化、features/浏览器相关文件无变化，纯 bug fix + Windows 沙箱与 `is_dangerous_command` 修复；LICENSE/NOTICE 无变化。⚠️ 仅源码 re-pin，未构建、未做 Windows 验收) |
 | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | **WORK 引擎**(通用/记忆/skills,见 [.specs/003](../.specs/003-dual-engine-architecture/));经 `/v1` 接缝当黑盒纳管;另可借其 Desktop 的 MIT React 组件 | MIT | `hermes-upstream/` | `9de9c25` / **v2026.7.7.2**(v0.18.2, 2026-07-07；保留 `/v1/chat/completions`、Responses 与 runs/SSE，并加入 model routes 等增强) |
 
 > ⚠️ codex Apache-2.0 义务:分发派生制品或未来触发最小 fork 时保留 `LICENSE`/`NOTICE`、声明修改、不得用 OpenAI 商标背书。详见 [docs/07](07-护城河与风险.md)。
@@ -27,7 +27,7 @@ MVP 仅发行 Windows。`scripts/fetch-references.sh` 是 POSIX shell 脚本；�
 
 因此：
 
-1. `fetch-references.sh` 成功后，`codex-upstream` 应为 `44918ea10c0f99151c6710411b4322c2f5c96bea`，`hermes-upstream` 应为 `9de9c25f620ff7f1ce0fd5457d596052d5159596`。
+1. `fetch-references.sh` 成功后，`codex-upstream` 应为 `87db9bc18ba5bc82c1cb4e4381b44f693ee35623`，`hermes-upstream` 应为 `9de9c25f620ff7f1ce0fd5457d596052d5159596`。
 2. 脚本锁定只证明源码版本可复现，不代表二进制已经构建，也不代表 Windows 产品验证通过。
 3. 本地 gitignored 克隆的构建产物和测试环境仍是开发者机器状态，不得写成仓库或发布完成度。
 4. 升级 tag/commit 时必须同步本文、根规则、对应 spec 决策与验证记录。

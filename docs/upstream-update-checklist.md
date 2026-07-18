@@ -2,11 +2,11 @@
 
 **频率**：每 2 周；安全修复随时插队
 
-**最后检查**：2026-07-12
+**最后检查**：2026-07-18
 
 **MVP 平台**：Windows-only
 
-> 目标锁定版本：codex `44918ea` / rust-v0.144.1，Hermes `9de9c25` / v2026.7.7.2。`scripts/fetch-references.sh` 会校验 tag 对应的完整 SHA 并 detached checkout；这只证明源码版本一致，不能替代 Windows 构建和产品验收。目标锁与风险见 [REFERENCES](REFERENCES.md)，可复制构建命令见 [commands](commands.md)。
+> 目标锁定版本：codex `87db9bc` / rust-v0.144.5，Hermes `9de9c25` / v2026.7.7.2。`scripts/fetch-references.sh` 会校验 tag 对应的完整 SHA 并 detached checkout；这只证明源码版本一致，不能替代 Windows 构建和产品验收。目标锁与风险见 [REFERENCES](REFERENCES.md)，可复制构建命令见 [commands](commands.md)。
 
 ## 0. 开始前
 
@@ -119,6 +119,7 @@ macOS / Linux 结果只能作为补充历史证据，不能替代 Windows MVP �
 
 | 日期 | 引擎 | 版本 | 原因 | 证据口径 |
 |---|---|---|---|---|
+| 2026-07-18 | Codex | rust-v0.144.5 / `87db9bc` | 同 0.144 patch 线保守跟进；`app-server-protocol`、features、浏览器相关文件相对 0.144.1 无变化，纯 bug fix + Windows 沙箱与 `is_dangerous_command` 修复；LICENSE/NOTICE/quick-xml 0.39.4 状态不变 | 仅源码 re-pin：本地 detached checkout 到 `87db9bc` + diff 评估；**未构建、未跑 cargo check、未做 Windows 验收**；0.144.1 的旧证据不继承。Windows 沙箱/审批行为变更需后续实机复验 |
 | 2026-07-12 | Hermes | v2026.7.7.2 / `9de9c25` | 同步最新稳定版；保留 `/v1` Chat/Responses/runs 接缝，加入 model routes 等增强 | 315 个 API Server/Windows 相关测试在 macOS 通过；Tauri 接入与 Windows 产品矩阵未跑 |
 | 2026-07-12 | Codex | rust-v0.144.1 / `44918ea` | 同步最新稳定版；app-server 方法集合无增删，payload schema 扩展 | `codex-app-server-protocol` + `codex-app-server` macOS `cargo check` 通过；Windows 协议/GUI 未跑 |
 | 2026-07-03 | Hermes | v2026.7.1 / `7c1a029` | 目标生产锁（MOA + self-verification） | 上游/spike 证据；Windows 产品化矩阵仍需看 spec verification |

@@ -7,7 +7,7 @@
 > 当前实现状态（2026-07-11）：WORK 只完成了 2026-06-26 的独立 Hermes→new-api→DeepSeek spike；尚未接入 Tauri 壳，S3 外置记忆、S4 跨模式、S5 整 MCP server 热拔插和 office 质量基线均未完成。CODE 壳能力约 90%、当前记录为 42 个 RPC 接入，但能力底账仍是旧 commit 基线。
 
 > WORK 引擎(Hermes)的完整功能事实底账见 [hermes-capability-ledger.md](hermes-capability-ledger.md)(旧分析基线 `a6a28ce`;当前锁定 v2026.7.7.2 / `9de9c25`,待重核)。
-> CODE 引擎(codex-rs)的完整功能事实底账见 [codex-capability-ledger.md](codex-capability-ledger.md)(旧分析基线 `51b3cd5`;当前锁定 rust-v0.144.1 / `44918ea`,待重核)。
+> CODE 引擎(codex-rs)的完整功能事实底账见 [codex-capability-ledger.md](codex-capability-ledger.md)(旧分析基线 `51b3cd5`;当前锁定 rust-v0.144.5 / `87db9bc`,待重核)。
 > CODE 模式的边界、复刻 codex-app 的上限、当前 BlackRain 复刻进度见 [code-mode-boundary.md](code-mode-boundary.md)(当前 `apps/desktop` 真实代码 + 官方 codex-app 调研)。
 
 ## 产品与引擎关系（一壳·工作台入口·双执行器）

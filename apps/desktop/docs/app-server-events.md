@@ -1,6 +1,6 @@
-# App-Server Events Reference（当前上游锁：Codex rust-v0.144.1 / `44918ea10c0f99151c6710411b4322c2f5c96bea`）
+# App-Server Events Reference（当前上游锁：Codex rust-v0.144.5 / `87db9bc18ba5bc82c1cb4e4381b44f693ee35623`）
 
-> **状态说明（2026-07-12）**：已对 `44918ea` 重跑方法集合审计。相对旧锁 `da4c8ca`，ClientRequest、ServerRequest、ServerNotification 方法名集合均无增删；BlackRain 现有 65 个 outgoing ClientRequest 没有出现上游删除。payload schema 有扩展，且下方逐项 supported/missing 清单仍含历史说明，因此当前只能声称“方法集合未漂移 + 上游 app-server macOS `cargo check` 通过”，不能声称 42 项 capability、GUI 或 Windows 已重验。执行真源见仓库根 `.specs/006-code-mode-capability-wiring/verification.md`。
+> **状态说明（2026-07-18，锁升级到 0.144.5）**：本次 0.144.1→0.144.5 是同 patch 线跟进，已 diff 确认 `codex-rs/app-server-protocol/src` **无任何变化**，因此下方方法集合审计结论直接延续，无需重跑。历史依据（2026-07-12，在 `44918ea` 上做）：相对旧锁 `da4c8ca`，ClientRequest、ServerRequest、ServerNotification 方法名集合均无增删；BlackRain 现有 65 个 outgoing ClientRequest 没有出现上游删除。payload schema 有扩展，且下方逐项 supported/missing 清单仍含历史说明，因此当前只能声称“方法集合未漂移 + 上游 app-server macOS `cargo check`（在 0.144.1 上）通过”，不能声称 42 项 capability、GUI 或 Windows 已重验；**0.144.5 尚未构建、未跑 cargo check、未做 Windows 验收**。执行真源见仓库根 `.specs/006-code-mode-capability-wiring/verification.md`。
 
 This document helps agents quickly answer:
 - Which app-server events the BlackRain shell routed at the recorded baseline.

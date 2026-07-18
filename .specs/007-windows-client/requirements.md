@@ -37,7 +37,7 @@
 - 功能行为:
   - `pwsh scripts/dev-client.ps1` 在 Windows 主机一条命令把 dev 客户端起到「窗口可见、能登录、能选模型、能发一条对话拿到 DeepSeek 真实回复」状态。
   - `npm run tauri:build:win` 产出 NSIS `.exe` 安装包，资源（office-cli/windows-x64、gateway.py、plugins、workbenches）正确打入。这里只验 BlackRain 基础包资源；工作台 Manifest 和生命周期由 008 验收。
-  - 协议四探针在 Windows 上对当前锁定 rust-v0.144.1 / `44918ea` 内核全绿。
+  - 协议四探针在 Windows 上对当前锁定 rust-v0.144.5 / `87db9bc` 内核全绿。
   - 真实 DeepSeek 单工具多轮调用在 Windows 上跑通。
   - 不预先启动外部 Gateway，由 App 自己 spawn sidecar 时仍保留 tools；当前 spawn 未设置 `STRIP_TOOLS=0`，修复并验证前不满足该标准。
 - 用户体验:NSIS 安装包双击装完→开始菜单图标点开→首次启动正常显示登录/首页,无需任何额外终端命令。

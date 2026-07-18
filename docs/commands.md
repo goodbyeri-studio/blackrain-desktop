@@ -72,14 +72,14 @@ if ((git -C hermes-upstream rev-parse --is-shallow-repository) -eq "true") {
 }
 
 git -C codex-upstream fetch origin --tags --prune
-git -C codex-upstream checkout --detach 44918ea10c0f99151c6710411b4322c2f5c96bea
+git -C codex-upstream checkout --detach 87db9bc18ba5bc82c1cb4e4381b44f693ee35623
 
 git -C hermes-upstream fetch origin --tags --prune
 git -C hermes-upstream checkout --detach 9de9c25f620ff7f1ce0fd5457d596052d5159596
 
 git -C codex-upstream rev-parse --short HEAD
 git -C hermes-upstream rev-parse --short HEAD
-# 预期分别为 44918ea10c0f99151c6710411b4322c2f5c96bea、9de9c25f620ff7f1ce0fd5457d596052d5159596
+# 预期分别为 87db9bc18ba5bc82c1cb4e4381b44f693ee35623、9de9c25f620ff7f1ce0fd5457d596052d5159596
 
 python scripts/check-hermes-contract.py --static-only
 ```

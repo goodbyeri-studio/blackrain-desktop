@@ -1,5 +1,15 @@
 # Decisions
 
+## 2026-07-18：Codex 目标锁在 0.144 patch 线内跟进到 rust-v0.144.5
+
+- Codex 从 rust-v0.144.1 / `44918ea10c0f99151c6710411b4322c2f5c96bea` 跟进到 rust-v0.144.5 / `87db9bc18ba5bc82c1cb4e4381b44f693ee35623`（2026-07-15，当前最新 stable）。Hermes 锁不变。
+- 原因：0.144.1→0.144.5 是同一 patch 线的 53 个 commit，经 diff 确认 `app-server-protocol/src`、`features/src/lib.rs`（特性开关）、浏览器/computer 相关文件**全部无变化**，属纯 bug fix + 测试稳定化，并含 Windows 沙箱修复（`Grant Windows sandbox access to primary runtime`、`allow deletion in writable roots`）与安全修复（`expand is_dangerous_command`）。对 Windows-only MVP 是净收益，回归面最小。
+- 替代方案：① 留在 0.144.1（放弃 Windows 沙箱与安全修复）；② 跟进 0.145.0-alpha（带 200+ 行协议扩展与新特性开关，但为移动靶且按 checklist 属 P1 需接缝分析，不为追新而追新，否决）。
+- 协议影响：`app-server-protocol` 零变化，BlackRain 现有 42/65 RPC 接线无需改动；[app-server-events.md](../../apps/desktop/docs/app-server-events.md) 方法集合审计结论直接延续。
+- License：Apache-2.0，LICENSE/NOTICE 无变化；quick-xml 仍为 0.39.4，RUSTSEC-2026-0194/0195 豁免状态不变。
+- ⚠️ 验证边界：本次为**源码 re-pin**（本地 detached checkout + diff 评估 + 文档收口）。**未在 0.144.5 上构建、未跑 `cargo check`、未做 Windows 验收**；0.144.1 的旧 macOS `cargo check`/协议审计证据不自动继承。
+- 后续复查条件：`is_dangerous_command` 与 Windows 沙箱行为已变，正式发布前须按 [checklist](../../docs/upstream-update-checklist.md) 第 5 步在 Windows 实机复验审批门与沙箱，并把结果写入 [007 verification](../007-windows-client/verification.md)。
+
 ## 2026-07-12：Hermes WORK surface 实施拆到 spec 009
 
 - 决策：003 继续维护双引擎边界、路由和跨模式假设；Hermes 进程、隔离配置、runs/SSE、审批、任务状态和 WORK UI 的完整实施由 [spec 009](../009-hermes-work-surface/) 维护。
