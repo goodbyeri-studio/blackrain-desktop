@@ -132,6 +132,8 @@ type SidebarProps = {
   showDebugButton: boolean;
   onAddWorkspace: () => void;
   onSelectHome: () => void;
+  surfaceMode: "work" | "code";
+  onSurfaceModeChange: (mode: "work" | "code") => void;
   /** 搜索功能暂从 UI 移除,机器保留休眠。测试可置 true 驱动过滤逻辑。 */
   initialSearchOpen?: boolean;
   onSelectWorkspace: (id: string) => void;
@@ -196,6 +198,8 @@ export const Sidebar = memo(function Sidebar({
   showDebugButton,
   onAddWorkspace,
   onSelectHome,
+  surfaceMode,
+  onSurfaceModeChange,
   initialSearchOpen = false,
   onSelectWorkspace,
   onConnectWorkspace,
@@ -887,7 +891,11 @@ export const Sidebar = memo(function Sidebar({
     >
       <div className="sidebar-drag-strip" />
       <NavigationControls />
-      <SidebarActions onNewConversation={onSelectHome} />
+      <SidebarActions
+        onNewConversation={onSelectHome}
+        surfaceMode={surfaceMode}
+        onSurfaceModeChange={onSurfaceModeChange}
+      />
       <SidebarHeader
         onSelectHome={onSelectHome}
         onAddWorkspace={onAddWorkspace}

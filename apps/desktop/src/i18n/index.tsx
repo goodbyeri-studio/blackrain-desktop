@@ -20,6 +20,7 @@ const enTranslations = {
 
   "settings.title": "Settings",
   "settings.close": "Close settings",
+  "settings.backToApp": "Back to app",
   "settings.backToSections": "Back to settings sections",
   "settings.sections": "Sections",
 
@@ -99,6 +100,7 @@ const zhCNTranslations: Record<keyof typeof enTranslations, string> = {
 
   "settings.title": "设置",
   "settings.close": "关闭设置",
+  "settings.backToApp": "返回应用",
   "settings.backToSections": "返回设置分类",
   "settings.sections": "分类",
 

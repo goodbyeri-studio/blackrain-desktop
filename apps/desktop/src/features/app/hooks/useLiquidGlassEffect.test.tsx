@@ -27,6 +27,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 
 describe("useLiquidGlassEffect", () => {
   const originalUserAgent = navigator.userAgent;
+  const originalPlatform = navigator.platform;
   let mockSetEffects: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -42,11 +43,22 @@ describe("useLiquidGlassEffect", () => {
       value: originalUserAgent,
       configurable: true,
     });
+    Object.defineProperty(window.navigator, "platform", {
+      value: originalPlatform,
+      configurable: true,
+    });
   });
 
   const setUserAgent = (ua: string) => {
     Object.defineProperty(window.navigator, "userAgent", {
       value: ua,
+      configurable: true,
+    });
+  };
+
+  const setPlatform = (platform: string) => {
+    Object.defineProperty(window.navigator, "platform", {
+      value: platform,
       configurable: true,
     });
   };
@@ -75,18 +87,16 @@ describe("useLiquidGlassEffect", () => {
     });
   });
 
-  it("applies Mica effect on Windows when liquid glass is unsupported", async () => {
-    vi.mocked(isGlassSupported).mockResolvedValue(false);
-    setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+  it("keeps native window decorations on Windows", async () => {
+    vi.mocked(isGlassSupported).mockResolvedValue(true);
+    setPlatform("Win32");
 
     renderHook(() => useLiquidGlassEffect({ reduceTransparency: false }));
 
-    await waitFor(() => {
-      expect(mockSetEffects).toHaveBeenCalledWith({
-        effects: ["mica"],
-      });
-      expect(setLiquidGlassEffect).not.toHaveBeenCalled();
-    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(mockSetEffects).not.toHaveBeenCalled();
+    expect(setLiquidGlassEffect).not.toHaveBeenCalled();
+    expect(isGlassSupported).not.toHaveBeenCalled();
   });
 
   it("applies HudWindow effect on macOS when liquid glass is unsupported", async () => {

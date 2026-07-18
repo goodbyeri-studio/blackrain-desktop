@@ -6,6 +6,8 @@
 |---|---|---|---|---|
 | 2026-06-26 | 前端历史基线(spec 建立时) | `npm run typecheck` | 通过 | 只代表当日快照,不是当前发布基线 |
 | 2026-06-26 | 首页对齐(#43 已合入) | 见 PR #43 | 历史通过 | 环/图标/胶囊/模型菜单的当日验证;历史测试数不再作固定门槛 |
+| 2026-07-13 | SettingsView 整页切换 | `npm run typecheck`; 65 个定向测试; ESLint; `lint:ds` | 通过 | 设置页替换 AppLayout，无 modal 遮罩；Windows 实机视觉仍待人工复核 |
+| 2026-07-13 | 窄窗口响应式 | `useLayoutMode` 定向测试；前端 typecheck/lint/DS | 通过 | 760px 起使用单栏布局，640px 以下 prompt 换行；视觉由用户验收 |
 | 待跑 | 基础 token 对齐 | `typecheck` + `test` + `lint:ds` | 未跑 | 阶段 1：换 token 不得回归 |
 | 待跑 | 逐界面对齐（首页收尾/对话/设置/弹层/侧栏） | 并排截图对比 + 守卫 | 未跑 | 阶段 2 |
 | 待跑 | 4 套主题（light/dark/dim/system） | 人工切换核验 | 未跑 | 改 token 必须四套都验 |

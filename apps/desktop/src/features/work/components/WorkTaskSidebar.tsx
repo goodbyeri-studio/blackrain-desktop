@@ -6,26 +6,37 @@ import Pencil from "lucide-react/dist/esm/icons/pencil";
 import Pin from "lucide-react/dist/esm/icons/pin";
 import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
 import Search from "lucide-react/dist/esm/icons/search";
+import Bot from "lucide-react/dist/esm/icons/bot";
+import Boxes from "lucide-react/dist/esm/icons/boxes";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import House from "lucide-react/dist/esm/icons/house";
 import Plus from "lucide-react/dist/esm/icons/plus";
 
 import {
   PanelFrame,
-  PanelHeader,
-  PanelMeta,
   PanelNavItem,
   PanelNavList,
 } from "@/features/design-system/components/panel/PanelPrimitives";
 import type { WorkTask } from "../types";
+import { SurfaceModeSwitch } from "@app/components/SidebarActions";
 
 type WorkTaskSidebarProps = {
-  title: string;
   tasks: WorkTask[];
   selectedTaskId: string | null;
+  activationId: string;
+  activations: Array<{ id: string; label: string }>;
+  canCreateProject: boolean;
   onSelectTask: (taskId: string) => void;
+  onSelectActivation: (activationId: string) => void;
   onNewTask: () => void;
+  onCreateProject: () => void;
+  onHome: () => void;
+  onSurfaceModeChange: (mode: "work" | "code") => void;
   onRenameTask: (task: WorkTask) => void;
   onTogglePin: (task: WorkTask) => void;
   onToggleArchive: (task: WorkTask) => void;
+  onOpenTools: () => void;
+  onOpenArtifacts: () => void;
 };
 
 const statusLabel: Record<WorkTask["status"], string> = {
@@ -57,14 +68,22 @@ const isActive = (task: WorkTask) =>
   task.status === "queued" || task.status === "running" || task.status === "stopping";
 
 export function WorkTaskSidebar({
-  title,
   tasks,
   selectedTaskId,
+  activationId,
+  activations,
+  canCreateProject,
   onSelectTask,
+  onSelectActivation,
   onNewTask,
+  onCreateProject,
+  onHome,
+  onSurfaceModeChange,
   onRenameTask,
   onTogglePin,
   onToggleArchive,
+  onOpenTools,
+  onOpenArtifacts,
 }: WorkTaskSidebarProps) {
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -98,21 +117,13 @@ export function WorkTaskSidebar({
 
   return (
     <PanelFrame className="work-task-sidebar">
-      <PanelHeader className="work-task-sidebar-header">
-        <div>
-          <strong>{title}</strong>
-          <PanelMeta>Hermes WORK</PanelMeta>
-        </div>
-        <button
-          type="button"
-          className="ghost icon-button work-new-task-button"
-          aria-label="新建 WORK 任务"
-          title="新建 WORK 任务"
-          onClick={onNewTask}
-        >
-          <Plus aria-hidden />
-        </button>
-      </PanelHeader>
+      <SurfaceModeSwitch surfaceMode="work" onSurfaceModeChange={onSurfaceModeChange} />
+      <nav className="work-hermes-nav" aria-label="Hermes 导航">
+        <button type="button" onClick={onNewTask} aria-label="新建 WORK 任务"><Bot aria-hidden /><span>新建会话</span><kbd>Ctrl N</kbd></button>
+        <button type="button" onClick={onOpenTools}><Boxes aria-hidden /><span>技能与工具</span></button>
+        <button type="button" disabled title="消息平台将在对应合同接入后开放"><MessageSquare aria-hidden /><span>消息平台</span></button>
+        <button type="button" onClick={onOpenArtifacts}><FileText aria-hidden /><span>产物</span></button>
+      </nav>
 
       <label className="work-task-search">
         <Search aria-hidden />
@@ -138,8 +149,14 @@ export function WorkTaskSidebar({
         {filteredTasks.length === 0 ? (
           <div className="work-task-empty">
             <FileText aria-hidden />
-            <span>{tasks.length === 0 ? "还没有任务" : "没有匹配的任务"}</span>
+            <span>{tasks.length === 0 ? "暂无会话" : "没有匹配的任务"}</span>
             <small>{tasks.length === 0 ? "输入一个目标开始。" : "尝试其他关键词。"}</small>
+            {tasks.length === 0 && canCreateProject ? (
+              <button type="button" className="work-sidebar-project-action" onClick={onCreateProject}>
+                <Plus aria-hidden />
+                新建项目
+              </button>
+            ) : null}
           </div>
         ) : groups.map((group) =>
           group.tasks.length > 0 ? (
@@ -197,17 +214,39 @@ export function WorkTaskSidebar({
           ) : null,
         )}
       </PanelNavList>
-      <button
-        type="button"
-        className={`ghost work-archive-toggle${showArchived ? " is-active" : ""}`}
-        onClick={() => {
-          setShowArchived((current) => !current);
-          setMenuTaskId(null);
-        }}
-      >
-        <Archive aria-hidden />
-        {showArchived ? "返回最近任务" : "已归档"}
-      </button>
+      {activations.length > 1 ? (
+        <select
+          className="work-sidebar-activation-select"
+          value={activationId}
+          onChange={(event) => onSelectActivation(event.target.value)}
+          aria-label="切换已激活项目"
+        >
+          {activations.map((activation) => (
+            <option key={activation.id} value={activation.id}>{activation.label}</option>
+          ))}
+        </select>
+      ) : null}
+      <div className="work-sidebar-footer">
+        <button type="button" className="is-active" onClick={onHome} aria-label="返回 BlackRain 首页">
+          <House aria-hidden />
+        </button>
+        <button type="button" onClick={canCreateProject ? onCreateProject : onNewTask} aria-label="新建项目">
+          <Plus aria-hidden />
+        </button>
+        <span />
+        <button
+          type="button"
+          className={showArchived ? "is-active" : ""}
+          onClick={() => {
+            setShowArchived((current) => !current);
+            setMenuTaskId(null);
+          }}
+          aria-label={showArchived ? "返回最近任务" : "查看已归档任务"}
+          title={showArchived ? "返回最近任务" : "已归档"}
+        >
+          <MoreHorizontal aria-hidden />
+        </button>
+      </div>
     </PanelFrame>
   );
 }

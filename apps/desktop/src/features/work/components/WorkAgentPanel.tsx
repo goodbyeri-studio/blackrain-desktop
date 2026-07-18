@@ -11,14 +11,24 @@ import Wrench from "lucide-react/dist/esm/icons/wrench";
 import X from "lucide-react/dist/esm/icons/x";
 
 import { ModalShell } from "@/features/design-system/components/modal/ModalShell";
-import type { ActivatedWorkbenchContext, WorkRuntimeStatus, WorkTask } from "../types";
+import type {
+  ActivatedWorkbenchContext,
+  HermesRuntimeModel,
+  WorkEvent,
+  WorkRuntimeStatus,
+  WorkTask,
+} from "../types";
 
-type AgentPanelTab = "agent" | "models" | "skills" | "tools" | "permissions" | "memory" | "session";
+type AgentPanelTab = "agent" | "agents" | "models" | "skills" | "tools" | "permissions" | "memory" | "session";
+type WorkUsageEvent = Extract<WorkEvent, { type: "usageUpdated" }>;
 
 type WorkAgentPanelProps = {
   activation: ActivatedWorkbenchContext | null;
   runtime: WorkRuntimeStatus | null;
   task: WorkTask | null;
+  models: HermesRuntimeModel[];
+  selectedModel: string | null;
+  usage: WorkUsageEvent | null;
   onOpenSettings: () => void;
   onClose: () => void;
 };
@@ -30,6 +40,7 @@ function pathName(path: string) {
 
 const tabs: Array<{ id: AgentPanelTab; label: string; icon: typeof Bot }> = [
   { id: "agent", label: "Agent", icon: Bot },
+  { id: "agents", label: "Agents", icon: Bot },
   { id: "models", label: "Models & Context", icon: Sparkles },
   { id: "skills", label: "Skills", icon: Wrench },
   { id: "tools", label: "Tools & MCP", icon: Boxes },
@@ -42,6 +53,9 @@ export function WorkAgentPanel({
   activation,
   runtime,
   task,
+  models,
+  selectedModel,
+  usage,
   onOpenSettings,
   onClose,
 }: WorkAgentPanelProps) {
@@ -96,12 +110,25 @@ export function WorkAgentPanel({
               <dl className="work-agent-kv">
                 <div><dt>状态</dt><dd>{runtime?.state ?? "stopped"}</dd></div>
                 <div><dt>版本</dt><dd>{runtime?.version ?? "-"}</dd></div>
-                <div><dt>模型</dt><dd>由 BlackRain 账号与 Provider 策略管理</dd></div>
-                <div><dt>上下文用量</dt><dd>当前事件合同未提供 token usage</dd></div>
+                <div><dt>模型</dt><dd>{selectedModel ?? task?.model ?? "未选择"}</dd></div>
+                <div><dt>本轮用量</dt><dd>{usage ? `${usage.totalTokens.toLocaleString()} tokens` : "暂无"}</dd></div>
                 <div><dt>项目</dt><dd title={activation?.project.path}>{activation ? pathName(activation.project.path) : "-"}</dd></div>
               </dl>
               <div className="work-agent-notice">
-                模型选择和上下文比例只会在账号允许模型目录与 usage 事件接通后启用，当前不会显示推测值。
+                模型目录来自当前 Hermes runtime；上游未提供 context window 时只显示真实 token 用量，不推算百分比。
+              </div>
+            </>
+          ) : null}
+
+          {tab === "agents" ? (
+            <>
+              <div className="work-agent-section-heading">
+                <Bot aria-hidden />
+                <div><h2>Agents</h2><p>当前任务的 Subagent 运行状态</p></div>
+              </div>
+              <div className="work-agent-empty is-detailed">
+                <strong>当前没有可显示的 Subagent 数据</strong>
+                <span>锁定 Hermes `/v1/runs` 事件合同尚未提供稳定的 Agents tree。</span>
               </div>
             </>
           ) : null}
@@ -128,12 +155,14 @@ export function WorkAgentPanel({
               </div>
               <dl className="work-agent-kv">
                 <div><dt>执行器</dt><dd>Hermes Agent</dd></div>
-                <div><dt>模型</dt><dd>由 BlackRain Provider 策略选择</dd></div>
-                <div><dt>Context usage</dt><dd>等待 usage 事件合同</dd></div>
-                <div><dt>可见模型目录</dt><dd>等待 spec 002 allowed-model catalog</dd></div>
+                <div><dt>当前模型</dt><dd>{selectedModel ?? task?.model ?? "未选择"}</dd></div>
+                <div><dt>Context usage</dt><dd>{usage ? `输入 ${usage.inputTokens.toLocaleString()} / 输出 ${usage.outputTokens.toLocaleString()} / 总计 ${usage.totalTokens.toLocaleString()}` : "本任务暂无用量"}</dd></div>
+                <div><dt>可见模型目录</dt><dd>{models.length} 个 runtime models</dd></div>
               </dl>
-              <div className="work-agent-notice">
-                当前不提供可点击但无法生效的 model picker，也不从消息长度推算 token 或上下文百分比。
+              <div className="work-agent-items">
+                {models.length ? models.map((model) => (
+                  <div key={model.id}><Sparkles aria-hidden /><span><strong>{model.id}</strong><small>{model.ownedBy}</small></span></div>
+                )) : <div className="work-agent-empty">当前 runtime 没有返回模型</div>}
               </div>
             </>
           ) : null}
@@ -199,7 +228,7 @@ export function WorkAgentPanel({
                 <div><dt>保留策略</dt><dd>本地持久化，显式删除</dd></div>
               </dl>
               <div className="work-agent-notice">
-                会话重命名、置顶和分叉需要 TaskStore/controller 合同；在合同落地前不提供不可执行的开关。
+                重命名、置顶和归档由 TaskStore 管理；分叉仍等待 BlackRain task lineage 合同。
               </div>
             </>
           ) : null}

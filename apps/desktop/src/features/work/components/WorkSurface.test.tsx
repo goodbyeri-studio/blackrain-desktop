@@ -236,21 +236,29 @@ function controller(stateOverrides: Partial<WorkState> = {}) {
 afterEach(() => {
   cleanup();
   dragDrop.listener = null;
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
 describe("WorkSurface", () => {
+  it("switches back to the CODE surface through the shared mode switch", () => {
+    const onClose = vi.fn();
+    render(<WorkSurface controller={controller() as never} onClose={onClose} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Code" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("blocks formal task creation until a verified activation exists", () => {
     const workController = controller({ activations: [], bundledOffice });
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
-    expect(screen.getByText("WORK 尚未激活")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "HERMES AGENT" })).toBeTruthy();
     expect((screen.getByLabelText("WORK 任务指令") as HTMLTextAreaElement).disabled).toBe(true);
     expect((screen.getByLabelText("发送任务") as HTMLButtonElement).disabled).toBe(true);
     expect(workController.startTask).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Office 工作台安装计划").textContent).toContain(
-      "3 个 Skills",
-    );
+    expect(within(screen.getByRole("complementary")).getAllByRole("button", { name: "新建项目" })[0]).toBeTruthy();
   });
 
   it("requires project selection and explicit permission confirmation before activation", async () => {
@@ -258,7 +266,7 @@ describe("WorkSurface", () => {
     const workController = controller({ activations: [], bundledOffice });
     render(<WorkSurface controller={workController} onClose={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "选择项目并安装激活" }));
+    fireEvent.click(within(screen.getByRole("complementary")).getAllByRole("button", { name: "新建项目" })[0]);
     expect(await screen.findByText("安装并激活 Office 工作台？")).toBeTruthy();
     expect(screen.getByText(/New Office Project/).textContent).toContain("读写权限");
 
@@ -650,17 +658,47 @@ describe("WorkSurface", () => {
   it("collapses and restores the Hermes-style resource rail", () => {
     render(<WorkSurface controller={controller() as never} onClose={vi.fn()} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "打开任务资源" }));
     fireEvent.click(screen.getByRole("button", { name: "收起任务资源" }));
     expect(screen.queryByRole("complementary", { name: "任务资源" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "打开任务资源" }));
     expect(screen.getByRole("complementary", { name: "任务资源" })).toBeTruthy();
   });
 
+  it("keeps the resource rail closed by default in compact layouts", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+
+    render(<WorkSurface controller={controller() as never} onClose={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(screen.queryByRole("complementary", { name: "任务资源" })).toBeNull(),
+    );
+    expect(screen.getByRole("button", { name: "打开任务资源" })).toBeTruthy();
+  });
+
   it("shows the current runtime and activation in the WORK Agent panel", () => {
+    const usage = event({
+      type: "usageUpdated",
+      inputTokens: 1_200,
+      outputTokens: 300,
+      totalTokens: 1_500,
+    });
     render(
       <WorkSurface
         controller={controller({
-          tasks: { [task.taskId]: { task, events: [], eventIds: {}, followUps: [] } },
+          models: [{ id: "deepseek-v4", ownedBy: "blackrain" }],
+          tasks: {
+            [task.taskId]: {
+              task: { ...task, model: "deepseek-v4" },
+              events: [usage],
+              eventIds: { [usage.eventId]: true },
+              followUps: [],
+            },
+          },
           taskOrder: [task.taskId],
           selectedTaskId: task.taskId,
         }) as never}
@@ -668,11 +706,14 @@ describe("WorkSurface", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "打开 WORK Agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "技能与工具" }));
     const dialog = screen.getByRole("dialog", { name: "WORK Agent" });
     expect(within(dialog).getByText("0.18.2")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Models & Context" }));
-    expect(within(dialog).getByText("等待 usage 事件合同")).toBeTruthy();
+    expect(within(dialog).getAllByText("deepseek-v4")).toHaveLength(2);
+    expect(within(dialog).getByText(/输入 1,200 \/ 输出 300 \/ 总计 1,500/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Agents" }));
+    expect(within(dialog).getByText("当前没有可显示的 Subagent 数据")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Skills" }));
     expect(within(dialog).getByText("skills")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Permissions" }));
@@ -681,6 +722,31 @@ describe("WorkSurface", () => {
     expect(within(dialog).getByText("未启用跨任务 Memory")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Session" }));
     expect(within(dialog).getByText("session-1")).toBeTruthy();
+  });
+
+  it("reuses BlackRain dictation and inserts one transcript into the WORK draft", async () => {
+    const onToggleDictation = vi.fn();
+    const onDictationTranscriptHandled = vi.fn();
+    render(
+      <WorkSurface
+        controller={controller() as never}
+        onClose={vi.fn()}
+        dictationEnabled
+        dictationTranscript={{ id: "dictation-1", text: "整理会议纪要" }}
+        onToggleDictation={onToggleDictation}
+        onDictationTranscriptHandled={onDictationTranscriptHandled}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Start dictation" }));
+    expect(onToggleDictation).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect((screen.getByLabelText("WORK 任务指令") as HTMLTextAreaElement).value).toBe(
+        "整理会议纪要",
+      ),
+    );
+    expect(onDictationTranscriptHandled).toHaveBeenCalledWith("dictation-1");
+    expect(onDictationTranscriptHandled).toHaveBeenCalledTimes(1);
   });
 
   it("opens the shared BlackRain settings instead of creating WORK settings state", () => {
@@ -693,7 +759,7 @@ describe("WorkSurface", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "打开 WORK Agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "技能与工具" }));
     fireEvent.click(screen.getByRole("button", { name: "BlackRain 设置" }));
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog", { name: "WORK Agent" })).toBeNull();
@@ -815,6 +881,7 @@ describe("WorkSurface", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "打开任务资源" }));
     fireEvent.click(screen.getByRole("tab", { name: "审阅" }));
     expect(screen.getByText("任务结果审阅")).toBeTruthy();
     expect(screen.getByText("审阅成果")).toBeTruthy();
@@ -857,6 +924,7 @@ describe("WorkSurface", () => {
     });
     render(<WorkSurface controller={workController as never} onClose={vi.fn()} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "打开任务资源" }));
     fireEvent.click(screen.getByRole("tab", { name: "文件" }));
     fireEvent.click(await screen.findByRole("button", { name: /notes.md/ }));
     expect(await screen.findByText("季度摘要")).toBeTruthy();

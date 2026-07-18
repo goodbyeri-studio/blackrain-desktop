@@ -6,6 +6,7 @@ import {
 } from "tauri-plugin-liquid-glass-api";
 import { Effect, EffectState, getCurrentWindow } from "@tauri-apps/api/window";
 import type { DebugEntry } from "../../../types";
+import { isWindowsPlatform } from "@utils/platformPaths";
 
 type Params = {
   reduceTransparency: boolean;
@@ -37,6 +38,9 @@ export function useLiquidGlassEffect({ reduceTransparency, onDebug }: Params) {
     const apply = async () => {
       try {
         const window = getCurrentWindow();
+        if (isWindowsPlatform()) {
+          return;
+        }
         if (reduceTransparency) {
           if (supportedRef.current === null) {
             supportedRef.current = await isGlassSupported();
@@ -67,13 +71,6 @@ export function useLiquidGlassEffect({ reduceTransparency, onDebug }: Params) {
         const userAgent = navigator.userAgent ?? "";
         const isMac = userAgent.includes("Macintosh");
         const isLinux = userAgent.includes("Linux");
-        const isWindows = userAgent.includes("Windows");
-
-        if (isWindows) {
-          await window.setEffects({ effects: [Effect.Mica] });
-          return;
-        }
-
         if (!isMac && !isLinux) {
           return;
         }

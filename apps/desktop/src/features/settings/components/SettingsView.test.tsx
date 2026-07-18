@@ -2220,7 +2220,7 @@ describe("SettingsView Shortcuts", () => {
     });
   });
 
-  it("closes when clicking the modal backdrop", async () => {
+  it("renders as a page and closes from the back button", async () => {
     const onClose = vi.fn();
     const { container } = render(
       <SettingsView
@@ -2253,14 +2253,11 @@ describe("SettingsView Shortcuts", () => {
       />,
     );
 
-    const backdrop = container.querySelector(".ds-modal-backdrop");
-    expect(backdrop).toBeTruthy();
-    if (!backdrop) {
-      throw new Error("Expected settings modal backdrop");
-    }
+    expect(container.querySelector(".ds-modal-backdrop")).toBeNull();
+    expect(container.querySelector(".settings-page")).toBeTruthy();
 
     await act(async () => {
-      fireEvent.click(backdrop);
+      fireEvent.click(within(container).getByRole("button", { name: "Back to app" }));
     });
     await waitFor(() => {
       expect(onClose).toHaveBeenCalledTimes(1);

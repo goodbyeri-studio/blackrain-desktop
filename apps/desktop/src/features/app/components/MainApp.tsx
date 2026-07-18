@@ -1762,7 +1762,8 @@ export default function MainApp() {
     accessMode,
     onSelectAccessMode: handleSelectAccessMode,
     onEnterWorkspaceFromHome,
-    onOpenWorkSurface: () => setWorkSurfaceOpen(true),
+    surfaceMode: workSurfaceOpen ? "work" : "code",
+    onSurfaceModeChange: (mode) => setWorkSurfaceOpen(mode === "work"),
     skills,
     apps,
     prompts,
@@ -1862,6 +1863,18 @@ export default function MainApp() {
         controller={workController}
         onClose={() => setWorkSurfaceOpen(false)}
         onOpenSettings={() => modalActions.openSettings("display")}
+        dictationEnabled={appSettings.dictationEnabled && dictationReady}
+        dictationState={dictationState}
+        dictationLevel={dictationLevel}
+        dictationTranscript={dictationTranscript}
+        dictationError={dictationError}
+        dictationHint={dictationHint}
+        onToggleDictation={handleToggleDictation}
+        onCancelDictation={cancelDictation}
+        onOpenDictationSettings={() => modalActions.openSettings("dictation")}
+        onDictationTranscriptHandled={clearDictationTranscript}
+        onDismissDictationError={clearDictationError}
+        onDismissDictationHint={clearDictationHint}
       />
     </WorkSurfaceBoundary>
   ) : homeNode;
@@ -1871,7 +1884,7 @@ export default function MainApp() {
       : remoteThreadConnectionState;
   const mainAppShellProps = useMainAppShellProps({
     shell: {
-      appClassName,
+      appClassName: `${appClassName}${workSurfaceOpen ? " is-work-surface" : ""}`,
       isResizing,
       appStyle,
       appRef,

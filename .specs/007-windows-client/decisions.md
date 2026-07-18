@@ -101,6 +101,15 @@
 - 性能注记(2026-07-04 评估,原 `docs/windows-mica-evaluation.md` 已并入本条):Mica 由 Windows DWM 合成器层完成、GPU 加速,应用仅启动时调一次 `setEffects()`,CPU 开销≈0。三条不要:不要用 CSS `backdrop-filter` 模拟(性能与质感都差)、不要运行时频繁切换效果(触发 DWM 重组合)、视觉增强只调 CSS 装饰层不动 Mica 本身。
 - 后续复查条件:进入 Win10 兼容阶段时,按已验证可行的方案(`windows_version::OsVersion::current().build >= 22000` 判断)补 Win11/Win10 双材质分支,同步恢复 `useLiquidGlassEffect.test.tsx` 里对应的 Acrylic 测试用例。
 
+## 2026-07-13：Windows 使用系统原生标题栏和 caption buttons
+
+- 决策：Windows 配置显式使用 `decorations=true`、`transparent=false`、`shadow=true`，窗口标题为 `BlackRain`；删除前端自绘的最小化、最大化和关闭按钮，并移除 Rust `setup()` 中覆盖配置的 `set_decorations(false)`。
+- 2026-07-13 补充：原基础配置仍携带 macOS `Overlay` / `hiddenTitle` / 透明窗口参数，Windows override 的合并结果无法作为可靠边界。基础配置改为原生可见标题栏，macOS 专属参数迁入 `tauri.macos.conf.json`，确保 Windows 即使未加载额外 override 也保持 Win11 原生 caption。
+- 2026-07-13 补充：Windows 禁止调用任何 `liquid-glass` / `setEffects` 窗口材质 API，包括看似无害的 `setEffects([])` 和 disable 调用；这些 API 会触碰非客户区。Windows 以系统默认 frame 为唯一窗口实现，玻璃效果仅保留给非 Windows 平台。
+- 2026-07-13 补充：`tauri-plugin-window-state` 不再持久化或恢复 `DECORATIONS`。窗口装饰是平台配置，不是用户窗口状态；旧缓存中的 `decorated=false` 曾在启动时覆盖 Windows 原生标题栏。
+- 原因：MVP 只发行 Windows，系统标题栏直接提供 Win11 Snap Layout、DPI、触控、无障碍和系统主题行为；前端重画只会制造位置错误和非原生交互。
+- 边界：macOS overlay/traffic-light 配置作为 post-MVP 上游资产保留，不进入 Windows 构建验收。
+
 ## 被推翻的方案
 
 ### 2026-06-30:首发 Windows + macOS 跟随支持

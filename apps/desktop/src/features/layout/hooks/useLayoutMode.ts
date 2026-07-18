@@ -5,7 +5,7 @@ import { isMobilePlatform } from "../../../utils/platformPaths";
 export type LayoutMode = "desktop" | "tablet" | "phone";
 
 const TABLET_MAX_WIDTH = 1100;
-const PHONE_MAX_WIDTH = 520;
+const PHONE_MAX_WIDTH = 760;
 
 function getLayoutMode(width: number, forcePhoneLayout: boolean): LayoutMode {
   if (forcePhoneLayout) {

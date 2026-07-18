@@ -146,7 +146,6 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             {
                 if let Some(main_window) = app.get_webview_window("main") {
-                    let _ = main_window.set_decorations(false);
                     // Keep menu accelerators wired while suppressing a visible native menu bar.
                     let _ = main_window.hide_menu();
                 }
@@ -211,10 +210,13 @@ pub fn run() {
         tauri_plugin_window_state::Builder::default()
             // 不恢复 VISIBLE:否则 window-state 会在 restore 时 show() 覆盖
             // tauri.conf.json 的 visible:false,导致窗口在毛玻璃就绪前就透明显示。
+            // 不恢复 DECORATIONS:窗口装饰必须服从当前平台配置，不能被旧状态中的
+            // decorated=false 覆盖，否则 Windows 原生 caption 按钮会再次消失。
             // 仍恢复 SIZE/POSITION 等其它状态。
             .with_state_flags(
                 tauri_plugin_window_state::StateFlags::all()
-                    & !tauri_plugin_window_state::StateFlags::VISIBLE,
+                    & !tauri_plugin_window_state::StateFlags::VISIBLE
+                    & !tauri_plugin_window_state::StateFlags::DECORATIONS,
             )
             .build(),
     );

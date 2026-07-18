@@ -3,6 +3,7 @@ import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
 import Copy from "lucide-react/dist/esm/icons/copy";
 import PanelRight from "lucide-react/dist/esm/icons/panel-right";
+import PanelLeft from "lucide-react/dist/esm/icons/panel-left";
 import Search from "lucide-react/dist/esm/icons/search";
 import SquareTerminal from "lucide-react/dist/esm/icons/square-terminal";
 import Boxes from "lucide-react/dist/esm/icons/boxes";
@@ -22,6 +23,7 @@ import {
 } from "@/services/tauri";
 import { ModalShell } from "@/features/design-system/components/modal/ModalShell";
 import { PanelFrame } from "@/features/design-system/components/panel/PanelPrimitives";
+import type { DictationTranscript } from "@/types";
 import type { useWorkController } from "../hooks/useWorkController";
 import { useWorkProjectDrop } from "../hooks/useWorkProjectDrop";
 import {
@@ -53,6 +55,18 @@ type WorkSurfaceProps = {
   controller: WorkController;
   onClose: () => void;
   onOpenSettings?: () => void;
+  dictationEnabled?: boolean;
+  dictationState?: "idle" | "listening" | "processing";
+  dictationLevel?: number;
+  dictationTranscript?: DictationTranscript | null;
+  dictationError?: string | null;
+  dictationHint?: string | null;
+  onToggleDictation?: () => void;
+  onCancelDictation?: () => void;
+  onOpenDictationSettings?: () => void;
+  onDictationTranscriptHandled?: (id: string) => void;
+  onDismissDictationError?: () => void;
+  onDismissDictationHint?: () => void;
 };
 
 function isTerminal(status: WorkTaskStatus | undefined) {
@@ -67,6 +81,18 @@ export function WorkSurface({
   controller,
   onClose,
   onOpenSettings = () => undefined,
+  dictationEnabled = false,
+  dictationState = "idle",
+  dictationLevel = 0,
+  dictationTranscript = null,
+  dictationError = null,
+  dictationHint = null,
+  onToggleDictation,
+  onCancelDictation,
+  onOpenDictationSettings,
+  onDictationTranscriptHandled,
+  onDismissDictationError,
+  onDismissDictationHint,
 }: WorkSurfaceProps) {
   const { state } = controller;
   const tasks = selectOrderedTasks(state);
@@ -90,7 +116,8 @@ export function WorkSurface({
   const [renameDraft, setRenameDraft] = useState("");
   const [activationOpen, setActivationOpen] = useState(false);
   const [activationProjectPath, setActivationProjectPath] = useState("");
-  const [resourceRailOpen, setResourceRailOpen] = useState(true);
+  const [resourceRailOpen, setResourceRailOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [resourceRailTab, setResourceRailTab] = useState<WorkRailTab>("files");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
@@ -118,11 +145,6 @@ export function WorkSurface({
   const activeActivation = selectedTask?.activationId
     ? state.activations.find((activation) => activation.activationId === selectedTask.activationId) ?? null
     : selectedActivation;
-  const workbenchTitle = activeActivation
-    ? state.bundledOffice?.manifest.id === activeActivation.workbenchId
-      ? state.bundledOffice.manifest.name
-      : activeActivation.workbenchId
-    : state.bundledOffice?.manifest.name ?? "WORK";
   const skillNames = useMemo(
     () =>
       activeActivation?.skillRoots.map((path) => {
@@ -205,7 +227,14 @@ export function WorkSurface({
 
   useEffect(() => {
     const transcript = transcriptRef.current;
-    if (!transcript || !transcriptAtBottom) {
+    if (!transcript) {
+      return;
+    }
+    if (visibleEvents.length === 0) {
+      transcript.scrollTo?.({ top: 0 });
+      return;
+    }
+    if (!transcriptAtBottom) {
       return;
     }
     transcript.scrollTo?.({ top: transcript.scrollHeight, behavior: "smooth" });
@@ -480,13 +509,18 @@ export function WorkSurface({
   return (
     <main ref={surfaceRef} className="work-surface">
       <header className="work-surface-header">
+        <button
+          type="button"
+          className="ghost icon-button"
+          onClick={() => setSidebarOpen((open) => !open)}
+          aria-label={sidebarOpen ? "收起会话侧栏" : "打开会话侧栏"}
+          title={sidebarOpen ? "收起会话侧栏" : "打开会话侧栏"}
+        >
+          <PanelLeft aria-hidden />
+        </button>
         <button type="button" className="ghost icon-button" onClick={onClose} aria-label="返回首页">
           <ArrowLeft aria-hidden />
         </button>
-        <div className="work-surface-title">
-          <strong>{workbenchTitle}</strong>
-          <span>{selectedTask ? selectedTask.projectPath : "由 Hermes Agent 执行"}</span>
-        </div>
         <div className="work-surface-header-actions">
           <button
             type="button"
@@ -507,14 +541,8 @@ export function WorkSurface({
           >
             <SwitchCamera aria-hidden />
           </button>
-          <button
-            type="button"
-            className="ghost icon-button"
-            onClick={() => setAgentPanelOpen(true)}
-            aria-label="打开 WORK Agent"
-            title="打开 WORK Agent"
-          >
-            <Bot aria-hidden />
+          <button type="button" className="ghost icon-button" onClick={onOpenSettings} aria-label="打开设置" title="打开设置">
+            <Settings aria-hidden />
           </button>
           {!resourceRailOpen ? (
             <button
@@ -556,13 +584,30 @@ export function WorkSurface({
         </div>
       </header>
 
-      <div className="work-surface-body">
-        <WorkTaskSidebar
-          title={workbenchTitle}
+      <div className={`work-surface-body${sidebarOpen ? "" : " is-sidebar-closed"}`}>
+        {sidebarOpen ? <WorkTaskSidebar
           tasks={tasks}
           selectedTaskId={state.selectedTaskId}
+          activationId={activationId}
+          activations={state.activations.map((activation) => ({
+            id: activation.activationId,
+            label: `${activation.workbenchId} · ${activation.project.path}`,
+          }))}
+          canCreateProject={Boolean(state.bundledOffice)}
           onSelectTask={(taskId) => void handleSelectTask(taskId)}
+          onSelectActivation={(nextActivationId) => {
+            setActivationId(nextActivationId);
+            setProjectFileRefs([]);
+            setAttachmentError(null);
+          }}
           onNewTask={handleNewTask}
+          onCreateProject={() => void handleChooseActivationProject()}
+          onHome={onClose}
+          onSurfaceModeChange={(mode) => {
+            if (mode === "code") {
+              onClose();
+            }
+          }}
           onRenameTask={(task) => {
             const pathSegments = task.projectPath.split(/[\\/]/).filter(Boolean);
             setRenamingTask(task);
@@ -580,17 +625,14 @@ export function WorkSurface({
               controller.selectTask(null);
             }
           })}
-        />
+          onOpenTools={() => setAgentPanelOpen(true)}
+          onOpenArtifacts={() => showResourceTab("artifacts")}
+        /> : null}
 
         <section className="work-conversation">
-          <WorkRuntimeBanner
-            runtime={state.runtime}
-            busy={busy}
-            onStart={() => void controller.startRuntime()}
-            onRestart={() => void controller.restartRuntime()}
-            onRepair={() => void controller.repairRuntime()}
-            onDiagnostics={() => void handleDiagnostics()}
-          />
+          <div className="work-hermes-backdrop" aria-hidden>
+            <img src="/assets/hermes/filler-bg0.jpg" alt="" />
+          </div>
 
           {state.lastError ? (
             <div className="work-error-banner" role="alert">
@@ -620,61 +662,8 @@ export function WorkSurface({
           >
             {visibleEvents.length === 0 ? (
               <div className="work-welcome">
-                <h1>
-                  {selectedTask
-                    ? "任务还没有可展示的事件"
-                    : selectedActivation
-                      ? `开始使用 ${workbenchTitle}`
-                      : "WORK 尚未激活"}
-                </h1>
-                <p>
-                  {selectedActivation
-                    ? "选择已验证的工作台项目，描述目标。BlackRain 会启动隔离的 Hermes runtime，并在执行高影响操作前请求你的确认。"
-                    : "需要先通过工作台安装、权限审批和健康验证，才能创建正式 WORK 任务。"}
-                </p>
-                {!selectedActivation && state.bundledOffice ? (
-                  <div className="work-package-plan" aria-label="Office 工作台安装计划">
-                    <strong>
-                      {state.bundledOffice.manifest.name}@
-                      {state.bundledOffice.manifest.version}
-                    </strong>
-                    <span>{state.bundledOffice.manifest.description}</span>
-                    <small>
-                      Windows x64 · {state.bundledOffice.manifest.skills.length} 个 Skills ·{" "}
-                      {state.bundledOffice.manifest.dependencies.length} 个受控依赖 · 卸载保留项目
-                    </small>
-                    <button
-                      type="button"
-                      className="primary"
-                      disabled={busy}
-                      onClick={() => void handleChooseActivationProject()}
-                    >
-                      <FolderOpen aria-hidden />
-                      选择项目并安装激活
-                    </button>
-                  </div>
-                ) : null}
-                {!selectedTask ? (
-                  <label className="work-project-picker">
-                    <span>已激活工作台项目</span>
-                    <select
-                      value={activationId}
-                      onChange={(event) => {
-                        setActivationId(event.target.value);
-                        setProjectFileRefs([]);
-                        setAttachmentError(null);
-                      }}
-                      disabled={state.activations.length === 0}
-                    >
-                      <option value="" disabled>选择一个已激活项目</option>
-                      {state.activations.map((activation) => (
-                        <option key={activation.activationId} value={activation.activationId}>
-                          {activation.workbenchId} · {activation.project.path}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
+                <h1 aria-label="HERMES AGENT">HERMES AGENT</h1>
+                <p>Drop a file path, a traceback, or a rough idea. I&apos;ll investigate, suggest next steps, and keep things reversible.</p>
               </div>
             ) : (
               <div className="work-event-list">
@@ -744,7 +733,6 @@ export function WorkSurface({
           />
 
           <WorkComposer
-            workbenchName={workbenchTitle}
             value={draft}
             disabled={busy || (!selectedTask && !selectedActivation) || selectedTask?.status === "orphaned"}
             running={running}
@@ -756,6 +744,12 @@ export function WorkSurface({
             skillNames={skillNames}
             selectedModel={selectedModel}
             focusRequestId={composerFocusRequestId}
+            dictationEnabled={dictationEnabled}
+            dictationState={dictationState}
+            dictationLevel={dictationLevel}
+            dictationTranscript={dictationTranscript}
+            dictationError={dictationError}
+            dictationHint={dictationHint}
             onChange={setDraft}
             onAddFiles={() => void handleAddProjectFiles()}
             onOpenTools={() => showResourceTab("tools")}
@@ -771,6 +765,12 @@ export function WorkSurface({
             onSubmit={() => void handleSubmit()}
             onStop={() => selectedTask && void controller.stopTask(selectedTask.taskId)}
             onResume={() => selectedTask && void controller.resumeTask(selectedTask.taskId)}
+            onToggleDictation={onToggleDictation}
+            onCancelDictation={onCancelDictation}
+            onOpenDictationSettings={onOpenDictationSettings}
+            onDictationTranscriptHandled={onDictationTranscriptHandled}
+            onDismissDictationError={onDismissDictationError}
+            onDismissDictationHint={onDismissDictationHint}
           />
         </section>
 
@@ -790,8 +790,14 @@ export function WorkSurface({
       </div>
 
       <footer className="work-statusbar">
-        <span className={`work-runtime-dot is-${state.runtime?.state ?? "stopped"}`} aria-hidden />
-        <span>{state.runtime?.state === "ready" ? `Hermes ${state.runtime.version ?? ""}` : "Hermes 未就绪"}</span>
+        <WorkRuntimeBanner
+          runtime={state.runtime}
+          busy={busy}
+          onStart={() => void controller.startRuntime()}
+          onRestart={() => void controller.restartRuntime()}
+          onRepair={() => void controller.repairRuntime()}
+          onDiagnostics={() => void handleDiagnostics()}
+        />
         <span>{activeActivation ? `${activeActivation.workbenchId}@${activeActivation.workbenchVersion}` : "无 activation"}</span>
         {latestUsage?.type === "usageUpdated" ? (
           <span>{latestUsage.totalTokens.toLocaleString()} tokens</span>
@@ -839,6 +845,9 @@ export function WorkSurface({
           activation={activeActivation}
           runtime={state.runtime}
           task={selectedTask}
+          models={state.models}
+          selectedModel={selectedModel}
+          usage={latestUsage?.type === "usageUpdated" ? latestUsage : null}
           onOpenSettings={onOpenSettings}
           onClose={() => setAgentPanelOpen(false)}
         />

@@ -1,5 +1,4 @@
 import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
-import X from "lucide-react/dist/esm/icons/x";
 import type {
   AppSettings,
   CodexDoctorResult,
@@ -12,7 +11,6 @@ import type {
 import { useSettingsViewCloseShortcuts } from "@settings/hooks/useSettingsViewCloseShortcuts";
 import { useSettingsViewNavigation } from "@settings/hooks/useSettingsViewNavigation";
 import { useSettingsViewOrchestration } from "@settings/hooks/useSettingsViewOrchestration";
-import { ModalShell } from "@/features/design-system/components/modal/ModalShell";
 import { useI18n } from "@/i18n";
 import { SettingsNav } from "./SettingsNav";
 import type { CodexSection } from "./settingsTypes";
@@ -148,24 +146,20 @@ export function SettingsView({
   }${useMobileMasterDetail && showMobileDetail ? " is-detail-visible" : ""}`;
 
   return (
-    <ModalShell
-      className="settings-overlay"
-      cardClassName="settings-window"
-      onBackdropClick={onClose}
-      ariaLabelledBy="settings-modal-title"
-    >
+    <section className="settings-page" aria-labelledby="settings-page-title">
       <div className="settings-titlebar">
-        <div className="settings-title" id="settings-modal-title">
-          {t("settings.title")}
-        </div>
         <button
           type="button"
-          className="ghost icon-button settings-close"
+          className="settings-back"
           onClick={onClose}
-          aria-label={t("settings.close")}
+          aria-label={t("settings.backToApp")}
         >
-          <X aria-hidden />
+          <ChevronLeft aria-hidden />
+          {t("settings.backToApp")}
         </button>
+        <div className="settings-title" id="settings-page-title">
+          {t("settings.title")}
+        </div>
       </div>
       <div className={settingsBodyClassName}>
         {(!useMobileMasterDetail || !showMobileDetail) && (
@@ -202,6 +196,6 @@ export function SettingsView({
           </div>
         )}
       </div>
-    </ModalShell>
+    </section>
   );
 }

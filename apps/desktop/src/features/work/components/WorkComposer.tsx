@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
 import Bot from "lucide-react/dist/esm/icons/bot";
 import Layers3 from "lucide-react/dist/esm/icons/layers-3";
+import Mic from "lucide-react/dist/esm/icons/mic";
 import Paperclip from "lucide-react/dist/esm/icons/paperclip";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import Wrench from "lucide-react/dist/esm/icons/wrench";
@@ -9,8 +10,12 @@ import Square from "lucide-react/dist/esm/icons/square";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import X from "lucide-react/dist/esm/icons/x";
 
+import { useComposerDictationControls } from "@/features/composer/hooks/useComposerDictationControls";
+import { DictationWaveform } from "@/features/dictation/components/DictationWaveform";
+import type { DictationTranscript } from "@/types";
+import { computeDictationInsertion } from "@/utils/dictation";
+
 type WorkComposerProps = {
-  workbenchName: string;
   value: string;
   disabled: boolean;
   running: boolean;
@@ -22,6 +27,12 @@ type WorkComposerProps = {
   skillNames: string[];
   selectedModel: string | null;
   focusRequestId: number;
+  dictationEnabled: boolean;
+  dictationState: "idle" | "listening" | "processing";
+  dictationLevel: number;
+  dictationTranscript: DictationTranscript | null;
+  dictationError: string | null;
+  dictationHint: string | null;
   onChange: (value: string) => void;
   onAddFiles: () => void;
   onOpenTools: () => void;
@@ -30,10 +41,15 @@ type WorkComposerProps = {
   onSubmit: () => void;
   onStop: () => void;
   onResume: () => void;
+  onToggleDictation?: () => void;
+  onCancelDictation?: () => void;
+  onOpenDictationSettings?: () => void;
+  onDictationTranscriptHandled?: (id: string) => void;
+  onDismissDictationError?: () => void;
+  onDismissDictationHint?: () => void;
 };
 
 export function WorkComposer({
-  workbenchName,
   value,
   disabled,
   running,
@@ -45,6 +61,12 @@ export function WorkComposer({
   skillNames,
   selectedModel,
   focusRequestId,
+  dictationEnabled,
+  dictationState,
+  dictationLevel,
+  dictationTranscript,
+  dictationError,
+  dictationHint,
   onChange,
   onAddFiles,
   onOpenTools,
@@ -53,8 +75,15 @@ export function WorkComposer({
   onSubmit,
   onStop,
   onResume,
+  onToggleDictation,
+  onCancelDictation,
+  onOpenDictationSettings,
+  onDictationTranscriptHandled,
+  onDismissDictationError,
+  onDismissDictationHint,
 }: WorkComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const handledTranscriptIdRef = useRef<string | null>(null);
   const actionsRef = useRef<HTMLDivElement | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [selectedSkillIndex, setSelectedSkillIndex] = useState(0);
@@ -69,6 +98,22 @@ export function WorkComposer({
     [skillNames, skillQuery],
   );
   const skillCompletionOpen = matchingSkills.length > 0 && !disabled;
+  const {
+    handleMicClick,
+    isDictating,
+    isDictationBusy,
+    isDictationProcessing,
+    micAriaLabel,
+    micDisabled,
+    micTitle,
+  } = useComposerDictationControls({
+    disabled,
+    dictationEnabled,
+    dictationState,
+    onToggleDictation,
+    onCancelDictation,
+    onOpenDictationSettings,
+  });
 
   useEffect(() => {
     if (focusRequestId > 0 && !disabled) {
@@ -79,6 +124,25 @@ export function WorkComposer({
   useEffect(() => {
     setSelectedSkillIndex(0);
   }, [skillQuery]);
+
+  useEffect(() => {
+    if (!dictationTranscript || handledTranscriptIdRef.current === dictationTranscript.id) {
+      return;
+    }
+    handledTranscriptIdRef.current = dictationTranscript.id;
+    const text = dictationTranscript.text.trim();
+    if (text) {
+      const start = textareaRef.current?.selectionStart ?? value.length;
+      const end = textareaRef.current?.selectionEnd ?? start;
+      const { nextText, nextCursor } = computeDictationInsertion(value, text, start, end);
+      onChange(nextText);
+      window.requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(nextCursor, nextCursor);
+      });
+    }
+    onDictationTranscriptHandled?.(dictationTranscript.id);
+  }, [dictationTranscript, onChange, onDictationTranscriptHandled, value]);
 
   useEffect(() => {
     if (!actionsOpen) {
@@ -134,14 +198,6 @@ export function WorkComposer({
 
   return (
     <div className="work-composer-wrap">
-      <div className="work-composer-status">
-        <span><Bot /> Hermes Agent</span>
-        <button type="button" onClick={onOpenModels} disabled={disabled} aria-label="选择 WORK 模型">
-          <Sparkles aria-hidden />
-          {selectedModel ?? "选择模型"}
-        </button>
-        {running ? <span><Layers3 /> 后续消息将排队</span> : null}
-      </div>
       <div className="work-composer">
         {skillCompletionOpen ? (
           <div className="work-skill-completions" role="listbox" aria-label="可用 Skills">
@@ -184,6 +240,13 @@ export function WorkComposer({
             })}
           </div>
         ) : null}
+        {isDictationBusy ? (
+          <DictationWaveform
+            active={isDictating}
+            processing={isDictationProcessing}
+            level={dictationLevel}
+          />
+        ) : null}
         <div className="work-composer-input-row">
           <textarea
             ref={textareaRef}
@@ -193,7 +256,7 @@ export function WorkComposer({
             placeholder={
               running
                 ? "输入后续任务，将在当前任务结束后执行"
-                : `描述你希望 ${workbenchName} 完成的任务`
+                : "你在想什么？"
             }
             rows={2}
             disabled={disabled}
@@ -246,6 +309,22 @@ export function WorkComposer({
             </div>
             <button
               type="button"
+              className={`ghost work-dictation-button${isDictationBusy ? " is-active" : ""}`}
+              disabled={micDisabled}
+              onClick={handleMicClick}
+              aria-label={micAriaLabel}
+              title={micTitle}
+            >
+              {isDictationProcessing ? (
+                <X aria-hidden />
+              ) : isDictating ? (
+                <Square aria-hidden />
+              ) : (
+                <Mic aria-hidden />
+              )}
+            </button>
+            <button
+              type="button"
               className="ghost work-attach-button"
               disabled={!canAttach || disabled}
               onClick={onAddFiles}
@@ -274,10 +353,34 @@ export function WorkComposer({
             </button>
           </div>
         </div>
+        <div className="work-composer-status">
+          <span><Bot /> Hermes Agent</span>
+          <button type="button" onClick={onOpenModels} disabled={disabled} aria-label="选择 WORK 模型">
+            <Sparkles aria-hidden />
+            {selectedModel ?? "选择模型"}
+          </button>
+          {running ? <span><Layers3 /> 后续消息将排队</span> : null}
+        </div>
       </div>
       {attachmentError ? (
         <small id="work-composer-error" role="alert">
           {attachmentError}
+        </small>
+      ) : null}
+      {dictationError ? (
+        <small className="work-composer-feedback is-error" role="alert">
+          <span>{dictationError}</span>
+          <button type="button" onClick={onDismissDictationError} aria-label="关闭听写错误">
+            <X aria-hidden />
+          </button>
+        </small>
+      ) : null}
+      {dictationHint ? (
+        <small className="work-composer-feedback">
+          <span>{dictationHint}</span>
+          <button type="button" onClick={onDismissDictationHint} aria-label="关闭听写提示">
+            <X aria-hidden />
+          </button>
         </small>
       ) : null}
       <small id="work-composer-help">

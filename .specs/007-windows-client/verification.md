@@ -51,6 +51,12 @@
 
 ## 未验证风险
 
+- 2026-07-13：Windows 配置已改为原生 decorations，前端 `WindowCaptionControls` 与 Rust `set_decorations(false)` 覆盖均已删除。诊断 Tauri 启动完成，Win32 style 为 `0x14CF0000`，确认 `Caption / SystemMenu / Minimize / Maximize / ResizeFrame` 全部存在，窗口标题为 `BlackRain`；正式 `tauri:dev:win` 仍被本地 Hermes runtime checksum 漂移阻断，Snap Layout、DPI 和系统主题需在 runtime 校验恢复后补正式入口验收。
+- 2026-07-13：用户实机截图仍未出现 caption 按钮，复查发现基础 `tauri.conf.json` 残留 macOS Overlay/透明窗口参数。现已把基础配置改为 `decorations=true`、`titleBarStyle=Visible`、`hiddenTitle=false`、`transparent=false`，并把 macOS 参数隔离到 `tauri.macos.conf.json`；需要重启 Tauri 窗口后生效。
+- 2026-07-13：重启后 Win32 style 仍为 `0x14CF0000`，但 `ClientTop - WindowTop = 1px`，证明客户区覆盖 caption。根因定位到 `useLiquidGlassEffect` 在 Windows 启用 liquid-glass/Mica；现已改为 Windows 强制禁用插件并清空窗口 effects，配套单测验证不再启用材质效果。
+- 2026-07-13：进一步定位到 window-state 插件仍以 `StateFlags::all()` 恢复历史 `decorated=false`。现已从恢复/保存 flags 中排除 `DECORATIONS`，确保 Windows 每次启动都以 Tauri 平台配置创建原生标题栏。
+- 2026-07-13：诊断 Tauri 自动重建后复测，Win32 style 保持 `0x14CF0000`，`ClientTop - WindowTop` 从错误的 `1px` 恢复为 `30px`，确认原生非客户标题栏已实际恢复，而非仅存在 style flags。
+
 - **dictation(语音输入)在 Windows 上不可用**(2026-06-30 决策):whisper-rs 0.12 + LLVM 22 bindgen 不兼容,临时让 Windows 走 stub.rs。其他平台 real.rs 仅作 post-MVP 历史资产,不影响当前 Windows 风险判定。
 - **Codex 内核 Windows 构建**:已通过(2026-06-30,8m40s)。
 - **NSIS 可交付性**:targets 已锁 NSIS,但尚未构建、解包、安装、首启、卸载;资源映射是否真正入包仍未验。

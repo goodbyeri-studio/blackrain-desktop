@@ -1409,6 +1409,44 @@
     padding: 28px 22px 20px;
   }
 
+  .home.home-codex {
+    padding: 20px 16px;
+  }
+
+  .home-codex-inner {
+    width: 100%;
+    gap: 32px;
+    transform: none;
+  }
+
+  .home-codex-greeting {
+    font-size: 28px;
+  }
+
+  .home-prompt-bar {
+    flex-wrap: wrap;
+  }
+
+  .home-prompt-actions {
+    flex: 1 1 100%;
+    min-width: 0;
+    margin-left: 0;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .home-model-trigger {
+    min-width: 0;
+  }
+
+  .home-model-label {
+    max-width: min(190px, calc(100vw - 150px));
+  }
+
+  .home-menu-popover--access {
+    min-width: min(380px, calc(100vw - 32px));
+  }
+
   .home-latest-grid {
     grid-template-columns: minmax(0, 1fr);
   }

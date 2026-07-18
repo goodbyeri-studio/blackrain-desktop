@@ -161,7 +161,8 @@ type UseMainAppLayoutSurfacesArgs = {
   accessMode: ComposerProps["accessMode"];
   onSelectAccessMode: ComposerProps["onSelectAccessMode"];
   onEnterWorkspaceFromHome: (workspaceId: string, draft: string) => void;
-  onOpenWorkSurface: () => void;
+  surfaceMode: "work" | "code";
+  onSurfaceModeChange: (mode: "work" | "code") => void;
   skills: ComposerProps["skills"];
   apps: ComposerProps["apps"];
   prompts: ComposerProps["prompts"];
@@ -326,7 +327,8 @@ function buildPrimarySurface({
   accessMode,
   onSelectAccessMode,
   onEnterWorkspaceFromHome,
-  onOpenWorkSurface,
+  surfaceMode,
+  onSurfaceModeChange,
   skills,
   apps,
   prompts,
@@ -416,6 +418,8 @@ function buildPrimarySurface({
       showDebugButton,
       onAddWorkspace: handleAddWorkspace,
       onSelectHome: sidebarHandlers.onSelectHome,
+      surfaceMode,
+      onSurfaceModeChange,
       onSelectWorkspace: sidebarHandlers.onSelectWorkspace,
       onConnectWorkspace: sidebarHandlers.onConnectWorkspace,
       onAddAgent: handleAddAgent,
@@ -612,7 +616,6 @@ function buildPrimarySurface({
       reasoningSupported,
       onAddWorkspace: handleAddWorkspace,
       onAddWorkspaceFromUrl: openWorkspaceFromUrlPrompt,
-      onOpenWorkSurface,
       latestAgentRuns,
       isLoadingLatestAgents,
       localUsageSnapshot,
@@ -1063,7 +1066,8 @@ export function useMainAppLayoutSurfaces({
   accessMode,
   onSelectAccessMode,
   onEnterWorkspaceFromHome,
-  onOpenWorkSurface,
+  surfaceMode,
+  onSurfaceModeChange,
   skills,
   apps,
   prompts,
@@ -1228,7 +1232,8 @@ export function useMainAppLayoutSurfaces({
     accessMode,
     onSelectAccessMode,
     onEnterWorkspaceFromHome,
-    onOpenWorkSurface,
+    surfaceMode,
+    onSurfaceModeChange,
     skills,
     apps,
     prompts,

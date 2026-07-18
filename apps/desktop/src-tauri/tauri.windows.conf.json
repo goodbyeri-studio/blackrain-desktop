@@ -2,15 +2,17 @@
   "app": {
     "windows": [
       {
-        "title": "BlackRain2049",
+        "title": "BlackRain",
         "width": 1200,
         "height": 700,
         "minWidth": 360,
         "minHeight": 600,
         "dragDropEnabled": true,
+        "decorations": true,
+        "shadow": true,
         "titleBarStyle": "Visible",
         "hiddenTitle": false,
-        "transparent": true,
+        "transparent": false,
         "devtools": true,
         "windowEffects": null
       }

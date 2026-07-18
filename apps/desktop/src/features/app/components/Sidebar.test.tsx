@@ -42,6 +42,8 @@ const baseProps = {
   showDebugButton: false,
   onAddWorkspace: vi.fn(),
   onSelectHome: vi.fn(),
+  surfaceMode: "code" as const,
+  onSurfaceModeChange: vi.fn(),
   onSelectWorkspace: vi.fn(),
   onConnectWorkspace: vi.fn(),
   onAddAgent: vi.fn(),
@@ -70,6 +72,15 @@ const baseProps = {
 };
 
 describe("Sidebar", () => {
+  it("routes the shared work/code switch through the surface controller", () => {
+    const onSurfaceModeChange = vi.fn();
+    render(<Sidebar {...baseProps} onSurfaceModeChange={onSurfaceModeChange} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Work" }));
+
+    expect(onSurfaceModeChange).toHaveBeenCalledWith("work");
+  });
+
   it("renders the search bar when opened and accepts a query", () => {
     render(<Sidebar {...baseProps} initialSearchOpen />);
 

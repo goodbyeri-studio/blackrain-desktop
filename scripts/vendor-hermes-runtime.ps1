@@ -32,6 +32,12 @@ function Get-Sha256([string]$Path) {
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Get-NormalizedTextSha256([string]$Path) {
+  $content = [IO.File]::ReadAllText($Path).Replace("`r`n", "`n")
+  $bytes = [Text.UTF8Encoding]::new($false).GetBytes($content)
+  return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
+}
+
 function Normalize-PackageName([string]$Name) {
   return ($Name.ToLowerInvariant() -replace '[_.]+', '-')
 }
@@ -50,7 +56,7 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if (-not (Test-Path $routerSource)) {
   throw "缺少 BlackRain MCP router 源文件: $routerSource"
 }
-if ((Get-Sha256 $routerSource) -ne $manifest.blackrainMcpRouter.sha256) {
+if ((Get-NormalizedTextSha256 $routerSource) -ne $manifest.blackrainMcpRouter.sha256) {
   throw "BlackRain MCP router hash 与 manifest 不一致。"
 }
 $actualCommit = (& git -C $hermes rev-parse HEAD).Trim()
@@ -77,11 +83,15 @@ if ((Test-Path (Join-Path $target "venv\Scripts\hermes.exe")) -and -not $Force) 
 }
 
 $buildRoot = Join-Path $repo ".scratch\hermes-runtime-build-$([Guid]::NewGuid().ToString('N'))"
-$stage = Join-Path $buildRoot "runtime"
+$stage = $target
 $pythonInstall = Join-Path $stage "python"
 $venv = Join-Path $stage "venv"
 $venvPython = Join-Path $venv "Scripts\python.exe"
 $constraints = Join-Path $buildRoot "messaging-constraints.txt"
+New-Item -ItemType Directory -Force -Path $target | Out-Null
+Get-ChildItem -LiteralPath $target -Force |
+  Where-Object { $_.Name -ne ".gitkeep" } |
+  Remove-Item -Recurse -Force
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
 $oldPythonInstallDir = $env:UV_PYTHON_INSTALL_DIR
@@ -92,6 +102,11 @@ try {
   $pythonExe = (& $UvExe python find $manifest.python.version --managed-python).Trim()
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pythonExe)) {
     throw "uv 未返回可用的 Python $($manifest.python.version)：$pythonExe"
+  }
+  $pythonHome = Get-Item -LiteralPath (Split-Path $pythonExe)
+  if ($pythonHome.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+    $pythonExe = Join-Path ([string]$pythonHome.Target) (Split-Path $pythonExe -Leaf)
+    Remove-Item -LiteralPath $pythonHome.FullName -Force
   }
   $actualPython = (& $pythonExe -c "import platform; print(platform.python_version())").Trim()
   if ($actualPython -ne $manifest.python.version) {
@@ -173,7 +188,9 @@ files are recorded in provenance/python-distributions.json and LICENSES/.
   Set-Content -LiteralPath (Join-Path $stage "NOTICE.txt") -Value ($notice.Trim() + "`n") -Encoding UTF8
 
   Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $provenanceDir "runtime-manifest.json")
-  Copy-Item -LiteralPath $routerSource -Destination (Join-Path $stage $manifest.blackrainMcpRouter.runtimePath)
+  $runtimeRouter = Join-Path $stage $manifest.blackrainMcpRouter.runtimePath
+  $routerContent = [IO.File]::ReadAllText($routerSource).Replace("`r`n", "`n")
+  [IO.File]::WriteAllText($runtimeRouter, $routerContent, [Text.UTF8Encoding]::new($false))
   $uvVersion = (& $UvExe --version).Trim()
   $buildInfo = [ordered]@{
     schemaVersion = 1
@@ -187,13 +204,29 @@ files are recorded in provenance/python-distributions.json and LICENSES/.
     extras = @($manifest.install.extras)
     additionalPackages = @($manifest.install.additionalPackages)
     inventoryScriptSha256 = Get-Sha256 $inventoryScript
-    mcpRouterSha256 = Get-Sha256 $routerSource
+    mcpRouterSha256 = Get-Sha256 $runtimeRouter
   } | ConvertTo-Json -Depth 5
   Set-Content -LiteralPath (Join-Path $provenanceDir "build.json") -Value $buildInfo -Encoding UTF8
 
+  $pythonAliases = @(Get-ChildItem -LiteralPath $pythonInstall -Force -Directory |
+    Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint })
+  if ($pythonAliases.Count -gt 1) {
+    throw "Hermes runtime managed Python 包含多个 alias，拒绝生成。"
+  }
+  if ($pythonAliases.Count -eq 1) {
+    $pythonAlias = $pythonAliases[0]
+    $pythonBase = [IO.Path]::GetFullPath([string]$pythonAlias.Target)
+    $relativeBase = [IO.Path]::GetRelativePath($pythonInstall, $pythonBase)
+    if ($relativeBase.StartsWith("..") -or [IO.Path]::IsPathRooted($relativeBase)) {
+      throw "Hermes runtime managed Python alias 指向包目录之外。"
+    }
+    Remove-Item -LiteralPath $pythonAlias.FullName -Force
+    Move-Item -LiteralPath $pythonBase -Destination $pythonAlias.FullName
+  }
+
   $checksumPath = Join-Path $stage "SHA256SUMS"
   $checksums = Get-ChildItem -LiteralPath $stage -Recurse -File |
-    Where-Object { $_.FullName -ne $checksumPath } |
+    Where-Object { $_.FullName -ne $checksumPath -and $_.Name -ne ".gitkeep" } |
     Sort-Object FullName |
     ForEach-Object {
       $relative = [IO.Path]::GetRelativePath($stage, $_.FullName).Replace('\', '/')
@@ -201,11 +234,6 @@ files are recorded in provenance/python-distributions.json and LICENSES/.
     }
   Set-Content -LiteralPath $checksumPath -Value ($checksums -join "`n") -Encoding UTF8
 
-  New-Item -ItemType Directory -Force -Path $target | Out-Null
-  Get-ChildItem -LiteralPath $target -Force |
-    Where-Object { $_.Name -ne ".gitkeep" } |
-    Remove-Item -Recurse -Force
-  Get-ChildItem -LiteralPath $stage -Force | Move-Item -Destination $target
   Write-Host "✓ Hermes runtime vendored: $target"
 } finally {
   $env:UV_PYTHON_INSTALL_DIR = $oldPythonInstallDir
