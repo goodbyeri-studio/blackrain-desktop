@@ -4,7 +4,7 @@
 
 BlackRain 是一个由 AI 驱动的垂类工作环境平台。它不和大厂正面争夺“最全能的通用助手”，而是提供工作台的封装、安装、运行和分发底座，让每个可电脑化领域都能快速拥有自己的“Codex”。
 
-BlackRain 采用桌面端 SaaS 形态，由三个独立项目运营：私有 `blackrain-desktop`（本仓）、私有 `blackrain-cloud`（账号/权益/商业账本）和公开 AGPL `blackrain-relay`（基于 New API 的模型中转站）。Cloud 是 Relay 的企业客户，不与其共享数据库；详细边界以 [.specs/010](.specs/010-three-project-platform/) 为准。
+BlackRain 采用桌面端 SaaS 形态，由私有 `blackrain-desktop`（本仓）和私有 `blackrain-cloud`（账号/权益/商业账本）组成；Cloud 以企业客户身份接入独立公开的 `MeiMei API`（`goodbyeri-studio/meimei-api`，基于 New API）。双方不共享品牌、数据库或密钥域；详细边界以 [.specs/010](.specs/010-three-project-platform/) 为准。
 
 `BlackRain` 是当前规范产品名。历史文档、提交和少数尚未迁移的产物名里可能仍出现 `2049 App` / `2049`；它们只表示旧称。
 
@@ -96,7 +96,7 @@ blackrain-desktop/
 - **运行时拓扑**：[09 运行时架构与里程碑](docs/09-运行时架构与里程碑.md)
 - **工作台包协议**：[.specs/008](.specs/008-expert-workbench-package/)
 - **Hermes WORK surface 闭环**：[.specs/009](.specs/009-hermes-work-surface/)
-- **三项目平台与 Cloud/Relay 边界**：[.specs/010](.specs/010-three-project-platform/)
+- **跨产品平台与 Cloud/MeiMei API 边界**：[.specs/010](.specs/010-three-project-platform/)
 - **当前实现水位**：对应 spec 的 `verification.md` + 实际代码/配置
 
 完整地图见 [docs/README.md](docs/README.md)。

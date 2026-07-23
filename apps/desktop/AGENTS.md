@@ -13,11 +13,11 @@ Detailed navigation/runbooks live in:
 - `../../docs/commands.md` (canonical setup/build/release commands)
 - `../../.specs/008-expert-workbench-package/` (workbench package and lifecycle contract)
 - `../../.specs/009-hermes-work-surface/` (Hermes runtime and WORK surface implementation contract)
-- `../../.specs/010-three-project-platform/` (Desktop/Cloud/Relay repository, ledger, API, and license boundaries)
+- `../../.specs/010-three-project-platform/` (Desktop/Cloud/MeiMei API repository, ledger, API, and license boundaries)
 
 ## Project Snapshot
 
-BlackRain Desktop is the Core runtime for installable expert workbenches. It is a Tauri app derived from CodexMonitor. The current WORK/Hermes migration has reached code-level closure on macOS, but Windows Tauri, real Hermes/Relay, Office, installer, and workbench lifecycle verification remain incomplete and must not be described as released.
+BlackRain Desktop is the Core runtime for installable expert workbenches. It is a Tauri app derived from CodexMonitor. The current WORK/Hermes migration has reached code-level closure on macOS, but Windows Tauri, real Hermes/MeiMei API, Office, installer, and workbench lifecycle verification remain incomplete and must not be described as released.
 
 - Frontend: React + Vite (`src/`)
 - Backend app: Tauri Rust process (`src-tauri/src/lib.rs`)

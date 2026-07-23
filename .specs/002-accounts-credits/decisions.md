@@ -5,7 +5,7 @@
 - 决策：Supabase 配置、migration、邮件模板迁入 `blackrain-cloud/supabase/`；历史代理及其计算、测试和镜像迁入 `blackrain-cloud/legacy/credit-proxy/`，Desktop 删除对应文件。
 - 原因：Desktop 可以使用 Supabase 登录，但不能拥有 `service_role`、数据库部署或商业账本服务端资产。
 - 影响范围：仓库真源、历史验证路径、Cloud foundation 和 Desktop gateway 文档。
-- 后续复查条件：正式 Cloud/Relay API 完成后重验 account broker、usage 对账和 Desktop 客户端接线。
+- 后续复查条件：正式 Cloud/MeiMei API 完成后重验 account broker、usage 对账和 Desktop 客户端接线。
 
 ## 2026-07-12：文档锚定服从现有可执行公式
 
@@ -139,21 +139,21 @@
 - 影响范围：WORK provider producer、账号 broker、new-api 用户/token 映射、余额展示、登出撤销、Windows Credential Manager 和 009 真实模型纵切。
 - 后续复查条件：必须先决定 new-api quota 还是 Supabase `profiles.credits`/`credit_ledger` 为计费真源，并部署可真实验证的 broker；届时补登录、刷新、登出、撤销、长任务跨 JWT 刷新和双引擎同余额测试。
 
-## 2026-07-12：生产 credit 项目边界收敛为 Cloud 购买 Relay 服务
+## 2026-07-12：生产 credit 项目边界收敛为 Cloud 购买 MeiMei API 服务
 
-- 决策：`blackrain-cloud` 是 `blackrain-relay` 的企业客户。Supabase JWT 只向 Cloud 证明身份；Cloud 检查套餐/余额后向 Relay 兑换长期、可撤销、可限额的 model token。WORK 直连 Relay，CODE 经本地翻译网关进入 Relay。现有 `gateway/proxy.py` 退为历史过渡实现，不再是目标生产入口。
-- 原因：Relay 要独立经营并服务第三方，Cloud 不应与其共享数据库或进入高吞吐模型内容路径；短期 Supabase JWT 也不适合常驻 Hermes。
-- 替代方案：Relay 直接识别 Supabase JWT；Cloud 代理全部模型请求；继续把 `proxy.py` 作为最终服务；Cloud 与 Relay 共库。
+- 决策：`blackrain-cloud` 是 `meimei-api` 的企业客户。Supabase JWT 只向 Cloud 证明身份；Cloud 检查套餐/余额后向 MeiMei API 兑换长期、可撤销、可限额的 model token。WORK 直连 MeiMei API，CODE 经本地翻译网关进入 MeiMei API。现有 `gateway/proxy.py` 退为历史过渡实现，不再是目标生产入口。
+- 原因：MeiMei API 要独立经营并服务第三方，Cloud 不应与其共享数据库或进入高吞吐模型内容路径；短期 Supabase JWT 也不适合常驻 Hermes。
+- 替代方案：MeiMei API 直接识别 Supabase JWT；Cloud 代理全部模型请求；继续把 `proxy.py` 作为最终服务；Cloud 与 MeiMei API 共库。
 - 影响范围：account broker、provider producer、系统凭据、credit 错误、usage 对账、`proxy.py` 迁移和 010。
 - 后续复查条件：实现前冻结 token exchange、撤销、过期、usage idempotency、日终对账和退款补偿合同。
 
 ## 2026-07-12：Supabase 是 BlackRain 商业账本真源
 
-- 决策：Supabase 记录 BlackRain 套餐、充值、赠送、消费、退款和未来创作者收益；Relay 记录原始模型 usage、渠道成本、执行额度和批发结算。两边通过 API/Webhook 幂等对账，不共享表。
+- 决策：Supabase 记录 BlackRain 套餐、充值、赠送、消费、退款和未来创作者收益；MeiMei API 记录原始模型 usage、渠道成本、执行额度和批发结算。两边通过 API/Webhook 幂等对账，不共享表。
 - 原因：New API quota 无法表达 BlackRain 全部商业事件；Supabase 也不适合承担模型路由和 token 限流。双边都维护“最终余额”会产生不可解释漂移。
-- 替代方案：以 Relay quota 为唯一商业余额；Relay 直接调用 `spend_credits`；Cloud 直接修改 Relay 数据库。
+- 替代方案：以 MeiMei API quota 为唯一商业余额；MeiMei API 直接调用 `spend_credits`；Cloud 直接修改 MeiMei API 数据库。
 - 影响范围：ledger schema、request/usage id、余额展示、退款和财务报表。
-- 后续复查条件：Cloud/Relay 合同测试必须覆盖重复、迟到、缺失 usage 和差错补偿。
+- 后续复查条件：Cloud/MeiMei API 合同测试必须覆盖重复、迟到、缺失 usage 和差错补偿。
 
 ## 被推翻的方案
 

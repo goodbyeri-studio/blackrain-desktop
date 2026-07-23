@@ -61,7 +61,7 @@ BlackRain（Tauri，subtree 自 CodexMonitor）= 工作台 Core + 双 surface + 
 | `workbenches/` | 专家工作台包；目标包含 Manifest、Skills、插件依赖、环境、模板、任务和验证。 | 当前 `office-agent` 只是内容/注入骨架；完整生命周期按 008 落地，不能再写成“纯 Markdown 即完整工作台”。 |
 | `.specs/` | 轻量 living spec：跨层功能的 requirements/design/tasks/decisions/verification。当前已有 001–010。 | 只给大功能/架构功能建，随实现同步更新。 |
 
-仓库托管在 `goodbyeri-studio/blackrain-desktop`（私有）。BlackRain 另有私有 `blackrain-cloud` 与公开 AGPL `blackrain-relay`；三项目边界以 `.specs/010-three-project-platform/` 为真源。本仓只承载桌面产品、客户端账户层和本地运行时；Supabase 服务端资产与历史 credit proxy 已迁至 Cloud。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
+仓库托管在 `goodbyeri-studio/blackrain-desktop`（私有）。BlackRain 另有私有 `blackrain-cloud`；Cloud 以企业客户身份接入独立公开的 `MeiMei API`（`goodbyeri-studio/meimei-api`）。跨产品边界以 `.specs/010-three-project-platform/` 为真源。本仓只承载桌面产品、客户端账户层和本地运行时；Supabase 服务端资产与历史 credit proxy 已迁至 Cloud。`apps/desktop/AGENTS.md` 是壳内部的详细 agent 契约（前后端分层、IPC 路由、import 别名、hotspots），改 `apps/desktop/**` 时**必读**。
 
 ## Living Spec 纪律
 
@@ -84,7 +84,7 @@ BlackRain（Tauri，subtree 自 CodexMonitor）= 工作台 Core + 双 surface + 
 | [007 windows-client](.specs/007-windows-client/) | **当前优先级**:MVP 仅 Windows(macOS 推迟 post-MVP),dev-client.ps1 + NSIS 打包 + Windows 验证矩阵 | — |
 | [008 expert-workbench-package](.specs/008-expert-workbench-package/) | **产品核心协议**：工作台 Manifest、依赖、权限、安装、验证、升级、回滚和卸载 | — |
 | [009 hermes-work-surface](.specs/009-hermes-work-surface/) | **当前实现 P0**：Hermes 进程纳管、隔离配置、`/v1/runs`、SSE、审批、任务恢复和 Codex 风格 WORK surface | — |
-| [010 three-project-platform](.specs/010-three-project-platform/) | `blackrain-desktop` / `blackrain-cloud` / `blackrain-relay` 的仓库、License、账本和 API 边界 | — |
+| [010 three-project-platform](.specs/010-three-project-platform/) | BlackRain Desktop/Cloud 与独立 `MeiMei API` 的仓库、License、账本和 API 边界 | — |
 
 ## 文档治理
 
@@ -115,9 +115,9 @@ src-tauri/
 ## 第三方 License 红线（闭源商业 B2B，全员遵守）
 
 > **MIT / Apache-2.0 → 可进仓库、可借代码（保留 NOTICE 署名）。
-> AGPL / GPL / BSL / 无许可证 → 不得进入 Desktop/Cloud 私有仓库；唯一批准例外是独立公开的 `blackrain-relay`，可基于 New API 按 AGPLv3 完整履责。**
+> AGPL / GPL / BSL / 无许可证 → 不得进入 Desktop/Cloud 私有仓库；唯一批准例外是独立公开的 `MeiMei API`（`goodbyeri-studio/meimei-api`），可基于 New API 按 AGPLv3 完整履责。**
 
-Desktop/Cloud 保持严格闭源来源边界；普通 AGPL/GPL 参考项目仍放在仓库外（约定 `~/Projects/refs/`），照着重写不照抄。Relay 的公开 AGPL 例外不扩散到本仓。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+Desktop/Cloud 保持严格闭源来源边界；普通 AGPL/GPL 参考项目仍放在仓库外（约定 `~/Projects/refs/`），照着重写不照抄。MeiMei API 的公开 AGPL 例外不扩散到本仓。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 命令与验证入口
 

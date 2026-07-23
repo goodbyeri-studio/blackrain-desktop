@@ -189,11 +189,11 @@
 - 决策：本次文档治理只消除“已经定案/已经完成”的错误表述，不替产品选择最终拓扑。
 - 影响范围：002/003 requirements/design/tasks/verification。
 
-## 2026-07-12：new-api 从内部组件提升为独立 BlackRain Relay 产品
+## 2026-07-12：new-api 从内部组件提升为独立中转产品
 
-- 决策：模型数据面统一称为 `blackrain-relay`，它是基于 New API 的独立公开 AGPL 产品；`blackrain-cloud` 作为企业客户购买 Relay API。WORK 仍零翻译直连 Relay，CODE 仍经本地 Responses 翻译网关进入 Relay，直到 New API Responses 通过 codex 严格协议探针。
-- 原因：Relay 要独立盈利并服务第三方，具有独立许可证、账本、密钥、部署和故障域；Cloud 只负责 BlackRain 身份、权益、broker 和商业账本。
-- 替代方案：把 New API 内嵌 Cloud；让 Desktop 直接持 Relay 管理 token；现在就删除 CODE 翻译网关。
+- 决策：模型数据面统一称为 `meimei-api`，它是基于 New API 的独立公开 AGPL 产品；`blackrain-cloud` 作为企业客户购买 MeiMei API。WORK 仍零翻译直连 MeiMei API，CODE 仍经本地 Responses 翻译网关进入 MeiMei API，直到 New API Responses 通过 codex 严格协议探针。
+- 原因：MeiMei API 要独立盈利并服务第三方，具有独立许可证、账本、密钥、部署和故障域；Cloud 只负责 BlackRain 身份、权益、broker 和商业账本。
+- 替代方案：把 New API 内嵌 Cloud；让 Desktop 直接持 MeiMei API 管理 token；现在就删除 CODE 翻译网关。
 - 影响范围：002、003、005、009、010、模型路由、部署与运营。
 - 后续复查条件：New API 当前已有 `/v1/responses` 路由与转换代码；只有通过 codex app-server 的 streaming/tool/reasoning/错误协议矩阵后，才可重议 CODE 本地网关。
 

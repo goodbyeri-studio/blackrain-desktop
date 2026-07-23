@@ -112,9 +112,9 @@ gh api --method PATCH repos/goodbyeri-studio/blackrain-desktop \
 本产品按**闭源商业 B2B**纪律开发，引入第三方代码必须先看许可证。本仓库或部分组件最终采用何种对外许可证仍是待决事项；在定案前按更严格的闭源分发边界执行。一条分界线记牢：
 
 > **MIT / Apache-2.0 → 可进 Desktop/Cloud 私有仓库、可借用代码（保留 NOTICE 署名）。
-> AGPL / GPL / BSL / 无许可证 → 不得进入 Desktop/Cloud 私有仓库、不得与其闭源代码混合。唯一已批准例外是独立公开的 `blackrain-relay`：它可以基于 New API 按 AGPLv3 公开 fork、保留署名并履行网络源码提供义务。**
+> AGPL / GPL / BSL / 无许可证 → 不得进入 Desktop/Cloud 私有仓库、不得与其闭源代码混合。唯一已批准例外是独立公开的 `meimei-api`：它可以基于 New API 按 AGPLv3 公开 fork、保留署名并履行网络源码提供义务。**
 
-为什么：Desktop/Cloud 必须保持清晰的闭源来源边界；AGPL 代码若与其形成派生或组合会产生源码提供义务。Relay 本身被明确选择为公开 AGPL 产品，因此该义务在 Relay 内接受并履行；这不授权把其他 AGPL/GPL 项目随意带入私有仓。无许可证仍等于默认保留全部版权，不可使用。
+为什么：Desktop/Cloud 必须保持清晰的闭源来源边界；AGPL 代码若与其形成派生或组合会产生源码提供义务。MeiMei API 本身被明确选择为公开 AGPL 产品，因此该义务在 MeiMei API 内接受并履行；这不授权把其他 AGPL/GPL 项目随意带入私有仓。无许可证仍等于默认保留全部版权，不可使用。
 
 ### 能进 vs 不能进（实例）
 
@@ -125,7 +125,7 @@ gh api --method PATCH repos/goodbyeri-studio/blackrain-desktop \
 | open-codex 的中文 UI 文案 | Apache | ✅ |
 | **codexia 的代码** | **AGPL** | ❌ **永不进仓库，只作参考标杆** |
 | opcode / siteboon 等 | AGPL | ❌ 同上 |
-| New API | AGPLv3 + Section 7 | ✅ 仅限独立公开的 `blackrain-relay`；Desktop/Cloud 禁止复制源码 |
+| New API | AGPLv3 + Section 7 | ✅ 仅限独立公开的 `meimei-api`；Desktop/Cloud 禁止复制源码 |
 
 ### 参考类（AGPL/GPL）项目放哪
 
@@ -136,4 +136,4 @@ gh api --method PATCH repos/goodbyeri-studio/blackrain-desktop \
 - 读它、学它的架构、照着自己重写都合法；**绝不 copy-paste 其源码进我们的源文件**。
 - 看一眼就够的，直接用 GitHub 网页或 `gh` 临时拉单文件，不必本地 clone。
 
-> 一句话纪律：**私有产品继续隔离 AGPL；Relay 只接纳经过明确批准、可完整履责的公开 AGPL 代码。许可证没看清，代码不落地。**
+> 一句话纪律：**私有产品继续隔离 AGPL；MeiMei API 只接纳经过明确批准、可完整履责的公开 AGPL 代码。许可证没看清，代码不落地。**

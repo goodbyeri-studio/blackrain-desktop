@@ -2,7 +2,7 @@
 
 ## 总体方案
 
-一个监工壳（Tauri，fork 自 CodexMonitor）按工作台和项目组织用户体验，并指挥**两个引擎黑盒**——普通工作台默认由 Hermes 承载，软件开发工作台进入 codex surface。平台 credit 模型调用汇入独立 BlackRain Relay；身份、权益和商业账本由 BlackRain Cloud 承担，跨项目边界服从 [.specs/010](../010-three-project-platform/)。Plus BYOK 是否允许直连仍待 002/003 联合定案。工作台生命周期由 [.specs/008](../008-expert-workbench-package/) 定义；本 spec 只负责双引擎运行边界。
+一个监工壳（Tauri，fork 自 CodexMonitor）按工作台和项目组织用户体验，并指挥**两个引擎黑盒**——普通工作台默认由 Hermes 承载，软件开发工作台进入 codex surface。平台 credit 模型调用汇入独立 MeiMei API；身份、权益和商业账本由 BlackRain Cloud 承担，跨项目边界服从 [.specs/010](../010-three-project-platform/)。Plus BYOK 是否允许直连仍待 002/003 联合定案。工作台生命周期由 [.specs/008](../008-expert-workbench-package/) 定义；本 spec 只负责双引擎运行边界。
 
 > 当前实现状态（2026-07-11）：WORK 只完成了 2026-06-26 的独立 Hermes→new-api→DeepSeek spike；尚未接入 Tauri 壳，S3 外置记忆、S4 跨模式、S5 整 MCP server 热拔插和 office 质量基线均未完成。CODE 壳能力约 90%、当前记录为 42 个 RPC 接入，但能力底账仍是旧 commit 基线。
 
@@ -23,7 +23,7 @@
    (+ 专属 CODEX_HOME)                (+ 独立 HERMES_HOME)
        │                                  │
        ▼ Responses→gateway→Chat           ▼ Chat (零翻译)
-       └──────────────► BlackRain Relay(New API) ◄──┘
+       └──────────────► MeiMei API(New API) ◄──┘
                               ▼
                        国产模型 (DeepSeek/GLM…)
 
@@ -50,7 +50,7 @@
 ## 架构边界
 
 - 属于 `apps/desktop` 的逻辑：监工壳；WORK/CODE 两个 surface；编排器（跨模式任务的子任务切分与回传）；纳管 Hermes 子进程（启停 + `/v1` 调用）；驱动 codex app-server（已有）。借 Hermes Desktop 的 MIT React 组件（skills/memory/provider 面板）。
-- 属于 `gateway` 的逻辑：responses⇄chat 翻译，**只挂在 CODE 路径**（codex→Responses→翻译→Chat→BlackRain Relay）。
+- 属于 `gateway` 的逻辑：responses⇄chat 翻译，**只挂在 CODE 路径**（codex→Responses→翻译→Chat→MeiMei API）。
 - 属于 `plugins` / `workbenches` 的内容：工具适配器、Skills、模板、任务和工作台声明；完整包边界见 008。
 - 明确不改 `codex-upstream` 的部分：agent 循环、协议层；codex 仍为原装黑盒。
 
@@ -61,8 +61,8 @@ WORK（普通/专家工作台）                 CODE（软件开发工作台/�
   -> 监工壳 WORK surface                 -> 监工壳 CODE surface
   -> HTTP /v1 (Hermes 黑盒子进程)         -> app-server JSON-RPC (codex + 专属 CODEX_HOME)
   -> Chat Completions (零翻译)            -> Responses
-  -> Relay 计量 ───┐                      -> gateway responses⇄chat
-                   │                      -> Chat -> Relay 计量
+  -> MeiMei API 计量 ───┐                      -> gateway responses⇄chat
+                   │                      -> Chat -> MeiMei API 计量
   国产模型 <───────┴──────────────────────────────┘
 
 跨模式编排：监工壳 = 大脑

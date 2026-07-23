@@ -117,8 +117,8 @@
 - [ ] 评估 Hermes v2026.7.7.2 新增能力的集成价值：MOA（多模型协同）、agent self-verification、model routes 与增强的 `/v1` API Server（与工作台验证层和多模型路由天然对齐）
 - [ ] new-api 差价计费跑通一套真实官方工作台；具体垂类由市场验证决定，不在本 spec 预设番茄小说
 - [ ] 编排器：跨模式子任务切分/回传逻辑 + 测试
-- [x] 统一生产项目边界：Cloud 是 Relay 企业客户，Relay 负责模型数据面，`proxy.py` 退为历史过渡实现；见 010。
-- [ ] 实现 Cloud broker、WORK/CODE Relay token、usage 对账，并决定 Plus BYOK 是否绕过 Relay。
+- [x] 统一生产项目边界：Cloud 是 MeiMei API 企业客户，MeiMei API 负责模型数据面，`proxy.py` 退为历史过渡实现；见 010。
+- [ ] 实现 Cloud broker、WORK/CODE MeiMei API token、usage 对账，并决定 Plus BYOK 是否绕过 MeiMei API。
 
 ## 阶段 3：收口
 
