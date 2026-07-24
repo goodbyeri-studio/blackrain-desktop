@@ -1,4 +1,3 @@
-import { useState } from "react";
 import SquarePen from "lucide-react/dist/esm/icons/square-pen";
 import LayoutGrid from "lucide-react/dist/esm/icons/layout-grid";
 import Boxes from "lucide-react/dist/esm/icons/boxes";
@@ -16,27 +15,8 @@ type SidebarActionsProps = {
  */
 export function SidebarActions({ onNewConversation }: SidebarActionsProps) {
   const { tx } = useI18n();
-  const [surfaceMode, setSurfaceMode] = useState<"work" | "code">("code");
-
   return (
     <div className="sidebar-actions">
-      <div className="sidebar-mode-switch" role="group" aria-label={tx("Mode")}>
-        {(["work", "code"] as const).map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            className={`sidebar-mode-switch-button${
-              surfaceMode === mode ? " is-active" : ""
-            }`}
-            aria-pressed={surfaceMode === mode}
-            onClick={() => setSurfaceMode(mode)}
-            data-tauri-drag-region="false"
-          >
-            {tx(mode === "work" ? "Work" : "Code")}
-          </button>
-        ))}
-      </div>
-
       <button
         type="button"
         className="sidebar-action"

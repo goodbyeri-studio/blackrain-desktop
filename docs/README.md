@@ -8,9 +8,9 @@
 |---|---|
 | BlackRain 现在是什么、全局进度到哪 | `README.md` |
 | Skill、插件、环境、工作台、工作室、项目如何定义 | `docs/04-产品形态.md` |
-| 双引擎如何运行、谁写配置、Gateway 挂在哪 | `docs/09-运行时架构与里程碑.md` |
+| Desktop 运行时如何组织、谁写配置、Gateway 挂在哪 | `docs/09-运行时架构与里程碑.md` |
 | 工作台 Manifest、安装、升级、回滚和卸载怎样实现 | `.specs/008-expert-workbench-package/` |
-| Hermes WORK surface、进程、SSE、审批和恢复怎样实现 | `.specs/009-hermes-work-surface/` |
+| 工作台激活后怎样进入受控会话、两种 surface 怎样共享内核 | `.specs/011-workbench-session-orchestration/` |
 | Desktop、Cloud、Relay 三项目怎样分工 | `.specs/010-three-project-platform/` |
 | 某个跨层功能应该怎样实现 | 对应 `.specs/<NNN-slug>/requirements.md`、`design.md`、`decisions.md` |
 | 某功能当前真的完成了什么 | 对应 `verification.md` + 实际代码/配置 |
@@ -46,16 +46,16 @@
 | [02 市场与竞品](02-市场与竞品.md) | 通用 Agent 与专家数字工作环境的错位竞争、长尾垂类路径 |
 | [03 系统架构](03-系统架构.md) | Core、工作台运行层、验证、工作室和专家市场分层 |
 | [04 产品形态](04-产品形态.md) | **产品形态唯一真源**：`Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室` |
-| [05 模型路由](05-模型路由.md) | 模型作为可替换执行资源、双路径和真实验证边界 |
+| [05 模型路由](05-模型路由.md) | 模型作为可替换执行资源、统一 codex 模型路由和真实验证边界 |
 | [06 专家经济与工作台市场](06-市场与创作者经济.md) | 专家供给、封装者、市场冷启动、审核和分成 |
 | [07 护城河与风险](07-护城河与风险.md) | 环境复现、专家资产、垂类验证与主要风险 |
 | [08 仓库结构与上游策略](08-仓库结构与上游策略.md) | 内核黑盒 vs 壳底盘、CodexMonitor subtree |
-| [09 运行时架构与里程碑](09-运行时架构与里程碑.md) | 工作台运行监工、四条铁律、双引擎和里程碑 |
+| [09 运行时架构与里程碑](09-运行时架构与里程碑.md) | Workbench Core、Session Orchestrator、双 surface、codex 与 Gateway |
 | [.specs/008 工作台包](../.specs/008-expert-workbench-package/) | Manifest、依赖、权限、安装、验证、升级、回滚和卸载 |
-| [.specs/009 Hermes WORK surface](../.specs/009-hermes-work-surface/) | Hermes 进程纳管、隔离配置、`/v1/runs`、SSE、审批、任务恢复和 Codex 风格 UI |
+| [.specs/011 工作台会话编排](../.specs/011-workbench-session-orchestration/) | 激活记录、受控会话描述符、双 surface 与统一执行合同 |
 | [.specs/010 三项目平台](../.specs/010-three-project-platform/) | `blackrain-desktop`、`blackrain-cloud`、`blackrain-relay` 的仓库、License、账本和 API 边界 |
 | [REFERENCES](REFERENCES.md) | 参考项目登记、锁定版本、许可证 |
-| [上游更新检查清单](upstream-update-checklist.md) | 每 2 周跟进双引擎上游、历史更新记录、quick-xml 专项 |
+| [上游更新检查清单](upstream-update-checklist.md) | codex 上游升级、能力复验和 Windows 验收 |
 | [跨平台开发指南](cross-platform-dev.md) | Windows-first 开发/发布边界、非 Windows 资产、平台分叉点和实机烟测 |
 
 ## 去哪里写
@@ -72,7 +72,7 @@
 
 - 默认中文，短句，结论先行。
 - 产品名默认写 `BlackRain`；引用历史旧称或旧文件名时必须显式说明其历史/兼容性质。
-- 产品第一主语是工作台，不把双引擎、模型广场或“通用办公助手”写成核心定位。
+- 产品第一主语是工作台，不把模型广场或“通用办公助手”写成核心定位。
 - 正式关系写成 `Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室`；对外价值台阶可简写为 `Skill → 插件 → 工作台 → 工作室`。
 - 工作台不是纯 Markdown；描述现状时必须区分内容骨架、Manifest 存在、Windows 安装通过和可发布。
 - MVP 只写 Windows 交付口径；macOS / iOS 只能标成 post-MVP 或上游资产，不能写成当前发布承诺。

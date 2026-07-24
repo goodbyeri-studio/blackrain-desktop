@@ -5,18 +5,16 @@
 
 ## 总体方案
 
-在现有本地壳之上加一层**账号 + credit 计量**。2026-06-25 已真实验证的是 CODE 路径的过渡链路；生产项目边界现已定为私有 Cloud 负责身份/权益/商业账本，公开 Relay 基于 New API 负责模型中转与原始 usage，执行真源见 [010](../010-three-project-platform/)。
+在现有本地壳之上加一层**账号 + credit 计量**。2026-06-25 已真实验证的是 CODE surface 的过渡链路；目标架构中两种 surface 共用同一 Gateway 和计量合同。生产项目边界现已定为私有 Cloud 负责身份/权益/商业账本，公开 Relay 基于 New API 负责模型中转与原始 usage，执行真源见 [010](../010-three-project-platform/)。
 
-- **CODE credit（过渡实现已验证）**：Codex → 本地翻译网关 → `proxy.py` → DeepSeek；代理持平台 key 并按真实 usage 扣 credit。
-- **WORK credit（待接线）**：Hermes 原生 Chat 直接接 BlackRain Relay，不经过 CODE 翻译网关；model token 由 Cloud broker 兑换，尚未实现。
-- **BYOK（仅 Plus+，尚未实现）**：目标是不消耗平台 credit；直连上游还是仍经 new-api，待与 003 统一。
+- **credit 过渡实现（仅 CODE surface 已验证）**：Codex → 本地翻译网关 → `proxy.py` → DeepSeek；代理持平台 key 并按真实 usage 扣 credit。
+- **BYOK（仅 Plus+，尚未实现）**：目标是不消耗平台 credit；直连上游还是仍经 new-api，尚待决策。
 
 账号、plan、credit 余额由 **Supabase（Auth + Postgres）** 管理，桌面 App 通过 Supabase JS SDK 登录、读余额；当前过渡代理用 Supabase service-role 校验 JWT、扣余额。
 
 ```text
 注册/登录:       桌面 App --Supabase SDK--> Supabase Auth (邮箱+密码+OTP)
-CODE credit(已验): Codex -> 本地网关(Responses⇄Chat) -> proxy.py(过渡) -> DeepSeek
-WORK credit(待实现): Hermes(Chat) -> BlackRain Relay(New API) -> 国产模型
+credit(仅 CODE surface 已验): Codex -> 本地网关(Responses⇄Chat) -> proxy.py(过渡) -> DeepSeek
 BYOK(待实现):     Plus+ 权益门禁 + 路由待定；不消耗平台 credit
 余额展示:         桌面 --Supabase SDK--> profiles.credits
 ```
@@ -38,7 +36,7 @@ credit 用户花的是平台的钱，平台模型 key **绝不能**打包进桌�
 
 - 当前 CODE 过渡实现中，本地网关把 `base_url` 指向 `proxy.py`，`Authorization` 带用户 Supabase JWT（不是 DeepSeek key）。
 - 过渡代理用 JWT 认出用户 → 查余额 → 转发到真实 DeepSeek（注入平台 key）→ 读 usage → 扣 credit。
-- WORK/Hermes credit 和 Plus BYOK 的最终路由尚未实现，不在本文静默假定。
+- Plus BYOK 的最终路由尚未实现，不在本文静默假定。
 
 ## Credit 模型
 
@@ -122,14 +120,13 @@ end $$;
 - **一致性边界**：`spend_credits` 保证单次扣款与流水在一个事务内原子；它不是预授权/余额冻结。同一用户并发多轮可能都过门禁、各自扣到负——当前接受小幅为负，下次充值补齐。
 - 扣减只允许服务端 service-role 调用；前端无权改余额（RLS）。
 
-## 模式切换（当前 CODE 过渡接线 + 待补双引擎）
+## 模式切换
 
-当前代码只完成 CODE credit provider override；完整目标如下，未完成项不得按已实现理解：
+当前代码只完成 credit provider override；未完成项不得按已实现理解：
 
 | 模式 | base_url | Authorization | 计 credit |
 |---|---|---|---|
-| CODE credit（代码接线完成，GUI E2E 未跑） | 过渡代理 `…/v1` | 用户 Supabase JWT | 是 |
-| WORK credit（待接线） | BlackRain Relay `…/v1` | Cloud broker 签发的 Relay model token | 是 |
+| 平台 credit（代码接线完成，GUI E2E 未跑） | 过渡代理 `…/v1` | 用户 Supabase JWT | 是 |
 | BYOK（仅 Plus+，待实现） | 直连或经 new-api 待决 | 用户自己的 key | 否 |
 
 - 默认 credit 模式；Plus 用户的 BYOK 权益、路由和模式切换尚未完成。
@@ -156,9 +153,9 @@ end $$;
   - 注册 → trigger 建 profile + 赠送 credit。
   - 代理：JWT 校验、扣余额原子性、ledger 落账。
   - RLS：前端无法改 `credits`。
-  - CODE credit 和 WORK credit 使用同一余额、同一错误语义；生产 new-api/适配层组合确定后补。
+  - 平台 credit 使用统一余额与错误语义；生产 new-api/适配层组合确定后补。
 - 人工验证：
   - 注册 → 登录 → 首页看余额 → 选 flash/pro 对话 → 余额按用量下降。
   - Plus 开 BYOK → 对话不扣 credit。
   - 余额耗尽 → 对话被拦 + 提示。
-  - Windows 桌面实机完成会话恢复、CODE credit、WORK credit、BYOK 权益门禁与余额刷新。
+  - Windows 桌面实机完成会话恢复、平台 credit、BYOK 权益门禁与余额刷新。

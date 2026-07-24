@@ -2,7 +2,7 @@
 
 架构文档 [03](../docs/03-系统架构.md) 第 ② 层、[05 模型路由](../docs/05-模型路由.md)。把国产模型统一抽象成 OpenAI 兼容客户端,**用户在模型广场手动选 provider**;并解决 codex 默认走 Responses、而国产模型多是 Chat Completions 的协议落差。
 
-> **当前状态（2026-07-12）**：本目录服务 CODE 路径，不服务 WORK/Hermes。`gateway.py` 已证明链路可行并进入打包资源配置，但仍是生产化未完成的原型；已记录的完整工具调用只在显式 `STRIP_TOOLS=0` 的开发/探针路径通过。当前 App 托管 spawn 未覆盖默认值 `1`，普通启动会剥除工具，这是待修发布阻塞项。Windows 发布级证据看 `.specs/007-windows-client/verification.md`；配置存在不等于安装包已验收。
+> **当前状态（2026-07-24）**：本目录是所有 codex 模型会话共用的协议翻译层。`gateway.py` 已在 CODE surface 证明链路可行并进入打包资源配置，但仍是生产化未完成的原型；工作台 surface 接入由 [spec 011](../.specs/011-workbench-session-orchestration/) 约束，目前尚未实现。已记录的完整工具调用只在显式 `STRIP_TOOLS=0` 的开发/探针路径通过。当前 App 托管 spawn 未覆盖默认值 `1`，普通启动会剥除工具，这是待修发布阻塞项。Windows 发布级证据看 `.specs/007-windows-client/verification.md`；配置存在不等于安装包已验收。
 
 ## 关键约束（接国产模型的命门）
 
@@ -130,8 +130,8 @@ curl -s http://127.0.0.1:8899/v1/models
 
 历史 `proxy.py`、credit 计算、测试和镜像文件已迁入私有
 `blackrain-cloud/legacy/credit-proxy/`，只用于行为回归和合同提取，不再是 Desktop
-生产组件。本目录只保留 CODE 模式本地 Responses 到 Chat 的 `gateway.py` sidecar。
+生产组件。本目录只保留所有 codex 模型会话共用的本地 Responses 到 Chat `gateway.py` sidecar。
 
-目标生产路径是 Desktop 从 BlackRain Cloud 获取权益与受限 model token，再由 WORK
-直连 BlackRain Relay、CODE 经本地 `gateway.py` 进入 Relay。Cloud/Relay 正式接口和
+目标生产路径是 Desktop 从 BlackRain Cloud 获取权益与受限 model token，再由
+所有 codex 模型会话经本地 `gateway.py` 进入 Relay。Cloud/Relay 正式接口和
 Desktop 客户端接线仍以对应 living spec 的实现与验证为准。

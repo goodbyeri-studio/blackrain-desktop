@@ -18,9 +18,7 @@ function Invoke-Cargo {
 Push-Location (Join-Path $RepoRoot "apps\desktop\src-tauri")
 try {
   Invoke-Cargo test --no-run --locked
-  Invoke-Cargo test hermes --lib --locked
   Invoke-Cargo test workbench_core --lib --locked
-  Invoke-Cargo test plugin_core --lib --locked
 } finally {
   Pop-Location
 }

@@ -11,7 +11,7 @@
 
 - 决策：只接「可用」的 ClientRequest(A 类 bdd282f 新增 + B 类真缺口)；C 类(OpenAI 后端绑定)、D 类(realtime/remoteControl/feedback)不接。
 - 原因：C 类接国产模型场景物理失效(无 ChatGPT 账号),D 类 v1 不做或壳已自实现。接了也是死代码。
-- 依据：[code-mode-boundary.md](../003-dual-engine-architecture/code-mode-boundary.md) 附录功能接入覆盖表。
+- 依据：本 spec 的 [capability-gui-mapping.md](capability-gui-mapping.md) 功能接入覆盖表。
 
 ## 2026-06-28：严格照搬 5 层 archive_thread pattern,不发明新结构
 

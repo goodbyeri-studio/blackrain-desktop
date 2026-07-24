@@ -5,7 +5,7 @@
 ## 背景
 
 - 这个功能为什么保留:第四轮决策 #5 定下「把 codex-rs 提供的、我们能用的全部能力接入并暴露到 BlackRain 壳,然后做 GUI 复刻」。42 个方法的包装已完成历史实装,本 spec 继续负责记录当前锁定内核的重验、门控/stub 和 GUI 交接边界。
-- 相关上游/文档:本 spec 实装/shape 探针基线为 `bdd282f`→`cfead68`;当前锁定已更新到 rust-v0.144.1 / `44918ea`(2026-07-09),下一轮 CODE GUI 开发前必须重跑探针并刷新缺口表;[code-mode-boundary.md](../003-dual-engine-architecture/code-mode-boundary.md);[codex-capability-ledger.md](../003-dual-engine-architecture/codex-capability-ledger.md)。
+- 相关上游/文档:本 spec 实装/shape 探针基线为 `bdd282f`→`cfead68`;当前锁定已更新到 rust-v0.144.1 / `44918ea`(2026-07-09),下一轮 CODE GUI 开发前必须重跑探针并刷新缺口表;运行时边界见 [docs/09](../../docs/09-运行时架构与里程碑.md)。
 - 既有 5 层接线 pattern(以 `archive_thread` 为范例,已读真实代码):`shared/codex_core.rs`(核心 RPC 发起)→ `codex/mod.rs`(App 命令,带 remote_backend 分支)→ `lib.rs`(`invoke_handler` 注册)→ `services/tauri.ts`(前端 IPC 包装)→ daemon 两处(`blackrain_daemon.rs` state 方法 + `blackrain_daemon/rpc/codex.rs` 分发)。
 
 ## 目标(做什么)

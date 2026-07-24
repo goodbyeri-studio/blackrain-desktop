@@ -1,6 +1,6 @@
 # OfficeCLI 内置交付状态
 
-> 本文记录当前仓库中的 OfficeCLI 集成边界。历史上曾在 2026-06-23 对一个 Windows 安装包做过 OfficeCLI 创建/校验 smoke，但该结果只证明当时的资源封装，不等于当前锁定内核、账号、Gateway、WORK/Hermes、工作台生命周期和 NSIS 全链路已经发布验收。Windows 发布真源是 [spec 007 verification](../../../.specs/007-windows-client/verification.md)，工作台包真源是 [spec 008](../../../.specs/008-expert-workbench-package/)。
+> 本文记录当前仓库中的 OfficeCLI 集成边界。资源和代码存在不等于当前锁定内核、账号、Gateway、工作台生命周期、会话编排和 NSIS 全链路已经发布验收。Windows 发布真源是 [spec 007 verification](../../../.specs/007-windows-client/verification.md)，工作台包真源是 [spec 008](../../../.specs/008-expert-workbench-package/)，激活后的执行真源是 [spec 011](../../../.specs/011-workbench-session-orchestration/)。
 
 ## 当前结论
 
@@ -16,11 +16,11 @@
 
 当前尚不能据此宣称：
 
-- WORK/Hermes 已经接入 Office 工作台。
+- Session Orchestrator、工作台 surface 和 Office 任务执行已经接入。
 - 当前锁定版本的 Windows 客户端已完成真实登录、对话、安装和卸载验收。
 - Office 任务已经达到面向小白的端到端质量基线。
 - 影子备份、回收站删除和一键还原已经实现。
-- Office 资源已经具备 Manifest、安装、健康检查、升级、回滚和卸载能力。
+- Office 工作台已经通过 Manifest、安装、健康检查、升级、回滚和卸载的 Windows 完整矩阵。
 
 ## 关键源码位置
 
@@ -45,7 +45,7 @@
 4. 把 OfficeCLI 运行目录加入 Codex 子进程的 `PATH`。
 5. 把 Office skill 和 workbench 内容骨架同步到应用托管的 `CODEX_HOME`。
 
-这条现有路径是 CODE-side 资源准备，不是 008 所定义的工作台安装/激活协议。
+这条现有路径是共享 codex 子进程的资源准备，不是 008 所定义的工作台安装/激活协议，也不等于 011 的受控会话编排已经接线。
 
 当前暴露的本地 Tauri 命令：
 
@@ -93,12 +93,13 @@ pwsh scripts/release-client-win.ps1
 - 安装后能创建并校验 `.docx`、`.xlsx`、`.pptx`。
 - App 能查询 Office runtime，Codex 子进程能从注入 PATH 找到 `officecli`。
 - 登录、真实模型对话、安装、启动和卸载流程通过。
-- WORK/Hermes Office 工作台若被作为产品卖点，还必须另有 WORK surface 和 Office 场景质量基线证据。
+- Office 工作台若被作为产品卖点，还必须有任务执行和 Office 场景质量基线证据。
 - 作为可安装工作台发布前，还必须通过 008 的 Manifest、权限、健康检查、升级/回滚和卸载矩阵。
 
 ## 后续事项
 
-- WORK/Hermes 产品化、跨模式编排与 Office 质量基线：`.specs/003-dual-engine-architecture/`。
+- 工作台会话编排与双 surface：`.specs/011-workbench-session-orchestration/`。
+- Office 场景质量基线：在 011 的执行合同落地后补充专项任务与验证结果。
 - Windows NSIS、Credential Manager、真实工具调用、安装/卸载：`.specs/007-windows-client/`。
 - 工作台 Manifest、依赖、激活、升级、回滚和卸载：`.specs/008-expert-workbench-package/`。
 - OfficeCLI 上游升级时重新 vendor，并同步 `SHA256SUMS` 与 `VENDOR.json`。
