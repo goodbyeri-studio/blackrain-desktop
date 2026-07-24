@@ -10,7 +10,6 @@ import "./styles/ds-tooltip.css";
 import "./styles/buttons.css";
 import "./styles/sidebar.css";
 import "./styles/home.css";
-import "./styles/work.css";
 import "./styles/workspace-home.css";
 import "./styles/main.css";
 import "./styles/messages.css";

@@ -26,25 +26,10 @@ import type {
 } from "../types";
 import type {
   ActivatedWorkbenchContext,
-  HermesRuntimeDiagnostics,
-  HermesRuntimeModel,
-  HermesFollowUpEditInput,
-  HermesFollowUpInput,
-  HermesTaskContinueInput,
-  HermesTaskMetadataInput,
-  HermesTaskReadResult,
-  HermesTaskRecoveryState,
-  HermesTaskStartInput,
-  WorkRuntimeStatus,
-  WorkActivationMigrationReason,
-  WorkFollowUp,
-  WorkProjectEntry,
-  WorkProjectPreview,
-  WorkTask,
   WorkbenchDeactivationResult,
   OfficialWorkbenchActivationResult,
   WorkbenchPackageInspection,
-} from "@/features/work/types";
+} from "@/features/workbenches/types";
 import type {
   GitFileDiff,
   GitFileStatus,
@@ -1843,30 +1828,6 @@ export async function accountSessionClear(key: string): Promise<void> {
   await invoke("account_session_clear", { key });
 }
 
-export async function hermesRuntimeStatus(): Promise<WorkRuntimeStatus> {
-  return invoke<WorkRuntimeStatus>("hermes_runtime_status");
-}
-
-export async function hermesRuntimeStart(): Promise<WorkRuntimeStatus> {
-  return invoke<WorkRuntimeStatus>("hermes_runtime_start");
-}
-
-export async function hermesRuntimeStop(): Promise<WorkRuntimeStatus> {
-  return invoke<WorkRuntimeStatus>("hermes_runtime_stop");
-}
-
-export async function hermesRuntimeRestart(): Promise<WorkRuntimeStatus> {
-  return invoke<WorkRuntimeStatus>("hermes_runtime_restart");
-}
-
-export async function hermesRuntimeRepair(): Promise<WorkRuntimeStatus> {
-  return invoke<WorkRuntimeStatus>("hermes_runtime_repair");
-}
-
-export async function hermesRuntimeDiagnostics(): Promise<HermesRuntimeDiagnostics> {
-  return invoke<HermesRuntimeDiagnostics>("hermes_runtime_diagnostics");
-}
-
 export async function workbenchActivationList(): Promise<ActivatedWorkbenchContext[]> {
   return invoke<ActivatedWorkbenchContext[]>("workbench_activation_list");
 }
@@ -1900,148 +1861,4 @@ export async function workbenchActivationDeactivate(
   return invoke<WorkbenchDeactivationResult>("workbench_activation_deactivate", {
     activationId,
   });
-}
-
-export async function workbenchActivationMigrateTask(
-  taskId: string,
-  targetActivationId: string,
-  reason: WorkActivationMigrationReason,
-): Promise<WorkTask> {
-  return invoke<WorkTask>("workbench_activation_migrate_task", {
-    input: { taskId, targetActivationId, reason },
-  });
-}
-
-export async function hermesTaskList(): Promise<WorkTask[]> {
-  return invoke<WorkTask[]>("hermes_task_list");
-}
-
-export async function hermesTaskRead(taskId: string): Promise<HermesTaskReadResult> {
-  return invoke<HermesTaskReadResult>("hermes_task_read", { taskId });
-}
-
-export async function hermesFollowUpEnqueue(
-  input: HermesFollowUpInput,
-): Promise<WorkFollowUp[]> {
-  return invoke<WorkFollowUp[]>("hermes_follow_up_enqueue", { input });
-}
-
-export async function hermesFollowUpEdit(
-  input: HermesFollowUpEditInput,
-): Promise<WorkFollowUp[]> {
-  return invoke<WorkFollowUp[]>("hermes_follow_up_edit", { input });
-}
-
-export async function hermesFollowUpCancel(
-  taskId: string,
-  followUpId: string,
-): Promise<WorkFollowUp[]> {
-  return invoke<WorkFollowUp[]>("hermes_follow_up_cancel", { taskId, followUpId });
-}
-
-export async function hermesFollowUpRetry(
-  taskId: string,
-  followUpId: string,
-): Promise<WorkFollowUp[]> {
-  return invoke<WorkFollowUp[]>("hermes_follow_up_retry", { taskId, followUpId });
-}
-
-export async function hermesFollowUpDispatchReady(): Promise<boolean> {
-  return invoke<boolean>("hermes_follow_up_dispatch_ready");
-}
-
-export async function hermesTaskStart(input: HermesTaskStartInput): Promise<WorkTask> {
-  return invoke<WorkTask>("hermes_task_start", { input });
-}
-
-export async function hermesTaskContinue(
-  input: HermesTaskContinueInput,
-): Promise<WorkTask> {
-  return invoke<WorkTask>("hermes_task_continue", { input });
-}
-
-export async function hermesTaskResume(taskId: string): Promise<WorkTask> {
-  return invoke<WorkTask>("hermes_task_resume", { taskId });
-}
-
-export async function hermesTaskApproval(
-  taskId: string,
-  choice: "once" | "session" | "always" | "deny",
-  resolveAll = false,
-): Promise<WorkTask> {
-  return invoke<WorkTask>("hermes_task_approval", { taskId, choice, resolveAll });
-}
-
-export async function hermesTaskStop(taskId: string): Promise<WorkTask> {
-  return invoke<WorkTask>("hermes_task_stop", { taskId });
-}
-
-export async function hermesTaskDeleteLocalMetadata(taskId: string): Promise<boolean> {
-  return invoke<boolean>("hermes_task_delete_local_metadata", { taskId });
-}
-
-export async function hermesTaskUpdateMetadata(
-  input: HermesTaskMetadataInput,
-): Promise<WorkTask> {
-  return invoke<WorkTask>("hermes_task_update_metadata", { input });
-}
-
-export async function hermesTaskRecoveryStatus(): Promise<HermesTaskRecoveryState> {
-  return invoke<HermesTaskRecoveryState>("hermes_task_recovery_status");
-}
-
-export async function hermesRuntimeModels(): Promise<HermesRuntimeModel[]> {
-  return invoke<HermesRuntimeModel[]>("hermes_runtime_models");
-}
-
-export async function hermesProjectList(
-  taskId: string,
-  relativePath = "",
-): Promise<WorkProjectEntry[]> {
-  return invoke<WorkProjectEntry[]>("hermes_project_list", { taskId, relativePath });
-}
-
-export async function hermesProjectPreview(
-  taskId: string,
-  relativePath: string,
-): Promise<WorkProjectPreview> {
-  return invoke<WorkProjectPreview>("hermes_project_preview", { taskId, relativePath });
-}
-
-export async function hermesTerminalOpen(
-  taskId: string,
-  terminalId: string,
-  cols: number,
-  rows: number,
-): Promise<{ id: string }> {
-  return invoke<{ id: string }>("hermes_terminal_open", {
-    taskId,
-    terminalId,
-    cols,
-    rows,
-  });
-}
-
-export async function hermesTerminalWrite(
-  taskId: string,
-  terminalId: string,
-  data: string,
-): Promise<void> {
-  return invoke<void>("hermes_terminal_write", { taskId, terminalId, data });
-}
-
-export async function hermesTerminalResize(
-  taskId: string,
-  terminalId: string,
-  cols: number,
-  rows: number,
-): Promise<void> {
-  return invoke<void>("hermes_terminal_resize", { taskId, terminalId, cols, rows });
-}
-
-export async function hermesTerminalClose(
-  taskId: string,
-  terminalId: string,
-): Promise<void> {
-  return invoke<void>("hermes_terminal_close", { taskId, terminalId });
 }

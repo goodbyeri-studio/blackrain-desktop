@@ -1,9 +1,6 @@
 # 上游 Codex 克隆，单独管理，不纳入本仓库
 codex-upstream/
 
-# 上游 Hermes Agent 克隆（WORK 引擎黑盒），同 codex 待遇，不纳入本仓库
-hermes-upstream/
-
 # 依赖与构建产物
 node_modules/
 target/

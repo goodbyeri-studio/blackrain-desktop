@@ -7,7 +7,6 @@ description: Invalid unknown field fixture.
 license: MIT
 unexpected: true
 target: { domains: [fixture], roles: [tester], platforms: [{ os: windows, arch: x86_64 }], blackrain: ">=0.7.68" }
-engine: { preferred: work, allowed: [work] }
 skills: [{ path: skills/demo }]
 plugins: []
 dependencies: []

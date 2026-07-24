@@ -18,7 +18,7 @@
 
 - 本次资产迁移不实现 Cloud API、支付、model token broker、New API fork、生产数据迁移或双账本对账。
 - Desktop 的客户端账号代码、Supabase SDK、session 与系统钥匙串不迁出。
-- 本轮不决定 Plus BYOK 是否绕过 Relay，也不因 New API 宣称支持 Responses 就删除 CODE 本地翻译网关。
+- 本轮不决定 Plus BYOK 是否绕过 Relay，也不因 New API 宣称支持 Responses 就删除 Desktop 的统一本地翻译网关。
 
 ## 成功标准
 

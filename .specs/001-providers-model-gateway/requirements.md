@@ -5,7 +5,7 @@
 - BlackRain 的模型层不能写死 DeepSeek，也不能变成某一家模型的客户端。
 - Codex 内核保持原装，只发 Responses 协议；大量第三方/国产模型仍以 Chat Completions 或 OpenAI-compatible API 为主。
 - 现有 `gateway/gateway.py` 已证明 DeepSeek 经 Responses⇄Chat 翻译可以驱动 Codex 内核，但它仍是最小原型，不是产品级模型网关；后续被 App 托管、打包和 smoke 通过也不改变这一定位。
-- 本 spec 覆盖 M1 主线：Providers / 模型网关设置页、专属 `CODEX_HOME` 写入、Gateway sidecar、对话模型选择器。自 003 双引擎架构定稿后，本 spec 只负责 **CODE 路径**，WORK/Hermes 不经过该翻译网关。
+- 本 spec 覆盖 Providers / 模型网关设置页、专属 `CODEX_HOME` 写入、Gateway sidecar 和会话模型选择器。Gateway 服务所有 codex 模型会话；当前端到端证据主要来自 CODE surface，工作台 surface 的消费接缝归 spec 011。
 
 ## 用户目标
 

@@ -153,10 +153,10 @@
 - 影响范围：`SettingsCodexSection`（下拉 onChange 双写）、`SettingsView.test.tsx`（断言双写）。
 - 后续复查条件：若决定彻底合并入口，再评估把 Codex 区改为只读展示 + 跳转模型网关页。
 
-## 2026-07-11：001 只描述 CODE 路径，Python Gateway 仍是原型
+## 2026-07-24：001 描述统一 codex 模型路径，Python Gateway 仍是原型
 
-- 决策：在 003 双引擎架构下，`gateway.py` 只服务 CODE/codex 的 Responses⇄Chat 翻译；WORK/Hermes 不经过它。现有 App 托管、资源打包和 DeepSeek smoke 证明接缝可行，但不把 Python 原型升级表述为生产网关。
-- 原因：双引擎已把翻译边界锁在 CODE 路径；当前仓库对 `gateway.py` 的正式定位仍是“可替换 sidecar 槽位中的可行性验证原型”。
+- 决策：`gateway.py` 服务所有 codex 模型会话的 Responses⇄Chat 翻译，两种 surface 不得建立独立模型路径。现有 App 托管、资源打包和 DeepSeek smoke 证明 CODE surface 接缝可行，但不把 Python 原型升级表述为生产网关，也不把尚未实现的工作台 surface 写成已接入。
+- 原因：协议翻译边界按内核而不是 surface 划分；当前仓库对 `gateway.py` 的正式定位仍是“可替换 sidecar 槽位中的可行性验证原型”。
 - 影响范围：本文 requirements/design/tasks/verification 的范围说明。
 - 后续复查条件：生产网关语言/进程形态拍板并完成 Windows 发布级验证后，再更新该定位。
 

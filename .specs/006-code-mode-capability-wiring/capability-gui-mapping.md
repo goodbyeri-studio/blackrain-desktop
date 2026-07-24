@@ -102,4 +102,4 @@
 
 - 后端接入与验证:本目录 `requirements.md` / `design.md` / `verification.md`
 - 调用函数全在 `apps/desktop/src/services/tauri.ts`
-- CODE 模式边界与复刻上限:[../003-dual-engine-architecture/code-mode-boundary.md](../003-dual-engine-architecture/code-mode-boundary.md)
+- CODE 运行时边界与复刻上限:[../../docs/09-运行时架构与里程碑.md](../../docs/09-运行时架构与里程碑.md)

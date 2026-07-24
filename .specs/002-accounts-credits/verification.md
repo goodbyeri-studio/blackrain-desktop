@@ -1,6 +1,6 @@
 # Verification
 
-> 状态校准（2026-07-12）：M-A1 账号代码、M-A2 过渡代理和真实 Supabase/DeepSeek 计量已经验证；生产项目边界已按 010 定为 Cloud 购买 Relay 服务，但 broker、对账、Windows 桌面 GUI、WORK/Hermes credit 和 Plus BYOK 尚未实现。2026-06-25 的公网地址和云服务结果是当日历史证据，不代表当前可用性监控。
+> 状态校准（2026-07-12）：M-A1 账号代码、M-A2 过渡代理和真实 Supabase/DeepSeek 计量已经验证；生产项目边界已按 010 定为 Cloud 购买 Relay 服务，但 broker、对账、Windows 桌面 GUI、CODE credit 和 Plus BYOK 尚未完成产品闭环。
 > 同日 Supabase 服务端资产与历史代理已迁入 `blackrain-cloud`；下文
 > `gateway/proxy.py` 等路径是历史证据中的原始位置，不代表 Desktop 当前仍含这些文件。
 
@@ -40,7 +40,7 @@
 | YYYY-MM-DD | 本地网关 credit 模式端到端 | 桌面 GUI（登录→选模型→对话） | 未跑 | 需 tauri dev：base_url 切代理、JWT 文件热读、扣 credit |
 | YYYY-MM-DD | 余额耗尽 → 前端提示 | 桌面 GUI | 未跑 | 代理 402 → response.failed 已就绪；前端提示文案待联调 |
 | YYYY-MM-DD | Plus BYOK 不计 credit | 手动 | 未跑 | BYOK 对话余额不变（M-A3） |
-| YYYY-MM-DD | WORK/Hermes credit | Windows 桌面 GUI | 未跑 | Cloud broker + Relay token/usage 对账尚未实现 |
+| YYYY-MM-DD | CODE credit | Windows 桌面 GUI | 未跑 | Cloud broker + Relay token/usage 对账尚未实现 |
 | YYYY-MM-DD | OTP 前赠送行为 | 未确认邮箱注册后查 profile/ledger | 未跑 | 当前 trigger 在 auth.users insert 时发放，需验证并决定是否调整 |
 
 ## 已验证
@@ -63,8 +63,7 @@
   - 日志脱敏坐实：扫描无平台 key/JWT/用户内容/完整 user_id。
   - 纯逻辑单测：credit_math 9 + proxy 8 用例通过。
 - 仍需起 Windows 桌面 App 才能验的项（会话钥匙串持久、CODE credit、JWT 过期刷新、余额耗尽提示）已在矩阵标注。
-- WORK/Hermes credit、Plus BYOK、Cloud broker 和 Relay 对账尚未实现，不能由现有 CODE 过渡代理证据外推。
-- 2026-07-12 provider 鉴权审计：锁定 Hermes `key_env` 在进程/agent 生命周期解析，不能复用 CODE 网关的逐请求 `api_key_file` 刷新。读取 new-api `7c28993` 的 `/api/token` controller/model，确认上游 token 支持撤销、过期、余额和模型限制；这只证明候选凭据形态，不证明 BlackRain 已有 broker、用户映射或统一 credit 真源。
+- CODE credit、Plus BYOK、Cloud broker 和 Relay 对账尚未实现，不能由现有过渡代理证据外推。
 
 ## 未验证风险
 
@@ -73,8 +72,8 @@
 - Supabase 在国内的网络可达性 / 合规边界：本机（开发者环境）经 CLI/REST 直连新加坡区项目正常（建项目、push migration、admin/REST 调用均通），但**这不等于终端用户网络**；发行前仍须在目标用户网络/弱网/移动网络下实测登录与实时余额延迟，并评估合规边界。
 - 并发超卖（接受小幅为负、下次充值补齐）的实际损失规模未观测；若偏大需上预授权冻结。
 - `proxy.py` 的一次性 DO/Caddy 部署已实操，但代码已迁入 Cloud legacy 且不得作为新生产入口；Cloud/Relay 的持续监控、备份、轮换、故障恢复和生产接线尚未验证。
-- Windows Credential Manager 中的会话持久、GUI credit 闭环、WORK/Hermes credit、BYOK 权益后端门禁均未验证。
-- Supabase→长期 model token 的 account broker 尚不存在；不得把自动刷新的 access JWT 直接放进 Hermes，也不得把 new-api 上游 token API 存在写成签发链路完成。
+- Windows Credential Manager 中的会话持久、GUI credit 闭环、CODE credit、BYOK 权益后端门禁均未验证。
+- Supabase→长期 model token 的 account broker 尚不存在；不得把 new-api 上游 token API 存在写成签发链路完成。
 - 当前注册赠送 trigger 在 `auth.users insert` 时执行，可能早于邮箱 OTP 确认；真实未确认注册行为与防滥用策略未验证。
 
 ## 失败记录

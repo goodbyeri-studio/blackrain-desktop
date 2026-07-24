@@ -6,7 +6,7 @@
 
 - Windows 是当前唯一发布、实机验收和产品承诺平台。
 - React/TypeScript、部分 Rust shared core、纯 Python Gateway、Markdown 插件/工作台可在非 Windows 环境编辑和做局部检查，但只能降低风险，不能保证 Windows 行为。
-- NSIS、Credential Manager、Mica/标题栏、Windows 路径/进程、真实双引擎、Office 和安装/卸载必须在 Windows 实机验证。
+- NSIS、Credential Manager、Mica/标题栏、Windows 路径/进程、真实 CODE 链路、Office 和安装/卸载必须在 Windows 实机验证。
 - iOS 当前没有 BlackRain 构建、发布或验收入口；只保留上游资产，不参与 MVP。
 
 ## 当前 CI 真相
@@ -15,11 +15,11 @@
 
 | Job | Runner | 覆盖 |
 |---|---|---|
-| `changes` | `ubuntu-latest` | 按 diff 判断是否需要 JS 或 Windows Rust/WORK 检查 |
+| `changes` | `ubuntu-latest` | 按 diff 判断是否需要 JS 或 Windows Rust 检查 |
 | `js-checks` | `ubuntu-latest` | typecheck/test/lint/DS/codemod |
-| `windows-rust-checks` | `WINDOWS_RUNNER`，未设置时为 `windows-latest` | 一次编译全部 Rust test targets，再跑 Hermes/workbench/plugin 专项 |
+| `windows-rust-checks` | `WINDOWS_RUNNER`，未设置时为 `windows-latest` | 一次编译全部 Rust test targets，再跑 workbench 专项 |
 
-纯 Markdown/Word PR 不启动 workflow；普通 `main` push 不重复检查，只有 Cargo manifest/lock 变化时预热 Windows cache。self-hosted Windows 只运行本仓库内可信分支，fork PR 不进入开发机。CI **不包含** macOS runner，也不包含 GUI、Tauri dev、Hermes runtime vendor/启动、NSIS、Credential Manager、真实模型对话、Office、签名或安装/卸载验证。PR 中不能写“CI 绿 = Windows 客户端已验证”。
+纯 Markdown/Word PR 不启动 workflow；普通 `main` push 不重复检查，只有 Cargo manifest/lock 变化时预热 Windows cache。self-hosted Windows 只运行本仓库内可信分支，fork PR 不进入开发机。CI **不包含** macOS runner，也不包含 GUI、Tauri dev、NSIS、Credential Manager、真实模型对话、Office、签名或安装/卸载验证。PR 中不能写“CI 绿 = Windows 客户端已验证”。
 
 ## 代码边界矩阵
 
@@ -31,7 +31,7 @@
 | Rust shared core | `apps/desktop/src-tauri/src/shared/**/*.rs` | 静态检查、非平台逻辑测试 | Windows target 编译与系统 API 行为 |
 | IPC 包装 | `apps/desktop/src/services/tauri.ts` | 类型和单测 | App/Daemon 两运行时完整链路 |
 | 设计系统 | `apps/desktop/src/design-system/**` | 组件和 token 调整 | Mica 背景下的对比度、窗口 chrome |
-| CODE Gateway | `gateway/gateway.py` | 语法、协议翻译局部测试 | Windows 子进程、端口、日志、bearer、真实 codex 对话 |
+| Model Gateway | `gateway/gateway.py` | 语法、协议翻译局部测试 | Windows 子进程、端口、日志、bearer、真实 codex 对话 |
 | 插件/工作台 | `plugins/**`、`workbenches/**` | Markdown、资源和静态检查 | Windows 文件路径、OfficeCLI、真实任务质量 |
 | 文档/spec | `docs/**`、`.specs/**` | 完整编辑 | 涉及平台事实时必须引用 Windows 证据 |
 
@@ -45,8 +45,8 @@
 | Credential Manager | `apps/desktop/src-tauri/src/shared/account_session_core.rs`、`apps/desktop/src-tauri/src/shared/model_gateway_secrets.rs` | key/session 写入、读取、覆盖、删除、重启恢复 |
 | Mica 与自绘标题栏 | `useLiquidGlassEffect.ts`、`WindowCaptionControls.tsx`、窗口后端 | 浅/深/彩色壁纸对比度、最小化/最大化/关闭、缩放 |
 | Windows 路径与进程 | Tauri 后端、脚本、Office 资源 | 反斜杠、空格路径、`.exe`、进程回收、端口占用 |
-| CODE 真链路 | `codex.exe` + Gateway + App | Responses⇄Chat、多轮工具、审批、错误提示 |
-| WORK 真链路 | Hermes + App | `/v1`、SSE、审批、工作台挂载/卸载 |
+| Gateway 真链路（当前由 CODE surface 验证） | `codex.exe` + Gateway + App | Responses⇄Chat、多轮工具、审批、错误提示 |
+| 工作台包 | App Core | 检查、安装、验证、激活记录与卸载 |
 | Office | OfficeCLI / `office.rs` | Word/Excel/PPT/PDF 真实任务与文件恢复 |
 | Windows 安全/恢复 | 对应 spec 和实现 | 当前保障、降级行为、备份/回收站/还原；未实现项不得宣传 |
 
@@ -54,7 +54,7 @@
 
 可复制命令只维护在 [commands](commands.md)。日常顺序：
 
-1. 在仓库根核对双引擎 `HEAD` 是否等于目标锁定版本。
+1. 在仓库根核对 codex `HEAD` 是否等于目标锁定版本。
 2. 运行 `pwsh scripts/dev-client.ps1` 启动真实 Windows GUI。
 3. 按改动范围运行前端检查或 `pwsh scripts/check-windows-rust.ps1`。
 4. 涉及平台行为时完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 对应实机项。
@@ -89,7 +89,7 @@ macOS / Linux 可用于共享代码的快速迭代，但必须明确证据边界
 
 ### 上游引擎不是天然跨平台等价
 
-codex 和 Hermes 都有平台特定依赖、可选 extra 和降级路径。锁版本升级后必须重跑 Windows 构建、协议与产品矩阵；其他平台的通过记录只能作为历史参考。
+codex 有平台特定依赖和降级路径。锁版本升级后必须重跑 Windows 构建、协议与产品矩阵；其他平台的通过记录只能作为辅助参考。
 
 ## UI 平台分叉速记
 
@@ -110,7 +110,7 @@ codex 和 Hermes 都有平台特定依赖、可选 extra 和降级路径。锁�
 | 改 `account_session_core.rs` / `model_gateway_secrets.rs` | Credential Manager 完整 CRUD + 重启恢复 |
 | 改 `office.rs` / OfficeCLI 资源 | Windows Office 真实文件验证 |
 | 改进程、端口、路径或 sidecar | Windows 启停、崩溃、端口占用和清理验证 |
-| 升级 codex/Hermes 锁定版本 | Windows 构建 + 协议/能力矩阵 |
+| 升级 codex 锁定版本 | Windows 构建 + 协议/能力矩阵 |
 | 准备发布 | release 脚本 + 安装 + 启动 + 真实对话 + 卸载 |
 
 ## 参考

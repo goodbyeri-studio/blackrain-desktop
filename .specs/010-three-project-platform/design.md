@@ -8,8 +8,9 @@ BlackRain 采用三个独立产品/仓库，服务内部保持克制：Desktop �
 
 ```text
 blackrain-desktop（private）
-  ├─ 本地项目、工作台、Hermes、codex
-  ├─ CODE 本地 Responses 翻译网关
+  ├─ 本地项目、Workbench Core、Session Orchestrator
+  ├─ Workbench surface / CODE surface、codex
+  ├─ 统一本地 Responses 翻译网关
   └─ Supabase 登录 / Cloud API client / Relay scoped token
             │
             ├─ 身份、权益、token exchange ──► blackrain-cloud（private）
@@ -30,7 +31,7 @@ blackrain-desktop（private）
 
 | 项目 | 所有权与可见性 | 负责 | 不负责 |
 |---|---|---|---|
-| `blackrain-desktop` | BlackRain 私有 | 桌面 UI/Core、双引擎、本地 sidecar、工作台、项目文件、系统凭据、云端 API client | service-role、平台模型 key、支付 webhook、Relay 管理面 |
+| `blackrain-desktop` | BlackRain 私有 | 桌面 UI/Core、工作台生命周期、会话编排、双 surface、codex、本地 sidecar、项目文件、系统凭据、云端 API client | service-role、平台模型 key、支付 webhook、Relay 管理面 |
 | `blackrain-cloud` | BlackRain 私有 | `supabase/` 真源、账号、套餐、商业 credit ledger、支付、工作台市场、创作者结算、account broker、Relay 对账 | 模型协议翻译、高吞吐内容转发、New API 源码；迁入的历史 proxy 只留档 |
 | `blackrain-relay` | 独立公开 AGPL 产品 | 模型渠道、协议中转、token、模型限制、usage、限流、渠道成本、独立客户和开放 API | BlackRain 工作台业务、Desktop 用户项目、Cloud 商业账本 |
 
@@ -38,7 +39,7 @@ blackrain-desktop（private）
 
 ```text
 控制面：Desktop -> Supabase/Cloud -> 身份与权益 -> Relay 管理 API -> scoped model token
-数据面：WORK -> Relay；CODE -> 本地翻译网关 -> Relay
+数据面：Desktop -> 本地翻译网关 -> Relay
 计量面：Relay usage -> 版本化事件/对账 API -> Cloud 幂等 credit ledger
 ```
 
@@ -65,5 +66,5 @@ blackrain-desktop（private）
 
 - 仓库层：名称、可见性、远端 URL、默认分支和 License 静态核对。
 - 合同层：JWT exchange、token 签发/撤销、model allowlist、usage webhook 幂等与对账。
-- 数据面：WORK Chat 与 CODE Responses 两条路径都经过 Relay 计量。
+- 数据面：Desktop Responses 经本地翻译网关进入 Relay 并完成计量。
 - 发布层：Cloud/Relay 独立部署、备份、恢复、密钥轮换和故障降级。

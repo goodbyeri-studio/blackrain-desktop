@@ -12,7 +12,7 @@
 | 2026-07-12 | Desktop 远端 | `git remote -v`; `git ls-remote --symref origin HEAD` | 通过 | `origin=https://github.com/goodbyeri-studio/blackrain-desktop.git`，HEAD=`main` |
 | 2026-07-12 | Cloud 资产迁移 | Cloud `supabase start`; `supabase db reset`; catalog 权限查询；legacy unittest/Docker build；Desktop `test_gateway_key`; 两仓路径核对 | 通过 | Cloud 从空库执行三条 migration；RLS/trigger/RPC 权限正确；legacy 17 tests；Desktop gateway 7 tests；服务端资产已删除并保留 `gateway/gateway.py` |
 | YYYY-MM-DD | Cloud/Relay 合同 | token exchange + usage webhook integration tests | 未跑 | 尚无实现 |
-| YYYY-MM-DD | 双引擎产品 E2E | Windows Desktop -> Cloud -> Relay -> 模型 | 未跑 | 发布门槛 |
+| YYYY-MM-DD | CODE 产品 E2E | Windows Desktop -> Cloud -> Relay -> 模型 | 未跑 | 发布门槛 |
 
 ## 已验证
 

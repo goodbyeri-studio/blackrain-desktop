@@ -1,7 +1,0 @@
-data: {"event":"approval.responded","run_id":"run_demo_001","timestamp":1783814400.6,"choice":"once","resolved":1}
-
-data: {"event":"message.delta","run_id":"run_demo_001","timestamp":1783814400.7,"delta":"已生成报告。"}
-
-data: {"event":"run.completed","run_id":"run_demo_001","timestamp":1783814401.0,"output":"季度报告已生成。","usage":{"input_tokens":120,"output_tokens":48,"total_tokens":168}}
-
-: stream closed
