@@ -13,7 +13,7 @@ Detailed navigation/runbooks live in:
 - `../../docs/commands.md` (canonical setup/build/release commands)
 - `../../.specs/008-expert-workbench-package/` (workbench package and lifecycle contract)
 - `../../.specs/011-workbench-session-orchestration/` (activated workbench session and surface contract)
-- `../../.specs/010-three-project-platform/` (Desktop/Cloud/Relay repository, ledger, API, and license boundaries)
+- `../../.specs/010-three-project-platform/` (Desktop/Cloud/MeiMei API repository, ledger, API, and license boundaries)
 
 ## Project Snapshot
 

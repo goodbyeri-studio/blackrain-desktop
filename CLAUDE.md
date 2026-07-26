@@ -58,7 +58,7 @@ BlackRain（Tauri）
 | `workbenches/` | 专家工作台包 | 遵守 spec 008 生命周期 |
 | `.specs/` | 跨层功能 living spec | 行为变化时同步更新 |
 
-本仓为私有 `goodbyeri-studio/blackrain-desktop`。Cloud 和公开 Relay 的边界以 `.specs/010-three-project-platform/` 为准。
+本仓为私有 `goodbyeri-studio/blackrain-desktop`。BlackRain 另有私有 `blackrain-cloud`；Cloud 以企业客户身份接入独立公开的 MeiMei API（`goodbyeri-studio/meimei-api`）。跨产品边界以 `.specs/010-three-project-platform/` 为准。
 
 ## Living Spec
 
@@ -89,7 +89,7 @@ Desktop/Cloud 是闭源商业项目：
 
 - MIT / Apache-2.0：可进入仓库，保留 NOTICE 和署名。
 - AGPL / GPL / BSL / 无许可证：不得进入 Desktop/Cloud 私有仓库。
-- 独立公开的 Relay 可按其许可证完整履责，该例外不扩散到本仓。
+- 独立公开的 MeiMei API（`goodbyeri-studio/meimei-api`）可按其许可证完整履责，该例外不扩散到本仓。
 
 ## 验证与 Git
 

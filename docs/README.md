@@ -11,7 +11,7 @@
 | Desktop 运行时如何组织、谁写配置、Gateway 挂在哪 | `docs/09-运行时架构与里程碑.md` |
 | 工作台 Manifest、安装、升级、回滚和卸载怎样实现 | `.specs/008-expert-workbench-package/` |
 | 工作台激活后怎样进入受控会话、两种 surface 怎样共享内核 | `.specs/011-workbench-session-orchestration/` |
-| Desktop、Cloud、Relay 三项目怎样分工 | `.specs/010-three-project-platform/` |
+| BlackRain Desktop/Cloud 与独立 MeiMei API 怎样分工 | `.specs/010-three-project-platform/` |
 | 某个跨层功能应该怎样实现 | 对应 `.specs/<NNN-slug>/requirements.md`、`design.md`、`decisions.md` |
 | 某功能当前真的完成了什么 | 对应 `verification.md` + 实际代码/配置 |
 
@@ -53,7 +53,7 @@
 | [09 运行时架构与里程碑](09-运行时架构与里程碑.md) | Workbench Core、Session Orchestrator、双 surface、codex 与 Gateway |
 | [.specs/008 工作台包](../.specs/008-expert-workbench-package/) | Manifest、依赖、权限、安装、验证、升级、回滚和卸载 |
 | [.specs/011 工作台会话编排](../.specs/011-workbench-session-orchestration/) | 激活记录、受控会话描述符、双 surface 与统一执行合同 |
-| [.specs/010 三项目平台](../.specs/010-three-project-platform/) | `blackrain-desktop`、`blackrain-cloud`、`blackrain-relay` 的仓库、License、账本和 API 边界 |
+| [.specs/010 跨产品边界](../.specs/010-three-project-platform/) | BlackRain Desktop/Cloud 与独立 MeiMei API 的仓库、License、账本和 API 边界 |
 | [REFERENCES](REFERENCES.md) | 参考项目登记、锁定版本、许可证 |
 | [上游更新检查清单](upstream-update-checklist.md) | codex 上游升级、能力复验和 Windows 验收 |
 | [跨平台开发指南](cross-platform-dev.md) | Windows-first 开发/发布边界、非 Windows 资产、平台分叉点和实机烟测 |

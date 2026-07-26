@@ -5,7 +5,7 @@
 
 ## 总体方案
 
-在现有本地壳之上加一层**账号 + credit 计量**。2026-06-25 已真实验证的是 CODE surface 的过渡链路；目标架构中两种 surface 共用同一 Gateway 和计量合同。生产项目边界现已定为私有 Cloud 负责身份/权益/商业账本，公开 Relay 基于 New API 负责模型中转与原始 usage，执行真源见 [010](../010-three-project-platform/)。
+在现有本地壳之上加一层**账号 + credit 计量**。2026-06-25 已真实验证的是 CODE surface 的过渡链路；目标架构中两种 surface 共用同一 Gateway 和计量合同。生产项目边界现已定为私有 Cloud 负责身份/权益/商业账本，公开 MeiMei API 基于 New API 负责模型中转与原始 usage，执行真源见 [010](../010-three-project-platform/)。
 
 - **credit 过渡实现（仅 CODE surface 已验证）**：Codex → 本地翻译网关 → `proxy.py` → DeepSeek；代理持平台 key 并按真实 usage 扣 credit。
 - **BYOK（仅 Plus+，尚未实现）**：目标是不消耗平台 credit；直连上游还是仍经 new-api，尚待决策。
@@ -25,14 +25,14 @@ BYOK(待实现):     Plus+ 权益门禁 + 路由待定；不消耗平台 credit
 - 属于 `apps/desktop`（Tauri 后端）：Supabase 会话 token 的安全存取（钥匙串）、把「当前模式（credit/BYOK）」翻译成网关 provider 配置。
 - 属于**历史过渡代理**（现归档于 `blackrain-cloud/legacy/credit-proxy/`）：历史 CODE 可行性链路；不再作为目标生产入口。
 - 属于 **BlackRain Cloud `supabase/`**：用户认证、`profiles`（plan + credits）、`credit_ledger`（流水）、RLS 策略与 migration 真源。
-- 属于 **BlackRain Cloud**：验证 Supabase 身份、套餐/权益、商业 credit ledger、Relay 企业客户凭据、model token broker 和对账。
-- 属于 **BlackRain Relay**：New API 模型渠道、路由、scoped token、原始 usage、限流与批发结算；不直接写 Supabase。
+- 属于 **BlackRain Cloud**：验证 Supabase 身份、套餐/权益、商业 credit ledger、MeiMei API 企业客户凭据、model token broker 和对账。
+- 属于 **MeiMei API**：New API 模型渠道、路由、scoped token、原始 usage、限流与批发结算；不直接写 Supabase。
 - 明确不改 `codex-upstream`：内核只发 Responses，仍只连本地网关。
-- 与 Relay 的接缝目标：桌面侧保持 `base_url + Bearer <model token>`；Supabase JWT 只用于 Cloud 身份兑换。Cloud/Relay 独立数据库，通过版本化管理 API 和 usage 对账事件交互。
+- 与 MeiMei API 的接缝目标：桌面侧保持 `base_url + Bearer <model token>`；Supabase JWT 只用于 Cloud 身份兑换。Cloud/MeiMei API 独立数据库，通过版本化管理 API 和 usage 对账事件交互。
 
 ## 关键判断：平台 key 必须只在服务端
 
-credit 用户花的是平台的钱，平台模型 key **绝不能**打包进桌面 App（会被扒包白嫖）。因此 credit 数据面必须经过 BlackRain Relay；Cloud 只负责身份、权益、broker 和商业账本，不代理模型内容。
+credit 用户花的是平台的钱，平台模型 key **绝不能**打包进桌面 App（会被扒包白嫖）。因此 credit 数据面必须经过 MeiMei API；Cloud 只负责身份、权益、broker 和商业账本，不代理模型内容。
 
 - 当前 CODE 过渡实现中，本地网关把 `base_url` 指向 `proxy.py`，`Authorization` 带用户 Supabase JWT（不是 DeepSeek key）。
 - 过渡代理用 JWT 认出用户 → 查余额 → 转发到真实 DeepSeek（注入平台 key）→ 读 usage → 扣 credit。

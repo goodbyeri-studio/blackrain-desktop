@@ -2,6 +2,8 @@
 
 BlackRain 是 AI 驱动的垂类工作环境平台：把领域高手的工具、环境、方法和验证封装成普通人可以安装的工作台，让高度电脑化的长尾领域快速获得可复现、可验证的专业工作环境。
 
+BlackRain 由私有 `blackrain-desktop`（本仓）和私有 `blackrain-cloud` 组成；Cloud 以企业客户身份接入独立公开的 MeiMei API（`goodbyeri-studio/meimei-api`，基于 New API）。双方不共享品牌、数据库或密钥域，跨产品边界以 [.specs/010](.specs/010-three-project-platform/) 为准。
+
 ## 当前产品
 
 Windows MVP 由一个 Tauri 桌面客户端承载：
@@ -9,7 +11,7 @@ Windows MVP 由一个 Tauri 桌面客户端承载：
 - 工作台包检查、依赖验证、安装、激活记录和卸载
 - 单一原装 codex 内核，以及面向任务的工作台 surface 和面向开发的 CODE surface
 - 独立模型网关，将 Responses 请求转换为 Chat Completions
-- new-api 计量与模型提供商接入
+- MeiMei API（New API）计量与模型提供商接入
 - 插件、Skills、OfficeCLI 和项目资源管理
 
 工作台包生命周期与会话执行解耦。目标由 Session Orchestrator 把已验证激活记录编译成受控 codex 会话；当前该编排层和工作台 surface 尚未实现，因此安装或激活成功不代表任务已经可以运行。
@@ -26,7 +28,7 @@ BlackRain Desktop
   ├─ codex app-server（唯一原装 agent 内核）
   │   └─ App 专属 CODEX_HOME
   └─ Model Gateway
-      └─ new-api -> 模型提供商
+      └─ MeiMei API（New API）-> 模型提供商
 ```
 
 codex 只发 Responses 协议，国产模型通常只提供 Chat Completions，因此网关是所有 codex 模型会话的硬依赖。翻译逻辑只存在于独立 sidecar，不进入 UI、工作台层或内核。
@@ -52,7 +54,7 @@ codex-upstream/    gitignored 的只读上游参考克隆
 - Windows 发布：[.specs/007-windows-client/](.specs/007-windows-client/)
 - CODE GUI：[.specs/005-gui-redesign/](.specs/005-gui-redesign/)
 - 能力接线：[.specs/006-code-mode-capability-wiring/](.specs/006-code-mode-capability-wiring/)
-- 三项目边界：[.specs/010-three-project-platform/](.specs/010-three-project-platform/)
+- 跨产品边界：[.specs/010-three-project-platform/](.specs/010-three-project-platform/)
 - 命令入口：[docs/commands.md](docs/commands.md)
 
 ## 当前状态

@@ -133,5 +133,5 @@ curl -s http://127.0.0.1:8899/v1/models
 生产组件。本目录只保留所有 codex 模型会话共用的本地 Responses 到 Chat `gateway.py` sidecar。
 
 目标生产路径是 Desktop 从 BlackRain Cloud 获取权益与受限 model token，再由
-所有 codex 模型会话经本地 `gateway.py` 进入 Relay。Cloud/Relay 正式接口和
+所有 codex 模型会话经本地 `gateway.py` 进入 MeiMei API。Cloud/MeiMei API 正式接口和
 Desktop 客户端接线仍以对应 living spec 的实现与验证为准。
