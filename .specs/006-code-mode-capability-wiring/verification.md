@@ -1,6 +1,6 @@
 # Verification
 
-> 记录每批接入的实测命令与结果。下文最新完整能力基线是 `cfead68`;当前锁定 rust-v0.144.1 / `44918ea` 已完成方法集合审计与 app-server macOS `cargo check`,全量 capability 重验和 Windows GUI 冒烟仍未跑。「shape 被接受」不代表方法无认证/stub/平台门控。
+> 记录每批接入的实测命令与结果。下文最新完整能力基线是 `cfead68`;当前锁定 rust-v0.144.5 / `87db9bc` 只完成源码差异与协议方法集合静态审计,尚未构建,全量 capability 重验和 Windows GUI 冒烟仍未跑。「shape 被接受」不代表方法无认证/stub/平台门控。
 
 ## 验证命令
 
@@ -39,7 +39,7 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 - ⚠️ **`thread/items/list` → 内核回 "is not supported yet"(-32601)**:壳已正确接入,但 `bdd282f` 内核侧尚未实现(stub)。它本应取代已删除的 `thread/turns/items/list`,故当前内核两者都不可用——壳是「接入超前于内核」,待未来 bump 点亮。
 - ⚠️ `plugin/uninstall`、`plugin/skill/read` → "chatgpt authentication required for remote plugin catalog":shape OK;**远程**目录插件需 OpenAI auth,本地插件可用(符合 C 类 OpenAI 门控边界)。
 
-**该批次在当时基线还缺 GUI 冒烟**：协议 shape 已自证，但 IPC→command→daemon 粘合和前端交互没有实跑。当前还必须额外对 `44918ea` 重跑 shape，并复核认证、stub、实验开关与 Windows 运行时门控。
+**该批次在当时基线还缺 GUI 冒烟**：协议 shape 已自证，但 IPC→command→daemon 粘合和前端交互没有实跑。当前还必须额外对 `87db9bc` 重跑 shape，并复核认证、stub、实验开关与 Windows 运行时门控。
 
 ## 第 3 批 a(Thread 高级,13 方法)2026-06-28
 
@@ -57,7 +57,7 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 
 **42 个方法在当时基线走完 5 层包装**,`cargo check` + `npm run typecheck` 双绿、协议 shape 探针 0 真漂移。明细:batch-1=5、batch-2=12、batch-3a=13、batch-3b=12。
 - 已知门控:`thread/items/list` 在 `cfead68` 为上游 stub;`plugin/skill/read` 与部分远程 plugin 路径需 OpenAI auth;MCP 只验到 fake server 的参数 shape;Windows sandbox 未在 Windows 运行。
-- **剩余不只是 GUI 冒烟**:还有 `44918ea` 全量重验、Windows 运行时门控验证和 spec 005 GUI 落地。
+- **剩余不只是 GUI 冒烟**:还有 `87db9bc` 全量重验、Windows 运行时门控验证和 spec 005 GUI 落地。
 
 > 第 1 批实测:`cd apps/desktop/src-tauri && cargo check` → `Finished dev in 5.72s`,零编译错误、新方法零 unused 警告(全链路接通);`cd apps/desktop && npm run typecheck` → 通过。新方法全部走 5 层 archive_thread pattern,协议方法名零改写。
 
@@ -76,7 +76,7 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 - 钉定真源已同步:`scripts/fetch-references.sh`、`CLAUDE.md`、`AGENTS.md`。
 - 遗留:同上,字段级完整参数兼容 + GUI 待 `tauri dev` 冒烟(无头环境做不了的那半)。
 
-## 当前锁定 rust-v0.144.1 / `44918ea` 重验
+## 历史锁定 rust-v0.144.1 / `44918ea` 重验
 
 - 2026-07-12：相对 `da4c8ca`，ClientRequest、ServerRequest、ServerNotification 方法集合无增删；现有 65 个壳层 outgoing 方法没有出现“上游方法删除”。
 - 2026-07-12：`cargo check -p codex-app-server-protocol -p codex-app-server` 在 macOS 通过。
@@ -89,3 +89,9 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 | BlackRain 壳 `cargo check` + `npm run typecheck` | 未跑/未记录 | 本轮未修改壳代码；不沿用 `cfead68` 结论 |
 | 42 方法 capability shape 探针 | 未跑 | 需刷新 stub/认证/实验门控 |
 | Windows `tauri:dev:win` GUI 冒烟 | 未跑 | 只有此项通过后才能声称对应 GUI 可用 |
+
+## 当前锁定 rust-v0.144.5 / `87db9bc` 静态审计
+
+- 2026-07-26：官方 tag 解引用为 `87db9bc18ba5bc82c1cb4e4381b44f693ee35623`；`app-server-protocol`、feature 开关、浏览器/Computer Use 相关文件相对 0.144.1 无变化，LICENSE/NOTICE 无变化。
+- 2026-07-26：0.144.6 另含 bundled model metadata、基础提示词和上下文窗口变化，本轮未采用。
+- 未完成：0.144.5 构建、42 项 capability shape、Windows GUI、真实 Gateway 工具调用、NSIS 与安装/卸载验证。

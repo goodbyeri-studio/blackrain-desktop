@@ -8,8 +8,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 CODEX_URL="https://github.com/openai/codex.git"
-CODEX_TAG="rust-v0.144.1"
-CODEX_COMMIT="44918ea10c0f99151c6710411b4322c2f5c96bea"
+CODEX_TAG="rust-v0.144.5"
+CODEX_COMMIT="87db9bc18ba5bc82c1cb4e4381b44f693ee35623"
 
 sync_tagged_reference() {
   name="$1"

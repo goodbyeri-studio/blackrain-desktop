@@ -63,10 +63,10 @@ if ((git -C codex-upstream rev-parse --is-shallow-repository) -eq "true") {
 }
 
 git -C codex-upstream fetch origin --tags --prune
-git -C codex-upstream checkout --detach 44918ea10c0f99151c6710411b4322c2f5c96bea
+git -C codex-upstream checkout --detach 87db9bc18ba5bc82c1cb4e4381b44f693ee35623
 
 git -C codex-upstream rev-parse --short HEAD
-# 预期为 44918ea10c0f99151c6710411b4322c2f5c96bea
+# 预期为 87db9bc18ba5bc82c1cb4e4381b44f693ee35623
 ```
 
 目标锁定值与边界见 [REFERENCES](REFERENCES.md)。不要把本机 gitignored 克隆的 `HEAD` 当成仓库已完成状态。
