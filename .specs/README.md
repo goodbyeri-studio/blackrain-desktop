@@ -33,6 +33,8 @@
   008-expert-workbench-package/
   010-three-project-platform/
   011-workbench-session-orchestration/
+  012-electron-shell-migration/
+  013-codex-app-capability-parity/
 ```
 
 编号三位递增，slug 用英文小写短横线。创建时复制 `_template/`。
@@ -57,5 +59,6 @@
 - 历史验证要标明日期、平台和适用范围；macOS/Linux 的历史 smoke 不能当作 Windows MVP 的发布证据，旧上游 commit 的源码底账不能当作当前锁定版本的事实。
 - 后续架构变化时，在 requirements/design/tasks/verification 中统一改成当前口径；尚未拍板的分歧明确写“待决”，不要静默选边。
 - 总体战略仍以 `README.md` 和 `docs/01`~`docs/09` 为准；单功能执行以对应 spec 为准。若两者冲突，要在同一个 PR 里修正或明确标注待决。
-- 产品形态以 `docs/04` 为唯一真源；运行时以 `docs/09` 为唯一真源；工作台包格式和生命周期以 `008-expert-workbench-package` 为执行真源。
-- 激活后的工作台会话编排与双 surface 合同以 `011-workbench-session-orchestration` 为执行真源。
+- 产品形态以 `docs/04` 为唯一真源；运行时以 `docs/09` 为唯一真源。
+- Electron 宿主迁移以 `012-electron-shell-migration` 为执行真源；Codex App 能力补齐和 in-app browser 以 `013-codex-app-capability-parity` 为执行真源。
+- `008-expert-workbench-package` 与 `011-workbench-session-orchestration` 当前暂停，只维护准确状态、安全和 License 边界，不作为当前路线图。

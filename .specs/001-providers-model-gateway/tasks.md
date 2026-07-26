@@ -74,6 +74,6 @@
 - [x] 跑协议四探针。
 - [x] 跑真实 DeepSeek 工具调用。
 - [x] 跑无签名 macOS app/dmg 打包、dmg 挂载资源检查和短启动 smoke。（历史证据）
-- [ ] 跑 Windows MVP 发布级 smoke；本 spec 记录统一 Gateway 的结果，完整发布矩阵在 007，工作台 surface 接入矩阵在 011。
+- [ ] 跑 Windows 发布级 smoke；当前 Tauri 基线记入 007，Electron 发布矩阵记入 012。工作台 surface/011 已暂停。
 - [x] 在 `verification.md` 记录每次真实验证结果。
 - [x] 更新 `README.md` / `docs/commands.md` / `gateway/README.md` 中受影响的命令和状态。

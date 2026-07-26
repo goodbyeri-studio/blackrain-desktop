@@ -1,5 +1,7 @@
 # Office Runtime Integration
 
+> **Status (2026-07-26): paused asset.** Office/workbench product work is outside the current P0/P1. Keep this document only for frozen implementation, security, and license facts.
+
 This app can ship with a bundled `OfficeCLI` runtime as a built-in Office document engine.
 
 > **Current product boundary:** OfficeCLI binaries/resources, the runtime bridge, codex asset injection code and Windows NSIS resource mapping exist. The current Windows installer has not completed build/unpack/install smoke, and the Session Orchestrator/workbench surface defined by spec 011 are not implemented. This document is not evidence that the packaged Office runtime or Office workbench tasks are available to users.

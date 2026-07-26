@@ -1,5 +1,7 @@
 # BlackRain Desktop Codebase Map (Task-Oriented)
 
+> **Migration note (2026-07-26):** this maps the current Tauri codebase. Electron is the only target host; new host work follows spec 012, while reusable backend behavior should move toward the Rust daemon/shared core.
+
 Canonical navigation guide for the BlackRain desktop shell. The codebase is derived from CodexMonitor, but current file names and release scope follow BlackRain.
 
 Related docs:

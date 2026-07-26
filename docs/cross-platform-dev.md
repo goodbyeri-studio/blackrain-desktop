@@ -2,11 +2,13 @@
 
 > **Windows-first**：BlackRain MVP 只发行 Windows。macOS / iOS 仅作为 post-MVP 或 CodexMonitor 上游资产保留；非 Windows 上的编译或测试不能证明 Windows 可交付。
 
+> **迁移状态（2026-07-26）**：本文大部分命令和矩阵描述当前 Tauri 基线。Electron 是唯一目标宿主；Electron main/preload/Browser、打包和 Windows 验收矩阵按 spec 012/013 逐步替换。工作台、Office 和 OPC 验收已暂停。
+
 ## 快速结论
 
 - Windows 是当前唯一发布、实机验收和产品承诺平台。
-- React/TypeScript、部分 Rust shared core、纯 Python Gateway、Markdown 插件/工作台可在非 Windows 环境编辑和做局部检查，但只能降低风险，不能保证 Windows 行为。
-- NSIS、Credential Manager、Mica/标题栏、Windows 路径/进程、真实 CODE 链路、Office 和安装/卸载必须在 Windows 实机验证。
+- React/TypeScript、Rust shared core 和纯 Python Gateway 可在非 Windows 环境编辑和做局部检查，但只能降低风险，不能保证 Windows 行为。
+- 当前 Tauri NSIS 只作迁移基线；Electron 制品、Credential Manager、窗口/Browser、Windows 路径/进程、真实 CODE 链路和安装/升级/卸载必须在 Windows 实机验证。
 - iOS 当前没有 BlackRain 构建、发布或验收入口；只保留上游资产，不参与 MVP。
 
 ## 当前 CI 真相
@@ -73,7 +75,7 @@ macOS / Linux 可用于共享代码的快速迭代，但必须明确证据边界
 
 ### 路径分隔符和用户目录
 
-不要拼 `/Users/...`、`~/.config/...` 或 `C:\...` 作为业务路径。前端优先用 Tauri path API；Rust 用 `Path` / `PathBuf`。测试至少覆盖空格和非 ASCII 路径。
+不要拼 `/Users/...`、`~/.config/...` 或 `C:\...` 作为业务路径。当前前端通过 Tauri path API，目标 Electron 通过类型化 preload 请求 Rust daemon；Rust 使用 `Path` / `PathBuf`。测试至少覆盖空格和非 ASCII 路径。
 
 ### 命令与可执行文件名
 

@@ -1,5 +1,7 @@
 # 工作台会话编排决策
 
+> **状态（2026-07-26）：暂停。** 这些决策保留为冻结资产，不覆盖当前 Electron/Codex-first 运行时真源。
+
 ## 2026-07-24：所有工作台统一复用 codex app-server
 
 - 决策：普通工作台和软件开发工作台共享原装 codex app-server、Gateway、thread、事件、审批和恢复合同。

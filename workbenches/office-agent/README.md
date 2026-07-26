@@ -1,5 +1,7 @@
 # Office 参考工作台
 
+> **状态（2026-07-26）：暂停资产。** Office 工作台不进入当前 P0/P1，当前主线是 Electron 迁移与 Codex App 能力补齐。本文只记录冻结内容和未完成状态。
+
 Office 是 BlackRain 第一套参考工作台，用于验证“专家环境如何被声明、安装、激活、执行、验证和卸载”。它不是 BlackRain 最终只做办公助手的产品定位。
 
 > **当前状态**：本目录已迁移到 `workbench.yaml v1`，并可被 Core 严格只读 inspect；这只证明声明、包内路径和基础依赖元数据可解析。尚无 install/health 执行/权限审批/activate/upgrade/uninstall 生命周期，NSIS 也未 build/unpack/install 验证；Office 质量基线仍未完成。

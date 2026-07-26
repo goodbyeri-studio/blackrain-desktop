@@ -1,5 +1,7 @@
 # office-cli
 
+> **状态（2026-07-26）：暂停资产。** 这是旧 Office/工作台路线的工具依赖，不是当前 Codex-first P0。只维护影响构建、安全或 License 的问题；不得据此宣称 Office 工作台已恢复或可发布。
+
 Office 文档能力插件资源。它是 Office 参考工作台的一项工具依赖，不是完整工作台。当前资源、受控安装代码、工作台 Manifest 与 NSIS mapping 已存在，但尚未完成当前 Windows 安装包的 build/unpack/install smoke，也未接入 spec 011 的受控会话执行。
 
 ## 作用

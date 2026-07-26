@@ -1,5 +1,7 @@
 # 快捷命令行
 
+> **状态（2026-07-26）**：本文件中的 `tauri:*`、Tauri Windows 和 NSIS 命令描述当前迁移起点，不是最终发布路线。Electron 命令只有实现、测试和 spec 012 证据存在后才加入；不要把目标命令提前复制到这里。
+
 > BlackRain 日常启动、构建、发布和通用验证命令的唯一真源。模块 README/runbook 只保留不重复的局部诊断或协议探针。除特别标注外，路径均以仓库根 `BlackRain/` 为基准。
 > MVP 仅发行 Windows，主流程使用 PowerShell 7 (`pwsh`)；macOS / iOS 只作为 post-MVP 或上游资产。
 

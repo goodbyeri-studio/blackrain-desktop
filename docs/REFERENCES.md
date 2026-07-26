@@ -11,5 +11,5 @@
 1. `scripts/fetch-references.sh` 只同步并校验 codex 的稳定 tag 与完整 SHA。
 2. `codex-upstream/` 只读、gitignored，不进入产品仓库。
 3. 升级前记录旧锁、目标锁、协议变化、License 和 Windows 构建结果。
-4. 上游源码检查不能替代 Windows Tauri、真实模型、NSIS 和安装/卸载验证。
+4. 上游源码检查不能替代 Windows Electron、真实模型、in-app browser 和安装/升级/卸载验证；迁移完成前的 Tauri 结果只作为迁移输入。
 5. 引用第三方代码时必须确认许可证并保留 NOTICE/署名。

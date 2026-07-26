@@ -1,5 +1,7 @@
 # Design
 
+> **状态（2026-07-26）：暂停。** 本设计描述的是旧 Tauri Windows 路线；Electron Windows 目标以 spec 012 为准。
+
 > **状态(2026-07-11)**:本文中的 `dev-client.ps1`、NSIS-only target、Windows 资源映射和本机发布脚本已有代码/配置;但尚无真实 NSIS 构建/安装/E2E 证据。下文的产品链路仍是待验收目标,不是发布完成声明。
 
 ## 总体方案

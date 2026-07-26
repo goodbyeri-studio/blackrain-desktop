@@ -1,5 +1,7 @@
 # Requirements — GUI 重做
 
+> **归属（2026-07-26）**：本 spec 的视觉与 React 交互工作继续作为能力补齐资产，但桌面宿主迁移归 [spec 012](../012-electron-shell-migration/)，Codex App 能力差距与 Browser 归 [spec 013](../013-codex-app-capability-parity/)。当前 Tauri 中的 UI 代码不代表 Electron 已完成。
+
 > **范围与事实口径（2026-07-12）**：本 spec 负责用户进入“软件开发工作台”后的 CODE surface Windows 界面产品化，不负责工作台货架、安装和生命周期 UI（见 008）。不改 Agent 行为或内核协议。“42 个 RPC 已接线”不等于 GUI 已落地，实际完成度以 `verification.md` 和代码为准。
 
 ## 背景

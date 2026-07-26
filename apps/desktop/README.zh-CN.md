@@ -1,5 +1,7 @@
 # CodexMonitor
 
+> **BlackRain 说明（2026-07-26）**：本文是 CodexMonitor subtree 的上游快照，描述其原始 Tauri 项目，不是 BlackRain 当前产品真源。BlackRain 当前目标是以原装 `codex-rs` 为唯一内核并迁移到 Electron；请以仓库根 `README.md`、`docs/04-产品形态.md`、`docs/09-运行时架构与里程碑.md` 和 specs 012/013 为准。
+
 语言：[English](README.md) | 简体中文
 
 [![gitcgr](https://gitcgr.com/badge/Dimillian/CodexMonitor.svg)](https://gitcgr.com/Dimillian/CodexMonitor)

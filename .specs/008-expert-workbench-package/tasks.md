@@ -1,5 +1,7 @@
 # 工作台包任务
 
+> **状态（2026-07-26）：暂停。** 不新增或推进工作台任务，除非新的产品决策重新启用本 spec。
+
 - [x] 定义并严格解析 Manifest v1
 - [x] 校验 Windows x64 平台、依赖来源、校验和、License 和权限声明
 - [x] 实现 Office 官方包的 staging、OfficeCLI 版本检查与 smoke

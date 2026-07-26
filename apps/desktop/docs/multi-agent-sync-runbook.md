@@ -1,5 +1,7 @@
 # BlackRain Multi-Agent Sync Runbook
 
+> **Migration note (2026-07-26):** this runbook maps the current Tauri adapters around the original `codex-rs` multi-agent capability. Electron migration must preserve the single upstream Codex runtime and route reusable behavior through the Rust daemon; it must not introduce a second agent kernel.
+
 ## Purpose
 
 Keep BlackRain Desktop's Agents settings behavior in sync with the repository-local Codex checkout (`../../codex-upstream`) whenever the intended lock changes.

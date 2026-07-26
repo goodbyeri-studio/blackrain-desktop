@@ -1,3 +1,5 @@
+> **Status (2026-07-26): paused asset.** Office/workbench delivery is not part of the current Electron/Codex-first P0/P1.
+
 This directory vendors OfficeCLI release binaries into the BlackRain package resource tree.
 Executable binaries are tracked through Git LFS.
 
