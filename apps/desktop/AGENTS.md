@@ -1,157 +1,79 @@
 # BlackRain Desktop Agent Guide
 
-BlackRain-owned docs should describe current live state by default. Explicitly labeled upstream snapshots, historical protocol baselines and POC records may be retained, but must never be presented as current product truth.
+> **状态（2026-07-26）**：当前代码仍是 CodexMonitor 衍生的 Tauri + React + Rust 实现。产品目标是迁移到 Electron；迁移合同以仓库根 `.specs/012-electron-shell-migration/` 为准，Codex App 能力与 Browser 以 `.specs/013-codex-app-capability-parity/` 为准。
 
-## Scope
+## 项目快照
 
-This file is the agent contract for how to work in this repo.
-Detailed navigation/runbooks live in:
+BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前前端是 React/Vite，Rust 代码包含 Tauri App、daemon 和 `src/shared/*`。Electron 尚未建立，不得把目标目录或接口写成已存在。
 
-- `docs/codebase-map.md` (task-oriented file map: "if you need X, edit Y")
-- `docs/multi-agent-sync-runbook.md` (upstream `../../codex-upstream` sync checklist for multi-agent/config behavior)
-- `../../README.md` (repository status and product entry)
-- `../../docs/commands.md` (canonical setup/build/release commands)
-- `../../.specs/008-expert-workbench-package/` (workbench package and lifecycle contract)
-- `../../.specs/011-workbench-session-orchestration/` (activated workbench session and surface contract)
-- `../../.specs/010-three-project-platform/` (Desktop/Cloud/MeiMei API repository, ledger, API, and license boundaries)
+目标宿主边界：
 
-## Project Snapshot
+```text
+Electron main       窗口、Browser、权限、更新、daemon supervisor
+Electron preload    类型化最小 IPC
+React renderer      产品 UI 和前端状态
+Rust daemon         shared core、app-server、CODEX_HOME、Gateway
+codex-rs            唯一 agent loop
+```
 
-BlackRain Desktop is the Core runtime for installable expert workbenches. One codex app-server powers both the task-oriented workbench surface and the developer-oriented CODE surface through a shared session contract. It is a Tauri app derived from CodexMonitor. Workbench session orchestration and Windows release verification remain incomplete and must not be described as released.
+## 不可违反的架构规则
 
-- Frontend: React + Vite (`src/`)
-- Backend app: Tauri Rust process (`src-tauri/src/lib.rs`)
-- Backend daemon: JSON-RPC process (`src-tauri/src/bin/blackrain_daemon.rs`)
-- Shared backend source of truth: `src-tauri/src/shared/*`
+1. 不修改、分叉或重写 `codex-rs` agent loop。
+2. 不引入任何第二 agent runtime。
+3. Rust 跨宿主领域逻辑先落 `src-tauri/src/shared/*` 或迁移后的 daemon/shared 模块。
+4. App/daemon 只做薄适配，不重复实现同一领域逻辑。
+5. renderer 不接触 Node.js、原始 IPC、secret、daemon token 或任意文件系统。
+6. Browser 网页不加载 BlackRain preload；所有导航、权限、下载、弹窗和 CDP 由宿主集中控制。
+7. App 使用应用数据目录内专属 `CODEX_HOME`，不修改用户 `~/.codex`。
+8. Gateway 只做模型协议翻译，不持有 thread、Browser 或 UI 状态。
+9. Tauri -> Electron 迁移期兼容层必须带删除任务，不建立永久双宿主。
 
-## Non-Negotiable Architecture Rules
+## 当前 Tauri 代码路由
 
-1. Put shared/domain backend logic in `src-tauri/src/shared/*` first.
-2. Keep app and daemon as thin adapters around shared cores.
-3. Do not duplicate logic between app and daemon.
-4. Keep JSON-RPC method names and payload shapes stable unless intentionally changing contracts.
-5. Keep frontend IPC contracts in sync with backend command surfaces.
-6. Workbench packages declare desired state; only the App/Core may install resources or write engine activation config. Do not let a workbench become a second configuration writer.
-7. Surface selection is presentation policy, not runtime selection. Both surfaces must reuse shared codex thread, event, approval, recovery and gateway contracts.
+迁移完成前，现有 Tauri 后端改动遵循：
 
-## Backend Routing Rules
+1. shared core：`src-tauri/src/shared/*`
+2. App command：`src-tauri/src/lib.rs` 及 adapter
+3. 前端 IPC：`src/services/tauri.ts`
+4. daemon RPC：`src-tauri/src/bin/blackrain_daemon/rpc.rs` 及 `rpc/*`
 
-For backend behavior changes, follow this order:
+新增或修改命令必须同步所有相关层和测试，并在 spec 012 中登记迁移归属。Electron 建立后，新的宿主 API 不应继续扩张 `tauri.ts`。
 
-1. Shared core (`src-tauri/src/shared/*`) when behavior is cross-runtime.
-2. App adapter and Tauri command surface (`src-tauri/src/lib.rs` + adapter module).
-3. Frontend IPC wrapper (`src/services/tauri.ts`).
-4. Daemon RPC surface (`src-tauri/src/bin/blackrain_daemon/rpc.rs` + `rpc/*`).
+## 前端规则
 
-If you add a backend command, update all relevant layers and tests.
+- `src/App.tsx` 只做装配。
+- 状态编排放 `src/features/app/hooks/*`、`bootstrap/*`、`orchestration/*`。
+- 当前 Tauri 调用集中在 `src/services/tauri.ts`；迁移目标是宿主无关 typed client。
+- 事件扇出集中在 `src/services/events.ts`，Browser 事件也必须标准化后进入 UI。
+- 复用 design-system 原语和 token，不复制 Codex App 闭源资源。
 
-## Frontend Routing Rules
+## 关键文件
 
-- Keep `src/App.tsx` as composition/wiring root.
-- Move stateful orchestration into:
-  - `src/features/app/hooks/*`
-  - `src/features/app/bootstrap/*`
-  - `src/features/app/orchestration/*`
-- Keep presentational UI in feature components.
-- Keep Tauri calls in `src/services/tauri.ts` only.
-- Keep event subscription fanout in `src/services/events.ts`.
+- `src/App.tsx`：前端组合根
+- `src/services/tauri.ts`：当前 Tauri IPC 包装
+- `src/services/events.ts`：事件中心
+- `src-tauri/src/lib.rs`：当前 App 命令注册
+- `src-tauri/src/bin/blackrain_daemon.rs`：daemon 入口
+- `src-tauri/src/bin/blackrain_daemon/rpc.rs`：daemon RPC 路由
+- `src-tauri/src/shared/*`：跨宿主领域逻辑
+- `src/features/threads/hooks/useThreadsReducer.ts`：thread 状态入口
 
-## Import Aliases
+## 线程不变量
 
-Use project aliases for frontend imports:
+- `setThreads` reconciliation 保留必要的 active/processing/ancestor anchors 和 incoming order。
+- `hiddenThreadIdsByWorkspace` 优先，不能在 reconciliation 中复活隐藏 thread。
+- `useThreadRows` 只有在 parent summary 可见时才把 child 放在 parent 下；缺 parent 时 child 提升为 root。
 
-- `@/*` -> `src/*`
-- `@app/*` -> `src/features/app/*`
-- `@settings/*` -> `src/features/settings/*`
-- `@threads/*` -> `src/features/threads/*`
-- `@services/*` -> `src/services/*`
-- `@utils/*` -> `src/utils/*`
+## 验证
 
-## Key File Anchors
+- 前端：`npm run typecheck`、按改动范围运行 `npm run test`、`npm run lint`、`npm run lint:ds`。
+- 当前 Rust：在 `src-tauri` 运行 `cargo check` 和目标测试。
+- Electron：建立后补 main/preload 单测、Playwright Electron E2E、daemon 集成、Windows 安装/升级/卸载/恢复矩阵。
+- Browser、真实对话、权限和 Windows 制品必须实机验收；macOS smoke 不能替代。
 
-- Frontend composition root: `src/App.tsx`
-- Frontend IPC wrapper: `src/services/tauri.ts`
-- Frontend event hub: `src/services/events.ts`
-- App command registry: `src-tauri/src/lib.rs`
-- Daemon entrypoint: `src-tauri/src/bin/blackrain_daemon.rs`
-- Daemon RPC router: `src-tauri/src/bin/blackrain_daemon/rpc.rs`
-- Shared workspaces core: `src-tauri/src/shared/workspaces_core.rs` + `src-tauri/src/shared/workspaces_core/*`
-- Shared git UI core: `src-tauri/src/shared/git_ui_core.rs` + `src-tauri/src/shared/git_ui_core/*`
-- Threads reducer entrypoint: `src/features/threads/hooks/useThreadsReducer.ts`
-- Threads reducer slices: `src/features/threads/hooks/threadReducer/*`
+## 安全与 Git
 
-For broader path maps, use `docs/codebase-map.md`.
-
-## Thread Hierarchy Invariants
-
-- `setThreads` reconciliation must preserve incoming order while retaining required local anchors (active/processing/ancestor summaries) when payloads are partial.
-- Never resurrect hidden threads during reconciliation (`hiddenThreadIdsByWorkspace` still wins).
-- `useThreadRows` renders children under parents only when parent summaries are present in the visible list; missing parent summaries will promote children to roots.
-
-## Follow-up Behavior Map
-
-For Queue vs Steer follow-up behavior, start here:
-
-- Settings model + defaults: `src/types.ts`, `src/features/settings/hooks/useAppSettings.ts`
-- Settings persistence/migration: `src-tauri/src/types.rs`, `src-tauri/src/storage.rs`
-- Composer runtime behavior: `src/features/composer/components/Composer.tsx`
-- Send intent routing: `src/features/threads/hooks/useQueuedSend.ts`, `src/features/threads/hooks/useThreadMessaging.ts`
-- App/layout wiring: `src/features/app/hooks/useComposerController.ts`, `src/features/layout/hooks/layoutNodes/buildPrimaryNodes.tsx`, `src/App.tsx`
-
-## App/Daemon Parity Checklist
-
-When changing backend behavior that can run remotely:
-
-1. Shared core logic updated (or explicitly app-only/daemon-only).
-2. App surface updated (`src-tauri/src/lib.rs` + adapter).
-3. Frontend IPC updated (`src/services/tauri.ts`) when needed.
-4. Daemon RPC updated (`rpc.rs` + `rpc/*`) when needed.
-5. Contract/test coverage updated.
-
-## Design System Rule (High-Level)
-
-Use existing design-system primitives and tokens for shared shell chrome.
-Do not reintroduce duplicated modal/toast/panel/popover shell styling in feature CSS.
-
-(See existing DS files and lint guardrails for implementation details.)
-
-## Safety and Git Behavior
-
-- Prefer safe git operations (`status`, `diff`, `log`).
-- Do not reset/revert unrelated user changes.
-- If unrelated changes appear, continue focusing on owned files unless they block correctness.
-- If conflicts impact correctness, call them out and choose the safest path.
-- Fix root cause, not band-aids.
-
-## Validation Matrix
-
-Run validations based on touched areas:
-
-- Always: `npm run typecheck`
-- Frontend behavior/state/hooks/components: `npm run test`
-- Rust backend changes: `cd src-tauri && cargo check`
-- Use targeted tests for touched modules before full-suite runs when iterating.
-
-## Quick Runbook
-
-Canonical Windows setup, dev, validation and release commands live in `../../docs/commands.md`; do not maintain a second command list here. Run commands from the working directory specified there. macOS/Linux commands remain upstream or post-MVP references only and are not required validation for the current release line.
-
-During iteration, focused test filtering is allowed for the touched module, followed by the validation set required by the change scope above.
-
-## Hotspots
-
-Use extra care in high-churn/high-complexity files:
-
-- `src/App.tsx`
-- `src/features/settings/components/SettingsView.tsx`
-- `src/features/threads/hooks/useThreadsReducer.ts`
-- `src-tauri/src/shared/git_ui_core.rs`
-- `src-tauri/src/shared/workspaces_core.rs`
-- `src-tauri/src/bin/blackrain_daemon/rpc.rs`
-
-## Canonical References
-
-- Task-oriented code map: `docs/codebase-map.md`
-- Multi-agent upstream sync runbook: `docs/multi-agent-sync-runbook.md`
-- Repository status: `../../README.md`
-- Setup/build/release/test commands: `../../docs/commands.md`
+- 保留无关用户改动，不 reset/revert/清理未授权文件。
+- 修改前先看 `git status`、`git diff` 和对应 spec。
+- 任何目标态文档必须标明未验证状态。
+- 分支、PR、License 和主线纪律服从仓库根 `AGENTS.md`。

@@ -1,8 +1,10 @@
 # workbenches —— 专家工作台包
 
+> **状态（2026-07-26）：暂停。** 工作台资产保留但不进入当前 P0/P1；当前主线是 Electron 迁移与 Codex App 能力补齐。本文的包格式和生命周期描述不构成近期实现承诺。
+
 这里存放 BlackRain 的核心产品资产：**可安装的专家数字工作环境**。
 
-产品定义以 [docs/04](../docs/04-产品形态.md) 为唯一真源，包格式和生命周期以 [.specs/008](../.specs/008-expert-workbench-package/) 为执行真源，激活后的受控会话与工作台 surface 以 [.specs/011](../.specs/011-workbench-session-orchestration/) 为执行真源。
+产品定义以 [docs/04](../docs/04-产品形态.md) 为唯一真源；恢复工作台路线前必须重新确认产品优先级，并更新暂停中的 008/011。
 
 ## 工作台不只是 Markdown
 

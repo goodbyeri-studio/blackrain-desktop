@@ -1,5 +1,7 @@
 # Tasks
 
+> **状态（2026-07-26）：暂停。** 任务不再作为当前 Tauri 发布排期；迁移后的 Windows 任务重建于 spec 012。
+
 > **范围(2026-06-30 决策)**:MVP 仅发行 Windows;macOS 推迟到 post-MVP。所有任务只跟 Windows 这一条线。macOS 等价项不在本 spec 范围。
 
 ## 阶段 0:确认边界

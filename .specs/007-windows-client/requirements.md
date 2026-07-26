@@ -1,5 +1,7 @@
 # Requirements
 
+> **状态（2026-07-26）：Tauri 发布路线暂停并等待迁移。** 本 spec 的 Windows 验收纪律保留，但 Tauri NSIS、Tauri 资源映射和 Tauri 命令不再是当前发布路线；Electron Windows 制品由 [spec 012](../012-electron-shell-migration/) 重新定义。
+
 > **事实状态（2026-07-12）**：`dev-client.ps1`、`release-client-win.ps1`、NSIS target、Windows 资源映射和部分 CI 检查代码已存在；这只是“配置/代码存在”。Windows 客户端 E2E、NSIS 构建/安装/卸载、Credential Manager、sandbox 与发布可交付性均仍未验证。资源映射中出现 `workbenches/office-agent/` 也不等于 008 的工作台生命周期已经实现。
 
 ## 背景

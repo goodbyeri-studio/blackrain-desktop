@@ -1,5 +1,7 @@
 # Requirements
 
+> **优先级说明（2026-07-26）**：Desktop/Cloud/MeiMei API 的仓库、数据、License 和密钥边界继续有效；其中工作台市场、会话编排和 OPC 相关产品建设已暂停，不属于当前 P0/P1。
+
 > **事实状态纪律**：跨产品边界是产品与仓库决策，不自动证明 Cloud、MeiMei API、账号 broker、计费对账或生产部署已经实现。
 
 ## 背景

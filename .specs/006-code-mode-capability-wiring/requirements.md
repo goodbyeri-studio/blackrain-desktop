@@ -1,5 +1,7 @@
 # Requirements
 
+> **归属（2026-07-26）**：本 spec 继续记录原装 `codex-rs` 能力的协议接线和重验；宿主从 Tauri 迁移到 Electron 归 [spec 012](../012-electron-shell-migration/)，Codex App 缺失能力和 in-app browser 归 [spec 013](../013-codex-app-capability-parity/)。不得引入第二内核。
+
 > **事实状态(2026-07-26)**:42 个方法的 5 层包装代码与编译/shape 记录已存在,但完整 capability 验证基线最新只到 `cfead68`;当前文档锁定 rust-v0.144.5 / `87db9bc` 只完成源码差异与协议方法集合静态审计,尚未构建、重跑能力探针或完成 Windows GUI 冒烟。「包装代码存在」、「当前内核验证通过」、「GUI 可用」是三个不同状态。
 
 ## 背景

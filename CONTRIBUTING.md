@@ -23,7 +23,7 @@
 | `fix` | 修 bug | `fix/sse-event-ordering` |
 | `docs` | 只改文档 | `docs/update-roadmap` |
 | `refactor` | 重构（不改行为） | `refactor/gateway-split` |
-| `chore` | 杂务（依赖、脚本、配置） | `chore/bump-tauri` |
+| `chore` | 杂务（依赖、脚本、配置） | `chore/bump-electron` |
 | `test` | 加/改测试 | `test/protocol-probes` |
 
 ## 提交信息（Conventional Commits，轻量版）
@@ -55,9 +55,9 @@ gh pr create                             # 5. 开 PR（或网页开）
 - **填 PR 模板**：改了什么、怎么测的、有无风险。
 - **自测过再请人看**：本地 build/跑过，别让 Review 帮你抓低级错误。
 - **跨层大功能同步 living spec**：触发条件见 [.specs/README.md](.specs/README.md)。有对应 spec 的 PR，必须同步更新 `tasks.md` / `verification.md`；关键取舍写进 `decisions.md`。
-- **Windows MVP 证据写清楚**：涉及 GUI、引擎、系统凭据、Office、NSIS 或安装流程时，PR 必须说明 Windows 实机验证结果；未跑就明确写“未验证”，不能用 macOS 结果或 CI 代替。
+- **Windows MVP 证据写清楚**：涉及 GUI、内核、Electron、Browser、系统凭据或安装流程时，PR 必须说明 Windows 实机验证结果；未跑就明确写“未验证”，不能用 macOS 结果或 CI 代替。当前 Tauri 结果只作迁移基线。
 - **第三方来源先过 License**：新增依赖、复制代码或引入上游资产时，PR 必须列出来源、许可证和 NOTICE/署名处理。
-- **工作台变更同步 008**：新增或改变工作台 Manifest、依赖、权限、安装、验证、升级或卸载语义时，必须同步 `.specs/008-expert-workbench-package/`；只有内容骨架时不得写成可安装工作台。
+- **工作台路线已暂停**：不得自然扩建工作台、Office、市场或 OPC。确需恢复时先更新 `docs/04`、`docs/06` 和暂停中的 008/011，再进入实现。
 - **提交前做密钥检查**：确认 diff、日志、截图、fixture 和文档中没有真实 key、JWT、cookie、私有 URL 或未脱敏用户数据。
 
 ## 文档约定
@@ -74,7 +74,7 @@ gh pr create                             # 5. 开 PR（或网页开）
 - **MVP 仅发行 Windows**：macOS / iOS 只保留为 post-MVP 或上游资产。非 Windows 开发可以做静态检查和共享逻辑测试，但发布级结论必须来自 Windows 实机矩阵。
 - **密钥绝不入库**：API key 等放本地 `.env`（已 gitignore，从 `.env.example` 复制填写）或本地环境变量，永不写进会提交的文件、也不在聊天/IM 里明文发送。
 - **`.scratch/` 是个人草稿区**：实验脚本、临时产物放这里，不入库、不评审。
-- **工作台不是作者电脑镜像**：不得提交作者凭据、Cookie、客户数据、商业软件副本或无权再分发的工具；用声明和用户提供依赖表达。
+- **暂停资产仍守安全边界**：工作台和插件中不得提交作者凭据、Cookie、客户数据、商业软件副本或无权再分发的工具。
 
 ## 不做什么（避免过度工程）
 

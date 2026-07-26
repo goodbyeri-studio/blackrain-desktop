@@ -1,5 +1,7 @@
 # plugins —— 可复用工具能力
 
+> **状态（2026-07-26）：暂停供给侧扩建。** 插件只在 Electron/Codex-first 主线明确需要时按最小范围复用；不建设插件市场、工作台挂载或 OPC 流程。
+
 > 产品术语以 [docs/04](../docs/04-产品形态.md) 为唯一真源；长期候选目录见 [.specs/004](../.specs/004-plugin-catalog/)；工作台包与生命周期见 [.specs/008](../.specs/008-expert-workbench-package/)。本文只说明 `plugins/` 的仓库边界。
 
 ## 插件是什么
@@ -68,4 +70,4 @@ plugins/
 5. 密钥和账号进入系统凭据存储，不写入仓库、Manifest、日志或模板。
 6. 插件能启动不等于工作台任务可交付；真实结论写对应 `verification.md`。
 
-MVP 只维护 Office 参考工作台需要的官方插件能力；公开专家市场属于 post-MVP。
+当前不新增 Office 或专家市场插件；只维护主线构建、安全和 License 所必需的适配器。

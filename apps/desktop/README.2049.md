@@ -1,35 +1,39 @@
-# apps/desktop —— BlackRain 集成约定
+# apps/desktop —— BlackRain 桌面壳迁移边界
 
-> `README.md`、`README.zh-CN.md` 与 `docs/index.html` / `docs/changelog.html` 是 CodexMonitor 上游原始材料，作为 subtree 同步资产保留，不代表 BlackRain 的产品范围、平台优先级或当前完成度。BlackRain 的真源顺序是仓库根 `README.md`、`docs/04-产品形态.md`、`docs/09-运行时架构与里程碑.md`、工作台包 spec 008、会话编排 spec 011 和对应 `.specs/*/verification.md`。
+> 文件名因兼容已有引用暂保留；`2049` 不是当前产品名。当前实现是 CodexMonitor 衍生的 Tauri + React + Rust，目标是完整迁移到 Electron。迁移以仓库根 `.specs/012-electron-shell-migration/` 为真源，能力补齐以 `.specs/013-codex-app-capability-parity/` 为真源。
 
-体验层（架构文档 [03](../../docs/03-系统架构.md) 第 ⑤ 层）的载体。这是我们**住在里面、持续魔改的底盘**，不是只读依赖。
+## 当前与目标
 
-- **上游**：[Dimillian/CodexMonitor](https://github.com/Dimillian/CodexMonitor)（MIT，Tauri2 + Rust + React19）
-- **导入方式**：git subtree（`--squash`），见下「upstream 同步」
-- **为什么是它**：开源里对官方 codex app 保真度最高的壳——走官方 `app-server` JSON-RPC 协议，diff/approval/会话渲染/文件树齐全。
-- **内核集成**：子进程 + JSON-RPC（见 [03 系统架构](../../docs/03-系统架构.md) 的“集成方式”），内核不进本仓，在 gitignored 的 `codex-upstream/` 本地克隆。
+| 层 | 当前 | 目标 |
+|---|---|---|
+| 宿主 | Tauri | Electron main/preload |
+| UI | React/Vite | 复用到 Electron renderer |
+| 后端 | Tauri Rust App + daemon | Rust daemon/shared core |
+| 内核 | 原装 codex app-server | 原装 codex app-server |
+| Browser | 尚无产品级 in-app browser | 隔离 WebContentsView/session |
 
-## BlackRain 在这里长出来的改造（全在壳外围，不动保真核心）
+## 保留的 BlackRain 资产
 
-- Providers 设置面板：管理 App/Gateway provider registry；Codex `config.toml` 只写固定 `blackrain_gateway` provider（base_url / wire_api / env_key）
-  - 实读确认：上游 `src-tauri/src/shared/config_toml_core.rs` 已有 toml 读写骨架可复用；`backend/app_server.rs` 的 `spawn_workspace_session` 是注入 API key env 的点
-- 接模型路由层：把 Codex provider 的 `base_url` 指向 App 托管的本地 HTTP 端点（例如 `http://127.0.0.1:8899/v1`）；翻译实现位于仓库根 `gateway/`
-- 规划中的工作台货架、安装计划、权限预览和生命周期 UI（产品核心层；见 `.specs/008`，尚未实现）
-- 插件管理 UI（工具能力层；尚未完成，以对应 spec verification 为准）
+- CODE surface、项目/thread 状态和现有设计系统
+- Rust shared core、daemon JSON-RPC 与 app-server 接缝
+- 专属 `CODEX_HOME` 与模型 Gateway 原型
+- 已有文件、Git、终端、审批和事件合同
 
-## 当前实现边界
+这些资产不是 Electron 已完成的证据。迁移期间优先把跨宿主领域逻辑收敛到 Rust daemon/shared core，不把业务逻辑重写进 Electron main。
 
-- CODE 壳、模型网关、账号/credit、OfficeCLI runtime 和多项 codex RPC 接线已有实现。
-- Office skill/workbench 与 OfficeCLI 资源已有受控安装接缝；这不等于 Office 工作台任务已经可执行。
-- 工作台应成为用户第一入口；当前 CODE surface 已有代码，普通工作台的会话合同已在 spec 011 定义，但 Session Orchestrator 和工作台 surface 尚未实现。
-- MVP 只发行 Windows；上游文档中的 macOS、Linux、iOS 路线均不构成 BlackRain 当前交付承诺。
+## Electron 目标职责
 
-## upstream 同步（subtree）
+- main：窗口、Browser、权限、下载、弹窗、更新和 daemon 生命周期
+- preload：最小类型化 allowlist
+- renderer：React 产品界面和 Browser chrome
+- Browser：独立 partition、CDP、截图、下载、用户接管和恢复
 
-```bash
-# 在仓库根执行。同步上游日更：
-git subtree pull --prefix apps/desktop \
-  https://github.com/Dimillian/CodexMonitor main --squash
-```
+网页不加载 BlackRain preload，不获得 daemon token 或非必要系统权限。不得引入任何第二 agent 内核。
 
-日常编辑：直接改 `apps/desktop/**`，正常 `git commit` 即可，无需任何 subtree 特殊操作。
+## 上游与 License
+
+`apps/desktop/` 起源于 [Dimillian/CodexMonitor](https://github.com/Dimillian/CodexMonitor)，既有 MIT 归属按实际代码保留。日常不随手执行 subtree pull；上游同步必须审计差异、License 和迁移影响。Codex App 的闭源代码与专有资源不进入本仓。
+
+## 当前完成度
+
+Electron 工程、Browser 工具合同、WebContentsView、Electron IPC、Windows Electron 打包和完整迁移均未完成。当前 `npm run tauri:*` 只代表旧 Tauri 开发入口，不能写成目标发布命令。

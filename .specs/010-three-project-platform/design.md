@@ -1,5 +1,7 @@
 # Design
 
+> **优先级说明（2026-07-26）**：本文保留跨项目所有权边界。拓扑中的 Workbench Core、Session Orchestrator、市场和 OPC 是暂停资产，不属于当前 Desktop 主链；当前运行时以 docs/09 为准。
+
 > 本文描述目标项目边界。仓库存在不等于服务实现、部署或发布可用；真实状态以 [verification.md](verification.md) 为准。
 
 ## 总体方案
