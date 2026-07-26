@@ -5,7 +5,7 @@
 ## 阶段 0：确认边界
 
 - [x] 阅读相关 `README.md` / `docs/` / `AGENTS.md`
-- [x] 确认四层能力定义对齐 [.specs/003](../003-dual-engine-architecture/decisions.md)(skill/mcp/acp → 插件 → 工作台 → 公司)
+- [x] 确认四层能力定义对齐 [04 产品形态](../../docs/04-产品形态.md)（skill/mcp/acp → 插件 → 工作台 → 公司）
 - [x] 确认不触碰 `codex-upstream`，插件全走 skill/MCP/ACP
 - [ ] 列出每个 `[铺]` 包的最小 headless 探针命令(填入 verification.md)
 - [ ] 逐包跑依赖树 license 扫描(GPL/AGPL/BSL 拦截)

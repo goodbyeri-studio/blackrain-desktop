@@ -17,7 +17,6 @@ mod event_sink;
 mod files;
 mod git;
 mod git_utils;
-mod hermes;
 mod local_usage;
 #[cfg(desktop)]
 mod menu;
@@ -65,9 +64,6 @@ fn keep_daemon_running_after_close(app_handle: &tauri::AppHandle) -> bool {
 #[cfg(desktop)]
 async fn stop_managed_daemons_for_exit(app_handle: tauri::AppHandle, keep_daemon: bool) {
     let state = app_handle.state::<state::AppState>();
-    state.hermes_runs.cancel_all().await;
-    let _ = state.hermes_runtime.stop().await;
-    state.mcp_router.stop().await;
     if keep_daemon {
         return;
     }
@@ -155,19 +151,6 @@ pub fn run() {
             {
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    {
-                        let state = app_handle.state::<state::AppState>();
-                        let _ = state.mcp_router.audit_orphaned_process().await;
-                    }
-                    #[cfg(target_os = "windows")]
-                    if let Ok(bearer) =
-                        crate::shared::hermes_core::credential_store::ensure_api_server_key(
-                            "default", false,
-                        )
-                    {
-                        let state = app_handle.state::<state::AppState>();
-                        let _ = state.hermes_runtime.audit_orphaned_process(&bearer).await;
-                    }
                     let _ = model_gateway::model_gateway_start_for_app(app_handle.clone()).await;
                     let state = app_handle.state::<state::AppState>();
                     let settings = state.app_settings.lock().await.clone();
@@ -361,39 +344,10 @@ pub fn run() {
             model_gateway::model_gateway_daemon_restart,
             model_gateway::model_gateway_credit_jwt_set,
             model_gateway::model_gateway_credit_jwt_clear,
-            hermes::hermes_runtime_status,
-            hermes::hermes_runtime_start,
-            hermes::hermes_runtime_stop,
-            hermes::hermes_runtime_restart,
-            hermes::hermes_runtime_repair,
-            hermes::hermes_runtime_diagnostics,
-            hermes::hermes_task_list,
-            hermes::hermes_task_read,
-            hermes::hermes_follow_up_enqueue,
-            hermes::hermes_follow_up_edit,
-            hermes::hermes_follow_up_cancel,
-            hermes::hermes_follow_up_retry,
-            hermes::hermes_follow_up_dispatch_ready,
-            hermes::hermes_task_start,
-            hermes::hermes_task_continue,
-            hermes::hermes_task_resume,
-            hermes::hermes_task_approval,
-            hermes::hermes_task_stop,
-            hermes::hermes_task_delete_local_metadata,
-            hermes::hermes_task_update_metadata,
-            hermes::hermes_task_recovery_status,
-            hermes::hermes_runtime_models,
-            hermes::hermes_project_list,
-            hermes::hermes_project_preview,
-            hermes::hermes_terminal_open,
-            hermes::hermes_terminal_write,
-            hermes::hermes_terminal_resize,
-            hermes::hermes_terminal_close,
             workbench::workbench_activation_list,
             workbench::workbench_activation_read,
             workbench::workbench_bundled_inspect,
             workbench::workbench_official_activate,
-            workbench::workbench_activation_migrate_task,
             workbench::workbench_activation_deactivate,
             codex::experimental_feature_list,
             codex::set_codex_feature_flag,
@@ -467,11 +421,6 @@ pub fn run() {
                 });
             }
             return;
-        }
-
-        #[cfg(desktop)]
-        if let RunEvent::Resumed = event {
-            let _ = app_handle.emit("work-environment-reconcile", ());
         }
 
         #[cfg(target_os = "macos")]

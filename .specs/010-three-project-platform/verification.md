@@ -9,14 +9,15 @@
 | 2026-07-12 | 名称占用与权限 | `gh auth status`; `gh repo view goodbyeri-studio/<name>` | 通过 | 当前账号有 `admin:org`/`repo`；执行前两个新仓和 Desktop 新名均不存在 |
 | 2026-07-12 | 文档与 spec | 静态审阅；`jq empty apps/desktop/src-tauri/tauri.conf.json`; `git diff --check` | 通过 | 文档、010 五件套和 updater URL 存在；不代表服务实现 |
 | 2026-07-12 | GitHub 仓库 | `gh repo view`; `gh api repos/goodbyeri-studio/<name>` | 通过 | Desktop/Cloud 为 private，MeiMei API 为 public；三仓 Squash=true、merge/rebase=false、delete branch=true |
+| 2026-07-26 | GitHub 当前状态复核 | `gh repo view`; `gh api repos/goodbyeri-studio/{meimei-api,blackrain-cloud}` | 通过 | `meimei-api` 公开、未归档、License=AGPL-3.0；`blackrain-cloud` 私有；旧 `blackrain-relay` URL 重定向到 `meimei-api` |
 | 2026-07-12 | Desktop 远端 | `git remote -v`; `git ls-remote --symref origin HEAD` | 通过 | `origin=https://github.com/goodbyeri-studio/blackrain-desktop.git`，HEAD=`main` |
 | 2026-07-12 | Cloud 资产迁移 | Cloud `supabase start`; `supabase db reset`; catalog 权限查询；legacy unittest/Docker build；Desktop `test_gateway_key`; 两仓路径核对 | 通过 | Cloud 从空库执行三条 migration；RLS/trigger/RPC 权限正确；legacy 17 tests；Desktop gateway 7 tests；服务端资产已删除并保留 `gateway/gateway.py` |
 | YYYY-MM-DD | Cloud/MeiMei API 合同 | token exchange + usage webhook integration tests | 未跑 | 尚无实现 |
-| YYYY-MM-DD | 双引擎产品 E2E | Windows Desktop -> Cloud -> MeiMei API -> 模型 | 未跑 | 发布门槛 |
+| YYYY-MM-DD | CODE 产品 E2E | Windows Desktop -> Cloud -> MeiMei API -> 模型 | 未跑 | 发布门槛 |
 
 ## 已验证
 
-- 三项目产品边界和目标可见性已由用户确认。
+- 三个仓库的跨产品边界和目标可见性已确认。
 - New API 当前采用 AGPLv3，并对修改版 UI 要求保留署名与原项目链接；MeiMei API 接受该义务。
 - GitHub 已存在私有 `goodbyeri-studio/blackrain-desktop`、私有 `goodbyeri-studio/blackrain-cloud` 和公开 `goodbyeri-studio/meimei-api`。
 - 2026-07-23 已通过 GitHub、DigitalOcean、Cloudflare 和生产 Caddy 状态确认独立命名迁移；MeiMei API 应用尚未部署，该结果不代表服务已上线。

@@ -2,7 +2,7 @@
 
 这里存放 BlackRain 的核心产品资产：**可安装的专家数字工作环境**。
 
-产品定义以 [docs/04](../docs/04-产品形态.md) 为唯一真源，目标包格式和生命周期以 [.specs/008](../.specs/008-expert-workbench-package/) 为执行真源。
+产品定义以 [docs/04](../docs/04-产品形态.md) 为唯一真源，包格式和生命周期以 [.specs/008](../.specs/008-expert-workbench-package/) 为执行真源，激活后的受控会话与工作台 surface 以 [.specs/011](../.specs/011-workbench-session-orchestration/) 为执行真源。
 
 ## 工作台不只是 Markdown
 
@@ -63,8 +63,8 @@ workbenches/
 
 但以下均未完成：
 
-- install/activate/verify/uninstall 生命周期（当前只有只读 inspect）
-- Hermes WORK surface 产品接入
+- install/activate/verify/uninstall 生命周期的 Windows 实机验收
+- Session Orchestrator、工作台 surface 与任务执行合同的代码接线
 - Windows NSIS 构建、解包、安装和首启验证
 - Office 5 场景 × 10 次质量基线
 - 升级、回滚、卸载和项目保留验证

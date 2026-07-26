@@ -55,7 +55,7 @@ gh pr create                             # 5. 开 PR（或网页开）
 - **填 PR 模板**：改了什么、怎么测的、有无风险。
 - **自测过再请人看**：本地 build/跑过，别让 Review 帮你抓低级错误。
 - **跨层大功能同步 living spec**：触发条件见 [.specs/README.md](.specs/README.md)。有对应 spec 的 PR，必须同步更新 `tasks.md` / `verification.md`；关键取舍写进 `decisions.md`。
-- **Windows MVP 证据写清楚**：涉及 GUI、双引擎、系统凭据、Office、NSIS 或安装流程时，PR 必须说明 Windows 实机验证结果；未跑就明确写“未验证”，不能用 macOS 结果或 CI 代替。
+- **Windows MVP 证据写清楚**：涉及 GUI、引擎、系统凭据、Office、NSIS 或安装流程时，PR 必须说明 Windows 实机验证结果；未跑就明确写“未验证”，不能用 macOS 结果或 CI 代替。
 - **第三方来源先过 License**：新增依赖、复制代码或引入上游资产时，PR 必须列出来源、许可证和 NOTICE/署名处理。
 - **工作台变更同步 008**：新增或改变工作台 Manifest、依赖、权限、安装、验证、升级或卸载语义时，必须同步 `.specs/008-expert-workbench-package/`；只有内容骨架时不得写成可安装工作台。
 - **提交前做密钥检查**：确认 diff、日志、截图、fixture 和文档中没有真实 key、JWT、cookie、私有 URL 或未脱敏用户数据。
@@ -70,7 +70,7 @@ gh pr create                             # 5. 开 PR（或网页开）
 ## 本项目特有约定
 
 - **`apps/desktop/` 是 subtree（来自 CodexMonitor）**：日常改它就是普通 commit，无需特殊操作。但**同步上游**（`git subtree pull`）是维护者动作，别随手做，约定一人负责。详见 [docs/08](docs/08-仓库结构与上游策略.md)。
-- **`codex-upstream/` / `hermes-upstream/` 内核不入库**：本地克隆、黑盒子进程，已在 `.gitignore`。目标锁定版本见 [docs/REFERENCES.md](docs/REFERENCES.md)；当前 `scripts/fetch-references.sh` 不会强制 checkout，构建和验收前必须核对 `HEAD`。
+- **`codex-upstream/` 内核不入库**：本地克隆、黑盒子进程，已在 `.gitignore`。目标锁定版本见 [docs/REFERENCES.md](docs/REFERENCES.md)；`scripts/fetch-references.sh` 会校验 tag 与完整 SHA，构建和验收前仍须核对 `HEAD`。
 - **MVP 仅发行 Windows**：macOS / iOS 只保留为 post-MVP 或上游资产。非 Windows 开发可以做静态检查和共享逻辑测试，但发布级结论必须来自 Windows 实机矩阵。
 - **密钥绝不入库**：API key 等放本地 `.env`（已 gitignore，从 `.env.example` 复制填写）或本地环境变量，永不写进会提交的文件、也不在聊天/IM 里明文发送。
 - **`.scratch/` 是个人草稿区**：实验脚本、临时产物放这里，不入库、不评审。

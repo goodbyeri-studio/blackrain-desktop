@@ -8,12 +8,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 CODEX_URL="https://github.com/openai/codex.git"
-CODEX_TAG="rust-v0.144.1"
-CODEX_COMMIT="44918ea10c0f99151c6710411b4322c2f5c96bea"
-
-HERMES_URL="https://github.com/NousResearch/hermes-agent.git"
-HERMES_TAG="v2026.7.7.2"
-HERMES_COMMIT="9de9c25f620ff7f1ce0fd5457d596052d5159596"
+CODEX_TAG="rust-v0.144.5"
+CODEX_COMMIT="87db9bc18ba5bc82c1cb4e4381b44f693ee35623"
 
 sync_tagged_reference() {
   name="$1"
@@ -48,9 +44,8 @@ sync_tagged_reference() {
   echo "✓ $name 已锁定 $tag ($expected_commit)"
 }
 
-# 两个引擎都作为只读黑盒使用；脚本只同步官方稳定 tag 并 checkout 精确 commit。
+# 引擎作为只读黑盒使用；脚本只同步官方稳定 tag 并 checkout 精确 commit。
 sync_tagged_reference "openai/codex" "$CODEX_URL" "codex-upstream" "$CODEX_TAG" "$CODEX_COMMIT"
-sync_tagged_reference "NousResearch/hermes-agent" "$HERMES_URL" "hermes-upstream" "$HERMES_TAG" "$HERMES_COMMIT"
 
 echo ""
 echo "参考源码已按稳定版本锁定。其余竞品（Coze Studio、Dify 等）按需临时克隆即可，勿整包入库。"

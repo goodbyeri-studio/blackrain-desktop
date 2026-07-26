@@ -180,9 +180,6 @@ export type TranslateText = (source: string, values?: TranslationValues) => stri
 
 const zhCNTextTranslations: Record<string, string> = {
   "BlackRain": "BlackRain",
-  Mode: "模式",
-  Work: "工作",
-  Code: "代码",
   "New conversation": "新对话",
   "Search": "搜索",
   Scheduled: "已安排",

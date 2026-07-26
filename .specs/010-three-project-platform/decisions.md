@@ -22,7 +22,7 @@
 - 原因：MeiMei API 可以独立运营，Cloud 不成为模型吞吐单点，Desktop 也不获得 MeiMei API 管理凭据。
 - 替代方案：MeiMei API 直接识别 Supabase JWT；Cloud 代理每个模型请求；共享数据库。
 - 影响范围：account broker、token lifecycle、usage 对账、错误语义和隐私边界。
-- 后续复查条件：冻结 token/usage API 后，以真实双引擎长任务验证刷新、撤销和离线行为。
+- 后续复查条件：冻结 token/usage API 后，以真实 CODE 长任务验证刷新、撤销和离线行为。
 
 ## 2026-07-12：Supabase 与 MeiMei API 分别拥有商业账本和执行账本
 

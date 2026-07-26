@@ -121,28 +121,20 @@
 ## 2026-07-11：`proxy.py` 是已验证过渡代理，生产 credit 拓扑待决
 
 - 状态：`gateway/proxy.py` 已完成真实 Supabase、DeepSeek、Docker、HTTPS 和公网扣款验证；这证明最小代理可行，不等于它已被定为最终生产入口。
-- 待决：生产由 new-api 直接承担 credit、保留 `proxy.py` 做 Supabase 鉴权/扣款适配，还是采用其他组合；WORK/Hermes 如何接同一余额；Plus BYOK 是否允许绕过 new-api。
+- 待决：生产由 new-api 直接承担 credit、保留 `proxy.py` 做 Supabase 鉴权/扣款适配，还是采用其他组合；Plus BYOK 是否允许绕过 new-api。
 - 约束：平台 key 只在服务端、客户端尽量保持 `base_url + Bearer` 接缝、所有扣款写 `credit_ledger`，这些既有约束不变。
 - 影响范围：requirements/design/tasks/verification；不在本次文档治理中替产品选方案。
 
-## 2026-07-11：Windows GUI 与双引擎 credit 尚未验证
+## 2026-07-11：Windows GUI 与 CODE credit 尚未验证
 
-- 状态：2026-06-25 已完成代码检查和云端/代理验证，但桌面重启恢复、JWT 刷新、CODE credit GUI、402 提示、WORK credit 和 Plus BYOK 均未完成 Windows 实机闭环。
+- 状态：2026-06-25 已完成代码检查和云端/代理验证，但桌面重启恢复、JWT 刷新、CODE credit GUI、402 提示和 Plus BYOK 均未完成 Windows 实机闭环。
 - 影响范围：`tasks.md` 和 `verification.md` 不再把“服务端通过”概括成“账号计费交付完成”。
-- 后续复查条件：007 Windows 环境准备完成并跑通双引擎 credit/BYOK 矩阵。
-
-## 2026-07-12：WORK 不把自动刷新的 Supabase access JWT 直接注入 Hermes
-
-- 决策：Supabase access JWT 只用于向 BlackRain account broker 证明用户身份；broker 必须返回长期、可撤销、可限额的 model token，App 将该 token 存入 WORK 独立系统凭据 namespace，并仅在 Hermes 启动时注入 `key_env`。未完成 broker、撤销、quota/ledger 单一真源和 token 轮换合同前，不把现有 CODE `api_key_file` 方案复制到 WORK。
-- 原因：CODE 本地网关每次请求读取 JWT 文件，所以 SDK 静默刷新可立即生效；锁定 Hermes 则在进程/agent 创建时读取 provider `key_env`，运行中的长任务继续持有旧 JWT。把一小时级 access JWT 直接接入会产生“钥匙串已刷新但活着的 Hermes 仍鉴权失败”的隐蔽漂移。new-api 当前上游提供长期、可撤销、带过期/额度/模型限制的 token，形态与 Hermes 更匹配，但 BlackRain 尚无 Supabase→new-api 的签发 broker。
-- 替代方案：每次 Supabase 刷新强杀 Hermes、把 refresh token 当模型 bearer、让 WORK 经过 CODE 翻译网关、或继续假设 new-api 原生识别 Supabase JWT。
-- 影响范围：WORK provider producer、账号 broker、new-api 用户/token 映射、余额展示、登出撤销、Windows Credential Manager 和 009 真实模型纵切。
-- 后续复查条件：必须先决定 new-api quota 还是 Supabase `profiles.credits`/`credit_ledger` 为计费真源，并部署可真实验证的 broker；届时补登录、刷新、登出、撤销、长任务跨 JWT 刷新和双引擎同余额测试。
+- 后续复查条件：007 Windows 环境准备完成并跑通 CODE credit/BYOK 矩阵。
 
 ## 2026-07-12：生产 credit 项目边界收敛为 Cloud 购买 MeiMei API 服务
 
-- 决策：`blackrain-cloud` 是 `meimei-api` 的企业客户。Supabase JWT 只向 Cloud 证明身份；Cloud 检查套餐/余额后向 MeiMei API 兑换长期、可撤销、可限额的 model token。WORK 直连 MeiMei API，CODE 经本地翻译网关进入 MeiMei API。现有 `gateway/proxy.py` 退为历史过渡实现，不再是目标生产入口。
-- 原因：MeiMei API 要独立经营并服务第三方，Cloud 不应与其共享数据库或进入高吞吐模型内容路径；短期 Supabase JWT 也不适合常驻 Hermes。
+- 决策：`blackrain-cloud` 是 `meimei-api` 的企业客户。Supabase JWT 只向 Cloud 证明身份；Cloud 检查套餐/余额后向 MeiMei API 兑换长期、可撤销、可限额的 model token。所有 codex 会话经 Desktop 本地翻译网关进入 MeiMei API。现有 `gateway/proxy.py` 不是目标生产入口。
+- 原因：MeiMei API 要独立经营并服务第三方，Cloud 不应与其共享数据库或进入高吞吐模型内容路径。
 - 替代方案：MeiMei API 直接识别 Supabase JWT；Cloud 代理全部模型请求；继续把 `proxy.py` 作为最终服务；Cloud 与 MeiMei API 共库。
 - 影响范围：account broker、provider producer、系统凭据、credit 错误、usage 对账、`proxy.py` 迁移和 010。
 - 后续复查条件：实现前冻结 token exchange、撤销、过期、usage idempotency、日终对账和退款补偿合同。

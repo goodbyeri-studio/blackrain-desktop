@@ -3,7 +3,6 @@
   "activationId": "activation-office-demo",
   "workbenchId": "com.blackrain.office",
   "workbenchVersion": "0.1.0",
-  "engine": "work",
   "project": {
     "projectId": "project-quarterly-report",
     "path": "C:\\Users\\demo\\BlackRain Projects\\Quarterly Report"

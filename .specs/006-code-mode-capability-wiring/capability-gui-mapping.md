@@ -2,7 +2,7 @@
 
 > 用途:42 个 codex-rs ClientRequest 已有 5 层包装代码与历史验证;本表给 GUI 落地时用——每个能力对应:① `tauri.ts` 函数名 → ② feature/GUI 表面 → ③ 建议交互。
 > 口径:`@services/tauri.ts` 导出函数存在只表示壳层调用面存在,不表示 GUI 已落地或上游方法无门控。
-> 基线:映射来自 `bdd282f`→`cfead68` 历史探针;当前锁定 rust-v0.144.1 / `44918ea` 尚未完成 capability/GUI 重验。MVP GUI 只在 Windows 验收。
+> 基线:映射来自 `bdd282f`→`cfead68` 历史探针;当前锁定 rust-v0.144.5 / `87db9bc` 尚未完成 capability/GUI 重验。MVP GUI 只在 Windows 验收。
 
 ## 阅读约定
 
@@ -102,4 +102,4 @@
 
 - 后端接入与验证:本目录 `requirements.md` / `design.md` / `verification.md`
 - 调用函数全在 `apps/desktop/src/services/tauri.ts`
-- CODE 模式边界与复刻上限:[../003-dual-engine-architecture/code-mode-boundary.md](../003-dual-engine-architecture/code-mode-boundary.md)
+- CODE 运行时边界与复刻上限:[../../docs/09-运行时架构与里程碑.md](../../docs/09-运行时架构与里程碑.md)

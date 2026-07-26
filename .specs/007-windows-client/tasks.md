@@ -4,7 +4,7 @@
 
 ## 阶段 0:确认边界
 
-- [x] 阅读 `docs/09 运行时架构`、`.specs/003 / 006` 的「首发 Windows」表述,确认与本 spec 不矛盾。
+- [x] 阅读 `docs/09 运行时架构` 与 `.specs/006` 的「首发 Windows」表述,确认与本 spec 不矛盾。
 - [x] 盘点已落的 Windows 分叉点(tauri.windows.conf.json / doctor.mjs / useLiquidGlassEffect / WindowCaptionControls / office.rs / vendor-officecli.ps1)——见 `requirements.md` 背景段。
 - [x] 确认不改 `codex-upstream`,只验证内核能在 Windows 编译。
 - [x] 列出 Windows 实测需要的命令清单(see verification.md skeleton)。
@@ -28,7 +28,7 @@
 - [x] **NSIS target + Windows 资源映射代码已落**:`tauri.windows.conf.json` 已显式 `targets = ["nsis"]`,并映射 codex/Python/gateway/OfficeCLI/plugins/workbench。此勾选只表示配置存在。
 - [ ] **NSIS 元数据收口**:publisher / shortcut / 签名 hook 依签名待决结论落地。
 - [ ] **Windows 品牌元数据收口**:窗口标题、About、tray、Credential Manager service 从 `BlackRain2049` 迁到 `BlackRain`；凭据 service 改名必须设计兼容读取/迁移，不能让已有登录/key 静默丢失。
-- [x] **本机发布脚本已落**:`scripts/release-client-win.ps1` 已会跑 Hermes static contract、vendor Windows/Hermes runtime、执行 typecheck/test/lint/DS/doctor 与统一 Rust/WORK 专项脚本，再调 `tauri:build:win`;尚未有本 spec 的 Windows 实跑记录。
+- [x] **本机发布脚本已落**:`scripts/release-client-win.ps1` 已会 vendor Windows runtime、执行 typecheck/test/lint/DS/doctor 与统一 Rust/workbench 专项脚本，再调 `tauri:build:win`;尚未有本 spec 的 Windows 实跑记录。
 - [ ] **跑 `npm run tauri:build:win`**:产出 `.exe` 安装包,记打包时长 / 体积。
 - [ ] **安装包资源 smoke**:解包验证 `office-cli/windows-x64/officecli.exe`、`gateway/gateway.py`、`plugins/office-cli/`、`workbenches/office-agent/` 都在。
 - [ ] **区分资源存在与工作台可安装**：在 verification 明确记录 Office 目录入包只属于静态资源 smoke，不得标记 008 的 inspect/install/activate/verify/uninstall 已完成。
@@ -39,7 +39,7 @@
 ## 阶段 3:Windows 专属能力实测
 
 - [ ] **Windows Credential Manager smoke**:写 / 读 / 状态 / 清理 API key 全跑(`keyring` crate 已支持,只需实测)。
-- [ ] **协议四探针 Windows 实测**:`python3 .scratch/m0_protocol_probe.py` 对当前锁定 rust-v0.144.1 / `44918ea` 全绿。
+- [ ] **协议四探针 Windows 实测**:`python3 .scratch/m0_protocol_probe.py` 对当前锁定 rust-v0.144.5 / `87db9bc` 全绿。
 - [ ] **真实 DeepSeek 工具调用 Windows 实测**:`m0_tool_driver.py` 生成 hello.txt 内容为 2049。
 - [ ] **App 托管 sidecar 工具调用实测**:不由 dev 脚本预起 Gateway，让 App 自己 spawn；确认 `STRIP_TOOLS=0` 生效并完成真实 `commandExecution`。当前代码未覆盖默认值，是发布阻塞项。
 - [ ] **`windowsSandbox/{setupStart,readiness}` 探针**(`.specs/006` 链路在 Windows 上首次实跑):验证内核能正确回应 setup 流程,UI 复刻不在本 spec。
@@ -47,10 +47,10 @@
 
 ## 阶段 4:CI(已有部分检查,发布矩阵待补)
 
-- [x] `.github/workflows/ci.yml` 已存在：Ubuntu 先按 diff 分流，前端相关改动跑 JS typecheck/test/lint/DS/codemod；Rust/WORK 相关改动才启用 Windows Hermes/workbench/plugin 专项。此勾选只表示 workflow 接线存在。
-- [x] Windows runner 只承担无法由 Ubuntu 替代的 Rust/WORK 代码级回归；同一 PR 旧 run 自动取消，普通 `main` push 不重复跑，Cargo 依赖变化才预热默认分支 cache。暂不加入 Tauri/NSIS build，避免把未签名制品和实机验收混入普通 PR CI。
+- [x] `.github/workflows/ci.yml` 已存在：Ubuntu 先按 diff 分流，前端相关改动跑 JS typecheck/test/lint/DS/codemod；Rust 相关改动才启用 Windows workbench 专项。此勾选只表示 workflow 接线存在。
+- [x] Windows runner 只承担无法由 Ubuntu 替代的 Rust 代码级回归；同一 PR 旧 run 自动取消，普通 `main` push 不重复跑，Cargo 依赖变化才预热默认分支 cache。暂不加入 Tauri/NSIS build，避免把未签名制品和实机验收混入普通 PR CI。
 - [x] CI、本机和正式发布共用 `scripts/check-windows-rust.ps1`；`WINDOWS_RUNNER` 未设置时回退 `windows-latest`，设置后切换唯一 label 的 self-hosted Windows，fork PR 不进入开发机。
-- [ ] 在受控 Windows 开发机注册 `blackrain-windows` runner，使用非管理员专用服务账号，并连续验证 3 个 Rust/WORK PR。
+- [ ] 在受控 Windows 开发机注册 `blackrain-windows` runner，使用非管理员专用服务账号，并连续验证 3 个 Rust PR。
 - [ ] NSIS 正式包仍只在 Windows 本机构建;若未来改为 CI 出包,需单独处理制品签名与密钥。
 - [ ] **明确不建 macos-latest runner**——decisions 已锁,CI 与代码库节奏同步。
 
@@ -59,8 +59,7 @@
 - [x] **`README.md`**:「当前状态」段「首发平台」行改为「MVP 仅 Windows,macOS 推迟到 post-MVP」(2026-06-30)。
 - [x] **`AGENTS.md` / `CLAUDE.md`**:「常用命令」段把 Windows 提到首位,macOS 段标 post-MVP 历史参考;spec 索引行同步「MVP 仅 Windows」措辞(2026-06-30)。
 - [x] **`apps/desktop/AGENTS.md`**:dev 命令 quick runbook 段已改为 Windows 为主。（2026-07-11 文档治理）
-- [x] **`.specs/003 verification.md`**:平台策略已收口为「Windows 是 MVP 唯一全栈验收线;macOS 打包/运行是 post-MVP」。Windows 未跑项仍必须保留。
-- [x] **`.specs/003 requirements.md`** 开放问题:Windows 全栈条目 = 「已收敛,MVP 只做 Windows,见 `.specs/007`」(2026-06-30)。
+- [x] 平台策略已收口为「Windows 是 MVP 唯一全栈验收线;macOS 打包/运行是 post-MVP」。Windows 未跑项仍必须保留。
 - [x] **`.specs/006` 关于「首发 Windows」表述**:与本 spec 第一条决策对齐,改「MVP 仅 Windows」措辞(2026-06-30,design.md / capability-gui-mapping.md / code-mode-boundary.md 三处)。
 - [x] **`.specs/008` 工作台包**：2026-07-12 已新建；本 spec 继续负责 BlackRain 基础 NSIS，008 负责工作台生命周期。
 

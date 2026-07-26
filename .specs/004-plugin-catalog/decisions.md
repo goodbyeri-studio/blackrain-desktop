@@ -1,18 +1,11 @@
 # Decisions
 
-## 2026-07-12：verified runtime store 是执行接缝，不是插件目录实现
-
-- 决策：009 为 WORK MCP 接入建立的 `plugins/runtimes.v1.json` 只保存未来 008 installer 已验证的本机执行制品，并作为 activation id 引用到 Hermes config 的安全解析层；它不提供 catalog、下载、安装、更新、卸载或候选包发布能力，也不改变本 spec 的 post-MVP 状态。
-- 原因：执行器必须先有受控 command 真源才能避免 activation/前端启动任意进程，但把底层 store 计作 ~34 个插件目录已落地会混淆协议存在与产品供给完成度。
-- 影响范围：009 MCP 接入、008 install/verify producer 和本 spec 状态口径。
-- 后续复查条件：首个真实 Office 插件进入 installer、完成 License/权限/hash/Windows 验证后，再为对应包记录实现证据。
-
 ## 2026-07-11:目录是 post-MVP 终局参考,Windows office MVP 不实现全目录
 
 - 决策：~34 打包单元只作长期插件供给账本；MVP 只发行 Windows 客户端，并用 Office 参考工作台验证工作台底座，不启动全目录实现。
-- 原因:目录广度是终局供给策略,不能挤占当前 Windows 落地与 WORK 承重验证。
+- 原因:目录广度是终局供给策略,不能挤占当前 Windows 落地与工作台包验证。
 - 影响范围:`requirements.md` / `design.md` / `tasks.md` / `verification.md` 都必须把「候选目录」与「已实现/已可发行」分开。
-- 后续复查条件:office MVP 完成 Windows E2E 与 WORK 承重验证后,再按真实垂类需求拆分实现 spec。
+- 后续复查条件:office MVP 完成 Windows E2E 与工作台任务执行验证后,再按真实垂类需求拆分实现 spec。
 
 ## 2026-07-11：GPL 候选关闭，LGPL 单独审计
 
@@ -32,7 +25,7 @@
 ## 2026-06-26：[铺] 无头开源 / [控] 宿主门控 是打包层的硬切分线
 
 - 决策：每个打包单元标注 `[铺]`(无头开源，进本地胖包，触达 100% 用户)或 `[控]`(需用户已装正版宿主软件，只触达装了的人)。撒网顺序 = 横向[铺] → 纵向[铺] → [控] 垫底。
-- 原因：这条线直接决定 reach 和 [.specs/003](../003-dual-engine-architecture/decisions.md) 的「本地胖包全量铺」战略能否成立。把 `ezdxf`(无头，给所有人)和 `AutoLISP`(要 AutoCAD)揉一个包，会让该包要么强依赖 AutoCAD(对没装的人 reach=0)，要么内部其实是两个模块(那就该拆)。
+- 原因：这条线直接决定本地胖包的 reach。把 `ezdxf`(无头，给所有人)和 `AutoLISP`(要 AutoCAD)揉一个包，会让该包要么强依赖 AutoCAD(对没装的人 reach=0)，要么内部其实是两个模块(那就该拆)。
 - 替代方案：按领域揉成一个「CAD 插件/财务插件」(朋友版)——被否，会砸全量铺战略。
 - 影响范围：CAD/BIM/GIS/设计/影音/ERP 全部一拆为二(1[铺]+≤1[控])。
 - 后续复查条件：某 [控] 引擎出现可商用的无头开源替代时，可新增 [铺] 包。

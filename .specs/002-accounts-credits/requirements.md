@@ -2,14 +2,14 @@
 
 > 迁移状态（2026-07-12）：Supabase 服务端资产与历史代理已迁入
 > `blackrain-cloud`；本 spec 保留 2026-06-25 历史验证语境，Desktop 只继续拥有
-> 账户/session 客户端和本地 CODE 翻译网关。
+> 账户/session 客户端和统一的本地 codex 翻译网关。
 
 ## 背景
 
 - 本 spec 创建时（2026-06-25），BlackRain 还是无自有账号、无计费的本地 Tauri 壳；后续 M-A1/M-A2 已实现账号骨干和过渡代理，当前状态以 tasks/verification 为准。
 - 商业模式定调为「模型广场 token 差价 = 利润发动机（应用内消耗）」，需要账号 + credit 计量才能成立。
 - 本 spec 覆盖 M-A 主线：账号体系（注册/登录）、Free/Plus/Pro 三档占位、credit 余额与计量、已验证过渡代理（持平台 DeepSeek key、按真实用量扣 credit）、BYOK 锁在 Plus，以及 Desktop→Cloud→MeiMei API 的生产 credit 接缝。
-- 关联 [[001-providers-model-gateway]]：CODE 模型选择器、provider registry、网关 sidecar 已就位；关联 [[003-dual-engine-architecture]]：WORK/Hermes 不经过 CODE 翻译网关；三项目与账本真源服从 [[010-three-project-platform]]。
+- 关联 [[001-providers-model-gateway]]：模型选择器、provider registry、网关 sidecar 已就位；Gateway 面向所有 codex 会话，三项目与账本真源服从 [[010-three-project-platform]]。
 
 ## 用户目标
 
@@ -40,7 +40,7 @@
 ## 约束
 
 - 后端用 Supabase（Auth + Postgres）；不自建鉴权。
-- 已验证过渡代理是「最小 OpenAI 兼容转发 + 计量」；生产接缝改为 Supabase JWT 只向 Cloud 证明身份，Cloud 向 MeiMei API 兑换长期、可撤销、可限额的 model token。Desktop 不把 Supabase JWT 直接当 MeiMei API/Hermes 常驻凭据。
+- 已验证过渡代理是「最小 OpenAI 兼容转发 + 计量」；生产接缝改为 Supabase JWT 只向 Cloud 证明身份，Cloud 向 MeiMei API 兑换长期、可撤销、可限额的 model token。Desktop 不把 Supabase JWT 直接当 MeiMei API 常驻凭据。
 - credit 计量依赖上游返回的 usage（gateway.py 已能从 DeepSeek 流式响应取 usage）。
 - 计费按 token：DeepSeek 输出价 = 输入 2 倍、缓存命中输入更便宜；MVP 用混合单价近似，已知会轻微低估输出/思考重的任务（见 decisions）。
 - `apps/desktop/**` 改动遵守双运行时纪律：领域逻辑先落 `src-tauri/src/shared/*`，App 与 Daemon 只做薄适配。
@@ -53,8 +53,8 @@
 - [ ] 输入/输出分别计价 还是 混合单价？（MVP 倾向混合，后续精细化）
 - [ ] 思考模式（DeepSeek 默认开）产生的 reasoning token 如何计入（算输出价）。
 - [x] 生产项目拓扑：Cloud 是 MeiMei API 企业客户；MeiMei API 承担模型中转与原始 usage，Cloud 承担身份、权益和商业 credit ledger；`proxy.py` 不再是目标生产入口。
-- [ ] WORK/Hermes 如何从 Cloud broker 获得、刷新和撤销 MeiMei API token，且与 CODE/Gateway 共用同一商业余额和错误语义。
-- [ ] Plus BYOK 是允许直连上游的 new-api 例外，还是仍经平台中转但不扣 credit；需与 003“平台调用汇入 new-api”的口径统一。
+- [ ] Desktop/Gateway 如何从 Cloud broker 获得、刷新和撤销 MeiMei API token，并为两种 surface 统一商业余额和错误语义。
+- [ ] Plus BYOK 是允许直连上游的 new-api 例外，还是仍经平台中转但不扣 credit。
 - [ ] 当前 `auth.users after insert` trigger 会在邮箱 OTP 确认前创建 profile/赠送 credit；是否改为确认后赠送。
 
 ## 已验证的过渡方案与已定约束（详见 decisions.md）

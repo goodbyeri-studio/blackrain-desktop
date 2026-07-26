@@ -1,6 +1,6 @@
 # office-cli
 
-Office 文档能力插件资源。它是 Office 参考工作台的一项工具依赖，不是完整工作台。当前只确认资源、运行时代码与 NSIS mapping 存在，尚未完成当前 Windows 安装包的 build/unpack/install smoke，也尚未接入 008 的工作台生命周期。
+Office 文档能力插件资源。它是 Office 参考工作台的一项工具依赖，不是完整工作台。当前资源、受控安装代码、工作台 Manifest 与 NSIS mapping 已存在，但尚未完成当前 Windows 安装包的 build/unpack/install smoke，也未接入 spec 011 的受控会话执行。
 
 ## 作用
 
@@ -14,7 +14,7 @@ Office 文档能力插件资源。它是 Office 参考工作台的一项工具�
 - 准备成功后，`codex` 子进程继承 `OfficeCLI` 所在目录到 `PATH`
 - 只有资源实际进入安装包且运行时准备成功后，agent 才能直接调用 `officecli ...`
 
-当前代码把 Skill/workbench 内容骨架同步到应用托管的 `CODEX_HOME`。WORK/Hermes surface 尚未在 Git 跟踪代码中接入，因此不要把本插件已内置表述为“Office 工作台已可安装或可用”。完整包边界见 [.specs/008](../../.specs/008-expert-workbench-package/)。
+当前代码包含受控安装、版本检查与 smoke 接缝，但 Session Orchestrator 和工作台 surface 尚未接入，因此不要把本插件已内置表述为“Office 工作台任务已可运行”。完整包边界见 [.specs/008](../../.specs/008-expert-workbench-package/)，激活后的执行合同见 [.specs/011](../../.specs/011-workbench-session-orchestration/)。
 
 ## 版本策略
 

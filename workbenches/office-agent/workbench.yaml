@@ -14,10 +14,6 @@ target:
       arch: x86_64
   blackrain: ">=0.7.68"
 
-engine:
-  preferred: work
-  allowed: [work]
-
 skills:
   - path: skills/generate-office-deliverable
   - path: skills/fix-office-formatting

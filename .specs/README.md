@@ -26,13 +26,13 @@
 .specs/
   001-providers-model-gateway/
   002-accounts-credits/
-  003-dual-engine-architecture/
   004-plugin-catalog/
   005-gui-redesign/
   006-code-mode-capability-wiring/
   007-windows-client/
   008-expert-workbench-package/
-  009-hermes-work-surface/
+  010-three-project-platform/
+  011-workbench-session-orchestration/
 ```
 
 编号三位递增，slug 用英文小写短横线。创建时复制 `_template/`。
@@ -51,10 +51,11 @@
 
 - spec 要和代码同 PR 更新。实现改变了需求或设计，就改 spec；验证结果出来了，就写进 `verification.md`。
 - `tasks.md` 只记录对交付有意义的任务，不写流水账。
-- `decisions.md` 要保留被推翻的旧方案，写清为什么推翻。
+- `decisions.md` 只保留仍影响当前实现的决策；废弃架构不得继续占据当前真源。
 - `verification.md` 只写真实跑过的结果，不写“应该可以”。
 - `tasks.md`、`verification.md` 和正文状态必须互相对齐：已经跑通的任务及时勾选，尚未做 GUI/实机/发布验证的部分不得用“完成”概括。
 - 历史验证要标明日期、平台和适用范围；macOS/Linux 的历史 smoke 不能当作 Windows MVP 的发布证据，旧上游 commit 的源码底账不能当作当前锁定版本的事实。
-- 后续架构推翻早期方案时，在 `decisions.md` 保留历史，在 requirements/design/tasks/verification 中统一改成当前口径；尚未拍板的分歧明确写“待决”，不要静默选边。
+- 后续架构变化时，在 requirements/design/tasks/verification 中统一改成当前口径；尚未拍板的分歧明确写“待决”，不要静默选边。
 - 总体战略仍以 `README.md` 和 `docs/01`~`docs/09` 为准；单功能执行以对应 spec 为准。若两者冲突，要在同一个 PR 里修正或明确标注待决。
-- 产品形态以 `docs/04` 为唯一真源；工作台包格式和生命周期以 `008-expert-workbench-package` 为执行真源；双引擎接法由 003 负责；Hermes 进程、协议和 WORK surface 闭环由 `009-hermes-work-surface` 负责。
+- 产品形态以 `docs/04` 为唯一真源；运行时以 `docs/09` 为唯一真源；工作台包格式和生命周期以 `008-expert-workbench-package` 为执行真源。
+- 激活后的工作台会话编排与双 surface 合同以 `011-workbench-session-orchestration` 为执行真源。

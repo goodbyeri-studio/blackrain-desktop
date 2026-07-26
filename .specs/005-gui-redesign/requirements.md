@@ -4,7 +4,7 @@
 
 ## 背景
 
-- 这个功能为什么现在要做：老板的打法是「先把能用的 GUI 客户端掏出来给人看，再慢慢加功能」。现状壳是 CodexMonitor fork，骨架完整可用，但视觉是 CodexMonitor 自己的语言，不够商业级。原本设想吸收 Hermes Desktop 的前端省事，实测 Hermes GUI 过于简陋，**Codex 官方 app 的 GUI 才是商业级标杆**。因此目标转为：以 Codex app 为视觉范本，把 BlackRain GUI 对齐到商业级，作为给老板演示与对外的第一张脸。
+- 这个功能为什么现在要做：老板的打法是「先把能用的 GUI 客户端掏出来给人看，再慢慢加功能」。现状壳是 CodexMonitor fork，骨架完整可用，但视觉是 CodexMonitor 自己的语言，不够商业级。**Codex 官方 app 的 GUI 是商业级标杆**，因此目标是以 Codex app 为视觉范本，把 BlackRain GUI 对齐到商业级，作为给老板演示与对外的第一张脸。
 - 相关上游/文档/现有实现：
   - 首页已先行对齐 → PR #43「首页向 Codex 像素级对齐」（commit `c751242`：真实上下文环 / 自绘文件夹图标 / 触发器胶囊 / 模型菜单）。本 spec 是 #43 的**系统化延伸**，把零散对齐升级成有 token 表、有逐界面清单的工程。
   - design-system 真源：[src/features/design-system](../../apps/desktop/src/features/design-system)、token 在 [src/styles/ds-tokens.css](../../apps/desktop/src/styles/ds-tokens.css) + `themes.*.css`（light/dark/dim/system）。

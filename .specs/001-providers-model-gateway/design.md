@@ -4,7 +4,7 @@
 
 Codex 内核永远只连本地 BlackRain Gateway；第三方 provider、API key、模型列表和协议差异全部由 BlackRain App + Gateway 管理。前端模型选择器显示的是 BlackRain Gateway registry 中的模型，而不是 Codex 原生 provider 列表。
 
-当前边界（2026-07-11）：该 Gateway 只挂在 CODE 路径；WORK/Hermes 使用原生 Chat Completions，不经过 Responses⇄Chat 翻译。`gateway.py` 仍是可替换的可行性原型，本文记录的是其接缝和已验证行为，不宣称它已经达到生产网关标准。
+当前边界（2026-07-24）：该 Gateway 服务所有 codex 模型会话，surface 不得建立旁路。`gateway.py` 仍是可替换的可行性原型；当前已验证行为主要来自 CODE surface，工作台 surface 接入由 spec 011 推进，不能据此宣称网关已经达到生产标准。
 
 ```text
 对话模型选择器

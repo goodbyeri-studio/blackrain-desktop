@@ -7,25 +7,25 @@
 - 影响范围:发布元数据、支持文案、安装验证矩阵和 Mica 降级策略。
 - 后续复查条件:首个真实 NSIS 包在 Win11 与至少一台 Win10 环境完成 SmartScreen/安装/启动实测,并获得证书成本报价后拍板。
 
-## 2026-07-12：Windows 发布入口不得跳过 WORK 专项
+## 2026-07-12：Windows 发布入口覆盖工作台专项
 
-- 决策：正式 `release-client-win.ps1` 在 vendor/build 前无条件跑 Hermes static contract；常规 checks 覆盖前端 typecheck/test/lint/DS/codemod、`doctor:win`、Rust check 及 Hermes/workbench/plugin 专项，再进入 NSIS build。`-SkipChecks` 不得绕过上游静态门禁与 runtime vendor。
-- 原因：Windows 是唯一 MVP 发布线，旧入口只跑 typecheck/test/cargo check，不能证明 WORK runtime、工作台 Core 和共享 chrome 的专项边界没有回归。
+- 决策：正式 `release-client-win.ps1` 在 build 前 vendor Windows runtime；常规 checks 覆盖前端 typecheck/test/lint/DS/codemod、`doctor:win` 和 Rust/workbench 专项，再进入 NSIS build。
+- 原因：Windows 是唯一 MVP 发布线，发布入口必须覆盖工作台 Core 和共享 chrome 的专项边界。
 - 替代方案：依赖维护者手工命令、只靠当前部分 CI、或打包后再人工发现缺口。
-- 影响范围：Windows 本机发布耗时、失败诊断、spec 007/009 发布矩阵。
+- 影响范围：Windows 本机发布耗时、失败诊断与 spec 007 发布矩阵。
 - 后续复查条件：首次 Windows 实跑记录完整耗时；后续可通过缓存优化，但不得降低门禁覆盖。
 
-## 2026-07-12：普通 PR 的 Windows CI 覆盖 JS 与 Rust WORK 专项，不构建 NSIS
+## 2026-07-12：普通 PR 的 Windows CI 覆盖 JS 与 Rust 专项，不构建 NSIS
 
-- 决策：`windows-checks` 在 `windows-latest` 运行 npm ci、typecheck/test/lint/DS/codemod，以及 Rust check/Hermes/workbench/plugin 专项；Ubuntu JS job 保留。普通 PR CI 不 vendor/启动 Hermes、不构建 Tauri/NSIS。
+- 决策：Windows job 运行 Rust/workbench 专项；Ubuntu JS job 保留。普通 PR CI 不构建 Tauri/NSIS。
 - 原因：Windows 编译和路径差异需要尽早暴露，但 runtime vendor、GUI、签名和安装矩阵成本高且含人工步骤，不应伪装成普通单元 CI。
 - 替代方案：继续只跑 Windows cargo check、每个 PR 打 NSIS、或删除 Ubuntu 快速反馈 job。
-- 影响范围：CI 时长、Windows 代码级回归覆盖、spec 007/009 证据边界。
+- 影响范围：CI 时长、Windows 代码级回归覆盖与 spec 007 证据边界。
 - 后续复查条件：workflow 首次真实运行后记录结果；若要发布制品，另建带签名/制品保留策略的发布流程，不扩张本 job 的完成声明。
 
 ## 2026-07-13：PR CI 按改动范围分流并停止重复消耗 Windows 分钟
 
-- 决策：纯 Markdown/Word 文档 PR 不启动 workflow；其他普通 PR 先在 Ubuntu 判断改动路径。前端相关改动在 Ubuntu 跑 typecheck/test/lint/DS/codemod，只有 Rust、WORK、gateway、plugin、workbench 或对应脚本变化才启用 Windows Rust job。Windows 使用单一 test profile 一次编译全部 test targets，再跑 Hermes/workbench/plugin 专项，不再重复执行 JS 和 `cargo check`。同一 PR 新提交自动取消旧 run；普通 squash 到 `main` 不重复跑，只有 Cargo manifest/lock 变化时在 `main` 预热可供后续 PR 读取的 Windows cache；保留手动全量触发入口。
+- 决策：纯 Markdown/Word 文档 PR 不启动 workflow；其他普通 PR 先在 Ubuntu 判断改动路径。前端相关改动在 Ubuntu 跑 typecheck/test/lint/DS/codemod，只有 Rust、gateway、plugin、workbench 或对应脚本变化才启用 Windows Rust job。Windows 使用单一 test profile 一次编译全部 test targets，再跑 workbench 专项，不再重复执行 JS 和 `cargo check`。同一 PR 新提交自动取消旧 run；普通 squash 到 `main` 不重复跑，只有 Cargo manifest/lock 变化时在 `main` 预热可供后续 PR 读取的 Windows cache；保留手动全量触发入口。
 - 原因：GitHub Free 每月 2000 分钟，hosted Windows 按 2 倍计费。2026-07-13 实跑显示旧矩阵一次跨层 PR 为 Ubuntu 3m20s + Windows 26m25s，约 56 个计费分钟；合并后重复触发和 stacked PR 旧 SHA 会再次消耗同等额度。JS 静态检查不需要 Windows，`cargo check` 与随后 test profile 的双重编译也没有对应收益。
 - 替代方案：所有 PR 固定跑完整 Windows、完全删除 Windows PR 门禁、或只依赖开发者手工验证。前者浪费额度，后两者无法尽早发现 Windows 编译和路径差异。
 - 影响范围：`.github/workflows/ci.yml`、CI required check 名称、Windows cache、普通 PR 反馈时间和 GitHub Actions 额度。
@@ -37,7 +37,7 @@
 - 原因：Windows hosted 分钟按 2 倍计费，而 Windows 编译仍是 MVP 必要门禁。可切换 runner 能在开发机在线时消除 hosted Windows 计费，离线时保留明确回退；统一脚本避免本机、CI 和发布入口的命令漂移。
 - 边界：普通 PR CI 仍不构建 NSIS、不签名、不持有长期 `.pfx`、私钥或 EV USB token。正式包在受控 Windows 机器构建、签名并实机验证；未来自动发布只能使用专用签名 runner 与 GitHub Environment 人工审批。
 - 影响范围：`.github/workflows/ci.yml`、`scripts/check-windows-rust.ps1`、`scripts/release-client-win.ps1`、Windows runner 运维和发布文档。
-- 后续复查条件：self-hosted runner 注册并连续完成 3 个 Rust/WORK PR 后，记录在线率、排队时间和实际节省分钟；签名方案拍板后另行实现签名与 Draft Release 流程。
+- 后续复查条件：self-hosted runner 注册并连续完成 3 个 Rust PR 后，记录在线率、排队时间和实际节省分钟；签名方案拍板后另行实现签名与 Draft Release 流程。
 
 ## 2026-06-30:MVP 仅发行 Windows 版,macOS 推迟到 post-MVP
 
@@ -54,7 +54,7 @@
   - **CI 即便建,只建 windows-latest**,不建 macos-latest。
   - **NSIS 是 v1 唯一交付形态**;DMG/app 打包链路暂不验证。
   - **README/AGENTS/CLAUDE 「平台」段全部从「首发 Windows + macOS 跟随」改为「MVP 仅 Windows」**。
-  - **`.specs/003` 关于「Windows 全栈」的开放问题结论化**:全栈 = Windows,macOS 转 post-MVP。
+  - Windows 全栈验收线收口为 Windows，macOS 转 post-MVP。
 - 后续复查条件:① MVP 跑通后产品决策要不要再做 macOS;② 出现真实 macOS 用户付费/反馈达到一定规模时;③ 若决定做,优先评估「另起仓库」vs「本仓恢复 macOS CI」哪个工程负担更小。
 
 ## 2026-06-30:Windows 安装包用 NSIS,不做 MSI

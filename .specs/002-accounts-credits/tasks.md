@@ -42,10 +42,9 @@
 - [x] 在 design/decisions 记录桌面侧 `base_url + Bearer <jwt>` 接缝目标。
 - [x] 决定生产边界：Cloud 验证 Supabase 身份并维护商业账本；MeiMei API 基于 New API 中转和记录原始 usage；`proxy.py` 只保留为历史过渡实现。
 - [x] 将 Supabase 服务端资产与历史 proxy 行为基线迁入 Cloud，并从 Desktop 删除对应服务端文件。
-  - [x] 冻结 WORK 凭据边界：短期 Supabase access JWT 只可用于服务端身份兑换，不直接注入常驻 Hermes `key_env`
   - [ ] 在 Cloud 实现并部署 Supabase 身份到长期、可撤销、可限额 MeiMei API model token 的 account broker；Supabase 是 BlackRain 商业 ledger 真源，MeiMei API 是 usage/执行额度真源
-- [ ] 为 WORK/Hermes 接入同一 credit 余额与结构化错误链路。
-- [ ] 统一 001/002/003 对 BYOK 是否绕过 new-api 的口径，不在本次文档治理中拍板。
+- [ ] 为 CODE/Gateway 接入统一 credit 余额与结构化错误链路。
+- [ ] 统一 001/002 对 BYOK 是否绕过 new-api 的口径。
 
 ## 阶段 5：验证和收口
 
@@ -59,4 +58,4 @@
 - [x] 在 `verification.md` 记录已有真实验证结果，并区分代码/云端/GUI。
 - [ ] 更新受影响文档（README 状态、docs/commands 若新增命令）。
 - [ ] Windows 实机：钥匙串 session 恢复/刷新、CODE credit GUI E2E、耗尽提示。
-- [ ] 当前锁定双引擎下：WORK credit GUI E2E 与 Plus BYOK 不计费。
+- [ ] 当前 CODE surface：credit GUI E2E 与 Plus BYOK 不计费；工作台 surface 落地后复用同一计量合同补测。

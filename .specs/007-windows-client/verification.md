@@ -9,8 +9,9 @@
 | 2026-06-30 | dictation/whisper-rs Windows 兼容 | `cargo build` 试编 | **失败 → 已绕过** | whisper-rs 0.12 的 bindgen 与 LLVM 22 不兼容(`whisper_full_params` 全字段被打成 `_address`,72 errors)。绕法:Cargo.toml 把 whisper-rs 守卫成「非 Windows」+ `dictation/mod.rs` Windows 走 `stub.rs`。dictation 在 Windows 上暂不可用,不阻塞 dev。详见「失败记录 2026-06-30」 |
 | 2026-07-03 | Codex 版本锁定更新 | `codex-upstream` checkout `da4c8ca`;`codex.exe --version` | 部分通过 | CLI 编译与 quick-xml 安全修复已确认;app-server 编译、协议四探针、Windows 客户端 E2E 仍未跑,下方矩阵继续追 |
 | 2026-07-12 | Codex 稳定锁升级候选基础验证 | `cargo check -p codex-app-server-protocol -p codex-app-server` | 部分通过 | rust-v0.144.1 / `44918ea` 在 macOS 编译检查通过；Windows 协议、GUI、NSIS 与真实对话均未跑 |
+| 2026-07-26 | Codex rust-v0.144.5 源码锁审计 | tag/SHA、协议路径与 License 静态 diff | 部分通过 | `87db9bc` 身份与协议零变化已确认；0.144.5 未构建，Windows 协议、GUI、NSIS 与真实对话均未跑 |
 | 2026-07-11 | NSIS/Windows 资源配置存在性 | 检查 `tauri.windows.conf.json` | 配置存在 | 已锁 `targets:["nsis"]` 并映射 codex/Python/gateway/OfficeCLI/plugins/workbench;未执行构建/解包 smoke |
-| 2026-07-12 | Windows 本机发布脚本存在性 | 静态检查 `scripts/release-client-win.ps1` | 代码存在 | 会先跑 Hermes static contract，vendor runtime，并调用前端 typecheck/test/lint/DS/doctor、统一 Rust/WORK 检查和 `tauri:build:win`；当前 macOS 无 `pwsh`，未有 Windows 实跑产物 |
+| 2026-07-24 | Windows 本机发布脚本存在性 | 静态检查 `scripts/release-client-win.ps1` | 代码存在 | 会 vendor Windows runtime，并调用前端 typecheck/test/lint/DS/doctor、统一 Rust/workbench 检查和 `tauri:build:win`；尚无 Windows 实跑产物 |
 | 2026-07-13 | CI 额度优化前基线 | GitHub Actions run `29200292948` | 通过 | Ubuntu 3m20s + Windows 26m25s；hosted Windows 按 2 倍计费，单次跨层 PR 约 56 个计费分钟 |
 | 2026-07-13 | CI workflow 额度优化 | 本地模拟路由 + 全量 JS checks + `cargo test --no-run --locked` + GitHub Actions run `29201934834` | 通过 | Detect 6s、Ubuntu JS 3m50s、Windows Rust 16m20s；按分钟取整和 Windows 2 倍估算，跨层 PR 从约 58 降到约 39 个计费分钟。docs=`false/false`、frontend=`true/false`、Rust=`false/true`、workflow=`true/true`；纯 Markdown/Word PR 为 0 run，普通 `main` push 不重复跑 |
 | 2026-07-13 | self-hosted 切换与统一 Rust 入口 | 本地静态/等价 Cargo 检查 + GitHub Actions run `29204194000` | 通过 | Detect 6s、Ubuntu JS 3m02s、Windows Rust 5m46s；API 确认 runner label 为 `windows-latest`，fallback 与 PowerShell 统一入口实跑通过。尚未注册 `blackrain-windows` self-hosted runner |
@@ -21,7 +22,7 @@
 | YYYY-MM-DD | 前端 test (Windows) | `cd apps\desktop; npm run test` | 未跑 | 以当前收集到的全量用例为准,不锁历史数量 |
 | YYYY-MM-DD | Rust 后端 cargo check (Windows) | `cd apps\desktop\src-tauri; cargo check` | 未跑 | 期望只有仓库既有 dead_code warnings |
 | YYYY-MM-DD | model_gateway cargo test (Windows) | `cd apps\desktop\src-tauri; cargo test model_gateway` | 未跑 | 以当前收集到的测试为准，不锁历史数量 |
-| YYYY-MM-DD | 协议四探针 (Windows) | `python3 .scratch/m0_protocol_probe.py "<CODEX_HOME>" "<工作区>"` | 未跑 | 对当前锁定 rust-v0.144.1 / `44918ea` 验 initialize / model-list / thread-start / turn-start 全绿 |
+| YYYY-MM-DD | 协议四探针 (Windows) | `python3 .scratch/m0_protocol_probe.py "<CODEX_HOME>" "<工作区>"` | 未跑 | 对当前锁定 rust-v0.144.5 / `87db9bc` 验 initialize / model-list / thread-start / turn-start 全绿 |
 | YYYY-MM-DD | 真实 DeepSeek 工具调用 (Windows) | `BLACKRAIN_GATEWAY_API_KEY=local-test-gateway python3 .scratch/m0_tool_driver.py ...` + `STRIP_TOOLS=0` Gateway | 未跑 | 期望生成 hello.txt 内容 `2049`,对等 macOS 2026-06-24 |
 | YYYY-MM-DD | App 托管 sidecar 工具调用 | 不预起 Gateway，由 App spawn 后在 GUI 发真实工具任务 | 未跑 | 当前 spawn 未设置 `STRIP_TOOLS=0`，默认会剥工具；修复前为发布阻塞 |
 | YYYY-MM-DD | Windows Credential Manager smoke | `cd apps\desktop\src-tauri; $env:BLACKRAIN_KEYCHAIN_SMOKE="1"; cargo test real_system_credential_store_smoke_when_enabled -- --nocapture` | 未跑 | lib + daemon 目标真实写读清理 |
@@ -60,8 +61,7 @@
 - **签名方案**:未签名/OV/EV 待决,publisher/签名 hook 尚未收口。
 - **品牌兼容**:base `productName` 已是 BlackRain，但 Windows title、About、tray 与 keyring service 仍有 `BlackRain2049`；特别是凭据 service 改名需要迁移验证。
 - **Win10/Win11 支持边界**:Mica 仅 Win11;是否官方支持 Win10 纯色降级尚未决策,两系统安装/启动均未验。
-- **uvloop 在 Windows 不可用**(`.specs/003` 已知问题):本仓 gateway.py 是纯 stdlib 不依赖 uvloop,但若将来切 Hermes Python 引擎要重检。
-- **CI 覆盖不完整**:按路径分流与 single test profile 已由 run `29201934834` 实跑通过，但 self-hosted 切换尚未实跑，Tauri GUI、Hermes runtime、NSIS build、签名和安装包制品仍无 CI 保障。
+- **CI 覆盖不完整**:按路径分流与 single test profile 已有代码接线，但 self-hosted 切换尚未实跑，Tauri GUI、NSIS build、签名和安装包制品仍无 CI 保障。
 
 ## 失败记录
 
