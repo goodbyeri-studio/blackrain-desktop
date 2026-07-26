@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-07-26：Codex 源码锁跟进到 rust-v0.144.5，暂不采用 0.144.6
+
+- 决策：Codex 目标锁从 rust-v0.144.1 / `44918ea` 跟进到 rust-v0.144.5 / `87db9bc`，保持原装黑盒，不修改 agent 内核。
+- 原因：0.144.1 到 0.144.5 的 `app-server-protocol`、feature 开关、浏览器/Computer Use 相关文件无变化，包含 Windows 沙箱与危险命令识别修复；LICENSE/NOTICE 无变化。
+- 0.144.6 虽仍在同一 patch 线，但刷新了 bundled model metadata 与基础提示词，并调整了上下文窗口，不能按“无行为变化补丁”直接继承本次评估，需单独做模型行为与 Windows 回归后再决定。
+- 验证边界：本次只完成 tag/SHA、源码差异和 License 静态审计。0.144.5 尚未构建，未跑 capability shape、Windows GUI、真实模型、NSIS 或安装/卸载验证；0.144.1 的历史 macOS 证据不自动继承。
+
 ## 2026-07-11:42 方法表示壳层接线数,不表示无门控可用或 GUI 完成
 
 - 决策:继续保留「42 个方法走完 5 层」的历史实装结论,同时强制附带三类状态:当前锁定内核重验、上游门控/stub、GUI 落地。
@@ -11,7 +18,7 @@
 
 - 决策：只接「可用」的 ClientRequest(A 类 bdd282f 新增 + B 类真缺口)；C 类(OpenAI 后端绑定)、D 类(realtime/remoteControl/feedback)不接。
 - 原因：C 类接国产模型场景物理失效(无 ChatGPT 账号),D 类 v1 不做或壳已自实现。接了也是死代码。
-- 依据：[code-mode-boundary.md](../003-dual-engine-architecture/code-mode-boundary.md) 附录功能接入覆盖表。
+- 依据：本 spec 的 [capability-gui-mapping.md](capability-gui-mapping.md) 功能接入覆盖表。
 
 ## 2026-06-28：严格照搬 5 层 archive_thread pattern,不发明新结构
 

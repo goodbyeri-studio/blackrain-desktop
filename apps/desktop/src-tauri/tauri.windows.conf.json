@@ -22,7 +22,6 @@
     "resources": {
       "resources/codex/windows-x64": "codex/windows-x64",
       "resources/python/windows-x64": "python/windows-x64",
-      "resources/hermes-runtime/windows-x64": "hermes-runtime/windows-x64",
       "../../../gateway/gateway.py": "gateway/gateway.py",
       "resources/office-cli/windows-x64": "office-cli/windows-x64",
       "resources/office-cli/LICENSE-OfficeCLI.txt": "office-cli/LICENSE-OfficeCLI.txt",

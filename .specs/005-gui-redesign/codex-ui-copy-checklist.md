@@ -1,7 +1,7 @@
 # Codex UI 照抄清单
 
 > **本文是 [spec 005 GUI 重做](design.md) 的附加文档**（功能级照抄清单 + 决策矩阵），2026-07-06 自 `docs/` 迁入——任务级计划文档一律住对应 spec 目录，不进 `docs/`。与 [tasks.md](tasks.md)（视觉/形态级任务）互补。
-> 基于 BlackRain 产品形态（docs/04）+ codex 内核能力底账（.specs/003）+ 当前截图对比，分析 CODE 模式的前端该照抄哪些。
+> 基于 BlackRain 产品形态（docs/04）+ codex 能力接线（spec 006）+ 当前截图对比，分析 CODE 模式的前端该照抄哪些。
 > 
 > **核心原则：** 用户从“软件开发工作台”进入 CODE surface 后，界面尽量对齐 codex-app，只做汉化、国产模型和品牌切割。工作台货架与生命周期属于外层 Core/008，不在 CODE surface 内重造；工作室也不属于本 spec。
 > **状态图例(2026-07-12)**:本文中「照抄/纳入」表示产品决策,不表示代码已完成。壳层已有 42 个 app-server 方法包装的历史验证,但 GUI 落点仍按 `tasks.md` / `verification.md` 判定;当前锁定 rust-v0.144.5 / `87db9bc` 仍须重跑能力探针。MVP 只验收 Windows。
@@ -20,7 +20,7 @@
 - 不做：工作台货架、安装生命周期和工作室编排（由外层 Core/其他 spec 负责）
 ```
 
-### codex 内核支持现状（.specs/003）
+### codex 内核支持现状
 
 - ✅ **已复刻 ~90%** codex-app 本地半边（对话/diff/approval/plan/文件/终端/沙箱/worktree）
 - ✅ **壳层包装历史记录**:spec 006 记录 42 个 app-server 方法已走完 5 层接线,cargo check/typecheck/shape 探针基线为 `cfead68`。
@@ -397,7 +397,7 @@ const labels = {
 
 **内核支持：** ❌ 开源 codex-rs 无此功能
 
-**替代方案：** WORK 侧靠 Hermes（已有），CODE 侧暂无
+**替代方案：** 当前未接入，另建功能 spec 后实现
 
 ---
 
@@ -494,8 +494,8 @@ const labels = {
 ## 📖 参考文档
 
 - 产品形态唯一真源：`docs/04-产品形态.md`
-- CODE 模式边界：`.specs/003-dual-engine-architecture/code-mode-boundary.md`
-- codex 能力底账：`.specs/003-dual-engine-architecture/codex-capability-ledger.md`
+- CODE 能力接线：`.specs/006-code-mode-capability-wiring/`
+- 运行时边界：`docs/09-运行时架构与里程碑.md`
 - GUI 重做 spec：`.specs/005-gui-redesign/`
 - 能力接线 spec：`.specs/006-code-mode-capability-wiring/`
 

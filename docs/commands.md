@@ -6,7 +6,7 @@
 ## 目录
 
 - [Windows 首次准备](#windows-首次准备)
-- [拉取并对齐双引擎](#拉取并对齐双引擎)
+- [拉取并对齐 CODE 内核](#拉取并对齐-code-内核)
 - [构建 CODE 内核](#构建-code-内核)
 - [启动 Windows 客户端](#启动-windows-客户端)
 - [前端与 Rust 验证](#前端与-rust-验证)
@@ -39,7 +39,7 @@ Set-Location ..\..
 
 还需预先安装 Git、Node.js 22、Rust stable、Python 3.10+、PowerShell 7 和 Tauri 所需的 Windows 构建环境。`npm run doctor:win` 只做项目已有的环境自检，不代表 GUI、Office 或 NSIS 已验证。
 
-## 拉取并对齐双引擎
+## 拉取并对齐 CODE 内核
 
 ### 有 POSIX shell：自动锁定入口
 
@@ -47,10 +47,7 @@ Git for Windows 自带 Git Bash 时，优先使用仓库脚本。脚本会 clone
 
 ```powershell
 sh scripts/fetch-references.sh
-python scripts/check-hermes-contract.py --static-only
 ```
-
-第二条只做 Hermes 锁、LICENSE/lockfile hash、AST 路由和 fixtures 静态审计，不安装依赖。
 
 ### 纯 PowerShell 回退：显式 clone + checkout
 
@@ -60,58 +57,19 @@ python scripts/check-hermes-contract.py --static-only
 if (-not (Test-Path codex-upstream)) {
   git clone --filter=blob:none https://github.com/openai/codex.git codex-upstream
 }
-if (-not (Test-Path hermes-upstream)) {
-  git clone --filter=blob:none https://github.com/NousResearch/hermes-agent.git hermes-upstream
-}
 
 if ((git -C codex-upstream rev-parse --is-shallow-repository) -eq "true") {
   git -C codex-upstream fetch --unshallow origin
-}
-if ((git -C hermes-upstream rev-parse --is-shallow-repository) -eq "true") {
-  git -C hermes-upstream fetch --unshallow origin
 }
 
 git -C codex-upstream fetch origin --tags --prune
 git -C codex-upstream checkout --detach 87db9bc18ba5bc82c1cb4e4381b44f693ee35623
 
-git -C hermes-upstream fetch origin --tags --prune
-git -C hermes-upstream checkout --detach 9de9c25f620ff7f1ce0fd5457d596052d5159596
-
 git -C codex-upstream rev-parse --short HEAD
-git -C hermes-upstream rev-parse --short HEAD
-# 预期分别为 87db9bc18ba5bc82c1cb4e4381b44f693ee35623、9de9c25f620ff7f1ce0fd5457d596052d5159596
-
-python scripts/check-hermes-contract.py --static-only
+# 预期为 87db9bc18ba5bc82c1cb4e4381b44f693ee35623
 ```
 
 目标锁定值与边界见 [REFERENCES](REFERENCES.md)。不要把本机 gitignored 克隆的 `HEAD` 当成仓库已完成状态。
-
-### Hermes 上游升级 contract regression
-
-```powershell
-Set-Location hermes-upstream
-uv sync --frozen --extra dev --extra mcp
-Set-Location ..
-
-python scripts/check-hermes-contract.py
-
-# 启动锁定 Hermes 真进程，以本地确定性 Chat Completions 桩验证
-# managed config → runs/SSE → tool/approval → stop/cancel → same-session continue
-python scripts/test-hermes-live-probe.py
-```
-
-完整入口依次验证：
-
-- runtime manifest、`fetch-references.sh`、上游 exact tag/commit 一致；
-- 上游工作树干净，`LICENSE`、`pyproject.toml`、`uv.lock` SHA-256 与存证一致；
-- 从 `api_server.py` AST 提取的必需 `/v1`/session 路由仍存在；
-- 当前 tag 的 capabilities/SSE/run/approval/stop fixtures 完整；
-- 锁定上游 API/Windows/Skills/file safety/approval 专项 pytest；
-- BlackRain Hermes Rust contract 与前端 types/events/Tauri wrapper tests。
-
-`test-hermes-live-probe.py` 不读取 `.env` 或用户凭据，使用随机 loopback 端口、固定测试文本和临时项目。它连续验证真实 `read_file`、受审批 `terminal` 的 `once` 执行与 `deny` 零副作用、阻塞模型流的 Stop/cancel，以及同 `session_id` 携带显式历史的新 run 继续，并检查 `memory`、`session_search`、`cronjob` 未进入模型工具列表。它证明锁定 Hermes 真进程可消费 BlackRain managed config 并完成结构化 run/SSE/approval/stop/continue，不证明真实 new-api、国产模型、Tauri 或 Windows 产品闭环。
-
-升级 Hermes 时先更新 `scripts/fetch-references.sh` 与 Windows runtime manifest 的 tag、完整 commit、版本及三个 hash；重新生成并审阅新 tag fixture 目录，更新 spec 003/009 存证，再运行完整入口。最后仍须在 Windows 执行 runtime vendor、NSIS 和 spec 007/009 产品矩阵；该脚本不替代 Windows 实机验收。
 
 ## 构建 CODE 内核
 
@@ -168,7 +126,7 @@ npm run codemod:ds:dry
 
 Set-Location ..\..
 
-# 与 Windows CI、正式发布入口完全相同的 Rust/WORK 检查
+# 与 Windows CI、正式发布入口完全相同的 Rust 检查
 pwsh scripts/check-windows-rust.ps1
 
 # Windows 专用入口
@@ -180,17 +138,17 @@ npm run tauri:build:win
 Set-Location ..\..
 ```
 
-按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；Rust/WORK 改动跑统一的 `check-windows-rust.ps1`。发布级结论还必须完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 中适用的 Windows 实机项。
+按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；Rust 改动跑统一的 `check-windows-rust.ps1`。发布级结论还必须完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 中适用的 Windows 实机项。
 
 ## GitHub Actions 与 self-hosted Windows
 
-CI 默认把 JS 检查放在 `ubuntu-latest`，Windows Rust/WORK 检查在未配置变量时回退到 `windows-latest`。Windows 开发机稳定在线后，可在仓库 `Settings -> Actions -> Runners -> New self-hosted runner` 注册 runner，并添加唯一自定义 label `blackrain-windows`；随后执行：
+CI 默认把 JS 检查放在 `ubuntu-latest`，Windows Rust 检查在未配置变量时回退到 `windows-latest`。Windows 开发机稳定在线后，可在仓库 `Settings -> Actions -> Runners -> New self-hosted runner` 注册 runner，并添加唯一自定义 label `blackrain-windows`；随后执行：
 
 ```bash
 gh variable set WINDOWS_RUNNER --body blackrain-windows
 ```
 
-此变量只切换 Rust/WORK job，不改变检查覆盖。需要临时恢复 GitHub-hosted Windows 时删除变量：
+此变量只切换 Rust job，不改变检查覆盖。需要临时恢复 GitHub-hosted Windows 时删除变量：
 
 ```bash
 gh variable delete WINDOWS_RUNNER
@@ -209,7 +167,7 @@ Copy-Item .env.production.example .env.production.local
 pwsh scripts/release-client-win.ps1
 ```
 
-脚本会先执行 Hermes static contract，再 vendor Windows/Hermes runtime；常规 checks 覆盖 `typecheck`、`test`、`lint`、`lint:ds`、`codemod:ds:dry`、`doctor:win` 及统一 Rust/WORK 检查，最后运行 `tauri:build:win`。产物在：
+脚本会先 vendor Windows runtime；常规 checks 覆盖 `typecheck`、`test`、`lint`、`lint:ds`、`codemod:ds:dry`、`doctor:win` 及统一 Rust/workbench 检查，最后运行 `tauri:build:win`。产物在：
 
 ```text
 apps\desktop\src-tauri\target\release\bundle\

@@ -22,7 +22,6 @@ pub(crate) struct WorkbenchManifest {
     pub(crate) description: String,
     pub(crate) license: String,
     pub(crate) target: WorkbenchTarget,
-    pub(crate) engine: WorkbenchEngineDeclaration,
     pub(crate) skills: Vec<WorkbenchSkillDeclaration>,
     #[serde(default)]
     pub(crate) plugins: Vec<WorkbenchPluginDeclaration>,
@@ -66,22 +65,6 @@ pub(crate) enum WorkbenchOperatingSystem {
 pub(crate) enum WorkbenchArchitecture {
     #[serde(rename = "x86_64")]
     X86_64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    rename_all(serialize = "camelCase", deserialize = "snake_case"),
-    deny_unknown_fields
-)]
-pub(crate) struct WorkbenchEngineDeclaration {
-    pub(crate) preferred: WorkbenchEngineKind,
-    pub(crate) allowed: Vec<WorkbenchEngineKind>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum WorkbenchEngineKind {
-    Work,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -309,11 +292,6 @@ fn validate_manifest(manifest: &WorkbenchManifest) -> Result<(), String> {
         .len();
     if platform_count != manifest.target.platforms.len() {
         return Err("Workbench target platforms must be unique.".into());
-    }
-    if manifest.engine.preferred != WorkbenchEngineKind::Work
-        || manifest.engine.allowed != vec![WorkbenchEngineKind::Work]
-    {
-        return Err("Workbench manifest v1 only supports preferred/allowed WORK engine.".into());
     }
     if manifest.skills.is_empty() || manifest.skills.len() > MAX_LIST_ITEMS {
         return Err("Workbench skills must be non-empty and bounded.".into());

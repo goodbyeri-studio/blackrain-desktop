@@ -1,6 +1,6 @@
 # apps/desktop —— BlackRain 集成约定
 
-> `README.md`、`README.zh-CN.md` 与 `docs/index.html` / `docs/changelog.html` 是 CodexMonitor 上游原始材料，作为 subtree 同步资产保留，不代表 BlackRain 的产品范围、平台优先级或当前完成度。BlackRain 的真源顺序是仓库根 `README.md`、`docs/04-产品形态.md`、`docs/09-运行时架构与里程碑.md`、工作台包 spec 008 和对应 `.specs/*/verification.md`。
+> `README.md`、`README.zh-CN.md` 与 `docs/index.html` / `docs/changelog.html` 是 CodexMonitor 上游原始材料，作为 subtree 同步资产保留，不代表 BlackRain 的产品范围、平台优先级或当前完成度。BlackRain 的真源顺序是仓库根 `README.md`、`docs/04-产品形态.md`、`docs/09-运行时架构与里程碑.md`、工作台包 spec 008、会话编排 spec 011 和对应 `.specs/*/verification.md`。
 
 体验层（架构文档 [03](../../docs/03-系统架构.md) 第 ⑤ 层）的载体。这是我们**住在里面、持续魔改的底盘**，不是只读依赖。
 
@@ -20,9 +20,8 @@
 ## 当前实现边界
 
 - CODE 壳、模型网关、账号/credit、OfficeCLI runtime 和多项 codex RPC 接线已有实现。
-- Office skill/workbench 当前同步到专属 `CODEX_HOME`，属于已接入的本地能力资源；这不等于 Office 已成为可安装工作台，也不等于 WORK/Hermes surface 已产品化。
-- 工作台应成为用户第一入口，WORK/CODE 是进入工作台后的执行 surface；当前壳尚未完成该信息架构。
-- Git 跟踪代码中尚无 Hermes 子进程纳管和 WORK/CODE 双 surface；对应产品化任务与验证见 `.specs/003-dual-engine-architecture/`。
+- Office skill/workbench 与 OfficeCLI 资源已有受控安装接缝；这不等于 Office 工作台任务已经可执行。
+- 工作台应成为用户第一入口；当前 CODE surface 已有代码，普通工作台的会话合同已在 spec 011 定义，但 Session Orchestrator 和工作台 surface 尚未实现。
 - MVP 只发行 Windows；上游文档中的 macOS、Linux、iOS 路线均不构成 BlackRain 当前交付承诺。
 
 ## upstream 同步（subtree）

@@ -16,26 +16,9 @@ import {
   getGitLog,
   getGitStatus,
   getOpenAppIcon,
-  hermesRuntimeDiagnostics,
-  hermesRuntimeStart,
-  hermesFollowUpCancel,
-  hermesFollowUpEdit,
-  hermesFollowUpEnqueue,
-  hermesFollowUpRetry,
-  hermesFollowUpDispatchReady,
-  hermesTaskApproval,
-  hermesTaskContinue,
-  hermesTaskDeleteLocalMetadata,
-  hermesTaskList,
-  hermesTaskRead,
-  hermesTaskRecoveryStatus,
-  hermesTaskResume,
-  hermesTaskStart,
-  hermesTaskStop,
   workbenchActivationList,
   workbenchActivationRead,
   workbenchActivationDeactivate,
-  workbenchActivationMigrateTask,
   workbenchOfficialActivate,
   workbenchBundledInspect,
   listThreads,
@@ -180,7 +163,7 @@ describe("tauri invoke wrappers", () => {
     });
   });
 
-  it("opens the WORK file picker at the verified project root", async () => {
+  it("opens the workbench file picker at the verified project root", async () => {
     const openMock = vi.mocked(open);
     openMock.mockResolvedValueOnce(["C:\\Project\\report.xlsx"]);
 
@@ -563,17 +546,10 @@ describe("tauri invoke wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("model_gateway_daemon_status");
   });
 
-  it("invokes Hermes WORK wrappers with only structured arguments", async () => {
+  it("invokes workbench package wrappers with only structured arguments", async () => {
     const invokeMock = vi.mocked(invoke);
     invokeMock.mockResolvedValue(undefined);
-    const input = {
-      activationId: "activation-office-demo",
-      prompt: "整理季度报告",
-      model: "office-fast",
-    };
 
-    await hermesRuntimeStart();
-    await hermesRuntimeDiagnostics();
     await workbenchActivationList();
     await workbenchActivationRead("activation-office-demo");
     await workbenchOfficialActivate(
@@ -581,33 +557,8 @@ describe("tauri invoke wrappers", () => {
       "C:\\Users\\demo\\Office Project",
     );
     await workbenchActivationDeactivate("activation-office-demo");
-    await workbenchActivationMigrateTask(
-      "task-1",
-      "activation-office-v2",
-      "workbenchUpgrade",
-    );
     await workbenchBundledInspect("com.blackrain.office");
-    await hermesTaskList();
-    await hermesTaskRead("task-1");
-    await hermesFollowUpEnqueue({ taskId: "task-1", prompt: "排队继续" });
-    await hermesFollowUpEdit({
-      taskId: "task-1",
-      followUpId: "follow-up-1",
-      prompt: "修改后继续",
-    });
-    await hermesFollowUpCancel("task-1", "follow-up-1");
-    await hermesFollowUpRetry("task-1", "follow-up-1");
-    await hermesFollowUpDispatchReady();
-    await hermesTaskStart(input);
-    await hermesTaskContinue({ taskId: "task-1", prompt: "继续整理" });
-    await hermesTaskResume("task-1");
-    await hermesTaskApproval("task-1", "once", true);
-    await hermesTaskStop("task-1");
-    await hermesTaskDeleteLocalMetadata("task-1");
-    await hermesTaskRecoveryStatus();
 
-    expect(invokeMock).toHaveBeenCalledWith("hermes_runtime_start");
-    expect(invokeMock).toHaveBeenCalledWith("hermes_runtime_diagnostics");
     expect(invokeMock).toHaveBeenCalledWith("workbench_activation_list");
     expect(invokeMock).toHaveBeenCalledWith("workbench_official_activate", {
       input: {
@@ -621,52 +572,9 @@ describe("tauri invoke wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("workbench_activation_deactivate", {
       activationId: "activation-office-demo",
     });
-    expect(invokeMock).toHaveBeenCalledWith("workbench_activation_migrate_task", {
-      input: {
-        taskId: "task-1",
-        targetActivationId: "activation-office-v2",
-        reason: "workbenchUpgrade",
-      },
-    });
     expect(invokeMock).toHaveBeenCalledWith("workbench_bundled_inspect", {
       workbenchId: "com.blackrain.office",
     });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_task_list");
-    expect(invokeMock).toHaveBeenCalledWith("hermes_task_read", { taskId: "task-1" });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_enqueue", {
-      input: { taskId: "task-1", prompt: "排队继续" },
-    });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_edit", {
-      input: {
-        taskId: "task-1",
-        followUpId: "follow-up-1",
-        prompt: "修改后继续",
-      },
-    });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_cancel", {
-      taskId: "task-1",
-      followUpId: "follow-up-1",
-    });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_retry", {
-      taskId: "task-1",
-      followUpId: "follow-up-1",
-    });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_follow_up_dispatch_ready");
-    expect(invokeMock).toHaveBeenCalledWith("hermes_task_start", { input });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_task_continue", {
-      input: { taskId: "task-1", prompt: "继续整理" },
-    });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_task_resume", { taskId: "task-1" });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_task_approval", {
-      taskId: "task-1",
-      choice: "once",
-      resolveAll: true,
-    });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_task_stop", { taskId: "task-1" });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_task_delete_local_metadata", {
-      taskId: "task-1",
-    });
-    expect(invokeMock).toHaveBeenCalledWith("hermes_task_recovery_status");
   });
 
   it("reads agent.md for a workspace", async () => {

@@ -52,7 +52,7 @@ jobs:
                   ;;
               esac
               case "$file" in
-                .gitattributes|.github/workflows/ci.yml|apps/desktop/src-tauri/*|gateway/*|plugins/*|workbenches/*|scripts/check-hermes-contract.py|scripts/check-windows-rust.ps1|scripts/hermes-runtime-inventory.py|scripts/release-client-win.ps1|scripts/test-hermes-live-probe.py|scripts/test-mcp-router.py|scripts/vendor-hermes-runtime.ps1)
+                .gitattributes|.github/workflows/ci.yml|apps/desktop/src-tauri/*|gateway/*|plugins/*|workbenches/*|scripts/check-windows-rust.ps1|scripts/release-client-win.ps1)
                   rust=true
                   ;;
               esac
@@ -85,7 +85,7 @@ jobs:
       - run: npm run codemod:ds:dry
 
   windows-rust-checks:
-    name: Windows Rust checks (WORK)
+    name: Windows Rust checks
     needs: changes
     if: >-
       needs.changes.outputs.rust == 'true' &&

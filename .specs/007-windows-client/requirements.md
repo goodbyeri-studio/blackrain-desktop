@@ -12,7 +12,7 @@
   - `apps/desktop/package.json` 的 `tauri:dev:win` / `tauri:build:win`
   - `scripts/dev-client.ps1`(2026-06-30 实装,PowerShell 一键启动,对等 macOS `dev-client.sh`)
   - `scripts/vendor-officecli.ps1`(PowerShell,本来给 Windows 用)
-  - `.specs/003 verification.md` 历史记「Windows 全栈打包/运行 = 未跑」——本 spec 接手并结论化(macOS 移到 post-MVP,Windows 全栈是 v1 唯一目标)
+  - 本 spec 负责 Windows 全栈打包与运行验收；macOS 移到 post-MVP，Windows 全栈是 v1 唯一目标
   - `.specs/006` 已有 `windowsSandbox/{setupStart,readiness}` 5 层包装历史记录;当前锁定内核与 Windows 运行时仍未验
 
 ## 用户目标
@@ -55,7 +55,7 @@
 
 - [x] **Codex 内核 Windows 构建实测**:2026-06-30 已通过(8m40s 首次,产物 `target\debug\codex.exe`)。whisper-rs 0.12 + LLVM 22 的 bindgen 不兼容已记为已知问题,绕法 = Windows 走 dictation/stub.rs(详见 verification.md 失败记录)。
 - [ ] **签名方案**:首发未签名、OV 证书或 EV 证书尚未拍板;publisher/签名 hook 也尚未在 Windows 配置中落地。
-- [x] **CI 是否存在**:已有 `.github/workflows/ci.yml`；PR 先按路径分流，Ubuntu 承担前端 typecheck/test/lint/DS/codemod，只有 Rust/WORK 相关变化才启用 Windows 并跑统一专项脚本。Windows runner 可由 `WINDOWS_RUNNER` 在 hosted/self-hosted 间切换，fork PR 不进入开发机。它不 vendor/启动 Hermes、不打 NSIS、不签名，也不是完整 Windows 发布矩阵。
+- [x] **CI 是否存在**:已有 `.github/workflows/ci.yml`；PR 先按路径分流，Ubuntu 承担前端 typecheck/test/lint/DS/codemod，只有 Rust 相关变化才启用 Windows 并跑统一专项脚本。Windows runner 可由 `WINDOWS_RUNNER` 在 hosted/self-hosted 间切换，fork PR 不进入开发机。它不打 NSIS、不签名，也不是完整 Windows 发布矩阵。
 - [x] **Windows 沙箱接入位置**:5 层链路属 `.specs/006`;本 spec 承担 Windows setup/readiness 真实环境验证,UI 归 spec 005。两项运行时验证仍未跑。
 - [ ] **Windows 支持基线**:当前视觉和 Mica 只按 Win11 开发;Win10 是正式支持、允许纯色降级,还是明确排除在 MVP 外,尚未收口。
 - [ ] **whisper-rs 升级或换 STT 后端**:0.12 + LLVM 22 不兼容已绕过(Windows dictation 走 stub),真实评估升级到 0.13+ 或换 sherpa-onnx/vosk 留作独立工作项,不阻塞 v1。

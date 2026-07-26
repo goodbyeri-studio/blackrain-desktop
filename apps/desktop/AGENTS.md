@@ -12,12 +12,12 @@ Detailed navigation/runbooks live in:
 - `../../README.md` (repository status and product entry)
 - `../../docs/commands.md` (canonical setup/build/release commands)
 - `../../.specs/008-expert-workbench-package/` (workbench package and lifecycle contract)
-- `../../.specs/009-hermes-work-surface/` (Hermes runtime and WORK surface implementation contract)
+- `../../.specs/011-workbench-session-orchestration/` (activated workbench session and surface contract)
 - `../../.specs/010-three-project-platform/` (Desktop/Cloud/Relay repository, ledger, API, and license boundaries)
 
 ## Project Snapshot
 
-BlackRain Desktop is the Core runtime for installable expert workbenches. It is a Tauri app derived from CodexMonitor. The current WORK/Hermes migration has reached code-level closure on macOS, but Windows Tauri, real Hermes/Relay, Office, installer, and workbench lifecycle verification remain incomplete and must not be described as released.
+BlackRain Desktop is the Core runtime for installable expert workbenches. One codex app-server powers both the task-oriented workbench surface and the developer-oriented CODE surface through a shared session contract. It is a Tauri app derived from CodexMonitor. Workbench session orchestration and Windows release verification remain incomplete and must not be described as released.
 
 - Frontend: React + Vite (`src/`)
 - Backend app: Tauri Rust process (`src-tauri/src/lib.rs`)
@@ -32,6 +32,7 @@ BlackRain Desktop is the Core runtime for installable expert workbenches. It is 
 4. Keep JSON-RPC method names and payload shapes stable unless intentionally changing contracts.
 5. Keep frontend IPC contracts in sync with backend command surfaces.
 6. Workbench packages declare desired state; only the App/Core may install resources or write engine activation config. Do not let a workbench become a second configuration writer.
+7. Surface selection is presentation policy, not runtime selection. Both surfaces must reuse shared codex thread, event, approval, recovery and gateway contracts.
 
 ## Backend Routing Rules
 

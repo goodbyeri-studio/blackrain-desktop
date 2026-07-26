@@ -12,13 +12,10 @@ use super::manifest::{
     WorkbenchInstallScope,
 };
 use super::{
-    ActivatedEnvironmentRef, ActivatedEnvironmentRefKind, ActivatedFileAccess,
+    atomic_write, ActivatedEnvironmentRef, ActivatedEnvironmentRefKind, ActivatedFileAccess,
     ActivatedFilePermission, ActivatedPermissionGrant, ActivatedProjectContext,
-    ActivatedWorkbenchContext, ActivatedWorkbenchStore, WorkbenchEngine,
-    ACTIVATED_WORKBENCH_SCHEMA_VERSION,
+    ActivatedWorkbenchContext, ActivatedWorkbenchStore, ACTIVATED_WORKBENCH_SCHEMA_VERSION,
 };
-use crate::shared::hermes_core::config::atomic_write;
-use crate::shared::hermes_core::runtime::OFFICECLI_SYSTEM_CAPABILITY_ID;
 use crate::shared::process_core::tokio_command;
 
 pub(crate) const OFFICIAL_OFFICE_WORKBENCH_ID: &str = "com.blackrain.office";
@@ -26,6 +23,7 @@ pub(crate) const OFFICIAL_OFFICE_WORKBENCH_VERSION: &str = "0.1.0";
 const OFFICIAL_OFFICE_DEPENDENCY_ID: &str = "com.blackrain.office-cli";
 const OFFICIAL_OFFICE_DEPENDENCY_VERSION: &str = "1.0.117";
 const OFFICIAL_OFFICE_DEPENDENCY_SOURCE: &str = "app-resource:office-cli/windows-x64/officecli.exe";
+const OFFICECLI_SYSTEM_CAPABILITY_ID: &str = "officecli-1.0.117";
 
 #[derive(Debug, Clone)]
 pub(crate) struct OfficialOfficeActivationRequest {
@@ -378,7 +376,6 @@ fn build_activation_context(
         activation_id: format!("office-{identity}"),
         workbench_id: OFFICIAL_OFFICE_WORKBENCH_ID.into(),
         workbench_version: OFFICIAL_OFFICE_WORKBENCH_VERSION.into(),
-        engine: WorkbenchEngine::Work,
         project: ActivatedProjectContext {
             project_id: format!("project-{identity}"),
             path: project.clone(),
@@ -651,9 +648,6 @@ target:
   roles: [office-generalist]
   platforms: [{{ os: windows, arch: x86_64 }}]
   blackrain: ">=0.7.68"
-engine:
-  preferred: work
-  allowed: [work]
 skills:
   - {{ path: skills/generate-office-deliverable }}
   - {{ path: skills/fix-office-formatting }}

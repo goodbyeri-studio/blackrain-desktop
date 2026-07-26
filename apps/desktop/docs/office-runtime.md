@@ -2,7 +2,7 @@
 
 This app can ship with a bundled `OfficeCLI` runtime as a built-in Office document engine.
 
-> **Current product boundary:** OfficeCLI binaries/resources, the runtime bridge, Codex-side asset injection code and Windows NSIS resource mapping exist. The current Windows installer has not completed build/unpack/install smoke, the WORK/Hermes surface is not integrated, and the workbench package lifecycle in spec 008 is not implemented. This document is not evidence that the packaged Office runtime or Office workbench is available to users.
+> **Current product boundary:** OfficeCLI binaries/resources, the runtime bridge, codex asset injection code and Windows NSIS resource mapping exist. The current Windows installer has not completed build/unpack/install smoke, and the Session Orchestrator/workbench surface defined by spec 011 are not implemented. This document is not evidence that the packaged Office runtime or Office workbench tasks are available to users.
 
 ## Packaging contract
 
@@ -30,7 +30,7 @@ When the resource is present and runtime preparation succeeds, the code path:
 3. Exposes that directory to child Codex sessions through `PATH`.
 4. Syncs built-in office skill/workbench content assets into `CODEX_HOME`.
 
-The current implementation proves that repository resources and a CODE-side preparation path exist; it does not prove current Windows installer inclusion or installed-runtime behavior. Those require `.specs/007-windows-client/verification.md`. A real installable workbench also requires `.specs/008-expert-workbench-package/`; moving the experience under WORK requires the Hermes runtime/surface work in `.specs/003-dual-engine-architecture/`.
+The current implementation proves that repository resources and a shared codex preparation path exist; it does not prove current Windows installer inclusion or installed-runtime behavior. Those require `.specs/007-windows-client/verification.md`. An installable workbench must satisfy `.specs/008-expert-workbench-package/`; activated task execution must satisfy `.specs/011-workbench-session-orchestration/`.
 
 ## App-side commands
 
