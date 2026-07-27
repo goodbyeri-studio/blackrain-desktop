@@ -15,9 +15,9 @@ BlackRain 是一款以 OpenAI 开源 `codex-rs` 为唯一 agent 内核的桌面 
 
 ```text
 BlackRain Electron（目标态）
-  ├─ Main：窗口、权限、Browser、更新、daemon supervisor
+  ├─ Main：窗口、Browser WebContentsView/registry/CDP、权限、更新、daemon supervisor
   ├─ Preload：类型化最小权限 IPC
-  ├─ Renderer：Codex App 风格的 React 产品界面
+  ├─ Renderer：Codex App 风格的 React 产品界面和 Browser sidebar controls
   └─ Rust daemon
       ├─ 原装 codex app-server / codex-rs
       ├─ App 专属 CODEX_HOME
@@ -46,6 +46,7 @@ docs/              产品、架构与运行手册
 
 - 产品形态：[docs/04-产品形态.md](docs/04-产品形态.md)
 - 运行时与里程碑：[docs/09-运行时架构与里程碑.md](docs/09-运行时架构与里程碑.md)
+- Electron 与 Browser 实施计划：[docs/10-Electron迁移与内置浏览器实现计划.md](docs/10-Electron迁移与内置浏览器实现计划.md)
 - Electron 迁移：[.specs/012-electron-shell-migration/](.specs/012-electron-shell-migration/)
 - Codex App 能力补齐与 Browser：[.specs/013-codex-app-capability-parity/](.specs/013-codex-app-capability-parity/)
 - codex 能力接线：[.specs/006-code-mode-capability-wiring/](.specs/006-code-mode-capability-wiring/)
@@ -58,7 +59,7 @@ docs/              产品、架构与运行手册
 2. Electron 是唯一目标桌面宿主；Tauri 只是迁移起点。
 3. React UI 与 Rust daemon/shared core 优先复用，领域逻辑不迁入 renderer。
 4. App 只使用应用数据目录中的专属 `CODEX_HOME`，不污染用户 `~/.codex`。
-5. Browser 属于 Electron 宿主能力，网页与 App 权限域严格隔离。
+5. Browser 高度对齐 Codex App 的共享 IAB 功能与控制面；main 创建并控制 `WebContentsView`、session 和 CDP，网页与 App 权限域严格隔离。
 6. 不复制 OpenAI 闭源代码、私有 bundle 或专有资源；只对齐合法可观察的行为与体验。
 7. 当前完成度只以实际代码和对应 `verification.md` 为准。
 

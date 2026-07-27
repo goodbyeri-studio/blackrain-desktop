@@ -1,10 +1,10 @@
 # Electron 桌面壳迁移需求
 
-> **状态（2026-07-26）**：P0，已决策、尚未开始实现。当前可运行代码仍是 CodexMonitor 衍生的 Tauri 壳；目标架构存在于本 spec 不等于 Electron 客户端已经可用。
+> **状态（2026-07-27）**：P0，已根据 Codex App 本机研究重新设计，尚未开始实现。当前可运行代码仍是 CodexMonitor 衍生的 Tauri 壳；目标架构存在于本 spec 不等于 Electron 客户端已经可用。
 
 ## 背景
 
-BlackRain 的产品目标已经收敛为：以原装开源 `codex-rs` 为唯一 agent 内核，补齐官方 Codex App 由闭源桌面宿主提供的能力。内置浏览器、持久浏览会话、CDP、下载、权限和多视图生命周期都是桌面宿主的一等职责。Electron 对这些能力提供直接且可验证的原语，因此替代当前 Tauri 宿主。
+BlackRain 的产品目标已经收敛为：以原装开源 `codex-rs` 为唯一 agent 内核，高度对齐官方 Codex App 的核心桌面功能和可观察 Browser 控制面。三份 2026-07-26 本机研究稿确认了共享页面、registry、隐藏运行、持久 profile、Browser client/RPC 和 CDP 等关键职责；BlackRain 使用 main-owned `WebContentsView` 实现这些能力。Electron 迁移必须承载这套宿主能力，而不是只把现有 Tauri UI 换一个启动器。
 
 ## 用户目标
 
@@ -28,6 +28,8 @@ BlackRain 的产品目标已经收敛为：以原装开源 `codex-rs` 为唯一 
 - renderer 无 Node.js 直通；所有特权操作通过类型化 preload allowlist。
 - 现有 React 关键工作流在 Electron 中可运行。
 - Rust daemon 托管原装 `codex app-server`、专属 `CODEX_HOME` 和已有共享领域逻辑。
+- Electron main 启动 daemon，daemon 启动 app-server；两段连接都支持双向 request/response/notification、取消、deadline 和重启 generation。
+- Browser 采用 spec 013 定义的 main-owned `WebContentsView` + registry/session/CDP，不建立独立 headless agent browser。
 - Tauri 专属调用逐项迁移后删除，不长期维护双宿主分叉。
 
 ### Windows 验收
@@ -40,8 +42,11 @@ BlackRain 的产品目标已经收敛为：以原装开源 `codex-rs` 为唯一 
 ### 安全与合规
 
 - `contextIsolation` 开启，renderer 默认 `nodeIntegration: false`。
+- `webviewTag` 保持关闭；Browser view 只由 main 创建，页面 WebContents 强制 sandbox、Node off、context isolation、web security 和无 App preload。
 - 导航、弹窗、权限、下载和外部协议均有集中策略。
-- 浏览内容与应用 chrome 使用隔离的 webContents/session；不向任意网页暴露应用 preload。
+- main 对 Browser 创建、布局、迁移和每个 Browser API request 执行 sender window、thread、route、view generation、profile 和 ownership 校验。
+- 浏览内容与应用 chrome 使用隔离的 page WebContents/session；不向任意网页暴露应用 preload。
+- 固定 TCP 端口、未认证 named pipe、raw CDP 网络端点和 daemon token 不进入生产架构。
 - 第三方依赖满足本仓闭源商业 License 边界。
 
 ## 约束
@@ -50,9 +55,11 @@ BlackRain 的产品目标已经收敛为：以原装开源 `codex-rs` 为唯一 
 - App 继续使用应用数据目录内的专属 `CODEX_HOME`，不读写用户 `~/.codex`。
 - 模型协议翻译继续留在独立 Gateway sidecar。
 - 当前 Rust shared core 是迁移资产；Electron main 负责宿主编排，不吸收领域实现。
+- 保持现有 npm/`package-lock.json` 工作流；不得在迁移中无理由改用另一包管理器。
+- 本 spec 的实施展开见 `docs/10-Electron迁移与内置浏览器实现计划.md`。
 
 ## 开放问题
 
-- [ ] 选定 Electron 打包与更新方案，并完成 License、签名和 Windows 更新链验证。
+- [ ] 确定签名证书、更新制品源、回滚保留策略和发布密钥管理。
 - [ ] 确定 Tauri 正式删除闸口及最后一个可回退 tag。
 - [ ] 用纵向切片测量 Electron + Rust daemon 的真实启动和内存成本。
