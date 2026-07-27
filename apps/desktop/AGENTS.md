@@ -27,6 +27,7 @@ codex-rs            唯一 agent loop
 7. App 使用应用数据目录内专属 `CODEX_HOME`，不修改用户 `~/.codex`。
 8. Gateway 只做模型协议翻译，不持有 thread、Browser 或 UI 状态。
 9. Tauri -> Electron 迁移期兼容层必须带删除任务，不建立永久双宿主。
+10. Browser 采用 main-owned `WebContentsView`、统一 registry、view retention/reparenting 和持久 profile；React 只控制侧边栏布局，不得另起 Playwright/headless agent browser。
 
 ## 当前 Tauri 代码路由
 

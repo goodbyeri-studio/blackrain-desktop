@@ -9,6 +9,7 @@
 | BlackRain 是什么、当前进度 | `README.md` |
 | 用户看到的产品形态与优先级 | `docs/04-产品形态.md` |
 | 目标运行时、当前迁移状态与里程碑 | `docs/09-运行时架构与里程碑.md` |
+| Electron 与内置 Browser 的实施波次 | `docs/10-Electron迁移与内置浏览器实现计划.md` |
 | Electron 壳怎样迁移 | `.specs/012-electron-shell-migration/` |
 | Codex App 能力差距、in-app browser 怎样实现 | `.specs/013-codex-app-capability-parity/` |
 | 原装 codex 能力怎样接入壳 | `.specs/006-code-mode-capability-wiring/` |
@@ -22,7 +23,8 @@
 2. [AGENTS](../AGENTS.md)
 3. [04 产品形态](04-产品形态.md)
 4. [09 运行时架构与里程碑](09-运行时架构与里程碑.md)
-5. [commands](commands.md) 与任务对应 spec
+5. [10 Electron 迁移与内置浏览器实现计划](10-Electron迁移与内置浏览器实现计划.md)
+6. [commands](commands.md) 与任务对应 spec
 
 ## 专题索引
 
@@ -37,6 +39,7 @@
 | [07 护城河与风险](07-护城河与风险.md) | 上游同步、宿主能力、Browser 安全和复刻风险 |
 | [08 仓库与上游](08-仓库结构与上游策略.md) | codex 只读上游、Tauri 迁移起点和 Electron 归属 |
 | [09 运行时与里程碑](09-运行时架构与里程碑.md) | **唯一运行时真源** |
+| [10 Electron 与 Browser 实施计划](10-Electron迁移与内置浏览器实现计划.md) | Codex 式 Electron/Browser 分层、协议、迁移波次和闸口 |
 | [spec 012](../.specs/012-electron-shell-migration/) | Electron 全量迁移 |
 | [spec 013](../.specs/013-codex-app-capability-parity/) | 能力矩阵与 in-app browser |
 
@@ -55,6 +58,7 @@
 - `codex-rs` 是唯一 agent 内核；不得出现双内核路线。
 - Electron 是唯一目标宿主；当前 Tauri 只能写成迁移起点。
 - “复刻 Codex App”指合法的行为与体验对齐，不代表复制闭源实现或资源。
+- Codex App 的公开行为和合法可观察 Browser 控制面是第一实现基线；其他 Electron 项目只提供次级工程参考。
 - 工作台、市场、Office 参考包和 OPC 必须标记为暂停，不写成近期路线图。
 - Windows 是当前发布验收平台；其他平台 smoke 不能替代 Windows 证据。
 - 新跨层能力建立 spec；命令只有真实存在后才写入 `commands.md`。

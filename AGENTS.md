@@ -35,7 +35,7 @@ MVP 仅发行 Windows。macOS / Linux 可以用于开发和快速验证，但不
 ```text
 BlackRain（Electron）
   ├─ Main / Preload / React Renderer
-  ├─ in-app browser（隔离的 WebContentsView/session）
+  ├─ Codex 功能对齐的 in-app browser（main-owned WebContentsView/session/CDP）
   └─ Rust daemon
       ├─ 原装 codex app-server（唯一 agent 内核）
       ├─ 专属 CODEX_HOME/config.toml
@@ -79,6 +79,9 @@ Electron 宿主改动归 012；Codex App 能力矩阵与 in-app browser 归 013�
 - Electron main 负责窗口、权限、Browser、更新和 daemon 生命周期。
 - preload 只暴露类型化 allowlist，不暴露原始 IPC 或 Node.js。
 - 跨宿主领域逻辑继续放 Rust daemon/shared core。
+- Browser `WebContentsView` 只由 main 创建和持有；renderer 只上报经过校验的 bounds、visibility、active tab 和 UI 遮挡状态。
+- main 必须校验 route、thread、window、view generation 和 profile ownership，并强制页面 WebContents 安全参数。
+- Codex App 的可观察 Browser 行为与控制面是第一实现基线；ClawX、Hermes 等项目只补充通用 Electron 工程经验。
 - 迁移期兼容层必须带删除任务，不建立永久 Tauri/Electron 分叉。
 - 事件扇出保持单一入口；Browser 事件也必须标准化后进入 UI。
 
