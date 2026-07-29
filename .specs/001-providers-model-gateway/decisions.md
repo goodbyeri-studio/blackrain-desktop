@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-07-29：专属 CODEX_HOME 与 Tauri/NSIS 宿主决策被 Electron 目标替代
+
+- 决策：保留既有 Gateway provider、registry 和协议翻译职责；目标 Electron 不再使用 App data 专属 `CODEX_HOME`，而是沿用与 CLI 共享的标准 Codex Home。
+- 宿主：Electron main 直接连接原装 app-server，并按需监管独立 Gateway sidecar；不经永久 BlackRain daemon。
+- 发布：旧 Tauri NSIS 结论只作历史证据；Electron Gateway 制品随 Forge/MSIX 路线在 spec 012 验收。
+- 影响范围：本文件后续所有关于专属 Home、App/daemon 和 NSIS 的旧决策继续保留，但不再代表目标态。
+
 ## 2026-07-12：产品态 sidecar 必须显式保留工具
 
 - 决策：App 托管 Gateway 的产品启动参数必须显式使用 `STRIP_TOOLS=0`，并在 Windows E2E 中验证真实工具调用。`STRIP_TOOLS=1` 只允许作为纯文本协议诊断开关。

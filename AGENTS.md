@@ -34,12 +34,16 @@ MVP 仅发行 Windows。macOS / Linux 可以用于开发和快速验证，但不
 
 ```text
 BlackRain（Electron）
-  ├─ Main / Preload / React Renderer
+  ├─ Main
+  │   ├─ App Server client / window / permissions / updates
+  │   └─ spawn bundled codex.exe app-server（stdio JSONL）
+  ├─ Preload / React Renderer
   ├─ Codex 功能对齐的 in-app browser（main-owned WebContentsView/session/CDP）
-  └─ Rust daemon
-      ├─ 原装 codex app-server（唯一 agent 内核）
-      ├─ 专属 CODEX_HOME/config.toml
-      └─ 可选 Model Gateway sidecar
+  ├─ 原装 codex.exe app-server（机器协议入口）
+  │   ├─ codex-core（唯一 agent 内核）
+  │   ├─ 标准 Codex Home：config/auth/sessions/rollout/SQLite
+  │   └─ 按需启动 code-mode/MCP/sandbox helper
+  └─ 可选 Model Gateway sidecar
 ```
 
 当前代码仍是 Tauri。文档和 PR 必须明确区分“当前 Tauri 实现”“迁移中的 Electron 代码”和“Electron 目标态”。
@@ -49,9 +53,9 @@ BlackRain（Electron）
 1. `codex-rs` 保持原装黑盒，只读、只调用、不分叉。
 2. 不得引入任何第二 agent runtime。
 3. thread、事件、审批、停止、恢复和模型路径只能有一套真源。
-4. App 使用应用数据目录内的专属 `CODEX_HOME`，不得修改用户已有的 `~/.codex`。
+4. App 沿用 Codex 标准 Home 解析并与原生 CLI 共享配置、能力和可恢复 thread；不得再创建隐藏的 BlackRain 专属 `CODEX_HOME` 作为第二状态域。
 5. 协议翻译只存在于独立 Gateway 进程，不进入 UI、Electron main 或内核。
-6. Browser 是宿主能力；任意网页不得获得 BlackRain preload、daemon token 或非必要系统权限。
+6. Browser 是宿主能力；任意网页不得获得 BlackRain preload、App Server transport 或非必要系统权限。
 7. 行为对齐 Codex App 不授权复制闭源代码、私有 bundle、图标 path、字体或其他专有资源。
 
 ## 仓库布局
@@ -76,10 +80,12 @@ Electron 宿主改动归 012；Codex App 能力矩阵与 in-app browser 归 013�
 修改 `apps/desktop/**` 前必须读 `apps/desktop/AGENTS.md`。
 
 - React renderer 只负责展示和前端状态。
-- Electron main 负责窗口、权限、Browser、更新和 daemon 生命周期。
+- Electron main 负责窗口、权限、Browser、更新和原装 app-server 生命周期，并直接实现 stdio JSONL App Server client。
 - preload 只暴露类型化 allowlist，不暴露原始 IPC 或 Node.js。
-- 跨宿主领域逻辑继续放 Rust daemon/shared core。
+- 当前 Rust daemon/shared core 只是 Tauri 迁移输入；目标态按 Codex App 分层把 agent 能力交给原装 app-server，把桌面宿主能力放入 Electron main/preload，不保留永久 BlackRain daemon。
 - Browser `WebContentsView` 只由 main 创建和持有；renderer 只上报经过校验的 bounds、visibility、active tab 和 UI 遮挡状态。
+- Browser 页面不得加载 App preload；spec 013 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用最小 page preload。
+- Browser 工具生产链按 Codex session/turn 绑定到唯一 main backend；dynamic tools 只作 bootstrap，自有 Browser client/transport 必须鉴权、有界并在发布前成为唯一生产 adapter。
 - main 必须校验 route、thread、window、view generation 和 profile ownership，并强制页面 WebContents 安全参数。
 - Codex App 的可观察 Browser 行为与控制面是第一实现基线；ClawX、Hermes 等项目只补充通用 Electron 工程经验。
 - 迁移期兼容层必须带删除任务，不建立永久 Tauri/Electron 分叉。
@@ -96,7 +102,7 @@ Desktop/Cloud 是闭源商业项目：
 
 ## 验证与 Git
 
-当前 Tauri 基线命令仍按 `docs/commands.md` 执行。Electron 建立后，必须补 main/preload 单测、Playwright Electron E2E、Rust daemon 集成测试和 Windows 安装矩阵。
+当前 Tauri 基线命令仍按 `docs/commands.md` 执行。Electron 建立后，必须补 main/preload 单测、App Server stdio 集成测试、Playwright Electron E2E 和 Windows MSIX 安装矩阵。
 
 Windows 浏览器登录、权限、下载、崩溃恢复、安装、升级和卸载必须实机验证。CI 或 macOS smoke 不能替代产品验收。
 

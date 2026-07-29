@@ -28,6 +28,13 @@
 - 代价：native view 不受 DOM z-index、clip 和 layout 自动控制，必须实现 bounds revision、occlusion policy、view retention/reparenting，并实测 DPI、多屏、焦点和输入法。
 - 影响范围：Electron webPreferences、renderer sidebar、main registry、安全测试、03/09/10 和 spec 012。
 
+## 2026-07-29：确认 Codex 使用 `<webview>`，BlackRain 仍保留 WebContentsView 差异
+
+- 新证据：Codex Electron `26.721.41059` 的 renderer bundle 直接创建 `<webview>`，main 通过 attach policy 接管；构建产物未创建 `WebContentsView`。
+- 决策：BlackRain 继续使用 main-owned `WebContentsView`，但文档必须将其标为有意差异，不能再称为页面宿主同构。
+- 必须保留：单一持久 profile、session/turn backend、同一页面控制、route/ID 映射、隐藏 capture、tab finalization、注入式 locator runtime 和恢复/工作集合同。
+- 复查条件：首个 Windows 纵向切片若无法满足隐藏截图、焦点、输入法、retention 或恢复合同，必须重新评估 `<webview>`，不能用功能缺失掩盖宿主差异。
+
 ## 2026-07-27：P0 使用单一 App 专属持久 profile
 
 - 决策：P0 使用 `persist:blackrain-browser-app`，对齐 Codex 的跨 thread、跨重启登录保持；profile 属于用户，tab/route 属于 thread。
@@ -35,18 +42,37 @@
 - 风险：已有登录态会放大网页 prompt injection 和跨任务操作风险。
 - 缓解：每个 Browser request 做 thread/route ownership 校验，敏感动作确认，hidden activity 可见，P1 增加临时 profile。
 
-## 2026-07-27：P0 Browser 纵向切片通过公开 dynamic tools 接入
+## 2026-07-27：P0 Browser 纵向切片通过公开 dynamic tools 接入（仅作临时 bootstrap）
 
-- 决策：P0 使用锁定 app-server 的 experimental dynamic tools，把 `item/tool/call` 经 daemon 双向 RPC 转发到 main BrowserBackend。
+- 决策：P0 使用锁定 app-server 的 experimental dynamic tools，由 Electron main 的 App Server client 把 `item/tool/call` 直接路由到 main BrowserBackend。
 - 原因：这是原装 app-server 的公开最小接缝，不要求复制 Codex 私有 `browser-client.mjs` 或依赖其专有 Node runtime。
 - 漂移策略：每次升级运行协议探针；失败时关闭 agent Browser 控制并保留手动浏览。
-- 产品化：验证自有 Browser skill/client + 鉴权 named pipe JSON-RPC；它必须作为同一 BrowserBackend 的 adapter，并与 dynamic-tool adapter 收敛为唯一生产主路径。
+- 产品化：自有 Browser skill/client + 鉴权 named pipe JSON-RPC 是 Codex 架构对齐的生产目标；它必须作为同一 BrowserBackend 的 adapter，并在发布前替代 dynamic-tool bootstrap。
 
 ## 2026-07-27：Browser client pipe 必须有应用层认证
 
-- 决策：dynamic-tool 纵向切片默认走 main/daemon 受管连接；自有 Browser client 若使用 Windows named pipe，必须使用随机 endpoint、当前用户 ACL、256-bit capability token、握手、frame 大小限制和方法级 ownership 校验。
+- 决策：dynamic-tool 纵向切片默认走 main 内部 App Server client；自有 Browser client 若使用 Windows named pipe，必须使用随机 endpoint、当前用户 ACL、256-bit capability token、握手、frame 大小限制和方法级 ownership 校验。
 - 原因：安全研究已动态证明 Codex 当前 Windows pipe 可由普通同用户进程完成 `ping -> pong`。
 - 影响范围：本地 transport、capability、日志、威胁模型和边界测试。
+
+## 2026-07-29：Browser client 按 session/turn 绑定并采用有界 framed JSON-RPC
+
+- 决策：每个 Codex session 建立独立 backend route；discovery/handshake 校验 session、build 和 generation，请求继续携带 `session_id`、`turn_id` 与受限 context。
+- framing：Windows 初始合同为 4-byte little-endian 长度 + UTF-8 JSON-RPC，单帧最多 8 MiB；每个 socket 分配 client id。
+- 加固：随机 pipe endpoint、当前用户 ACL、256-bit capability token 和方法级 ownership 继续保留；不照搬只靠 runtime bridge/session filter 的信任假设。
+- 边界：只自研可审计 client 和协议，不复制 OpenAI `browser-client.mjs`、私有 `nativePipe` 或 bundled plugin。
+
+## 2026-07-29：Playwright 只作为现有页面的注入式语义运行时
+
+- 决策：复用或自研许可兼容的 selector、ARIA、actionability runtime，并注入当前 `WebContentsView` 页面 target；禁止启动第二个 Playwright Chromium 或建立旁路 `connectOverCDP` browser。
+- snapshot：默认输出面向模型的增量 ARIA 语义树并递归合并 iframe/OOPIF，不传完整 HTML。
+- 输入：locator 解析与执行之间使用 input-target token 防止焦点/目标漂移；跨 origin frame 走对应 CDP target session。
+
+## 2026-07-29：turn completion 是 Browser tab 和资源的强制收口点
+
+- 决策：`turn/completed`、interrupt、显式 `tabs.finalize({ keep })` 和 backend teardown 共享确定性 finalize 协议。
+- 语义：临时 agent tab 关闭；handoff 保留给用户；deliverable/user tab release；debugger、target session、cursor 和 capture surface 必须清理。
+- 页面预算：32 个 detached live pages 与 30 分钟 selected protection 只作首个候选；实现值由 Windows 资源验证锁定。Owl snapshot/adoption 不可复制，必须设计标准 Electron 降级。
 
 ## 2026-07-27：高层 API 默认，full CDP 进入 Developer mode
 

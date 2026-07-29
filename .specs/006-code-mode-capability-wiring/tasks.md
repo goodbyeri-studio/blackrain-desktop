@@ -33,3 +33,4 @@
 - [ ] 对当前锁定 `87db9bc` 重跑全量 capability shape 探针,刷新 stub/认证/实验门控结论
 - [ ] Windows `npm run tauri:dev:win` 冒烟(IPC→command→daemon→app-server 粘合 + GUI 能调用/能降级)
 - [ ] spec 005 逐项落地 GUI;不因 `@services/tauri.ts` 导出函数存在就勾选
+- [ ] 按 spec 012 将仍需保留的方法映射到 Electron main/preload/renderer，并删除 Tauri command、remote backend 与 daemon RPC 重复层

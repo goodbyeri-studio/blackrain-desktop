@@ -3,12 +3,14 @@
 ## 阶段 0：架构基线
 
 - [x] 决策唯一目标宿主为 Electron
-- [x] 决策保留 React 与 Rust daemon/shared core
-- [x] 根据三份 Codex App 研究稿重建 Electron/Browser 目标控制面
-- [x] 决策保持 npm，Windows 打包以 electron-builder + NSIS 为实施方向
+- [x] 决策保留 React，并让 Electron main 直接监管原装 app-server
+- [x] 根据四份 Codex App 研究稿重建 Electron/App Server/Browser 目标控制面
+- [x] 决策保持 npm，Windows 打包对齐 Electron Forge + Vite + MSIX
 - [ ] 盘点全部 Tauri command、plugin、window、event、resource 和打包依赖
 - [ ] 建立 Tauri -> Electron 能力迁移矩阵、owner、测试和删除闸口
-- [ ] 锁定 Electron/Node 版本并完成 License、fuses、ASAR 和 CSP 基线
+- [ ] 锁定 Electron 42、Forge 7、Vite 8、TypeScript 5.9、React 19 与 Node 版本，并完成 License、fuses、ASAR 和 CSP 基线
+- [ ] 将 codex 锁升级到或超过调研基线 `d06c7ac055920c7cb140c25ebda3f3db20197b45`，记录实际 tag/SHA 并重跑上游更新清单
+- [ ] 盘点并锁定 codex.exe、code-mode host、command runner、MCP/extension 等运行时制品、参数、hash、签名和 License
 - [ ] 确定签名证书、更新源、发布密钥和回滚方案
 - [ ] 为锁定 codex 运行 initialize/dynamicTools/server-request 协议探针
 
@@ -18,15 +20,21 @@
 - [ ] 建立 `window.blackrain` 类型合同、schema 校验和 sender validation
 - [ ] 建立宿主无关 renderer client，禁止新增直接 Tauri 调用
 - [ ] 配置 sandbox、context isolation、自定义 protocol、CSP、导航和 popup policy
+- [ ] 建立流式 notification 的有界队列，以及大消息分块/确认或 artifact 合同
+- [ ] 接入 Sentry Electron/Node 与 OpenTelemetry，并验证日志不混入 App Server stdout
 - [ ] 建立 main/preload 单测和 Playwright Electron 启动 smoke
 
-## 阶段 2：daemon 与真实 thread
+## 阶段 2：App Server client 与真实 thread
 
-- [ ] 将 main/daemon transport 建成双向 stdio JSON-RPC
-- [ ] 实现 handshake、deadline、cancel、generation、大小限制和 stderr 日志
-- [ ] 启动并监管 Rust daemon 与原装 app-server
+- [ ] Electron main 直接 spawn bundled `codex.exe -c features.code_mode_host=true app-server --analytics-default-enabled`
+- [ ] 实现 stdin writer、stdout JSONL parser、stderr diagnostics 和 RPC id dispatcher
+- [ ] 实现双向 request/response/notification、initialize/initialized、deadline、cancel、大小/并发/队列上限
+- [ ] 实现 thread start/resume/subscribe/unsubscribe、turn 与 item notification 生命周期
 - [ ] 跑通真实 Codex thread、流式事件、审批、停止和恢复
-- [ ] 验证 daemon/app-server 崩溃、睡眠恢复和 Windows 子进程树清理
+- [ ] 分开验证 approval policy 与 sandbox/permission profile，并覆盖 Windows restricted/elevated 工具子进程
+- [ ] 验证 App Server v2 投影是 UI 唯一事件入口，不解析 TUI 或复制 Core event translator
+- [ ] 验证 app-server 崩溃、畸形 JSON、EOF、睡眠恢复和 Windows 子进程树清理
+- [ ] 验证标准 Codex Home 与 CLI 共享，Electron user-data 独立，rollout/SQLite 只由 ThreadStore 管理
 
 ## 阶段 3：Codex 功能对齐的 Browser 纵向切片
 
@@ -37,19 +45,27 @@
 - [ ] 实现 view 隐藏保留、窗口间 reparent 和 stale layout 拒绝
 - [ ] 从真实 Codex thread 通过 dynamic tool 操作同一个可见页面 WebContents
 - [ ] 跑通 navigate、snapshot、click、type、screenshot、停止和用户抢占
+- [ ] 将 dynamic tool 标为 bootstrap，并按 spec 013 建立 per-session Browser backend 与生产 Browser client 替换闸口
+- [ ] 预留自有 Browser client、可选 page preload、framed pipe 和 runtime hash/License 的目录、打包与测试接点
 
 ## 阶段 4：能力迁移与 Browser 产品化
 
-- [ ] 迁移项目、文件、Git、终端、设置和凭据能力
+- [ ] 迁移项目、文件、Git、设置和凭据能力
+- [ ] 使用 main-owned `node-pty` 迁移终端，并验证 ConPTY、resize、停止和进程清理
+- [ ] Electron 自有结构化状态按需使用 `better-sqlite3`，与 Codex ThreadStore 数据库分库、分目录
 - [ ] 迁移窗口、菜单、通知、更新和系统集成
 - [ ] 迁移 app-server 事件与错误恢复
 - [ ] 完成多 tab、view retention/reparenting、下载、权限、popup、CDP 和恢复
+- [ ] 完成 session/turn binding、注入式 ARIA/locator、turn/tab finalize、hidden capture surface 和页面工作集
 - [ ] 清除 renderer 对 Tauri API 的直接依赖
 - [ ] 为临时兼容层建立并完成删除任务
+- [ ] 删除目标态不再需要的 Rust daemon、remote backend 和双宿主 RPC
 
 ## 阶段 5：发布收口
 
 - [ ] Windows 安装、首启、升级、回滚和卸载矩阵通过
+- [ ] MSIX 包含并可启动 codex 与所需 helper，签名/hash/退出清理通过
+- [ ] MSIX 包含经锁定的 Browser client 与可选 page preload，runtime 接缝、License、hash 和进程/pipe 清理通过
 - [ ] 关键 Codex 工作流和 spec 013 P0 能力通过
 - [ ] 安全审计与第三方 License 审计通过
 - [ ] 记录启动、内存、GPU、多 view、多屏、DPI、z-order、modal 遮挡和输入法基线

@@ -1,5 +1,7 @@
 # Design
 
+> **Electron 迁移修正（2026-07-29）**：下文专属 `CODEX_HOME` 与 Tauri sidecar 接线是当前实现说明，不是目标架构。目标态沿用标准 Codex Home，Electron main 直接持有 App Server client，并在需要 Gateway 时监管独立 Gateway sidecar；发布与删除闸口归 spec 012。
+
 ## 总体方案
 
 Codex 内核永远只连本地 BlackRain Gateway；第三方 provider、API key、模型列表和协议差异全部由 BlackRain App + Gateway 管理。前端模型选择器显示的是 BlackRain Gateway registry 中的模型，而不是 Codex 原生 provider 列表。
@@ -20,7 +22,7 @@ Codex 内核永远只连本地 BlackRain Gateway；第三方 provider、API key�
 - 属于 `apps/desktop` 的逻辑：
   - 模型网关设置页。
   - provider 配置的读写、校验、key 存储协调。
-  - 专属 `CODEX_HOME/config.toml` 写入。
+  - 标准 Codex Home 中 Gateway provider/model 配置的兼容接入；当前专属 Home 写入只作迁移输入。
   - Gateway sidecar 生命周期管理。
   - 对话模型选择器的数据源和 per-thread model 选择。
 - 属于 `gateway` 的逻辑：
@@ -37,7 +39,7 @@ Codex 内核永远只连本地 BlackRain Gateway；第三方 provider、API key�
 
 ## Codex 配置形状
 
-App 写入专属 `CODEX_HOME/config.toml` 时固定为 BlackRain Gateway：
+当前 Tauri 实现写入专属 `CODEX_HOME/config.toml` 时固定为 BlackRain Gateway；迁移后同一配置形状必须适配标准 Codex Home，且不能覆盖 CLI 不相关配置：
 
 ```toml
 model = "deepseek-v4-flash"
@@ -154,8 +156,8 @@ M1 可以先由 App 直接读写配置并重启 Gateway；不强制第一版做�
   - Gateway Responses⇄Chat 关键映射。
 - 集成测试：
   - App 启动 Gateway，并确认 `/v1/models` 返回 registry。
-  - Codex app-server 使用专属 `CODEX_HOME` 走 Gateway。
-  - Windows MVP 在真实 NSIS 安装环境中使用随包运行时启动 sidecar，并完成 Credential Manager、端口、日志、进程回收 smoke（尚未完成，细项关联 007）。
+  - 当前 Tauri app-server 使用专属 `CODEX_HOME` 走 Gateway；目标 Electron 改用标准 Codex Home。
+  - 当前 Tauri NSIS 只保留历史验证；目标 Electron 在真实 MSIX 安装环境中启动 sidecar，并完成 Credential Manager、端口、日志和进程回收 smoke（尚未完成，细项关联 012）。
 - 协议探针：
   - `m0_protocol_probe.py` 验证 initialize / model list / thread start / turn start。
   - `m0_tool_driver.py` 验证真实工具调用。

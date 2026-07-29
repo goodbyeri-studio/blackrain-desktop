@@ -2,6 +2,8 @@
 
 > 记录每批接入的实测命令与结果。下文最新完整能力基线是 `cfead68`;当前锁定 rust-v0.144.5 / `87db9bc` 只完成源码差异与协议方法集合静态审计,尚未构建,全量 capability 重验和 Windows GUI 冒烟仍未跑。「shape 被接受」不代表方法无认证/stub/平台门控。
 
+> 2026-07-29：全部 5 层/daemon 结果仅证明当前 Tauri 迁移输入。Electron main 直连 app-server 的协议、IPC 和 Windows E2E 必须重新记录，不能继承这些结果。
+
 ## 验证命令
 
 ```bash

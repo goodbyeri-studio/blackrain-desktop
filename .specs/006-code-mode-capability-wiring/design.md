@@ -2,11 +2,13 @@
 
 > **状态(2026-07-26)**:本设计的 42 个方法包装已有 `cfead68` 历史验证;当前锁定 rust-v0.144.5 / `87db9bc` 只完成源码差异与协议方法集合静态审计,尚未构建,全量重验和 Windows GUI 冒烟未完成。方法包装存在不会解除上游门控。
 
+> **迁移边界（2026-07-29）**：本设计保留为当前 Tauri wiring 说明。Electron 目标不照搬 5 层 App/daemon adapter，而由 main 的 App Server client 直接发 ClientRequest、接收 ServerRequest/Notification；具体目录、测试和删除任务见 spec 012。
+
 ## 总体方案
 
 把 codex-rs 内核「可用」的 ClientRequest 能力,按既有 5 层接线 pattern 接进 BlackRain 壳并暴露给前端。不改内核、不改协议方法名(原装黑盒铁律)。逐簇接入、每簇 `cargo check` + `npm run typecheck` 验证。
 
-## 5 层接线 pattern(以 `archive_thread` 为范例,照搬)
+## 当前 Tauri 5 层接线 pattern(以 `archive_thread` 为范例)
 
 每个新方法走这 5 个落点:
 

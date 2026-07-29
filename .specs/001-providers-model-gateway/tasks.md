@@ -1,5 +1,7 @@
 # Tasks
 
+> **迁移状态（2026-07-29）**：已勾选的专属 `CODEX_HOME`、Tauri/daemon 和 NSIS 项只证明当前实现。Electron 目标需要按 spec 012 重新接入标准 Codex Home、main-owned App Server client 与 MSIX，不能继承这些完成度。
+
 ## 阶段 0：确认边界
 
 - [x] 创建本 spec，固化 M1 模型网关方向。
@@ -75,5 +77,6 @@
 - [x] 跑真实 DeepSeek 工具调用。
 - [x] 跑无签名 macOS app/dmg 打包、dmg 挂载资源检查和短启动 smoke。（历史证据）
 - [ ] 跑 Windows 发布级 smoke；当前 Tauri 基线记入 007，Electron 发布矩阵记入 012。工作台 surface/011 已暂停。
+- [ ] 按 spec 012 迁移 Gateway 生命周期与配置接入：移除专属 `CODEX_HOME` 假设，验证 CLI/App 配置兼容，并在 MSIX 中完成 sidecar、凭据、签名和进程回收 smoke。
 - [x] 在 `verification.md` 记录每次真实验证结果。
 - [x] 更新 `README.md` / `docs/commands.md` / `gateway/README.md` 中受影响的命令和状态。

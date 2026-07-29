@@ -75,7 +75,7 @@ macOS / Linux 可用于共享代码的快速迭代，但必须明确证据边界
 
 ### 路径分隔符和用户目录
 
-不要拼 `/Users/...`、`~/.config/...` 或 `C:\...` 作为业务路径。当前前端通过 Tauri path API，目标 Electron 通过类型化 preload 请求 Rust daemon；Rust 使用 `Path` / `PathBuf`。测试至少覆盖空格和非 ASCII 路径。
+不要拼 `/Users/...`、`~/.config/...` 或 `C:\...` 作为业务路径。当前前端通过 Tauri path API；目标 Electron renderer 通过类型化 preload 请求 main，main 使用 Node/Electron path API 并向 app-server 传递规范化 cwd。测试至少覆盖空格和非 ASCII 路径。
 
 ### 命令与可执行文件名
 
