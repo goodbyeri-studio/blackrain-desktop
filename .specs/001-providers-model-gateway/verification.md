@@ -1,12 +1,13 @@
 # Verification
 
-> 状态校准（2026-07-12）：下表真实结果主要发生在 2026-06-24～25。macOS Keychain/app/dmg 项是历史工程证据，不是当前 Windows-only MVP 的发布证据；`gateway.py` 仍是可替换原型。工具调用只在显式 `STRIP_TOOLS=0` 的探针/开发路径通过，当前 App 托管 spawn 未覆盖默认值 `1`，普通产品启动路径会剥除工具。Windows Credential Manager、NSIS 包内 sidecar 和正式签名/运行矩阵尚未在本 spec 跑通，关联 007。
+> 状态校准（2026-07-29）：下表真实结果主要发生在 2026-06-24～25，只证明当前 Tauri、专属 `CODEX_HOME` 和历史打包路径。目标 Electron 的标准 Codex Home 兼容、main-owned App Server client、MSIX 包内 Gateway、Credential Manager、签名和进程回收均尚未验证，统一关联 012。`gateway.py` 仍是可替换原型；工具调用只在显式 `STRIP_TOOLS=0` 的探针/开发路径通过。
 
 ## 验证矩阵
 
 | 日期 | 范围 | 命令/方式 | 结果 | 备注 |
 |---|---|---|---|---|
 | 2026-06-24 | spec 创建 | 文档落地 | 通过 | 尚未改实现代码 |
+| 2026-07-29 | Codex Desktop 架构调研对齐 | 静态文档审阅 | 已记录 | 专属 Home/Tauri NSIS 结果降为迁移输入；不代表 Electron 已实现 |
 | 2026-06-24 | Gateway Python 语法 | `python3 -m py_compile gateway/gateway.py` | 通过 | registry 改造后执行 |
 | 2026-06-24 | Gateway `/v1/models` smoke | `DEEPSEEK_API_KEY=dummy GW_PORT=8898 python3 gateway/gateway.py` + `curl -s http://127.0.0.1:8898/v1/models` | 通过 | 返回 DeepSeek 模型和 provider 元数据；未调用真实模型 |
 | 2026-06-24 | Gateway `/v1/models` smoke | `GW_PORT=8898 DEEPSEEK_API_KEY=sk-test-secret-123456789 GW_LOG=/tmp/blackrain-gateway-smoke.log python3 gateway/gateway.py` + `curl -s http://127.0.0.1:8898/v1/models` | 通过 | 返回 DeepSeek 模型和 provider 元数据；未调用真实模型 |

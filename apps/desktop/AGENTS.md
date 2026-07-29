@@ -9,25 +9,26 @@ BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent �
 目标宿主边界：
 
 ```text
-Electron main       窗口、Browser、权限、更新、daemon supervisor
+Electron main       App Server client、窗口、Browser、权限、更新
 Electron preload    类型化最小 IPC
 React renderer      产品 UI 和前端状态
-Rust daemon         shared core、app-server、CODEX_HOME、Gateway
-codex-rs            唯一 agent loop
+codex app-server    main 直接监管的机器入口；下接唯一 codex-core agent loop、工具、策略和 ThreadStore
+Model Gateway       可选协议翻译 sidecar
 ```
 
 ## 不可违反的架构规则
 
 1. 不修改、分叉或重写 `codex-rs` agent loop。
 2. 不引入任何第二 agent runtime。
-3. Rust 跨宿主领域逻辑先落 `src-tauri/src/shared/*` 或迁移后的 daemon/shared 模块。
-4. App/daemon 只做薄适配，不重复实现同一领域逻辑。
-5. renderer 不接触 Node.js、原始 IPC、secret、daemon token 或任意文件系统。
-6. Browser 网页不加载 BlackRain preload；所有导航、权限、下载、弹窗和 CDP 由宿主集中控制。
-7. App 使用应用数据目录内专属 `CODEX_HOME`，不修改用户 `~/.codex`。
+3. `src-tauri/src/shared/*` 与 daemon 是当前 Tauri 迁移输入；新增目标态能力按所有权进入 Electron main/preload/renderer 或原装 app-server，不再扩建永久 daemon。
+4. 当前 Tauri App/daemon adapter 只作迁移输入；目标 Electron main 不重复实现 app-server 的 agent、工具、审批或持久化逻辑。
+5. renderer 不接触 Node.js、原始 IPC、secret、App Server transport 或任意文件系统。
+6. Browser 网页不加载 App preload；spec 013 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用 page preload。所有导航、权限、下载、弹窗和 CDP 由宿主集中控制。
+7. 目标 App 沿用 Codex 标准 Home 并与 CLI 共享配置、能力和可恢复 thread；Electron/Chromium user-data 独立。
 8. Gateway 只做模型协议翻译，不持有 thread、Browser 或 UI 状态。
 9. Tauri -> Electron 迁移期兼容层必须带删除任务，不建立永久双宿主。
 10. Browser 采用 main-owned `WebContentsView`、统一 registry、view retention/reparenting 和持久 profile；React 只控制侧边栏布局，不得另起 Playwright/headless agent browser。
+11. Browser 工具按 Codex session/turn 绑定到唯一 main backend；dynamic tools 只作 bootstrap，生产 Browser client/transport 必须鉴权、有界并带删除临时 adapter 的闸口。
 
 ## 当前 Tauri 代码路由
 
@@ -69,7 +70,7 @@ codex-rs            唯一 agent loop
 
 - 前端：`npm run typecheck`、按改动范围运行 `npm run test`、`npm run lint`、`npm run lint:ds`。
 - 当前 Rust：在 `src-tauri` 运行 `cargo check` 和目标测试。
-- Electron：建立后补 main/preload 单测、Playwright Electron E2E、daemon 集成、Windows 安装/升级/卸载/恢复矩阵。
+- Electron：建立后补 main/preload 单测、App Server stdio 集成、Playwright Electron E2E、Windows MSIX 安装/升级/卸载/恢复矩阵。
 - Browser、真实对话、权限和 Windows 制品必须实机验收；macOS smoke 不能替代。
 
 ## 安全与 Git

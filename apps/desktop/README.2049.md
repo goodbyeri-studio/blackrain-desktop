@@ -8,27 +8,27 @@
 |---|---|---|
 | 宿主 | Tauri | Electron main/preload |
 | UI | React/Vite | 复用到 Electron renderer |
-| 后端 | Tauri Rust App + daemon | Rust daemon/shared core |
+| 后端 | Tauri Rust App + daemon | Electron main App Server client |
 | 内核 | 原装 codex app-server | 原装 codex app-server |
 | Browser | 尚无产品级 in-app browser | 隔离 WebContentsView/session |
 
 ## 保留的 BlackRain 资产
 
 - CODE surface、项目/thread 状态和现有设计系统
-- Rust shared core、daemon JSON-RPC 与 app-server 接缝
-- 专属 `CODEX_HOME` 与模型 Gateway 原型
+- Rust shared core、daemon JSON-RPC 与 app-server 接缝（迁移输入）
+- 当前自定义 `CODEX_HOME` 与模型 Gateway 原型
 - 已有文件、Git、终端、审批和事件合同
 
-这些资产不是 Electron 已完成的证据。迁移期间优先把跨宿主领域逻辑收敛到 Rust daemon/shared core，不把业务逻辑重写进 Electron main。
+这些资产不是 Electron 已完成的证据。目标态按 Codex App 架构由 Electron main 直接驱动原装 app-server；当前 daemon/shared core 逐项分类迁移并最终删除。
 
 ## Electron 目标职责
 
-- main：窗口、Browser、权限、下载、弹窗、更新和 daemon 生命周期
+- main：App Server client、窗口、Browser、权限、下载、弹窗和更新
 - preload：最小类型化 allowlist
 - renderer：React 产品界面和 Browser chrome
 - Browser：独立 partition、CDP、截图、下载、用户接管和恢复
 
-网页不加载 BlackRain preload，不获得 daemon token 或非必要系统权限。不得引入任何第二 agent 内核。
+网页不加载 BlackRain preload，不获得 App Server transport 或非必要系统权限。不得引入任何第二 agent 内核。
 
 ## 上游与 License
 

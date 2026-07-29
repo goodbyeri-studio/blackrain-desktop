@@ -1,11 +1,13 @@
 # Requirements
 
+> **Electron 迁移修正（2026-07-29）**：本 spec 中 App data 专属 `CODEX_HOME`、Tauri App/daemon 写配置和 NSIS sidecar 的表述只描述当前迁移输入及历史证据。目标 Electron 沿用标准 Codex Home 并与 CLI 共享配置和 thread；main 直接连接原装 app-server，Windows 制品改由 spec 012 的 Forge/MSIX 路线验收。
+
 ## 背景
 
 - BlackRain 的模型层不能写死 DeepSeek，也不能变成某一家模型的客户端。
 - Codex 内核保持原装，只发 Responses 协议；大量第三方/国产模型仍以 Chat Completions 或 OpenAI-compatible API 为主。
 - 现有 `gateway/gateway.py` 已证明 DeepSeek 经 Responses⇄Chat 翻译可以驱动 Codex 内核，但它仍是最小原型，不是产品级模型网关；后续被 App 托管、打包和 smoke 通过也不改变这一定位。
-- 本 spec 覆盖 Providers / 模型网关设置页、专属 `CODEX_HOME` 写入、Gateway sidecar 和会话模型选择器。Gateway 服务所有 codex 模型会话；当前端到端证据主要来自 CODE surface，工作台 surface 的消费接缝归 spec 011。
+- 本 spec 覆盖 Providers / 模型网关设置页、Codex 标准配置中的 Gateway provider 接入、Gateway sidecar 和会话模型选择器。当前专属 `CODEX_HOME` 写入只属于 Tauri 实现，必须按 spec 012 迁移。Gateway 服务所有 codex 模型会话；当前端到端证据主要来自 CODE surface，工作台 surface 的消费接缝归 spec 011。
 
 ## 用户目标
 
@@ -20,12 +22,12 @@
 - M1 不做完整智能自动路由；只保留任务路由所需的模型能力元数据。
 - M1 不做计费、企业审计、团队共享 provider、云端同步。
 - M1 不做所有模型厂商的深度适配；先支持 DeepSeek + 自定义 OpenAI-compatible provider，后续按 provider 增量补。
-- 不把用户第三方 API key 写入仓库、PR、日志或用户原有 `~/.codex`。
+- 不把用户第三方 API key 写入仓库、PR、日志或 Codex Home 的明文配置。
 
 ## 成功标准
 
 - Codex 内核侧只看到一个固定 provider：`blackrain_gateway`。
-- App 是唯一写 `CODEX_HOME/config.toml` 的人，且使用专属 `CODEX_HOME`，不污染用户机器原有 `~/.codex`。
+- 目标 Electron 不创建 BlackRain 专属 `CODEX_HOME`；Gateway provider/model 配置遵守标准 Codex Home schema，并保持 CLI/App 可兼容读取。
 - 第三方 provider 配置由 BlackRain App 管理，Gateway 读取 App 管理的配置或通过 App 注入配置。
 - Gateway 对 Codex 暴露 `/v1/responses` 和 `/v1/models`，能根据请求里的 `model` 解析到真实第三方 provider。
 - 设置页能完成 provider 的新增、编辑、启用/禁用、测试连接、模型列表刷新。
@@ -39,8 +41,8 @@
 - Gateway 默认只监听本机回环地址，不暴露到局域网或公网。
 - API key 存储要走本地安全存储优先；开发态允许 `.env` fallback，但产品态不要求用户手动写 `.env`。
 - Provider 配置和模型 registry 属于 BlackRain App/Gateway，不属于 Codex 内核配置。
-- `apps/desktop/**` 改动必须遵守双运行时规则：共享领域逻辑先落 `src-tauri/src/shared/*`，App 与 Daemon 只做薄适配。
-- 当前 MVP 仅发行 Windows。本文 2026-06-24 的 macOS Keychain/app/dmg 结果只作为历史工程证据；Windows Credential Manager、NSIS 包内 sidecar 运行和签名属于发布前必补证据，统一关联 007 Windows spec。
+- `apps/desktop/**` 当前 Tauri 代码只作迁移输入；目标 Electron 的 Gateway 生命周期归 main，模型协议翻译继续留在独立 sidecar，不保留永久 BlackRain daemon。
+- 当前 MVP 仅发行 Windows。本文 2026-06-24 的 macOS Keychain/app/dmg 与 Tauri NSIS 结果只作为历史工程证据；Electron MSIX 内 sidecar、Credential Manager、签名和进程回收统一关联 spec 012。
 - 产品态工具调用必须由 App 托管 sidecar 显式启用。当前 `gateway.py` 默认 `STRIP_TOOLS=1`，App spawn 又未覆盖；修复前只能声称 `STRIP_TOOLS=0` 的开发/探针链路已验证，不能声称普通 App 启动后工具可用。
 
 ## 开放问题

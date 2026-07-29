@@ -17,8 +17,9 @@
 - Electron 迁移以 `.specs/012-electron-shell-migration/` 为准。
 - 能力补齐与 Browser 以 `.specs/013-codex-app-capability-parity/` 为准。
 - 当前代码仍是 Tauri；目标 Electron 拓扑不得冒充已实现状态。
-- 保留 React 与 Rust daemon/shared core；不把领域逻辑重写进 renderer 或 Electron main。
-- Browser 网页不得获得 App preload、daemon token 或任意系统权限。
+- 保留 React UI；目标 Electron main 按 Codex App 架构直接启动并驱动原装 `codex app-server`，当前 Rust daemon/shared core 只作迁移输入并最终删除。
+- 沿用 Codex 标准 Home 与 CLI 共享配置和 thread，不建立 BlackRain 专属 `CODEX_HOME`。
+- Browser 网页不得获得 App preload、App Server transport 或任意系统权限。
 - 不复制 OpenAI 闭源代码与专有资源。
 - 修改 `apps/desktop/**` 前阅读 `apps/desktop/AGENTS.md`。
 

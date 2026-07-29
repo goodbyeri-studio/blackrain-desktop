@@ -32,7 +32,7 @@
 |---|---|
 | [01 产品愿景](01-产品愿景.md) | 为什么以 `codex-rs` 复现完整 Codex 桌面产品 |
 | [02 市场与竞品](02-市场与竞品.md) | Codex App 标杆、开源内核与桌面壳竞争位置 |
-| [03 系统架构](03-系统架构.md) | Electron、Rust daemon、codex、Browser 和 Gateway 分层 |
+| [03 系统架构](03-系统架构.md) | Electron main/preload/renderer、codex app-server、Browser 和 Gateway 分层 |
 | [04 产品形态](04-产品形态.md) | **唯一产品形态真源**：Codex-first 桌面 App、P0/P1/暂停范围 |
 | [05 模型路由](05-模型路由.md) | 原装 codex 模型链路与可选 Gateway 边界 |
 | [06 暂缓路线](06-市场与创作者经济.md) | 工作台、专家市场和 OPC 的暂停边界 |
