@@ -212,9 +212,15 @@ npx vitest run electron/main/app-server/real-app-server-probe.test.ts
 
 ## GitHub Actions 与 self-hosted Windows
 
-CI 按路径分流四条检查：`js-checks` 在 `ubuntu-latest` 执行前端和边界检查，`windows-electron-artifacts` 在 `windows-latest` 执行 package、packaged smoke、Playwright Electron E2E 和 unsigned MSIX make，`gateway-checks` 在 `ubuntu-latest` 执行 Python unittest，`windows-rust-checks` 在 Windows 编译全部 Rust test targets 并执行专项检查。
+CI 按路径分流四条检查：`js-checks` 和 `gateway-checks` 优先使用 `LINUX_RUNNER` 指向的受信 Linux self-hosted runner，未配置时回退 `ubuntu-latest`；`windows-electron-artifacts` 在 `windows-latest` 执行 package、packaged smoke、Playwright Electron E2E 和 unsigned MSIX make；`windows-rust-checks` 在 Windows 编译全部 Rust test targets 并执行专项检查。
 
-只有 `windows-rust-checks` 会读取 `WINDOWS_RUNNER`；未配置时回退到 `windows-latest`。Windows 开发机稳定在线后，可在仓库 `Settings -> Actions -> Runners -> New self-hosted runner` 注册 runner，并添加唯一自定义 label `blackrain-windows`；随后执行：
+`changes`、`js-checks` 和 `gateway-checks` 读取 `LINUX_RUNNER`；当前共享 CI 主机的 BlackRain 独立 runner label 为 `blackrain-linux`。配置或恢复 Linux 路由：
+
+```powershell
+gh variable set LINUX_RUNNER --body blackrain-linux
+```
+
+`windows-rust-checks` 读取 `WINDOWS_RUNNER`；未配置时回退到 `windows-latest`。Windows 开发机稳定在线后，可在仓库 `Settings -> Actions -> Runners -> New self-hosted runner` 注册 runner，并添加唯一自定义 label `blackrain-windows`；随后执行：
 
 ```bash
 gh variable set WINDOWS_RUNNER --body blackrain-windows
@@ -226,7 +232,7 @@ gh variable set WINDOWS_RUNNER --body blackrain-windows
 gh variable delete WINDOWS_RUNNER
 ```
 
-self-hosted runner 只接受本仓库内的可信分支 PR；workflow 会跳过 fork PR 的 Windows job。runner 应使用非管理员专用服务账号，只开放构建目录，不复用日常登录账号，不保存 Supabase `service_role`、模型平台密钥、代码签名私钥或 EV USB token。开发机离线时，先删除 `WINDOWS_RUNNER`，否则 job 会排队等待而不会自动换回 hosted runner。
+self-hosted runner 只接受本仓库内的可信分支 PR；`changes` 会在 fork PR 跳过，从入口阻止 Linux/Windows self-hosted job 执行。runner 应使用非管理员专用服务账号和独立 runner/work 目录，不保存 Supabase `service_role`、模型平台密钥、代码签名私钥或 EV USB token。对应主机离线时，先删除 `LINUX_RUNNER` 或 `WINDOWS_RUNNER`，否则 job 会排队等待而不会自动换回 hosted runner。
 
 ## Windows 本机发布
 

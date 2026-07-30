@@ -23,7 +23,8 @@ concurrency:
 jobs:
   changes:
     name: Detect relevant changes
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
     outputs:
       gateway: ${{ steps.filter.outputs.gateway }}
       js: ${{ steps.filter.outputs.js }}
@@ -72,10 +73,10 @@ jobs:
           echo "gateway=$gateway" >> "$GITHUB_OUTPUT"
 
   js-checks:
-    name: JS checks (Ubuntu)
+    name: JS checks (Linux)
     needs: changes
     if: needs.changes.outputs.js == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: apps/desktop
@@ -126,7 +127,7 @@ jobs:
     name: Gateway checks
     needs: changes
     if: needs.changes.outputs.gateway == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6

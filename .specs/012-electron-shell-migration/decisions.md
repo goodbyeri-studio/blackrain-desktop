@@ -105,3 +105,9 @@
 - 目录：生成态 runtime 进入 `apps/desktop/resources/codex/windows-x64/`，与 Tauri `src-tauri/resources` 分离并保持 gitignored；Forge 只复制 Electron 资源目录。
 - 完整性：仓库提交 release URL、archive SHA-256、完整 commit、License/NOTICE 摘要、必需文件逐项 SHA-256，以及 Codex 自有 `.exe` 的签名 subject/thumbprint；vendor 必须按锁校验 `codex-package.json`、每个文件摘要和实际 Authenticode，再生成仅作审计记录的 `runtime-manifest.json`。发布校验直接以 tracked lock 为可信根，不信任可与二进制同步修改的生成态 manifest；第三方 `rg.exe` 只按锁定 package 与文件摘要校验，不假定 OpenAI 签名。
 - 发布闸口：普通 `electron:make` 继续服务无大体积 runtime 的 unsigned foundation CI；`electron:make:release` 必须先执行 runtime 完整性校验并 fail closed。两者都不等于 MSIX 签名或安装验收。
+
+## 2026-07-31：Linux self-hosted CI 路由
+
+- `changes`、`js-checks` 和 `gateway-checks` 可由仓库变量 `LINUX_RUNNER` 路由到专属 label；未配置时回退 `ubuntu-latest`。
+- self-hosted 入口拒绝 fork PR，只接受当前私有仓库内的受信分支；BlackRain runner 使用独立注册、安装目录和 work 目录，不复用其他仓库 runner 状态。
+- Linux runner 不替代 `windows-electron-artifacts` 或 `windows-rust-checks`。Electron/MSIX、Windows Rust 和实机制品验收仍必须在 Windows runner/机器完成。
