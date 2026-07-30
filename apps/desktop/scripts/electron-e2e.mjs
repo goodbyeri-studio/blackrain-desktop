@@ -141,7 +141,7 @@ try {
   await window
     .getByRole("button", { name: "收起浏览器" })
     .evaluate((element) => element.click());
-  await browserEntry.waitFor({ state: "visible" });
+  await browserEntry.waitFor({ state: "attached" });
 
   const hostContract = await window.evaluate(async (fixtureUrl) => {
     const bootstrap = await globalThis.blackrain.app.getBootstrap();
