@@ -113,6 +113,8 @@ jobs:
       - run: npm ci
       - run: npm run electron:package
       - run: npm --ignore-scripts run electron:smoke
+      - name: Restore Electron runtime for Playwright
+        run: npm rebuild electron
       - run: npm --ignore-scripts run electron:e2e
         env:
           DEBUG: pw:browser*

@@ -25,7 +25,7 @@
 | 2026-07-30 | App Server 异常 spawn 生命周期 | 3 个 process supervisor Vitest + 全量 Vitest + Electron typecheck | PASS | `error`/`exit`/`close` 幂等结算；不存在的 executable 会拒绝 start，后续 stop 可完成且 onExit 只调用一次；bundled `codex.exe` 与 Windows 进程树仍未验收 |
 | 2026-07-30 | Gateway 本地边界与并发 | 8 个 Python unittest + Rust 源码审阅 + `rustfmt --check` | 部分通过 | 固定 bearer 已改为每进程随机 capability；JWT 使用同目录原子替换；长请求不阻塞 health；健康失败清理 child。Rust 编译仍被本机缺少 MSVC `link.exe` 阻塞 |
 | 2026-07-30 | Electron unsigned MSIX 与生产源码边界 | `npm run electron:make` + packaged smoke + Playwright Electron E2E + ASAR 条目检查 | PASS | Windows x64 生成 `codex-monitor.msix`（152,833,198 bytes）；manifest 指向 `BlackRain.exe`；ASAR 含 main/preload bundle但不含对应 `.map`。未签名、未安装，且 codex 资源目录仍无锁定二进制 |
-| 2026-07-30 | CI 门禁与 `windows-latest` 实跑 | GitHub Actions runs `30525783917` / `30528857360` + 本地隔离回归 | 部分通过 | Windows Rust、JS、Gateway 已获 PASS；Electron package/smoke PASS，Playwright E2E 因 app entry 被拼成 `desktop\\.` 而启动失败并跳过 MSIX make。已改为规范化绝对 entry、等待进程退出并使用独立测试 app-data，本地连续 smoke/E2E PASS，待远端复验 |
+| 2026-07-30 | CI 门禁与 `windows-latest` 实跑 | GitHub Actions runs `30525783917` / `30528857360` / `30529234179` + 本地隔离回归 | 部分通过 | Windows Rust、JS、Gateway 已获 PASS；Electron package/smoke PASS，但 runner 的 npm 安装未留下 `node_modules/electron/dist/electron.exe`，开发态 Playwright E2E 无 runtime 并跳过 MSIX make。已在 E2E 前按锁文件执行 `npm rebuild electron`，并保留规范化 entry、进程退出等待和独立测试 app-data，待远端复验 |
 | 待执行 | bundled codex app-server 接线 | 锁定 `codex.exe` Node 集成测试 | 未跑 | bundled 路径/制品、真实 initialize、subscription、退出与 Windows 子进程树 |
 | 待执行 | Agent Data / ThreadStore | bundled codex + CLI 兼容模式 | 未跑 | 标准共享 Home、自定义绝对 Home、首次登录与恢复 |
 | 待执行 | Windows helper 与沙箱 | 进程树 + restricted/elevated 工具执行 | 未跑 | code-mode host/command runner/ConPTY |

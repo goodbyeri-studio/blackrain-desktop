@@ -110,10 +110,17 @@ function delay(milliseconds) {
 }
 
 async function waitForExit(exitPromise, timeout) {
-  return Promise.race([
-    exitPromise,
-    delay(timeout).then(() => undefined),
-  ]);
+  let timeoutId;
+  try {
+    return await Promise.race([
+      exitPromise,
+      new Promise((resolve) => {
+        timeoutId = setTimeout(() => resolve(undefined), timeout);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function stopChild(runningChild, exitPromise) {
