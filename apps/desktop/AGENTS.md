@@ -1,10 +1,10 @@
 # BlackRain Desktop Agent Guide
 
-> **状态（2026-07-26）**：当前代码仍是 CodexMonitor 衍生的 Tauri + React + Rust 实现。产品目标是迁移到 Electron；迁移合同以仓库根 `.specs/012-electron-shell-migration/` 为准，Codex App 能力与 Browser 以 `.specs/013-codex-app-capability-parity/` 为准。
+> **状态（2026-07-30）**：当前产品流程仍是 CodexMonitor 衍生的 Tauri + React + Rust 实现；迁移中的 Electron/Browser foundation 与 unsigned MSIX make 已通过 Windows CI，但尚未接入真实 bundled codex 或替代 Tauri 主流程。迁移合同以仓库根 `.specs/012-electron-shell-migration/` 为准，Codex App 能力与 Browser 以 `.specs/013-codex-app-capability-parity/` 为准。
 
 ## 项目快照
 
-BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前产品流程仍运行于 React/Vite + Tauri/Rust；`electron/` 已建立 M1 安全空壳、M2 stdio/JSONL transport，以及 M3 首个 main-owned `WebContentsView` host/UI foundation，但尚未接入 bundled codex、真实 app-server thread 或 Agent 工具闭环。不得把 fixture、基础 UI 或 E2E host foundation 通过写成 Electron 客户端已经可用。
+BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前产品流程仍运行于 React/Vite + Tauri/Rust；`electron/` 已建立 M1 安全空壳、M2 stdio/JSONL transport，以及 M3 中首个 main-owned `WebContentsView` host/UI/受限 CDP foundation，但尚未接入 bundled codex、真实 app-server thread 或真实模型 Agent 工具闭环。不得把 fixture、基础 UI 或合成 E2E foundation 通过写成 Electron 客户端已经可用。
 
 目标宿主边界：
 
@@ -72,7 +72,7 @@ Model Gateway       可选协议翻译 sidecar
 
 - 前端：`npm run typecheck`、按改动范围运行 `npm run test`、`npm run lint`、`npm run lint:ds`；renderer 宿主依赖、Tauri command 或 Electron 迁移改动额外运行 `npm run check:host-boundary`。
 - 当前 Rust：在 `src-tauri` 运行 `cargo check` 和目标测试。
-- Electron：当前运行 `npm run electron:typecheck`、目标单测、`npm run electron:smoke` 和 `npm run electron:e2e`；App Server 改动额外运行 `npm run test -- --run electron/main/app-server`，并继续补 bundled codex 集成与 Windows MSIX 安装/升级/卸载/恢复矩阵。
+- Electron：当前运行 `npm run electron:typecheck`、目标单测、`npm run electron:smoke`、`npm run electron:e2e` 和 `npm run electron:make`；App Server 改动额外运行 `npm run test -- --run electron/main/app-server`，并继续补 bundled codex 集成与 Windows MSIX 签名/安装/升级/卸载/恢复矩阵。
 - Browser、真实对话、权限和 Windows 制品必须实机验收；macOS smoke 不能替代。
 
 ## 安全与 Git

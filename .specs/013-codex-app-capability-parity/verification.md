@@ -1,6 +1,6 @@
 # Codex App 能力补齐验证
 
-> 当前完成研究复核、目标控制面、首个 Electron Browser host/UI foundation、受限 CDP bootstrap 和 Windows 本地页面 E2E。真实 app-server thread 的 UI→同一页面闭环、完整 locator/OOPIF/CUA、登录/下载/恢复和发布矩阵仍未完成。
+> 当前完成研究复核、目标控制面、首个 Electron Browser host/UI foundation、受限 CDP bootstrap，以及 Windows 本地和 CI 页面 E2E。真实 app-server thread 的 UI→同一页面闭环、完整 locator/OOPIF/CUA、登录/授权下载/恢复和发布矩阵仍未完成。
 
 ## 验证矩阵
 
@@ -18,6 +18,7 @@
 | 2026-07-30 | 受限 CDP Browser tools | controller/adapter 单测 + Electron typecheck + 本机 codex schema 探针 | 部分通过 | 顶层 AX snapshot（500 节点/64 KiB）、30 秒 ref、turn/tab/view/document/URL 绑定、click、type_text、输入触发导航、5 MiB viewport PNG、取消和 debugger teardown 通过 fake transport；iframe/OOPIF、locator/actionability、input-target token 和真实模型共页未跑 |
 | 2026-07-30 | dynamic tool 同一可见页面 E2E | Playwright Electron + main-only 合成 `item/tool/call` | PASS | 开发态显式 E2E harness 穿过真实 adapter/registry/CDP controller；AX ref 输入、点击后 DOM 结果、viewport PNG 和前后相同 `webContents.id` 已验证；harness 不进入 renderer 且 packaged 强制禁用，仍不代表真实 app-server/model tool call 已通过 |
 | 2026-07-30 | Browser owner 容量边界 | 4 个 BrowserRegistry 单测 + 全量 Vitest + packaged Electron E2E | PASS | main 在创建 page WebContents 前拒绝同 owner 第 65 个 tab；其他 owner 独立计数；尚未锁定 live/suspended page 工作集预算 |
+| 2026-07-30 | Windows CI Browser foundation 回归 | GitHub Actions run `30531502333` / `windows-latest` | PASS | production package、packaged smoke、显式 Electron runtime、Playwright host/UI/同页 dynamic-tool/受限 CDP E2E 与 unsigned MSIX make 通过；CI 使用 DOM 挂载断言且不做虚拟桌面截图，不替代真实站点、签名或安装矩阵 |
 | 待执行 | 能力矩阵 | 上游协议 + 公开产品行为盘点 | 未跑 | 需要版本化证据 |
 | 待执行 | Browser UI 真实 thread 闭环 | Playwright Electron + bundled app-server | 未跑 | 基础 UI 已通过单测和壳层 E2E；仍需真实 thread 选择、页面交互、切换恢复和 Agent 共页验证 |
 | 待执行 | Agent 浏览闭环 | 真实 Codex thread E2E | 未跑 | bootstrap 工具合同已有 list/goto/navigation/top-level snapshot/click/type_text/viewport screenshot；完整 locator/CUA/OOPIF 和真实共页待完成 |

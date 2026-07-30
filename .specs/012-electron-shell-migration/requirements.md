@@ -1,6 +1,6 @@
 # Electron 桌面壳迁移需求
 
-> **状态（2026-07-29）**：P0，已按 Codex Desktop App 进程、协议和持久化调研重新设计；M0 迁移盘点、M1 Electron 安全空壳和 M2 App Server transport fixture 已实现，当前产品流程仍运行于 CodexMonitor 衍生的 Tauri 壳。目标架构和 fixture 通过不等于 Electron 客户端已经可用。
+> **状态（2026-07-30）**：P0，已按 Codex Desktop App 进程、协议和持久化调研重新设计；M0 迁移盘点、M1 Electron 安全空壳、M2 App Server transport fixture、M3 中的 Browser host/UI/受限 CDP foundation，以及 unsigned MSIX CI 已实现。当前产品流程仍运行于 CodexMonitor 衍生的 Tauri 壳；foundation 和 CI 通过不等于 Electron 客户端已经可用。
 
 ## 背景
 

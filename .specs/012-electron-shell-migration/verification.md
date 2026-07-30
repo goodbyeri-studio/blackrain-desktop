@@ -30,24 +30,24 @@
 | 待执行 | Agent Data / ThreadStore | bundled codex + CLI 兼容模式 | 未跑 | 标准共享 Home、自定义绝对 Home、首次登录与恢复 |
 | 待执行 | Windows helper 与沙箱 | 进程树 + restricted/elevated 工具执行 | 未跑 | code-mode host/command runner/ConPTY |
 | 待执行 | Codex thread 纵向切片 | 真实 app-server 对话 | 未跑 | 必须覆盖恢复与审批 |
-| 待执行 | in-app browser | spec 013 矩阵 | 未跑 | P0 闸口 |
+| 待执行 | in-app browser 完整发布矩阵 | spec 013 未完成项 | 未跑 | host/UI/受限 CDP foundation 已通过；真实 Agent 共页、登录/接管/恢复和产品化 transport 仍是 P0 闸口 |
 | 待执行 | Browser client/runtime 制品 | pipe 集成 + MSIX 解包/启动 | 未跑 | session/turn、framing、ACL/token、hash、License、清理 |
 | 待执行 | Windows 制品 | 安装/升级/回滚/卸载 | 未跑 | 发布闸口 |
 
 ## 未验证风险
 
-- Electron Forge/MSIX 已通过本地 unsigned make；签名、安装、自动更新源和回滚尚未验证。
+- Electron Forge/MSIX 已通过本地和 `windows-latest` unsigned make；签名、安装、自动更新源和回滚尚未验证，CI 也未上传或发布该临时制品。
 - Forge `start` 在当前 Node 24 开发环境未完成 main 入口 smoke；锁定目标为 Node 22。当前证据来自 Windows packaged Electron smoke 与开发 Electron 驱动 production bundles 的 Playwright E2E，仍不等于 MSIX 安装验收。
 - Forge/MSIX/ESLint dev toolchain 的 npm audit 高危/严重传递依赖尚未清零，不能据当前 package 结果宣称发布供应链通过。
 - Tauri surface 已建立模块级 owner 和自动覆盖，但 codex command 尚未完成逐命令 app-server 映射/删除判定，74 个 renderer 直接依赖尚未迁走。
 - Electron main 的 App Server transport 与 supervisor 已通过 fixture；bundled `codex.exe` 直接 spawn、锁定协议、Windows 子进程树退出和恢复仍未验证。
-- 默认 Agent Data 与 Electron/Browser 数据目录已在路径和 supervisor 单测中通过；真实 bundled codex 的首次登录、ThreadStore 恢复、备份和卸载仍未验证。
+- 标准 Codex Home 继承合同与 Electron/Browser 宿主数据目录已在路径和 supervisor 单测中通过；真实 bundled codex 的首次登录、ThreadStore 恢复、备份和卸载仍未验证。
 - 共享 CLI Home 模式下的并发配置更新、版本/schema 兼容和同一 active turn 冲突尚未验证；BlackRain 不得直接改写 `config.toml`、rollout 或 SQLite 来规避该问题。
 - Home 选择设置 UI、默认/共享/自定义模式互切和显式导入尚未接线。
-- Gateway Python 并发/凭据读取测试已通过；Gateway/credit JWT 的 Rust 纯测试仍受本机缺少 MSVC linker 阻塞，需在 Visual Studio Build Tools 环境运行后才能登记 Rust PASS。
+- Gateway Python 并发/凭据读取测试已通过；Windows CI 已完成全部 Rust test target 编译，但 Gateway/credit JWT 的目标 Rust 测试尚未执行，不能仅凭 `--no-run` 登记行为 PASS。
 - codex-code-mode-host、codex-command-runner 等 helper 是否为当前锁定版本所需以及如何打包尚未验证。
 - main-owned `WebContentsView` factory、registry、bounds/occlusion、Browser UI 和首批 Agent adapter 已实现；窗口间 reparenting、App 重启恢复、真实 UI thread 路由和模型驱动共页尚无完整实现。
-- Forge 最终制品复制曾连续两次被 GitHub `ECONNRESET`/`ETIMEDOUT` 中断；后续重跑已成功完成 Windows x64 package、packaged smoke 和 Playwright Electron E2E。`resources/codex/windows-x64` 布局已进入 package，但当前只有 `.gitkeep`，不构成 bundled codex 制品验收。
+- Forge 最终制品复制曾被 GitHub 网络中断；后续本地与 Windows CI 已成功完成 Windows x64 package、packaged smoke、Playwright Electron E2E 和 unsigned MSIX make。`resources/codex/windows-x64` 布局已进入 package，但当前只有 `.gitkeep`，不构成 bundled codex 制品验收。
 - 公开 code-mode/node_repl 接缝能否承载自有 Browser client、以及标准 Electron 对 Owl page persistence 的降级能力尚未验证。
 - 多 view 的内存、GPU、DPI、z-order、modal 遮挡、输入法和崩溃恢复未测量。
 - 当前 Tauri 代码存在不能作为 Electron 进度证据。

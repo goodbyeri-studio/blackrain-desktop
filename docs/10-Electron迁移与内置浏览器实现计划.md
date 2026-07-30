@@ -1,6 +1,6 @@
 # 10 Electron 迁移与内置浏览器实现计划
 
-> **状态（2026-07-29）**：目标架构已按 Codex Desktop App 进程、协议、持久化和 Windows 制品调研修正，代码尚未开始。本文是 [运行时真源](09-运行时架构与里程碑.md) 的实施展开；需求、决策和验收分别以 [spec 012](../.specs/012-electron-shell-migration/) 与 [spec 013](../.specs/013-codex-app-capability-parity/) 为准。
+> **状态（2026-07-30）**：目标架构已按 Codex Desktop App 进程、协议、持久化和 Windows 制品调研修正；Electron 安全空壳、App Server transport、Browser host/UI/受限 CDP foundation 与 unsigned MSIX CI 已实现。当前产品流程仍是 Tauri，真实 bundled app-server、Agent 共页和发布矩阵尚未完成。本文是 [运行时真源](09-运行时架构与里程碑.md) 的实施展开；需求、决策和验收分别以 [spec 012](../.specs/012-electron-shell-migration/) 与 [spec 013](../.specs/013-codex-app-capability-parity/) 为准。
 
 ## 结论
 
