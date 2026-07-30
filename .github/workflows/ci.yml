@@ -25,6 +25,7 @@ jobs:
     name: Detect relevant changes
     runs-on: ubuntu-latest
     outputs:
+      gateway: ${{ steps.filter.outputs.gateway }}
       js: ${{ steps.filter.outputs.js }}
       rust: ${{ steps.filter.outputs.rust }}
     steps:
@@ -40,14 +41,16 @@ jobs:
         run: |
           js=false
           rust=false
+          gateway=false
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             js=true
             rust=true
+            gateway=true
           else
             while IFS= read -r file; do
               case "$file" in
-                .github/workflows/ci.yml|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/tsconfig*.json|apps/desktop/vite.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/*|apps/desktop/scripts/*)
+                .github/workflows/ci.yml|apps/desktop/electron/*|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/*|apps/desktop/scripts/*)
                   js=true
                   ;;
               esac
@@ -56,11 +59,17 @@ jobs:
                   rust=true
                   ;;
               esac
+              case "$file" in
+                .github/workflows/ci.yml|gateway/*|scripts/dev-client.sh|scripts/dev-client.ps1)
+                  gateway=true
+                  ;;
+              esac
             done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           fi
 
           echo "js=$js" >> "$GITHUB_OUTPUT"
           echo "rust=$rust" >> "$GITHUB_OUTPUT"
+          echo "gateway=$gateway" >> "$GITHUB_OUTPUT"
 
   js-checks:
     name: JS checks (Ubuntu)
@@ -82,7 +91,46 @@ jobs:
       - run: npm run test
       - run: npm run lint
       - run: npm run lint:ds
+      - run: npm run check:host-boundary
       - run: npm run codemod:ds:dry
+
+  windows-electron-artifacts:
+    name: Windows Electron artifacts
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - run: npm run electron:package
+      - run: npm --ignore-scripts run electron:smoke
+      - name: Install Electron runtime for Playwright
+        run: npm run electron:install-runtime
+      - run: npm --ignore-scripts run electron:e2e
+        env:
+          DEBUG: pw:browser*
+      - run: npm run electron:make
+
+  gateway-checks:
+    name: Gateway checks
+    needs: changes
+    if: needs.changes.outputs.gateway == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: python -m unittest discover -s gateway -p 'test_gateway*.py' -v
 
   windows-rust-checks:
     name: Windows Rust checks

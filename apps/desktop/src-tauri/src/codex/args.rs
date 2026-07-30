@@ -15,12 +15,13 @@ pub(crate) fn resolve_workspace_codex_args(
     _parent_entry: Option<&WorkspaceEntry>,
     app_settings: Option<&AppSettings>,
 ) -> Option<String> {
-    if let Some(settings) = app_settings {
-        if let Some(value) = settings.codex_args.as_deref() {
-            return normalize_codex_args(value);
-        }
-    }
-    None
+    let settings = app_settings?;
+    let base = settings
+        .codex_args
+        .as_deref()
+        .and_then(normalize_codex_args);
+    let gateway = model_gateway_runtime_args(settings);
+    join_codex_args(base, gateway)
 }
 
 fn normalize_codex_args(value: &str) -> Option<String> {
@@ -30,6 +31,52 @@ fn normalize_codex_args(value: &str) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
+}
+
+fn model_gateway_runtime_args(settings: &AppSettings) -> Option<String> {
+    if !settings.model_gateway.enabled {
+        return None;
+    }
+
+    let mut args = Vec::new();
+    if let Some(model) = settings
+        .model_gateway
+        .default_model
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        args.extend(["-c".to_string(), format!("model={}", toml_string(model))]);
+    }
+    args.extend([
+        "-c".to_string(),
+        "model_provider=\"blackrain_gateway\"".to_string(),
+        "-c".to_string(),
+        "model_providers.blackrain_gateway.name=\"BlackRain Gateway\"".to_string(),
+        "-c".to_string(),
+        format!(
+            "model_providers.blackrain_gateway.base_url=\"http://127.0.0.1:{}/v1\"",
+            settings.model_gateway.port
+        ),
+        "-c".to_string(),
+        "model_providers.blackrain_gateway.env_key=\"BLACKRAIN_GATEWAY_API_KEY\"".to_string(),
+        "-c".to_string(),
+        "model_providers.blackrain_gateway.wire_api=\"responses\"".to_string(),
+    ]);
+    Some(shell_words::join(args))
+}
+
+fn join_codex_args(base: Option<String>, extra: Option<String>) -> Option<String> {
+    match (base, extra) {
+        (Some(base), Some(extra)) => Some(format!("{base} {extra}")),
+        (Some(base), None) => Some(base),
+        (None, Some(extra)) => Some(extra),
+        (None, None) => None,
+    }
+}
+
+fn toml_string(value: &str) -> String {
+    serde_json::to_string(value).expect("string serialization cannot fail")
 }
 
 #[cfg(test)]
@@ -60,6 +107,7 @@ mod tests {
     #[test]
     fn resolves_workspace_codex_args_from_app_settings_only() {
         let mut app_settings = AppSettings::default();
+        app_settings.model_gateway.enabled = false;
         app_settings.codex_args = Some("--profile app".to_string());
 
         let parent = WorkspaceEntry {
@@ -96,5 +144,33 @@ mod tests {
         };
         let resolved_main = resolve_workspace_codex_args(&main, None, Some(&app_settings));
         assert_eq!(resolved_main.as_deref(), Some("--profile app"));
+    }
+
+    #[test]
+    fn adds_gateway_overrides_without_persisting_global_config() {
+        let mut app_settings = AppSettings::default();
+        app_settings.codex_args = Some("--profile app".to_string());
+        app_settings.model_gateway.enabled = true;
+        app_settings.model_gateway.port = 8899;
+        app_settings.model_gateway.default_model = Some("deepseek-v4-pro".to_string());
+        let entry = WorkspaceEntry {
+            id: "main".to_string(),
+            name: "Main".to_string(),
+            path: "/tmp/main".to_string(),
+            kind: WorkspaceKind::Main,
+            parent_id: None,
+            worktree: None,
+            settings: WorkspaceSettings::default(),
+        };
+
+        let resolved = resolve_workspace_codex_args(&entry, None, Some(&app_settings));
+        let parsed = parse_codex_args(resolved.as_deref()).expect("parse resolved args");
+
+        assert_eq!(&parsed[..2], ["--profile", "app"]);
+        assert!(parsed.contains(&"model=\"deepseek-v4-pro\"".to_string()));
+        assert!(parsed.contains(&"model_provider=\"blackrain_gateway\"".to_string()));
+        assert!(parsed.contains(
+            &"model_providers.blackrain_gateway.base_url=\"http://127.0.0.1:8899/v1\"".to_string()
+        ));
     }
 }

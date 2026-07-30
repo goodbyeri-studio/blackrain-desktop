@@ -26,12 +26,14 @@ BlackRain Electron（目标态）
 
 ## 当前实现
 
-当前 checkout 仍是 Tauri + React + Rust，来源于 CodexMonitor subtree。它已经包含 CODE 界面、app-server 接缝、daemon/shared core 和模型网关原型，但 **Electron 工程与 in-app browser 尚未实现**。目标架构、代码存在、运行验证和发布可用必须分开陈述。
+当前产品主流程仍是 CodexMonitor 衍生的 Tauri + React + Rust，实现中包含 CODE 界面、app-server 接缝、daemon/shared core 和模型网关原型。仓库同时已经建立 Electron 42/Forge/Vite 安全空壳、main-owned `WebContentsView` Browser host/UI、dynamic-tool/受限 CDP bootstrap 和 App Server stdio client foundation；Windows CI 已通过 production package、packaged smoke、Playwright Electron E2E 与 unsigned MSIX make。
+
+这些迁移证据仍不等于 Electron 客户端可交付：bundled `codex.exe`、真实模型 thread/审批/恢复、生产 Browser client、Agent 真实共页、签名以及安装/升级/回滚/卸载矩阵尚未完成。目标架构、代码存在、验证通过和发布可用必须分开陈述。
 
 ## 仓库
 
 ```text
-apps/desktop/      当前 Tauri 实现；将迁移为 Electron 桌面客户端
+apps/desktop/      当前 Tauri 产品实现 + 迁移中的 Electron main/preload/renderer/Browser
 gateway/           可选模型协议翻译 sidecar
 codex-upstream/    gitignored 的 codex 只读参考克隆
 plugins/           冻结/按需复用的工具适配器

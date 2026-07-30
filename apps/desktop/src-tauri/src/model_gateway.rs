@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::OnceLock;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::{command, AppHandle, Manager, State};
@@ -8,11 +9,13 @@ use tokio::time::sleep;
 use crate::shared::model_gateway_core::{
     model_gateway_base_url, model_gateway_counts, model_gateway_health_url,
     model_gateway_refresh_models_core, model_gateway_test_provider_core,
-    persist_blackrain_gateway_codex_config, ModelGatewayProviderProbeInput,
-    ModelGatewayProviderProbeResult,
+    ModelGatewayProviderProbeInput, ModelGatewayProviderProbeResult,
 };
 use crate::shared::model_gateway_secrets::{
-    model_gateway_provider_api_key, model_gateway_provider_secret_clear as clear_provider_secret,
+    model_gateway_credit_jwt_clear as clear_credit_jwt_secret,
+    model_gateway_credit_jwt_get as get_credit_jwt_secret,
+    model_gateway_credit_jwt_set as set_credit_jwt_secret, model_gateway_provider_api_key,
+    model_gateway_provider_secret_clear as clear_provider_secret,
     model_gateway_provider_secret_set as set_provider_secret,
     model_gateway_provider_secret_status as provider_secret_status,
 };
@@ -23,7 +26,8 @@ use crate::types::{
     ModelGatewayRuntimeState, ModelGatewayRuntimeStatus, ModelGatewaySettings,
 };
 
-const DEFAULT_GATEWAY_TOKEN: &str = "local-app-gateway";
+const GATEWAY_TOKEN_ENV: &str = "BLACKRAIN_GATEWAY_API_KEY";
+static GENERATED_GATEWAY_TOKEN: OnceLock<String> = OnceLock::new();
 const GATEWAY_SCRIPT_ENV: &str = "BLACKRAIN_GATEWAY_SCRIPT";
 const GATEWAY_PYTHON_ENV: &str = "BLACKRAIN_GATEWAY_PYTHON";
 const WINDOWS_PYTHON_RESOURCE: &str = "python/windows-x64/python.exe";
@@ -31,8 +35,9 @@ const WINDOWS_PYTHON_RESOURCE: &str = "python/windows-x64/python.exe";
 // credit 模式平台代理地址（M-A2 已部署）。可用 env 覆盖（迁 new-api 时改一处）。
 const DEFAULT_CREDIT_PROXY_URL: &str = "https://proxy.goodbyeri.cc/v1";
 const CREDIT_PROXY_URL_ENV: &str = "BLACKRAIN_CREDIT_PROXY_URL";
-// CODEX_HOME 下存当前用户 Supabase JWT 的文件名。网关每请求读它（credit 模式）。
-const CREDIT_JWT_FILENAME: &str = "blackrain-credit-jwt";
+const LEGACY_CREDIT_JWT_FILENAME: &str = "blackrain-credit-jwt";
+const CREDIT_JWT_RUNTIME_DIR: &str = "model-gateway";
+const CREDIT_JWT_RUNTIME_FILENAME: &str = "credit-jwt.runtime";
 
 fn credit_proxy_url() -> String {
     std::env::var(CREDIT_PROXY_URL_ENV)
@@ -42,20 +47,115 @@ fn credit_proxy_url() -> String {
         .unwrap_or_else(|| DEFAULT_CREDIT_PROXY_URL.to_string())
 }
 
-// CODEX_HOME 下 JWT 文件的绝对路径。
-fn credit_jwt_path() -> Result<PathBuf, String> {
+fn legacy_credit_jwt_path() -> Result<PathBuf, String> {
     let codex_home = crate::codex::home::resolve_default_codex_home()
         .ok_or_else(|| "Unable to resolve CODEX_HOME".to_string())?;
-    Ok(codex_home.join(CREDIT_JWT_FILENAME))
+    Ok(codex_home.join(LEGACY_CREDIT_JWT_FILENAME))
 }
 
-// credit 模式是否生效：JWT 文件存在且非空（前端登录后写入）。
-fn credit_mode_active() -> bool {
-    credit_jwt_path()
-        .ok()
-        .and_then(|p| std::fs::read_to_string(p).ok())
-        .map(|s| !s.trim().is_empty())
-        .unwrap_or(false)
+fn runtime_credit_jwt_path(data_dir: &Path) -> PathBuf {
+    data_dir
+        .join(CREDIT_JWT_RUNTIME_DIR)
+        .join(CREDIT_JWT_RUNTIME_FILENAME)
+}
+
+fn remove_file_if_exists(path: &Path) -> Result<(), String> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(format!("Failed to remove {}: {err}", path.display())),
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
+    std::fs::rename(source, destination)
+}
+
+#[cfg(target_os = "windows")]
+fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+
+    const MOVEFILE_REPLACE_EXISTING: u32 = 0x1;
+    const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
+    #[link(name = "Kernel32")]
+    extern "system" {
+        fn MoveFileExW(existing: *const u16, replacement: *const u16, flags: u32) -> i32;
+    }
+
+    let source_wide = source
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let destination_wide = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let result = unsafe {
+        MoveFileExW(
+            source_wide.as_ptr(),
+            destination_wide.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if result == 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+fn write_runtime_credit_jwt(data_dir: &Path, token: &str) -> Result<PathBuf, String> {
+    let path = runtime_credit_jwt_path(data_dir);
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Invalid model gateway runtime credential path".to_string())?;
+    std::fs::create_dir_all(parent)
+        .map_err(|err| format!("Failed to create model gateway runtime directory: {err}"))?;
+    let temp_path = parent.join(format!(".credit-jwt-{}.tmp", uuid::Uuid::new_v4().simple()));
+    let write_result = (|| -> Result<(), String> {
+        std::fs::write(&temp_path, token)
+            .map_err(|err| format!("Failed to write model gateway runtime credential: {err}"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&temp_path, std::fs::Permissions::from_mode(0o600)).map_err(
+                |err| format!("Failed to secure model gateway runtime credential: {err}"),
+            )?;
+        }
+        replace_file_atomic(&temp_path, &path)
+            .map_err(|err| format!("Failed to replace model gateway runtime credential: {err}"))
+    })();
+    if let Err(err) = write_result {
+        let _ = std::fs::remove_file(&temp_path);
+        return Err(err);
+    }
+    Ok(path)
+}
+
+fn prepare_credit_jwt_runtime_file(data_dir: &Path) -> Result<Option<PathBuf>, String> {
+    let stored_token = get_credit_jwt_secret().ok().flatten();
+    let legacy_path = legacy_credit_jwt_path().ok();
+    let legacy_token = legacy_path
+        .as_ref()
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let token = stored_token.clone().or_else(|| legacy_token.clone());
+    let Some(token) = token else {
+        remove_file_if_exists(&runtime_credit_jwt_path(data_dir))?;
+        return Ok(None);
+    };
+
+    let runtime_path = write_runtime_credit_jwt(data_dir, &token)?;
+    if stored_token.is_none() && legacy_token.is_some() && set_credit_jwt_secret(&token).is_ok() {
+        if let Some(path) = legacy_path.as_deref() {
+            remove_file_if_exists(path)?;
+        }
+    }
+    Ok(Some(runtime_path))
 }
 
 fn now_unix_ms() -> i64 {
@@ -101,7 +201,10 @@ fn find_provider<'a>(
         .ok_or_else(|| format!("Unknown model provider `{provider_id}`."))
 }
 
-fn gateway_registry_env_with_secrets(settings: &ModelGatewaySettings) -> Result<String, String> {
+fn gateway_registry_env_with_secrets(
+    settings: &ModelGatewaySettings,
+    credit_jwt_path: Option<&Path>,
+) -> Result<String, String> {
     let mut value = serde_json::to_value(&settings.providers).map_err(|err| err.to_string())?;
     let providers = value
         .as_array_mut()
@@ -112,9 +215,8 @@ fn gateway_registry_env_with_secrets(settings: &ModelGatewaySettings) -> Result<
 
     // credit 模式：登录后 JWT 文件就位。deepseek provider 改指平台代理、用 JWT 文件鉴权，
     // 不依赖 keychain key。dev/BYOK（无 JWT 文件）则走原有 keychain/env 路径。
-    let credit_active = credit_mode_active();
+    let credit_active = credit_jwt_path.is_some();
     let proxy_url = credit_proxy_url();
-    let jwt_path = credit_jwt_path().ok();
 
     for (index, item) in providers.iter_mut().enumerate() {
         let Some(provider) = settings.providers.get(index) else {
@@ -127,7 +229,7 @@ fn gateway_registry_env_with_secrets(settings: &ModelGatewaySettings) -> Result<
 
         // credit 模式下的 deepseek：注入代理 base_url + JWT 文件路径，视为已配置。
         if credit_active && provider.id == "deepseek" {
-            if let (Some(object), Some(path)) = (item.as_object_mut(), jwt_path.as_ref()) {
+            if let (Some(object), Some(path)) = (item.as_object_mut(), credit_jwt_path) {
                 object.insert(
                     "baseUrl".to_string(),
                     serde_json::Value::String(proxy_url.clone()),
@@ -371,13 +473,17 @@ async fn wait_until_gateway_healthy(port: u16) -> Result<(), String> {
 /// 使被 spawn 的 Codex app-server 能继承同一个值。返回生效 token，
 /// 供网关进程用同一份值，避免两侧不一致导致 401。
 fn ensure_gateway_token() -> String {
-    match std::env::var("BLACKRAIN_GATEWAY_API_KEY") {
-        Ok(value) if !value.trim().is_empty() => value,
-        _ => {
-            std::env::set_var("BLACKRAIN_GATEWAY_API_KEY", DEFAULT_GATEWAY_TOKEN);
-            DEFAULT_GATEWAY_TOKEN.to_string()
-        }
-    }
+    let token = std::env::var(GATEWAY_TOKEN_ENV)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| {
+            GENERATED_GATEWAY_TOKEN
+                .get_or_init(|| uuid::Uuid::new_v4().to_string())
+                .clone()
+        });
+    std::env::set_var(GATEWAY_TOKEN_ENV, &token);
+    token
 }
 
 async fn start_model_gateway_runtime(
@@ -391,21 +497,9 @@ async fn start_model_gateway_runtime(
     }
     let script = resolve_gateway_script(app)?;
     let log_path = data_dir.join("model-gateway.log");
-    // 先把 Codex config 写对，与「sidecar 能否启动」解耦：即便后面因缺 key
-    // 起不了网关，内核侧 blackrain_gateway provider 配置也已就位，不会缺失。
-    let codex_home = crate::codex::home::resolve_default_codex_home()
-        .ok_or_else(|| "Unable to resolve CODEX_HOME".to_string())?;
-    std::fs::create_dir_all(&codex_home).map_err(|err| {
-        format!(
-            "Failed to create CODEX_HOME {}: {err}",
-            codex_home.display()
-        )
-    })?;
-    persist_blackrain_gateway_codex_config(&codex_home, &settings)?;
     let gateway_token = ensure_gateway_token();
-    // registry 构建会在「无启用 provider / 缺 key」时返回 Err；放在写 config 之后，
-    // 使配置持久化不被启动失败连带回滚。
-    let registry_json = gateway_registry_env_with_secrets(&settings)?;
+    let credit_jwt_path = prepare_credit_jwt_runtime_file(&data_dir)?;
+    let registry_json = gateway_registry_env_with_secrets(&settings, credit_jwt_path.as_deref())?;
 
     let mut runtime = state.model_gateway.lock().await;
     refresh_runtime(&mut runtime, &settings, &data_dir).await;
@@ -449,7 +543,10 @@ async fn start_model_gateway_runtime(
             Ok(runtime.status.clone())
         }
         Err(err) => {
+            stop_runtime_child(&mut runtime).await;
             runtime.status.state = ModelGatewayRuntimeState::Error;
+            runtime.status.pid = None;
+            runtime.status.started_at_ms = None;
             runtime.status.last_error = Some(err.clone());
             Err(err)
         }
@@ -466,6 +563,7 @@ async fn stop_model_gateway_runtime(state: &AppState) -> Result<ModelGatewayRunt
     runtime.status.pid = None;
     runtime.status.started_at_ms = None;
     runtime.status.last_error = None;
+    remove_file_if_exists(&runtime_credit_jwt_path(&data_dir))?;
     Ok(runtime.status.clone())
 }
 
@@ -561,39 +659,39 @@ pub(crate) async fn model_gateway_daemon_status(
     model_gateway_runtime_status(&state).await
 }
 
-// credit 模式：写入当前用户 Supabase JWT 到 CODEX_HOME 文件（600 权限）。
-// 网关每请求读它，故 token 刷新只需重写文件、无需重启网关。
+// Credential Manager 保存规范副本；Gateway 只读取 BlackRain app-data 下的短期运行文件。
 #[command]
-pub(crate) async fn model_gateway_credit_jwt_set(jwt: String) -> Result<(), String> {
+pub(crate) async fn model_gateway_credit_jwt_set(
+    jwt: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let token = jwt.trim();
     if token.is_empty() {
-        return model_gateway_credit_jwt_clear().await;
+        return model_gateway_credit_jwt_clear(state).await;
     }
-    let path = credit_jwt_path()?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|err| {
-            format!("Failed to create CODEX_HOME for credit JWT: {err}")
-        })?;
-    }
-    std::fs::write(&path, token).map_err(|err| format!("Failed to write credit JWT: {err}"))?;
-    // 收紧权限：仅属主可读写（Unix）。
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    set_credit_jwt_secret(token)?;
+    let data_dir = app_data_dir(&state)?;
+    write_runtime_credit_jwt(&data_dir, token)?;
+    if let Ok(path) = legacy_credit_jwt_path() {
+        remove_file_if_exists(&path)?;
     }
     Ok(())
 }
 
-// 登出/会话失效：删除 JWT 文件（回退到 dev/BYOK 模式）。幂等。
+// 登出/会话失效：同时清理凭据、运行时桥和旧版 Home 文件。
 #[command]
-pub(crate) async fn model_gateway_credit_jwt_clear() -> Result<(), String> {
-    let path = credit_jwt_path()?;
-    match std::fs::remove_file(&path) {
-        Ok(()) => Ok(()),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(format!("Failed to clear credit JWT: {err}")),
-    }
+pub(crate) async fn model_gateway_credit_jwt_clear(
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    // 即使 Credential Manager 暂时不可用，也必须继续尝试清掉磁盘上的运行时桥，
+    // 避免登出命令因第一个错误提前返回而留下仍可被 Gateway 使用的 token。
+    let credential_result = clear_credit_jwt_secret();
+    let runtime_result = app_data_dir(&state)
+        .and_then(|data_dir| remove_file_if_exists(&runtime_credit_jwt_path(&data_dir)));
+    let legacy_result =
+        legacy_credit_jwt_path().map_or(Ok(()), |path| remove_file_if_exists(&path));
+
+    credential_result.and(runtime_result).and(legacy_result)
 }
 
 // 重启网关：模式切换（credit↔dev/BYOK）会改 base_url，必须重起进程才能生效。
@@ -605,4 +703,93 @@ pub(crate) async fn model_gateway_daemon_restart(
 ) -> Result<ModelGatewayRuntimeStatus, String> {
     let _ = stop_model_gateway_runtime(&state).await;
     start_model_gateway_runtime(&app, &state).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        gateway_registry_env_with_secrets, remove_file_if_exists, runtime_credit_jwt_path,
+        write_runtime_credit_jwt, CREDIT_JWT_RUNTIME_DIR, CREDIT_JWT_RUNTIME_FILENAME,
+    };
+    use crate::types::{
+        ModelGatewayProviderConfig, ModelGatewayProviderKind, ModelGatewaySettings,
+    };
+    use serde_json::Value;
+    use std::path::PathBuf;
+
+    fn test_data_dir() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "blackrain-model-gateway-test-{}",
+            uuid::Uuid::new_v4()
+        ))
+    }
+
+    fn credit_settings() -> ModelGatewaySettings {
+        ModelGatewaySettings {
+            enabled: true,
+            port: 8899,
+            default_model: Some("deepseek-v4-flash".to_string()),
+            providers: vec![ModelGatewayProviderConfig {
+                id: "deepseek".to_string(),
+                name: "DeepSeek".to_string(),
+                kind: ModelGatewayProviderKind::Deepseek,
+                base_url: "https://api.deepseek.com/v1".to_string(),
+                api_key_env: "DEEPSEEK_API_KEY".to_string(),
+                api_key_file: String::new(),
+                enabled: true,
+                models: Vec::new(),
+            }],
+        }
+    }
+
+    #[test]
+    fn runtime_credit_jwt_path_stays_under_app_data() {
+        let data_dir = PathBuf::from("blackrain-app-data");
+
+        assert_eq!(
+            runtime_credit_jwt_path(&data_dir),
+            data_dir
+                .join(CREDIT_JWT_RUNTIME_DIR)
+                .join(CREDIT_JWT_RUNTIME_FILENAME)
+        );
+    }
+
+    #[test]
+    fn credit_registry_points_to_app_data_runtime_file() {
+        let data_dir = PathBuf::from("blackrain-app-data");
+        let runtime_path = runtime_credit_jwt_path(&data_dir);
+        let registry =
+            gateway_registry_env_with_secrets(&credit_settings(), Some(runtime_path.as_path()))
+                .expect("build credit registry");
+        let providers: Vec<Value> = serde_json::from_str(&registry).expect("parse registry");
+        let provider = providers[0].as_object().expect("provider object");
+
+        assert_eq!(
+            provider.get("apiKeyFile").and_then(Value::as_str),
+            Some(runtime_path.to_string_lossy().as_ref())
+        );
+        assert!(!provider.contains_key("apiKey"));
+    }
+
+    #[test]
+    fn runtime_credit_jwt_file_can_be_replaced_and_cleared() {
+        let data_dir = test_data_dir();
+        let runtime_path = write_runtime_credit_jwt(&data_dir, "first-token")
+            .expect("write initial runtime token");
+        assert_eq!(
+            std::fs::read_to_string(&runtime_path).expect("read initial token"),
+            "first-token"
+        );
+
+        write_runtime_credit_jwt(&data_dir, "refreshed-token").expect("replace runtime token");
+        assert_eq!(
+            std::fs::read_to_string(&runtime_path).expect("read refreshed token"),
+            "refreshed-token"
+        );
+
+        remove_file_if_exists(&runtime_path).expect("remove runtime token");
+        remove_file_if_exists(&runtime_path).expect("remove missing runtime token");
+        assert!(!runtime_path.exists());
+        std::fs::remove_dir_all(&data_dir).expect("remove test data directory");
+    }
 }

@@ -99,12 +99,16 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 // 兜底:窗口启动为 visible:false(见 tauri.conf.json),正常情况下由
 // useLiquidGlassEffect 在毛玻璃应用后 show。万一 effect 因故未执行,
 // 3s 后强制显示窗口,避免永久隐藏。show() 幂等,重复调用无害。
-if (!isMobilePlatform()) {
+if (!isMobilePlatform() && !window.blackrain) {
   window.setTimeout(() => {
-    void getCurrentWindow()
-      .show()
-      .catch(() => {
-        // 非 Tauri 环境无窗口,忽略
-      });
+    try {
+      void getCurrentWindow()
+        .show()
+        .catch(() => {
+          // 非 Tauri 环境无窗口,忽略
+        });
+    } catch {
+      // 非 Tauri 环境可能在创建 window handle 时同步失败。
+    }
   }, 3000);
 }

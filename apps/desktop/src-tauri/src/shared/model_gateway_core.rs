@@ -1,12 +1,9 @@
-use std::path::Path;
 use std::time::Duration;
 
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use toml_edit::{value, Item, Table};
 
-use crate::shared::config_toml_core;
 use crate::shared::model_gateway_secrets::model_gateway_provider_api_key;
 use crate::types::{ModelGatewayModelConfig, ModelGatewaySettings};
 
@@ -96,42 +93,6 @@ pub(crate) fn model_gateway_counts(settings: &ModelGatewaySettings) -> (usize, u
         .map(|provider| provider.models.len())
         .sum();
     (enabled_providers, enabled_models)
-}
-
-#[allow(dead_code)]
-pub(crate) fn persist_blackrain_gateway_codex_config(
-    codex_home: &Path,
-    settings: &ModelGatewaySettings,
-) -> Result<(), String> {
-    let (_, mut document) = config_toml_core::load_global_config_document(codex_home)?;
-    config_toml_core::set_top_level_string(
-        &mut document,
-        "model",
-        settings.default_model.as_deref(),
-    );
-    config_toml_core::set_top_level_string(
-        &mut document,
-        "model_provider",
-        Some("blackrain_gateway"),
-    );
-
-    let providers = config_toml_core::ensure_table(&mut document, "model_providers")?;
-    if providers
-        .get("blackrain_gateway")
-        .and_then(Item::as_table)
-        .is_none()
-    {
-        providers["blackrain_gateway"] = Item::Table(Table::new());
-    }
-    let provider = providers["blackrain_gateway"]
-        .as_table_mut()
-        .ok_or_else(|| "`model_providers.blackrain_gateway` must be a table".to_string())?;
-    provider["name"] = value("BlackRain Gateway");
-    provider["base_url"] = value(model_gateway_base_url(settings.port));
-    provider["env_key"] = value("BLACKRAIN_GATEWAY_API_KEY");
-    provider["wire_api"] = value("responses");
-
-    config_toml_core::persist_global_config_document(codex_home, &document)
 }
 
 struct ProviderModelsResponse {
@@ -308,7 +269,7 @@ mod tests {
 
     use super::{
         model_gateway_counts, model_gateway_registry_env, parse_models_response,
-        persist_blackrain_gateway_codex_config, provider_models_url,
+        provider_models_url,
     };
     use crate::types::{
         ModelGatewayModelConfig, ModelGatewayProviderConfig, ModelGatewayProviderKind,
@@ -378,25 +339,5 @@ mod tests {
         let env = model_gateway_registry_env(&settings).expect("serialize registry");
         assert!(env.contains("DEEPSEEK_API_KEY"));
         assert_eq!(model_gateway_counts(&settings), (1, 1));
-    }
-
-    #[test]
-    fn persists_blackrain_gateway_codex_config() {
-        let root = std::env::temp_dir().join(format!(
-            "blackrain-gateway-config-test-{}",
-            std::process::id()
-        ));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).expect("create temp codex home");
-
-        persist_blackrain_gateway_codex_config(&root, &sample_gateway_settings())
-            .expect("persist config");
-
-        let config = std::fs::read_to_string(root.join("config.toml")).expect("read config");
-        assert!(config.contains("model_provider = \"blackrain_gateway\""));
-        assert!(config.contains("base_url = \"http://127.0.0.1:8899/v1\""));
-        assert!(config.contains("wire_api = \"responses\""));
-
-        let _ = std::fs::remove_dir_all(&root);
     }
 }

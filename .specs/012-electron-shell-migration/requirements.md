@@ -1,6 +1,6 @@
 # Electron 桌面壳迁移需求
 
-> **状态（2026-07-29）**：P0，已按 Codex Desktop App 进程、协议和持久化调研重新设计，尚未开始实现。当前可运行代码仍是 CodexMonitor 衍生的 Tauri 壳；目标架构存在于本 spec 不等于 Electron 客户端已经可用。
+> **状态（2026-07-30）**：P0，已按 Codex Desktop App 进程、协议和持久化调研重新设计；M0 迁移盘点、M1 Electron 安全空壳、M2 App Server transport fixture、M3 中的 Browser host/UI/受限 CDP foundation，以及 unsigned MSIX CI 已实现。当前产品流程仍运行于 CodexMonitor 衍生的 Tauri 壳；foundation 和 CI 通过不等于 Electron 客户端已经可用。
 
 ## 背景
 
@@ -29,8 +29,10 @@ BlackRain 的产品目标已经收敛为：以原装开源 `codex-rs` 为唯一 
 - 现有 React 关键工作流在 Electron 中可运行。
 - Electron main 直接启动 bundled `codex.exe app-server`，使用三根匿名管道连接 stdin/stdout/stderr。
 - main 实现逐行 JSONL App Server client，覆盖双向 request/response/notification、initialize、订阅、取消、deadline、退出和恢复。
-- App 沿用标准 Codex Home，与 CLI 共享配置、技能、插件和可恢复 thread；Electron/Chromium user-data 独立。
+- App 默认沿用 Codex 标准 Home 解析和父进程显式 `CODEX_HOME`，与 CLI 共享 auth、配置、技能、插件和可恢复 thread；其他自定义绝对路径只作为用户主动选择的模式。
+- bundled `codex.exe` 的安装路径与 Codex Home 独立；选择 BlackRain 自带二进制不得改变 Home 归属。
 - rollout JSONL 与 SQLite 继续由原装 ThreadStore 管理，Electron 不直接改写 Codex 持久化文件。
+- BlackRain 专属 Gateway provider/model 通过 app-server 进程级 `-c` override 注入，不持久写入共享 `config.toml`；provider secret/credit token 的规范副本进入系统凭据库，Gateway 临时文件只进入 BlackRain app-data。
 - Browser 采用 spec 013 定义的 main-owned `WebContentsView` + registry/session/CDP，不建立独立 headless agent browser。
 - Tauri 专属调用逐项迁移后删除，不长期维护双宿主分叉。
 
@@ -54,7 +56,7 @@ BlackRain 的产品目标已经收敛为：以原装开源 `codex-rs` 为唯一 
 ## 约束
 
 - MVP 仍以 Windows 为发布验收平台。
-- App 沿用 Codex 标准 Home 解析，不建立 BlackRain 专属隐藏 `CODEX_HOME`。
+- BlackRain app-data 只保存 Electron/Browser/日志/制品等宿主状态，不得自动派生隐藏的第二个 Codex Home。
 - 模型协议翻译继续留在独立 Gateway sidecar。
 - 当前 Rust shared core/daemon 是迁移资产；目标态只保留报告确认的 Electron main/preload/renderer 与原装 app-server 边界。
 - 保持现有 npm/`package-lock.json` 工作流；不得在迁移中无理由改用另一包管理器。

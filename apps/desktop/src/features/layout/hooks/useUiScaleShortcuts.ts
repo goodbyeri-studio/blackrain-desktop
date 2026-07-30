@@ -26,12 +26,16 @@ export function useUiScaleShortcuts({
   const uiScale = clampUiScale(settings.uiScale);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || window.blackrain) {
       return;
     }
-    getCurrentWebview()
-      .setZoom(uiScale)
-      .catch(() => undefined);
+    try {
+      getCurrentWebview()
+        .setZoom(uiScale)
+        .catch(() => undefined);
+    } catch {
+      // Electron 与普通浏览器环境没有 Tauri webview metadata。
+    }
   }, [uiScale]);
 
   const scaleShortcutLabel = useMemo(() => {

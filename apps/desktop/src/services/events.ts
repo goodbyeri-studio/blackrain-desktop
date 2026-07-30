@@ -34,15 +34,20 @@ function createEventHub<T>(eventName: string) {
     if (unlisten || listenPromise) {
       return;
     }
-    listenPromise = listen<T>(eventName, (event) => {
-      for (const listener of listeners) {
-        try {
-          listener(event.payload);
-        } catch (error) {
-          console.error(`[events] ${eventName} listener failed`, error);
+    try {
+      listenPromise = listen<T>(eventName, (event) => {
+        for (const listener of listeners) {
+          try {
+            listener(event.payload);
+          } catch (error) {
+            console.error(`[events] ${eventName} listener failed`, error);
+          }
         }
-      }
-    });
+      });
+    } catch (error) {
+      options?.onError?.(error);
+      return;
+    }
     listenPromise
       .then((handler) => {
         listenPromise = null;

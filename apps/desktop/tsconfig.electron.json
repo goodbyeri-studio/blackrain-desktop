@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node", "vitest/globals"],
+    "allowSyntheticDefaultImports": true
+  },
+  "include": [
+    "electron/**/*.ts",
+    "forge.config.ts",
+    "vite.main.config.ts",
+    "vite.preload.config.ts"
+  ]
+}

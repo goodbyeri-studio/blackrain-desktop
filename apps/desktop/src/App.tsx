@@ -40,6 +40,7 @@ import "./styles/accounts.css";
 import "./styles/compact-base.css";
 import "./styles/compact-phone.css";
 import "./styles/compact-tablet.css";
+import "./styles/browser-sidebar.css";
 import { useWindowLabel } from "@/features/layout/hooks/useWindowLabel";
 import MainApp from "@app/components/MainApp";
 import { AccountProvider } from "@/features/accounts/context/AccountProvider";

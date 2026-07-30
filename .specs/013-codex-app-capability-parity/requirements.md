@@ -1,6 +1,6 @@
 # Codex App 能力补齐需求
 
-> **状态（2026-07-29）**：P0，已根据四份 Codex App Browser 本机研究稿重建 Browser 合同，实现尚未开始。第一项交付是 in-app browser；“已设计”不等于功能一致或发布可用。
+> **状态（2026-07-30）**：P0，已根据四份 Codex App Browser 本机研究稿重建 Browser 合同，并完成首个 main-owned `WebContentsView` host foundation 与 Browser UI foundation：持久 session、安全页面参数、tab registry、typed IPC/事件、导航控件、布局裁剪和本地页面 E2E。真实 app-server thread、真实模型 Agent 工具闭环、登录/下载/恢复和产品化仍未完成；基础 UI/host 不等于功能一致或发布可用。
 
 ## 背景
 

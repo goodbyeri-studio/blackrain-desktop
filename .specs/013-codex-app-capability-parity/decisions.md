@@ -79,3 +79,16 @@
 - 决策：tabs、snapshot、locator、CUA 和 artifact 是默认工具；full CDP 需要 Developer mode、显式审批并可由企业策略禁用。
 - 原因：对齐 Codex 公开产品行为，并避免把 Cookie/header/任意 Runtime 能力直接交给模型。
 - 影响范围：工具 schema、设置、审批、审计和 E2E。
+
+## 2026-07-30：首个 CDP 切片使用原生 AX tree 与短期 ref
+
+- 决策：dynamic-tool bootstrap 先在同一 `WebContentsView` 的 page debugger 上实现有界 `Accessibility.getFullAXTree`、ref click、固定函数 + `Input.insertText` 和 current viewport PNG；不暴露任意 CDP。
+- 绑定：snapshot/ref 同时绑定 thread、active turn、tab、view generation、document generation、URL 和 30 秒 TTL；每个页面只保留最新 snapshot。
+- 上限：最多处理 500 个 AX 节点、输出 64 KiB 文本，PNG 二进制最多 5 MiB，保证结果低于 App Server 8 MiB frame 候选上限。
+- 明确未完成：iframe/OOPIF、locator/actionability、input-target token、hidden full-page capture、用户抢占和真实模型共页仍按后续任务推进。
+
+## 2026-07-30：Browser tab 容量由 main 在创建前强制执行
+
+- 决策：每个 owner window generation 最多持有 64 个 Browser tab；main 在创建 `WebContentsView` 前检查容量，不能只依赖 preload/Zod 返回 schema 拒绝超长列表。
+- 原因：客户端 schema 失败发生在 page WebContents 创建之后会留下不可管理的页面与状态事件；容量必须在资源所有者处 fail closed。
+- 隔离：不同 owner 独立计数；现值与 typed tab list 的 64 项上限一致。后续 page working set 的 live/suspended 预算仍需另行实测锁定。

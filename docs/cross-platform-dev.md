@@ -2,26 +2,30 @@
 
 > **Windows-first**：BlackRain MVP 只发行 Windows。macOS / iOS 仅作为 post-MVP 或 CodexMonitor 上游资产保留；非 Windows 上的编译或测试不能证明 Windows 可交付。
 
-> **迁移状态（2026-07-26）**：本文大部分命令和矩阵描述当前 Tauri 基线。Electron 是唯一目标宿主；Electron main/preload/Browser、打包和 Windows 验收矩阵按 spec 012/013 逐步替换。工作台、Office 和 OPC 验收已暂停。
+> **迁移状态（2026-07-30）**：当前产品主流程仍是 Tauri；Electron 是唯一目标宿主。Electron main/preload、App Server client、Browser host/UI/受限 CDP foundation、production package、Playwright E2E 和 unsigned MSIX make 已在 Windows CI 通过；bundled `codex.exe`、真实 Agent 链路、签名和安装矩阵仍未完成。工作台、Session Orchestrator、专家市场和 OPC/工作室路线保持暂停。
 
 ## 快速结论
 
 - Windows 是当前唯一发布、实机验收和产品承诺平台。
 - React/TypeScript、Rust shared core 和纯 Python Gateway 可在非 Windows 环境编辑和做局部检查，但只能降低风险，不能保证 Windows 行为。
-- 当前 Tauri NSIS 只作迁移基线；Electron 制品、Credential Manager、窗口/Browser、Windows 路径/进程、真实 CODE 链路和安装/升级/卸载必须在 Windows 实机验证。
+- 当前 Tauri NSIS 只作迁移基线；Electron foundation 已有 Windows CI 证据，但 Browser 真实站点、凭据、Windows 路径/进程、真实 Codex 链路和签名/安装/升级/卸载仍必须在 Windows 实机验证。
 - iOS 当前没有 BlackRain 构建、发布或验收入口；只保留上游资产，不参与 MVP。
 
 ## 当前 CI 真相
 
-`.github/workflows/ci.yml` 目前有两类检查：
+`.github/workflows/ci.yml` 按路径分流以下检查：
 
 | Job | Runner | 覆盖 |
 |---|---|---|
-| `changes` | `ubuntu-latest` | 按 diff 判断是否需要 JS 或 Windows Rust 检查 |
+| `changes` | `ubuntu-latest` | 按 diff 判断是否需要 JS、Gateway 或 Windows Rust 检查 |
 | `js-checks` | `ubuntu-latest` | typecheck/test/lint/DS/codemod |
+| `windows-electron-artifacts` | `windows-latest` | production package、packaged smoke、Playwright Electron host/UI/Browser E2E、unsigned MSIX make |
+| `gateway-checks` | `ubuntu-latest` | Gateway Python unittest |
 | `windows-rust-checks` | `WINDOWS_RUNNER`，未设置时为 `windows-latest` | 一次编译全部 Rust test targets，再跑 workbench 专项 |
 
-纯 Markdown/Word PR 不启动 workflow；普通 `main` push 不重复检查，只有 Cargo manifest/lock 变化时预热 Windows cache。self-hosted Windows 只运行本仓库内可信分支，fork PR 不进入开发机。CI **不包含** macOS runner，也不包含 GUI、Tauri dev、NSIS、Credential Manager、真实模型对话、Office、签名或安装/卸载验证。PR 中不能写“CI 绿 = Windows 客户端已验证”。
+纯 Markdown/Word PR 不启动 workflow；普通 `main` push 不重复检查，只有 Cargo manifest/lock 变化时预热 Windows cache。self-hosted Windows 只影响 Rust job，并且只运行本仓库内可信分支；fork PR 不进入开发机。
+
+CI 包含 Windows 虚拟桌面中的 Electron host/UI/Browser foundation E2E 和 unsigned MSIX make，但不保存 renderer 页面截图，也不上传或发布 MSIX。CI 不包含 macOS runner、Tauri GUI/NSIS、真实模型对话、Browser 真实站点与登录/接管、Credential Manager、签名或 MSIX 安装/升级/回滚/卸载验收。PR 中不能写“CI 绿 = Windows 客户端已可交付”。
 
 ## 代码边界矩阵
 
@@ -34,7 +38,6 @@
 | IPC 包装 | `apps/desktop/src/services/tauri.ts` | 类型和单测 | App/Daemon 两运行时完整链路 |
 | 设计系统 | `apps/desktop/src/design-system/**` | 组件和 token 调整 | Mica 背景下的对比度、窗口 chrome |
 | Model Gateway | `gateway/gateway.py` | 语法、协议翻译局部测试 | Windows 子进程、端口、日志、bearer、真实 codex 对话 |
-| 插件/工作台 | `plugins/**`、`workbenches/**` | Markdown、资源和静态检查 | Windows 文件路径、OfficeCLI、真实任务质量 |
 | 文档/spec | `docs/**`、`.specs/**` | 完整编辑 | 涉及平台事实时必须引用 Windows 证据 |
 
 “非 Windows 可编辑”不等于“macOS 编译通过就保证 Windows 可用”。Rust feature、系统库、路径、进程、凭据、窗口与打包依赖都可能只在目标平台失败。
@@ -43,13 +46,13 @@
 
 | 能力 | 位置/入口 | 必验内容 |
 |---|---|---|
+| Electron Forge/MSIX | `apps/desktop/forge.config.ts`、`npm run electron:make` | package/make、签名、安装、开始菜单启动、升级/回滚/卸载、残留 |
+| Electron Browser foundation | `apps/desktop/electron/main/browser/**`、`apps/desktop/src/features/browser/**` | `WebContentsView` 布局、权限、下载、登录/接管、崩溃与 App 重启恢复、真实 Agent 共页 |
 | NSIS | `apps/desktop/src-tauri/tauri.windows.conf.json`、`scripts/release-client-win.ps1` | 构建、安装、开始菜单启动、升级/卸载、残留 |
 | Credential Manager | `apps/desktop/src-tauri/src/shared/account_session_core.rs`、`apps/desktop/src-tauri/src/shared/model_gateway_secrets.rs` | key/session 写入、读取、覆盖、删除、重启恢复 |
 | Mica 与自绘标题栏 | `useLiquidGlassEffect.ts`、`WindowCaptionControls.tsx`、窗口后端 | 浅/深/彩色壁纸对比度、最小化/最大化/关闭、缩放 |
-| Windows 路径与进程 | Tauri 后端、脚本、Office 资源 | 反斜杠、空格路径、`.exe`、进程回收、端口占用 |
+| Windows 路径与进程 | Tauri/Electron 后端、脚本、bundled runtime 资源 | 反斜杠、空格路径、`.exe`、进程回收、端口占用 |
 | Gateway 真链路（当前由 CODE surface 验证） | `codex.exe` + Gateway + App | Responses⇄Chat、多轮工具、审批、错误提示 |
-| 工作台包 | App Core | 检查、安装、验证、激活记录与卸载 |
-| Office | OfficeCLI / `office.rs` | Word/Excel/PPT/PDF 真实任务与文件恢复 |
 | Windows 安全/恢复 | 对应 spec 和实现 | 当前保障、降级行为、备份/回收站/还原；未实现项不得宣传 |
 
 ## Windows 主工作流
@@ -59,8 +62,9 @@
 1. 在仓库根核对 codex `HEAD` 是否等于目标锁定版本。
 2. 运行 `pwsh scripts/dev-client.ps1` 启动真实 Windows GUI。
 3. 按改动范围运行前端检查或 `pwsh scripts/check-windows-rust.ps1`。
-4. 涉及平台行为时完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 对应实机项。
-5. 发布前运行 `pwsh scripts/release-client-win.ps1`，再手动安装、启动、对话和卸载。
+4. Electron 迁移改动按 [commands](commands.md#electron-迁移开发验证) 执行 package/smoke/E2E/unsigned MSIX make，并按 spec 012/013 记录尚未覆盖的真实链路。
+5. 涉及平台行为时完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 对应实机项。
+6. 当前 Tauri 产品发布前运行 `pwsh scripts/release-client-win.ps1`，再手动安装、启动、对话和卸载；Electron 未完成发布矩阵前不替代该入口。
 
 ## 非 Windows 辅助开发流程
 
@@ -75,7 +79,7 @@ macOS / Linux 可用于共享代码的快速迭代，但必须明确证据边界
 
 ### 路径分隔符和用户目录
 
-不要拼 `/Users/...`、`~/.config/...` 或 `C:\...` 作为业务路径。当前前端通过 Tauri path API；目标 Electron renderer 通过类型化 preload 请求 main，main 使用 Node/Electron path API 并向 app-server 传递规范化 cwd。测试至少覆盖空格和非 ASCII 路径。
+不要拼 `/Users/...`、`~/.config/...` 或 `C:\...` 作为业务路径。当前 Tauri 产品前端通过 Tauri path API；迁移中的 Electron renderer 已通过类型化 preload 请求 main，main 使用 Node/Electron path API 并向 app-server 传递规范化 cwd。测试至少覆盖空格和非 ASCII 路径。
 
 ### 命令与可执行文件名
 
@@ -107,6 +111,7 @@ codex 有平台特定依赖和降级路径。锁版本升级后必须重跑 Wind
 
 | 信号 | 行动 |
 |---|---|
+| 改 `electron/main`、preload、Forge/MSIX 或 Browser host | Windows package/smoke/E2E/make；涉及真实站点、签名或安装行为时继续完成对应实机矩阵 |
 | 改 `apps/desktop/src-tauri/tauri.windows.conf.json` / 发行脚本 | 立即构建 NSIS，并安装/卸载 |
 | 改 Mica、标题栏、窗口状态 | Windows 目视和交互验证 |
 | 改 `account_session_core.rs` / `model_gateway_secrets.rs` | Credential Manager 完整 CRUD + 重启恢复 |
@@ -119,5 +124,7 @@ codex 有平台特定依赖和降级路径。锁版本升级后必须重跑 Wind
 
 - Windows 命令：[commands](commands.md)
 - Windows 验证矩阵：[.specs/007 verification](../.specs/007-windows-client/verification.md)
+- Electron 迁移验证：[.specs/012 verification](../.specs/012-electron-shell-migration/verification.md)
+- Codex App 能力验证：[.specs/013 verification](../.specs/013-codex-app-capability-parity/verification.md)
 - 运行时真源：[09 运行时架构与里程碑](09-运行时架构与里程碑.md)
 - 壳内部约束：`apps/desktop/AGENTS.md`

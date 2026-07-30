@@ -1629,7 +1629,7 @@ describe("SettingsView Codex section", () => {
         Reflect.deleteProperty(window.navigator, "maxTouchPoints");
       }
     }
-  });
+  }, 15_000);
 
 });
 

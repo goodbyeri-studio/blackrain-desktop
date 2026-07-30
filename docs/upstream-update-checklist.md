@@ -24,7 +24,7 @@ git -C codex-upstream rev-parse HEAD
 
 - [ ] 更新 `docs/REFERENCES.md` 和脚本中的 tag/SHA。
 - [ ] 重跑 spec 006 的 app-server 能力账本。
-- [ ] 检查标准 Codex Home、config/auth/session/rollout/SQLite 与 CLI 共享兼容性。
+- [ ] 检查标准 Codex Home schema、config/auth/session/rollout/SQLite，并验证 App 与 CLI 的共享和恢复兼容性。
 - [ ] 检查 Gateway 的 Responses、流式、工具调用和错误映射。
 - [ ] 检查 Electron main App Server client 与目标 app-server 协议、启动参数和 helper 制品是否仍一致。
 - [ ] 审计新增依赖和许可证。
