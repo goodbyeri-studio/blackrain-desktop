@@ -220,6 +220,12 @@ try {
         viewGeneration: tab.viewGeneration,
         action: "reload",
       });
+      const stop = await globalThis.blackrain.browser.control({
+        ...scope,
+        browserTabId: tab.browserTabId,
+        viewGeneration: tab.viewGeneration,
+        action: "stop",
+      });
       const tabs = await globalThis.blackrain.browser.listTabs(scope);
 
       let staleRevisionRejected = false;
@@ -250,6 +256,7 @@ try {
         scope,
         tab,
         reload,
+        stop,
         tabs,
         browserEventCount: browserEvents.length,
         staleRevisionRejected,
@@ -269,6 +276,7 @@ try {
   assert.equal(hostContract.tabs.length, 1);
   assert.ok(hostContract.browserEventCount > 0);
   assert.equal(hostContract.reload.browserTabId, hostContract.tab.browserTabId);
+  assert.equal(hostContract.stop.browserTabId, hostContract.tab.browserTabId);
   assert.equal(hostContract.staleRevisionRejected, true);
   logStage("host contract passed");
 
