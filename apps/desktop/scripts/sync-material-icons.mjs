@@ -1,4 +1,5 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,7 +19,23 @@ if (!existsSync(sourceDir)) {
   process.exit(0);
 }
 
-mkdirSync(dirname(targetDir), { recursive: true });
-rmSync(targetDir, { recursive: true, force: true });
-cpSync(sourceDir, targetDir, { recursive: true });
+await mkdir(dirname(targetDir), { recursive: true });
+await rm(targetDir, { recursive: true, force: true });
+await copyDirectory(sourceDir, targetDir);
 console.log("[sync:material-icons] synced icons to", targetDir);
+
+async function copyDirectory(source, target) {
+  await mkdir(target, { recursive: true });
+  const entries = await readdir(source, { withFileTypes: true });
+  for (const entry of entries) {
+    const sourcePath = join(source, entry.name);
+    const targetPath = join(target, entry.name);
+    if (entry.isDirectory()) {
+      await copyDirectory(sourcePath, targetPath);
+    } else if (entry.isFile()) {
+      await copyFile(sourcePath, targetPath);
+    } else {
+      throw new Error(`Unsupported material icon entry: ${sourcePath}`);
+    }
+  }
+}

@@ -92,9 +92,6 @@ impl AppState {
         let storage_path = data_dir.join("workspaces.json");
         let settings_path = data_dir.join("settings.json");
         let workbench_activations = ActivatedWorkbenchStore::new(&data_dir);
-        if std::env::var_os("CODEX_HOME").is_none() {
-            std::env::set_var("CODEX_HOME", data_dir.join("codex-home"));
-        }
         let workspaces = read_workspaces(&storage_path).unwrap_or_default();
         let app_settings = read_settings(&settings_path).unwrap_or_default();
         let gateway_port = app_settings.model_gateway.port;

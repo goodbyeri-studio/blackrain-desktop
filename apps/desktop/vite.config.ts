@@ -84,7 +84,11 @@ export default defineConfig(async () => ({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    include: [
+      "src/**/*.test.ts",
+      "src/**/*.test.tsx",
+      "electron/**/*.test.ts",
+    ],
     setupFiles: ["src/test/vitest.setup.ts"],
     // 测试确定性：屏蔽 .env.local 的真实 Supabase 配置，让账号默认「未配置」。
     // 需要登录态的测试自行 mock useAccount（如 Home.gating.test.tsx）。

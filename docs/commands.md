@@ -124,6 +124,7 @@ npm run typecheck
 npm run test
 npm run lint
 npm run lint:ds
+npm run check:host-boundary
 npm run codemod:ds:dry
 
 Set-Location ..\..
@@ -140,7 +141,36 @@ npm run tauri:build:win
 Set-Location ..\..
 ```
 
-按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；Rust 改动跑统一的 `check-windows-rust.ps1`。发布级结论还必须完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 中适用的 Windows 实机项。
+按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；desktop renderer、Tauri command 或 Electron 迁移改动额外跑 `check:host-boundary`；Rust 改动跑统一的 `check-windows-rust.ps1`。发布级结论还必须完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 中适用的 Windows 实机项。
+
+### Electron M1 开发验证
+
+```powershell
+Set-Location apps\desktop
+
+npm run electron:typecheck
+npm run test -- --run electron
+npm run electron:package
+npm run electron:smoke
+npm run electron:e2e
+npm run test -- --run electron/main/app-server
+
+Set-Location ..\..
+```
+
+`electron:smoke` 会先重新生成 `out/electron/codex-monitor-win32-x64` 开发 package，再运行带 production fuses 的真实制品；`electron:e2e` 会重建同一 production bundles/package，再由 Playwright 驱动开发 Electron，验证自定义协议、renderer Node 隔离、typed preload、IPC 布局 revision、外部导航、popup 拒绝，以及通过仅开发态 main harness 合成 dynamic tool 对同一可见 Browser page 执行 snapshot/type/click/screenshot。该 harness 不进入 renderer 且 packaged 强制禁用；E2E 仍不等于真实 app-server/model、MSIX、签名或安装验收。当前 `electron:start` dev runner 仍需在锁定 Node 22 环境复核。
+
+`npm run test -- --run electron/main/app-server` 覆盖 Electron main 的 stdio/JSONL transport、initialize client 与进程 supervisor，包含真实 Node 子进程 fixture。它不启动 bundled `codex.exe`，不能替代当前锁定 codex 的协议和 thread 集成测试。
+
+本地已有待验证的公开 `codex.exe` 时，可用显式临时 Home 跑真实 initialize + `thread/start.dynamicTools` 探针，避免污染共享 Home：
+
+```powershell
+$env:BLACKRAIN_CODEX_BIN = "C:\absolute\path\to\codex.exe"
+$env:BLACKRAIN_CODEX_PROBE_HOME = (Resolve-Path ..\..\.scratch).Path + "\electron-codex-probe-home"
+npx vitest run electron/main/app-server/real-app-server-probe.test.ts
+```
+
+这两个环境变量只用于测试；正式打包版拒绝 `BLACKRAIN_CODEX_BIN` 覆盖，只解析 `resources\codex\windows-x64\codex.exe`。
 
 ## GitHub Actions 与 self-hosted Windows
 

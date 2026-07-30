@@ -564,6 +564,9 @@ class H(http.server.BaseHTTPRequestHandler):
         except Exception:
             pass
 
+class GatewayHTTPServer(http.server.ThreadingHTTPServer):
+    daemon_threads = True
+
 if __name__ == "__main__":
     provider_summary = ", ".join(
         f"{provider['id']}({len(provider['models'])})"
@@ -572,6 +575,6 @@ if __name__ == "__main__":
     )
     print(f"[gateway] :{PORT} STRIP_TOOLS={STRIP_TOOLS} providers={provider_summary}", flush=True)
     try:
-        http.server.HTTPServer(("127.0.0.1", PORT), H).serve_forever()
+        GatewayHTTPServer(("127.0.0.1", PORT), H).serve_forever()
     except KeyboardInterrupt:
         print("\n[gateway] stopped", flush=True)

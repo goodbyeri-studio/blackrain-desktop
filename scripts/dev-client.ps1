@@ -65,7 +65,9 @@ $gwPort = if ($env:GW_PORT) { [int]$env:GW_PORT } else { 8899 }
 $devContextWindow = if ($env:DEV_CONTEXT_WINDOW) { [int]$env:DEV_CONTEXT_WINDOW } else { 1000000 }
 $devHome = Join-Path $repo ".scratch\dev-codex-home"
 New-Item -ItemType Directory -Force -Path $devHome | Out-Null
-if (-not $env:BLACKRAIN_GATEWAY_API_KEY) { $env:BLACKRAIN_GATEWAY_API_KEY = "local-dev-gateway" }
+if (-not $env:BLACKRAIN_GATEWAY_API_KEY) {
+  $env:BLACKRAIN_GATEWAY_API_KEY = [guid]::NewGuid().ToString("N")
+}
 @"
 model = "$devModel"
 model_provider = "blackrain_gateway"

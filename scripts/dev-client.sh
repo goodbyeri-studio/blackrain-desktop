@@ -64,7 +64,7 @@ GW_PORT="${GW_PORT:-8899}"   # 先定端口，下面 config.toml 与网关共用
 DEV_CONTEXT_WINDOW="${DEV_CONTEXT_WINDOW:-1000000}"
 DEV_HOME="$REPO/.scratch/dev-codex-home"
 mkdir -p "$DEV_HOME"
-export BLACKRAIN_GATEWAY_API_KEY="${BLACKRAIN_GATEWAY_API_KEY:-local-dev-gateway}"
+export BLACKRAIN_GATEWAY_API_KEY="${BLACKRAIN_GATEWAY_API_KEY:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')}"
 cat > "$DEV_HOME/config.toml" <<TOML
 model = "${DEV_MODEL}"
 model_provider = "blackrain_gateway"

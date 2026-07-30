@@ -76,6 +76,8 @@ dynamic-tool 路径只用于最早纵向切片。生产 Browser client 必须在
 
 snapshot/locator 在现有页面 target 中注入自有或许可兼容的 selector/ARIA/actionability runtime；禁止调用 `chromium.launch()` 或 `connectOverCDP()` 创建旁路浏览器。DOM snapshot 默认输出增量 ARIA/可访问性文本树，并递归合并可见 iframe/OOPIF，不把完整 HTML 直接塞入模型上下文。
 
+dynamic-tool bootstrap 的首个 CDP 切片先直接读取顶层页面 `Accessibility.getFullAXTree`，最多处理 500 个节点并输出最多 64 KiB 文本；每个页面只保留最新 snapshot，ref 的 TTL 为 30 秒，并绑定 thread、turn、tab、view generation、document generation 与 URL。`click` 只按 ref 的 `backendDOMNodeId` 读取 box model 并发送受限鼠标事件；`type_text` 只运行固定的可编辑元素选择函数和 `Input.insertText`；screenshot 只截当前 viewport 的 PNG，二进制上限 5 MiB。导航、崩溃、关闭、过期和 ownership 漂移均 fail closed。该切片不代表 locator/actionability runtime、iframe/OOPIF 合并、input-target token、中文输入法或 hidden full-page capture 已完成。
+
 ## WebContentsView、布局与 registry
 
 renderer 只能发送经过类型约束的用户意图和布局状态：

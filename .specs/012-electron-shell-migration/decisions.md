@@ -54,8 +54,47 @@
 - 持久化：rollout JSONL 是规范 thread 历史；SQLite 是查询/元数据投影及其他结构化状态；Electron 不直接修改这些文件。
 - 隔离：Electron/Chromium user-data 与 Codex Home 分离，Browser Cookie 和 Web 状态不进入 thread 或 Codex 日志。
 
+## 2026-07-29：Home 选择、bundled codex 与 Gateway 配置相互解耦
+
+- 默认模式：Electron app-server 子进程继承标准 Home 解析和父进程显式 `CODEX_HOME`，因此与原生 CLI 共享 auth、config、sessions、rollout 与 SQLite。
+- 显式隔离：只接受用户主动选择的绝对路径；不得根据 BlackRain 安装目录、app-data 或 bundled `codex.exe` 自动派生隐藏 Home。UI 必须显示当前模式并允许切回共享模式。
+- 二进制归属：BlackRain bundled `codex.exe` 使用独立、可校验的安装路径；二进制路径不决定状态目录，两者不能复用一个配置项。
+- Gateway：`blackrain_gateway` provider、base URL 和默认模型仅以 app-server 进程级 `-c` override 注入，不再持久改写共享 `config.toml`。历史配置不自动删除，避免误删用户主动维护的同名配置；后续如清理，必须经过用户确认并做精确归属判断。
+- 凭据：provider secret 与 credit JWT 的规范副本放系统凭据库；Gateway 所需 JWT 文件桥仅放 BlackRain app-data，停止/登出时清理。旧版 Codex Home JWT 文件只作一次迁移来源，凭据库保存成功后才删除。
+- 影响范围：Electron process supervisor、当前 Tauri Gateway 兼容层、设置 UI、迁移测试和 Windows 凭据/卸载验收。
+
+## 2026-07-30：默认 CODEX_HOME 改为 BlackRain Agent Data（同日已撤销）
+
+- 决策：Electron 默认将 `CODEX_HOME` 指向 `%APPDATA%\BlackRain\agent-data`，不再默认继承 CLI 的标准 Home 或父进程 `CODEX_HOME`。
+- 命名：目录使用产品语义 `agent-data`，不得使用 `codex-home`，避免用户误认为它属于官方 Codex CLI，也为未来迁移保留清晰边界；环境变量名 `CODEX_HOME` 属于原装 codex-rs 运行合同，保持不变。
+- 数据分层：同一 `%APPDATA%\BlackRain` 根目录下使用 `agent-data`、`browser-data`、`app-state`、`logs`、`artifacts`；Electron `userData` 指向 `app-state`，Chromium `sessionData` 指向 `browser-data`。
+- 兼容模式：用户可以主动选择共享 CLI Home，届时沿用 Codex 标准 Home 解析；也可以选择其他绝对路径。BlackRain 不自动复制、合并或改写 CLI Home。
+- 持久化：rollout JSONL 与 SQLite 仍由原装 ThreadStore 独占管理；改变的是状态目录归属，不改变 schema、协议或唯一 agent 内核。
+- 影响范围：Electron 启动目录、App Server supervisor、设置 UI、首次登录/导入、备份卸载和 Windows 验收。
+
+## 2026-07-30：回归标准 Codex Home（当前决策）
+
+- 决策：撤销同日的默认 `agent-data` 提案。Electron app-server 子进程默认不覆盖 `CODEX_HOME`，沿用标准解析和父进程显式选择，与原生 CLI 共享配置、能力和可恢复 thread。
+- 原因：BlackRain 只替换桌面宿主，不应制造第二套 auth/config/session/rollout/SQLite 状态域；bundled `codex.exe` 的安装路径仍与 Home 归属解耦。
+- 宿主数据：`%APPDATA%\BlackRain` 只保留 `browser-data`、`app-state`、`logs`、`artifacts` 等 Electron 宿主状态。
+- 自定义：用户显式选择的绝对 Home 可以覆盖默认值，但 BlackRain 不自动复制、合并或改写 Home。
+- 迁移：删除 Electron supervisor 的默认 `agent-data` 注入及目录创建；Tauri 遗留 `codex-home` 只作为迁移输入，目标态不得延续。
+
 ## 2026-07-29：Windows 工程对齐 Electron Forge + Vite + MSIX
 
 - 决策：保留 npm/`package-lock.json`，使用 Electron Forge、Vite、TypeScript 和 MSIX maker；不再采用 `electron-builder`/NSIS 作为目标方案。
 - 首个锁定候选：Electron `42.3.0`、Forge `7.11.1`、Vite `8.1.3`、TypeScript `5.9.3`、React `19.2.5`。
 - 制品：MSIX 必须包含 `codex.exe` 及锁定版本实际需要的 code-mode/sandbox helper，并验证 Authenticode/MSIX 签名、hash、启动参数和进程清理。
+
+## 2026-07-30：本地 Gateway capability 必须随机且运行文件原子更新
+
+- 决策：显式 `BLACKRAIN_GATEWAY_API_KEY` 继续作为覆盖入口；未设置时由宿主或开发启动脚本生成每进程随机 capability，并把同一值传给 Gateway 与 app-server，不保留公开固定默认值。
+- 并发：Gateway 使用 daemon-thread HTTP server，长 SSE 请求不得阻塞健康检查或其他 thread 的请求。
+- 凭据桥：credit JWT 先写同目录随机临时文件，再用平台原子替换进入固定运行路径；Gateway 启动健康检查失败时立即终止已 spawn 的子进程。
+- 边界：这些措施只保护迁移期 loopback Gateway，不把协议翻译并入 Electron main、renderer 或 codex-rs。
+
+## 2026-07-30：生产 Electron 制品不携带 main/preload source map
+
+- 决策：生产 main/preload bundle 不生成 source map，避免 ASAR 通过 `sourcesContent` 分发宿主与 preload 源码；renderer 的调试策略另行按发布配置审计。
+- 打包：MSIX manifest 的 `appExecutable` 必须与 Forge `executableName` 一致，当前均为 `BlackRain.exe`。
+- CI：Node 22 Windows job 必须执行 package、packaged smoke、Playwright Electron E2E 和 unsigned MSIX make；本地 make 通过不替代签名、安装、升级或卸载验收。

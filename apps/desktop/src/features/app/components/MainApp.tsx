@@ -83,6 +83,7 @@ import { useAppShellOrchestration } from "@app/orchestration/useLayoutOrchestrat
 import { normalizeCodexArgsInput } from "@/utils/codexArgsInput";
 import { subscribeTrayOpenThread } from "@services/events";
 import { I18nProvider } from "@/i18n";
+import { BrowserSidebar } from "@/features/browser/components/BrowserSidebar";
 
 const SettingsView = lazy(() =>
   import("@settings/components/SettingsView").then((module) => ({
@@ -1866,6 +1867,7 @@ export default function MainApp() {
       appModalsProps,
       showMobileSetupWizard,
       mobileSetupWizardProps,
+      browserPanelNode: <BrowserSidebar threadId={activeThreadId} />,
     },
     gitHubPanelDataProps: {
       activeWorkspace,

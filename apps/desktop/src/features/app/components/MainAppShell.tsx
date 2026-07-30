@@ -1,4 +1,11 @@
-import { lazy, Suspense, type CSSProperties, type ComponentProps, type RefObject } from "react";
+import {
+  lazy,
+  Suspense,
+  type CSSProperties,
+  type ComponentProps,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { AppLayout } from "@app/components/AppLayout";
 import { AppModals } from "@app/components/AppModals";
 import type { AppModalsProps } from "@app/components/AppModals";
@@ -36,6 +43,7 @@ type MainAppShellProps = {
   appModalsProps: AppModalsProps;
   showMobileSetupWizard: boolean;
   mobileSetupWizardProps: ComponentProps<typeof MobileServerSetupWizard>;
+  browserPanelNode?: ReactNode;
 };
 
 export function MainAppShell({
@@ -50,6 +58,7 @@ export function MainAppShell({
   appModalsProps,
   showMobileSetupWizard,
   mobileSetupWizardProps,
+  browserPanelNode,
 }: MainAppShellProps) {
   return (
     <div className={`${appClassName}${isResizing ? " is-resizing" : ""}`} style={appStyle} ref={appRef}>
@@ -62,6 +71,7 @@ export function MainAppShell({
         </Suspense>
       ) : null}
       <AppLayout {...appLayoutProps} />
+      {browserPanelNode}
       <AppModals {...appModalsProps} />
       {showMobileSetupWizard ? <MobileServerSetupWizard {...mobileSetupWizardProps} /> : null}
     </div>

@@ -9,28 +9,33 @@
 - [ ] 为每项能力标记所有权、依赖和验证等级
 - [ ] 建立公开来源与 License 记录
 - [ ] 对锁定 app-server 验证 experimental API、dynamicTools、`item/tool/call`、取消和结果 schema
+- [x] 对本机公开 `codex-cli 0.146.0-alpha.3.1` 完成 initialize 与 `thread/start.dynamicTools` 探针；采用版本锁定后重跑完整项
 
 ## 阶段 1：Browser backend 与 host
 
-- [ ] 定义 browser tool / main / renderer 类型合同
-- [ ] 建立 BrowserBackend、BrowserRegistry、BrowserViewManager、BrowserCdpController
-- [ ] 创建 `persist:blackrain-browser-app` 和页面权限默认拒绝策略
-- [ ] 实现 main-owned `WebContentsView` factory 和页面 WebContents 安全参数
-- [ ] 建立 owner window/thread/route/tab/view/WebContents/debugger 映射
-- [ ] 实现 renderer bounds/visibility/layout revision/occlusion 合同
-- [ ] 实现 view retention/reparenting、关闭和恢复
-- [ ] 分离 route/page ownership 与实际 storage partition；所有 P0 页面只使用受管持久 session
-- [ ] 设计专用 page preload 的 annotation/selection/capture 最小合同、hash 和 isolated-world 测试；若不需要则保持无 preload
+- [x] 定义 renderer/main 的 tab create/list/navigate/close 与 layout 类型合同；Browser tool 合同留在阶段 2
+- [x] 建立 BrowserRegistry 与 BrowserViewManager host foundation；BrowserBackend/CDP controller 留在阶段 2/3
+- [x] 创建 `persist:blackrain-browser-app` 和页面权限/下载默认拒绝策略
+- [x] 实现 main-owned `WebContentsView` factory 和页面 WebContents 安全参数
+- [x] 建立 owner window/thread/route/tab/view generation/WebContents 映射；Codex session/turn/debugger 映射留待 Agent 闭环
+- [x] 实现 renderer bounds/visibility/layout revision/occlusion 合同、content area 裁剪和 stale revision 拒绝
+- [x] 实现 tab 关闭和 window teardown 清理；retention/reparenting/恢复仍待实现
+- [x] 实现 thread-scoped Browser 侧栏、tab 创建/选择/关闭、地址导航、后退/前进/刷新/停止与加载/错误/崩溃状态
+- [x] 实现 main→preload typed tab 状态事件，以及 renderer ResizeObserver/visibility/modal occlusion 布局同步
+- [x] 分离 route/page ownership 与实际 storage partition；所有 P0 页面只使用受管持久 session
+- [x] 在创建 page WebContents 前按 owner 强制 64 tab 上限，并验证其他 owner 独立计数
+- [x] 首个 host foundation 保持无 page preload；后续 annotation/selection/capture 如需 preload，必须另建固定 hash 的最小合同
 - [ ] 建立 live/suspended/persisted/crashed page record、工作集预算和标准 Electron 恢复降级
 
 ## 阶段 2：真实 Agent Browser 闭环
 
-- [ ] 在 `thread/start.dynamicTools` 注册 `blackrain_browser` 高层工具
-- [ ] main App Server client 将 server request 直接路由到 BrowserBackend，并支持 cancel/deadline
+- [x] 在 `thread/start.dynamicTools` 注册 `blackrain_browser` 的 list/goto/back/forward/reload/stop 工具
+- [x] main App Server client 将 `item/tool/call` 直接路由到同一 Browser registry，并支持 cancel/deadline
+- [x] 实现 dynamic-tool bootstrap 的顶层 AX snapshot、30 秒短期 ref、click、type_text 与 current viewport screenshot 受限 CDP 合同
 - [ ] 将 dynamic-tool 路径标记为 bootstrap adapter，并建立生产 Browser client 替换闸口
 - [ ] 跑通 tabs、navigation、snapshot、locator、CUA 和 screenshot
 - [ ] 实现用户接管与 agent 控制状态机
-- [ ] 验证 agent 与用户操作的是同一个可见 `WebContentsView` 页面
+- [ ] 验证真实 app-server Agent 与用户操作的是同一个可见 `WebContentsView` 页面；合成 dynamic tool E2E 已通过
 - [ ] 将标准化事件接入可见 UI 与 thread 流程
 
 ## 阶段 3：Browser 产品化
@@ -55,9 +60,13 @@
 
 ## 阶段 4：验证与发布
 
-- [ ] 单元测试权限、导航和控制状态机
-- [ ] 单元测试 bounds 越界、跨 thread/profile、错误 owner、旧 revision 和旧 generation
-- [ ] Playwright Electron E2E 覆盖核心流程
+- [x] 单元测试 URL/navigation policy、bounds 裁剪、route ownership、旧 revision 和旧 generation；权限与下载默认拒绝由 Electron E2E/后续策略测试继续覆盖
+- [ ] 单元测试跨 profile、错误 owner 和 Agent/user 控制状态机
+- [x] 单元测试 AX snapshot 节点/文本上限、turn/document/TTL 失效、click/type_text 命令序列、PNG 类型/大小和 debugger teardown
+- [x] Playwright Electron E2E 覆盖本地页面 create/load/layout/list/unsafe-navigation/close host foundation
+- [x] Playwright Electron E2E 通过 main-only 合成 `item/tool/call` 覆盖真实可见 WebContentsView 的 snapshot/type_text/click/viewport screenshot，并确认 page id 不变
+- [x] renderer 单测覆盖 Browser UI create/navigate/reload/close；Electron E2E 覆盖 UI 入口开合和 main 状态事件
+- [ ] Playwright Electron E2E 从真实 thread 的 Browser UI 驱动同一 `WebContentsView`
 - [ ] Windows 真实站点登录保持与下载验证
 - [ ] MFA、反自动化、iframe/OOPIF、离线、权限拒绝和外部协议验证
 - [ ] renderer/page WebContents/app-server 重启、隐藏运行和 App restart 恢复验证

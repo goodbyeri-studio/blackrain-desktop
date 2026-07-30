@@ -65,7 +65,7 @@ ClawX 与 Hermes 不定义 BlackRain Browser 产品架构。ClawX 可参考 webv
 |---|---|---|
 | Electron main 监管 `codex.exe app-server` | Electron main 直接监管 bundled `codex.exe app-server` | 同构进程边界 |
 | app-server stdio JSONL/JSON-RPC | main 通过 stdin/stdout JSONL 双向通信，stderr 独立诊断 | 同构 transport 与 framing |
-| 标准 Codex Home 与 CLI 共享 | 沿用标准 Codex Home，不建立 BlackRain 专属 Home | 同构 thread/config/skill 状态域 |
+| 标准 Codex Home 合同 | 默认沿用 CLI 标准 Home 解析和父进程显式 `CODEX_HOME` | 共享 config/auth/thread，Electron/Browser 宿主状态独立 |
 | Forge + Vite + TypeScript + MSIX | 使用 npm、Forge、Vite、TypeScript 与 MSIX maker | 同构 Windows 工程主线 |
 | renderer 创建 `<webview>` | main 创建 `WebContentsView`，renderer 只同步 sidebar bounds/state | 功能对齐，使用 Electron 推荐的 main ownership |
 | main 持有 guest `WebContents` | main Browser backend 持有 view/page WebContents | 同一控制面 |
@@ -312,7 +312,7 @@ user -> agent_requesting -> agent
 - 建立双向 request/response/notification、初始化、取消、deadline、订阅、退出和重启状态机。
 - 迁移项目打开、thread start/resume、turn、流式事件、审批、停止和恢复。
 - 分开验证 approval policy 与 sandbox/permission profile，覆盖 app-server server request 和 Windows 工具子进程权限。
-- 沿用标准 Codex Home，验证与原生 CLI 共享 config、skills、plugins 和可恢复 thread，并保持 Electron user-data 独立。
+- 默认沿用标准 Codex Home，验证与 CLI 共享 config/skills/plugins/thread 恢复；自定义 Home 只作用户显式模式，并始终保持 `browser-data`/`app-state` 独立。
 - 验证 rollout JSONL/SQLite 由原装 ThreadStore 管理，Electron 不直接修改持久化文件。
 
 退出闸口：真实模型 thread 在 Electron 中端到端通过，app-server 崩溃、renderer 崩溃和 App 重启可恢复。

@@ -5,6 +5,7 @@ use keyring::{Entry, Error as KeyringError};
 use crate::types::{ModelGatewayProviderSecretStatus, ModelGatewaySecretSource};
 
 const SERVICE: &str = "BlackRain2049 Model Gateway";
+const CREDIT_JWT_USERNAME: &str = "credit-proxy-jwt";
 
 fn provider_username(provider_id: &str) -> Result<String, String> {
     let id = provider_id.trim();
@@ -16,6 +17,11 @@ fn provider_username(provider_id: &str) -> Result<String, String> {
 
 fn provider_entry(provider_id: &str) -> Result<Entry, String> {
     Entry::new(SERVICE, &provider_username(provider_id)?)
+        .map_err(|err| format!("Unable to open system credential store: {err}"))
+}
+
+fn credit_jwt_entry() -> Result<Entry, String> {
+    Entry::new(SERVICE, CREDIT_JWT_USERNAME)
         .map_err(|err| format!("Unable to open system credential store: {err}"))
 }
 
@@ -150,11 +156,48 @@ pub(crate) fn model_gateway_provider_secret_clear(provider_id: &str) -> Result<(
     }
 }
 
+pub(crate) fn model_gateway_credit_jwt_get() -> Result<Option<String>, String> {
+    match credit_jwt_entry()?.get_password() {
+        Ok(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(trimmed.to_string()))
+            }
+        }
+        Err(KeyringError::NoEntry) => Ok(None),
+        Err(err) => Err(format!(
+            "Unable to read credit token from system credential store: {err}"
+        )),
+    }
+}
+
+pub(crate) fn model_gateway_credit_jwt_set(jwt: &str) -> Result<(), String> {
+    let token = jwt.trim();
+    if token.is_empty() {
+        return model_gateway_credit_jwt_clear();
+    }
+    credit_jwt_entry()?
+        .set_password(token)
+        .map_err(|err| format!("Unable to save credit token to system credential store: {err}"))
+}
+
+pub(crate) fn model_gateway_credit_jwt_clear() -> Result<(), String> {
+    match credit_jwt_entry()?.delete_credential() {
+        Ok(()) | Err(KeyringError::NoEntry) => Ok(()),
+        Err(err) => Err(format!(
+            "Unable to delete credit token from system credential store: {err}"
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         model_gateway_provider_api_key, model_gateway_provider_secret_clear,
         model_gateway_provider_secret_set, model_gateway_provider_secret_status, provider_username,
+        CREDIT_JWT_USERNAME,
     };
     use crate::types::ModelGatewaySecretSource;
 
@@ -165,6 +208,7 @@ mod tests {
             provider_username("deepseek").expect("username"),
             "provider:deepseek"
         );
+        assert_eq!(CREDIT_JWT_USERNAME, "credit-proxy-jwt");
     }
 
     #[test]
