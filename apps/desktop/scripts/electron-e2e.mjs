@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import http from "node:http";
 import { access, mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -8,6 +7,26 @@ import { _electron as electron } from "playwright-core";
 
 const desktopRoot = fileURLToPath(new URL("..", import.meta.url));
 const appEntryPath = path.resolve(desktopRoot);
+const browserFixtureUrl = "http://blackrain-e2e.test/fixture";
+const browserPartition = "persist:blackrain-browser-app";
+const browserFixtureHtml = `<!doctype html>
+  <html>
+    <head><title>BlackRain Browser Fixture</title></head>
+    <body>
+      <main>
+        <label>测试输入 <input aria-label="测试输入" value="before"></label>
+        <button aria-label="应用输入">应用</button>
+        <output aria-label="结果">before</output>
+      </main>
+      <script>
+        const input = document.querySelector("input");
+        const output = document.querySelector("output");
+        document.querySelector("button").addEventListener("click", () => {
+          output.textContent = input.value;
+        });
+      </script>
+    </body>
+  </html>`;
 const appDataPath = await mkdtemp(
   path.join(os.tmpdir(), "blackrain-electron-e2e-"),
 );
@@ -36,41 +55,8 @@ const withStageTimeout = (promise, stage, timeoutMs = 45_000) => {
     }),
   ]).finally(() => clearTimeout(timeout));
 };
-const fixtureServer = http.createServer((request, response) => {
-  logStage(`fixture request ${request.method} ${request.url}`);
-  response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-  response.end(
-    `<!doctype html>
-      <html>
-        <head><title>BlackRain Browser Fixture</title></head>
-        <body>
-          <main>
-            <label>测试输入 <input aria-label="测试输入" value="before"></label>
-            <button aria-label="应用输入">应用</button>
-            <output aria-label="结果">before</output>
-          </main>
-          <script>
-            const input = document.querySelector("input");
-            const output = document.querySelector("output");
-            document.querySelector("button").addEventListener("click", () => {
-              output.textContent = input.value;
-            });
-          </script>
-        </body>
-      </html>`,
-  );
-});
 try {
   await access(appEntryPath);
-  await new Promise((resolve, reject) => {
-    fixtureServer.once("error", reject);
-    fixtureServer.listen(0, "127.0.0.1", resolve);
-  });
-  const fixtureAddress = fixtureServer.address();
-  assert.ok(fixtureAddress && typeof fixtureAddress !== "string");
-  const browserFixtureUrl = `http://127.0.0.1:${fixtureAddress.port}/fixture`;
-  logStage("fixture ready");
-
   logStage("launching Electron");
   electronApplication = await electron.launch({
     args: ["--no-proxy-server", appEntryPath],
@@ -79,6 +65,28 @@ try {
     timeout: 30_000,
   });
   logStage("Electron launched");
+
+  await electronApplication.evaluate(
+    async ({ session }, fixture) => {
+      const pageSession = session.fromPartition(fixture.partition, { cache: true });
+      await pageSession.protocol.handle("http", (request) => {
+        const requestUrl = new URL(request.url);
+        if (requestUrl.hostname !== "blackrain-e2e.test") {
+          return new Response("Not Found", { status: 404 });
+        }
+        if (requestUrl.pathname === "/download") {
+          return new Response("browser fixture download", {
+            headers: { "content-type": "text/plain; charset=utf-8" },
+          });
+        }
+        return new Response(fixture.html, {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      });
+    },
+    { partition: browserPartition, html: browserFixtureHtml },
+  );
+  logStage("fixture protocol ready");
 
   const window = await electronApplication.firstWindow({ timeout: 30_000 });
   logStage("first window ready");
@@ -497,9 +505,6 @@ try {
   );
 } finally {
   await electronApplication?.close().catch(() => undefined);
-  if (fixtureServer.listening) {
-    await new Promise((resolve) => fixtureServer.close(resolve));
-  }
   await rm(appDataPath, {
     recursive: true,
     force: true,
