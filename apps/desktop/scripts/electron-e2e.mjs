@@ -59,7 +59,13 @@ try {
   await access(appEntryPath);
   logStage("launching Electron");
   electronApplication = await electron.launch({
-    args: ["--no-proxy-server", appEntryPath],
+    args: [
+      "--no-proxy-server",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding",
+      appEntryPath,
+    ],
     cwd: desktopRoot,
     env: environment,
     timeout: 30_000,
@@ -172,24 +178,27 @@ try {
           browserEvents.push(event);
         }
       });
-      const tab = await globalThis.blackrain.browser.createTab({
-        ...scope,
-        url: fixtureUrl,
-      });
+      const initialTab = await globalThis.blackrain.browser.createTab(scope);
       const layout = await globalThis.blackrain.browser.setLayout({
         windowGeneration: bootstrap.windowGeneration,
         layoutRevision: 1,
         ...scope,
-        activeTabId: tab.browserTabId,
+        activeTabId: initialTab.browserTabId,
         views: [
           {
-            browserTabId: tab.browserTabId,
-            viewGeneration: tab.viewGeneration,
+            browserTabId: initialTab.browserTabId,
+            viewGeneration: initialTab.viewGeneration,
             bounds: { x: 700, y: 120, width: 900, height: 700 },
             visible: true,
             occluded: false,
           },
         ],
+      });
+      const tab = await globalThis.blackrain.browser.navigate({
+        ...scope,
+        browserTabId: initialTab.browserTabId,
+        viewGeneration: initialTab.viewGeneration,
+        url: fixtureUrl,
       });
       const reload = await globalThis.blackrain.browser.control({
         ...scope,
