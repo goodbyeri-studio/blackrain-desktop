@@ -41,7 +41,7 @@
 ## 阶段 3:Windows 专属能力实测
 
 - [ ] **Windows Credential Manager smoke**:写 / 读 / 状态 / 清理 API key 全跑(`keyring` crate 已支持,只需实测)。
-- [ ] **协议四探针 Windows 实测**:`python3 .scratch/m0_protocol_probe.py` 对当前锁定 rust-v0.144.5 / `87db9bc` 全绿。
+- [ ] **协议四探针 Windows 实测**:`python3 .scratch/m0_protocol_probe.py` 对当前锁定 rust-v0.146.0 / `e363b08c` 全绿。
 - [ ] **真实 DeepSeek 工具调用 Windows 实测**:`m0_tool_driver.py` 生成 hello.txt 内容为 2049。
 - [ ] **App 托管 sidecar 工具调用实测**:不由 dev 脚本预起 Gateway，让 App 自己 spawn；确认 `STRIP_TOOLS=0` 生效并完成真实 `commandExecution`。当前代码未覆盖默认值，是发布阻塞项。
 - [ ] **`windowsSandbox/{setupStart,readiness}` 探针**(`.specs/006` 链路在 Windows 上首次实跑):验证内核能正确回应 setup 流程,UI 复刻不在本 spec。

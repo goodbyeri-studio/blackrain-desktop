@@ -22,7 +22,13 @@ export function resolveCodexExecutablePath(
     throw new Error("BlackRain Electron MVP 仅解析 Windows bundled codex.exe");
   }
   return requireExecutable(
-    path.join(options.resourcesPath, "codex", "windows-x64", "codex.exe"),
+    path.join(
+      options.resourcesPath,
+      "codex",
+      "windows-x64",
+      "bin",
+      "codex.exe",
+    ),
     "bundled codex.exe",
   );
 }

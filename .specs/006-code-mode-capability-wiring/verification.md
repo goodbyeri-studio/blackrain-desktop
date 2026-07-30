@@ -1,6 +1,6 @@
 # Verification
 
-> 记录每批接入的实测命令与结果。下文最新完整能力基线是 `cfead68`;当前锁定 rust-v0.144.5 / `87db9bc` 只完成源码差异与协议方法集合静态审计,尚未构建,全量 capability 重验和 Windows GUI 冒烟仍未跑。「shape 被接受」不代表方法无认证/stub/平台门控。
+> 记录每批接入的实测命令与结果。下文最新完整能力基线是 `cfead68`;当前锁定 rust-v0.146.0 / `e363b08c` 只完成源码与官方 Windows package 供应链锁定,全量 capability 重验和 Windows GUI 冒烟仍未跑。「shape 被接受」不代表方法无认证/stub/平台门控。
 
 > 2026-07-29：全部 5 层/daemon 结果仅证明当前 Tauri 迁移输入。Electron main 直连 app-server 的协议、IPC 和 Windows E2E 必须重新记录，不能继承这些结果。
 
@@ -41,7 +41,7 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 - ⚠️ **`thread/items/list` → 内核回 "is not supported yet"(-32601)**:壳已正确接入,但 `bdd282f` 内核侧尚未实现(stub)。它本应取代已删除的 `thread/turns/items/list`,故当前内核两者都不可用——壳是「接入超前于内核」,待未来 bump 点亮。
 - ⚠️ `plugin/uninstall`、`plugin/skill/read` → "chatgpt authentication required for remote plugin catalog":shape OK;**远程**目录插件需 OpenAI auth,本地插件可用(符合 C 类 OpenAI 门控边界)。
 
-**该批次在当时基线还缺 GUI 冒烟**：协议 shape 已自证，但 IPC→command→daemon 粘合和前端交互没有实跑。当前还必须额外对 `87db9bc` 重跑 shape，并复核认证、stub、实验开关与 Windows 运行时门控。
+**该批次在当时基线还缺 GUI 冒烟**：协议 shape 已自证，但 IPC→command→daemon 粘合和前端交互没有实跑。当前还必须额外对 `e363b08c` 重跑 shape，并复核认证、stub、实验开关与 Windows 运行时门控。
 
 ## 第 3 批 a(Thread 高级,13 方法)2026-06-28
 
@@ -92,7 +92,7 @@ python3 .scratch/m0_protocol_probe.py "$BIN" <CODEX_HOME> <工作区>
 | 42 方法 capability shape 探针 | 未跑 | 需刷新 stub/认证/实验门控 |
 | Windows `tauri:dev:win` GUI 冒烟 | 未跑 | 只有此项通过后才能声称对应 GUI 可用 |
 
-## 当前锁定 rust-v0.144.5 / `87db9bc` 静态审计
+## 历史锁定 rust-v0.144.5 / `87db9bc` 静态审计
 
 - 2026-07-26：官方 tag 解引用为 `87db9bc18ba5bc82c1cb4e4381b44f693ee35623`；`app-server-protocol`、feature 开关、浏览器/Computer Use 相关文件相对 0.144.1 无变化，LICENSE/NOTICE 无变化。
 - 2026-07-26：0.144.6 另含 bundled model metadata、基础提示词和上下文窗口变化，本轮未采用。

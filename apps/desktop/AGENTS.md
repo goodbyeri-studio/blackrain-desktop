@@ -1,10 +1,10 @@
 # BlackRain Desktop Agent Guide
 
-> **状态（2026-07-30）**：当前产品流程仍是 CodexMonitor 衍生的 Tauri + React + Rust 实现；迁移中的 Electron/Browser foundation 与 unsigned MSIX make 已通过 Windows CI，但尚未接入真实 bundled codex 或替代 Tauri 主流程。迁移合同以仓库根 `.specs/012-electron-shell-migration/` 为准，Codex App 能力与 Browser 以 `.specs/013-codex-app-capability-parity/` 为准。
+> **状态（2026-07-31）**：当前产品流程仍是 CodexMonitor 衍生的 Tauri + React + Rust 实现；迁移中的 Electron/Browser foundation 与 unsigned MSIX make 已通过 Windows CI，锁定 `codex-cli 0.146.0` runtime 的供应链、production package/smoke 和 initialize/dynamicTools 探针已在 Windows 本机通过，但尚未接入真实产品 thread 或替代 Tauri 主流程。迁移合同以仓库根 `.specs/012-electron-shell-migration/` 为准，Codex App 能力与 Browser 以 `.specs/013-codex-app-capability-parity/` 为准。
 
 ## 项目快照
 
-BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前产品流程仍运行于 React/Vite + Tauri/Rust；`electron/` 已建立 M1 安全空壳、M2 stdio/JSONL transport，以及 M3 中首个 main-owned `WebContentsView` host/UI/受限 CDP foundation，但尚未接入 bundled codex、真实 app-server thread 或真实模型 Agent 工具闭环。不得把 fixture、基础 UI 或合成 E2E foundation 通过写成 Electron 客户端已经可用。
+BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前产品流程仍运行于 React/Vite + Tauri/Rust；`electron/` 已建立 M1 安全空壳、M2 stdio/JSONL transport、锁定 `codex-cli 0.146.0` Windows canonical package 供应链，以及 M3 中首个 main-owned `WebContentsView` host/UI/受限 CDP foundation。bundled runtime 的完整性、production package/smoke 和 initialize/dynamicTools 探针已通过，但尚未接入真实产品 thread、事件投影或真实模型 Agent 工具闭环。不得把 fixture、基础 UI、协议探针或合成 E2E foundation 通过写成 Electron 客户端已经可用。
 
 目标宿主边界：
 

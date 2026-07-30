@@ -50,7 +50,7 @@ jobs:
           else
             while IFS= read -r file; do
               case "$file" in
-                .github/workflows/ci.yml|apps/desktop/electron/*|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/*|apps/desktop/scripts/*)
+                .github/workflows/ci.yml|apps/desktop/electron/*|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/resources/*|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/*|apps/desktop/scripts/*|scripts/vendor-electron-codex-runtime.ps1)
                   js=true
                   ;;
               esac
@@ -87,6 +87,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
+      - run: npm run electron:runtime:check-lock
       - run: npm run typecheck
       - run: npm run test
       - run: npm run lint
@@ -111,6 +112,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
+      - run: npm run electron:runtime:check-lock
       - run: npm run electron:package
       - run: npm --ignore-scripts run electron:smoke
       - name: Install Electron runtime for Playwright

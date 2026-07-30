@@ -24,7 +24,7 @@
 | YYYY-MM-DD | 前端 test (Windows) | `cd apps\desktop; npm run test` | 未跑 | 以当前收集到的全量用例为准,不锁历史数量 |
 | YYYY-MM-DD | Rust 后端 cargo check (Windows) | `cd apps\desktop\src-tauri; cargo check` | 未跑 | 期望只有仓库既有 dead_code warnings |
 | YYYY-MM-DD | model_gateway cargo test (Windows) | `cd apps\desktop\src-tauri; cargo test model_gateway` | 未跑 | 以当前收集到的测试为准，不锁历史数量 |
-| YYYY-MM-DD | 协议四探针 (Windows) | `python3 .scratch/m0_protocol_probe.py "<CODEX_HOME>" "<工作区>"` | 未跑 | 对当前锁定 rust-v0.144.5 / `87db9bc` 验 initialize / model-list / thread-start / turn-start 全绿 |
+| YYYY-MM-DD | 协议四探针 (Windows) | `python3 .scratch/m0_protocol_probe.py "<CODEX_HOME>" "<工作区>"` | 未跑 | 对当前锁定 rust-v0.146.0 / `e363b08c` 验 initialize / model-list / thread-start / turn-start 全绿 |
 | YYYY-MM-DD | 真实 DeepSeek 工具调用 (Windows) | `BLACKRAIN_GATEWAY_API_KEY=local-test-gateway python3 .scratch/m0_tool_driver.py ...` + `STRIP_TOOLS=0` Gateway | 未跑 | 期望生成 hello.txt 内容 `2049`,对等 macOS 2026-06-24 |
 | YYYY-MM-DD | App 托管 sidecar 工具调用 | 不预起 Gateway，由 App spawn 后在 GUI 发真实工具任务 | 未跑 | 当前 spawn 未设置 `STRIP_TOOLS=0`，默认会剥工具；修复前为发布阻塞 |
 | YYYY-MM-DD | Windows Credential Manager smoke | `cd apps\desktop\src-tauri; $env:BLACKRAIN_KEYCHAIN_SMOKE="1"; cargo test real_system_credential_store_smoke_when_enabled -- --nocapture` | 未跑 | lib + daemon 目标真实写读清理 |

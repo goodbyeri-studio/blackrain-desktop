@@ -1,6 +1,6 @@
 # Design
 
-> **状态(2026-07-26)**:本设计的 42 个方法包装已有 `cfead68` 历史验证;当前锁定 rust-v0.144.5 / `87db9bc` 只完成源码差异与协议方法集合静态审计,尚未构建,全量重验和 Windows GUI 冒烟未完成。方法包装存在不会解除上游门控。
+> **状态(2026-07-31)**:本设计的 42 个方法包装已有 `cfead68` 历史验证;当前锁定 rust-v0.146.0 / `e363b08c` 只完成源码与官方 Windows package 供应链锁定,全量重验和 Windows GUI 冒烟未完成。方法包装存在不会解除上游门控。
 
 > **迁移边界（2026-07-29）**：本设计保留为当前 Tauri wiring 说明。Electron 目标不照搬 5 层 App/daemon adapter，而由 main 的 App Server client 直接发 ClientRequest、接收 ServerRequest/Notification；具体目录、测试和删除任务见 spec 012。
 

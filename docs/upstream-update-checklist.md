@@ -1,6 +1,6 @@
 # codex 上游更新检查清单
 
-> 当前目标锁：`87db9bc18ba5bc82c1cb4e4381b44f693ee35623` / `rust-v0.144.5`。锁定源码不等于 Windows 产品验收。
+> 当前目标锁：`e363b08c9175ac1cbe5893615dd2cb9ddf95043b` / `rust-v0.146.0`。源码和官方 release package 锁定不等于 Windows runtime 或产品验收。
 
 > **宿主状态（2026-07-26）**：当前 checkout 仍是 Tauri；Electron 是唯一目标宿主。下方旧 Tauri 命令和证据在迁移完成前仅作为基线，新的 Browser/宿主验收按 specs 012/013 补齐。
 
@@ -32,6 +32,7 @@ git -C codex-upstream rev-parse HEAD
 ## Windows 验证
 
 - [ ] 编译 codex Windows x64 制品。
+- [x] 运行 `scripts/vendor-electron-codex-runtime.ps1`，验证官方 archive SHA-256、canonical package 文件集、License/NOTICE 和 Authenticode。
 - [ ] 运行当前 Tauri 本地启动与真实模型对话（迁移基线）。
 - [ ] 运行 Electron 本地启动、真实模型对话和 Browser 纵向切片（目标闸口）。
 - [ ] 验证停止、审批、恢复、附件和工具调用。

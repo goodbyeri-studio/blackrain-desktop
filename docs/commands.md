@@ -82,10 +82,10 @@ if ((git -C codex-upstream rev-parse --is-shallow-repository) -eq "true") {
 }
 
 git -C codex-upstream fetch origin --tags --prune
-git -C codex-upstream checkout --detach 87db9bc18ba5bc82c1cb4e4381b44f693ee35623
+git -C codex-upstream checkout --detach e363b08c9175ac1cbe5893615dd2cb9ddf95043b
 
 git -C codex-upstream rev-parse --short HEAD
-# 预期为 87db9bc18ba5bc82c1cb4e4381b44f693ee35623
+# 预期为 e363b08c9175ac1cbe5893615dd2cb9ddf95043b
 ```
 
 目标锁定值与边界见 [REFERENCES](REFERENCES.md)。不要把本机 gitignored 克隆的 `HEAD` 当成仓库已完成状态。
@@ -167,6 +167,7 @@ Set-Location apps\desktop
 
 npm run electron:typecheck
 npm run test -- --run electron
+npm run electron:runtime:check-lock
 npm run electron:package
 npm run electron:smoke
 npm run electron:e2e
@@ -180,9 +181,24 @@ Set-Location ..\..
 
 CI 已先执行一次 `electron:package`，所以用 `npm --ignore-scripts run electron:smoke` 和 `npm --ignore-scripts run electron:e2e` 复用该 package，并在 E2E 前显式执行 `electron:install-runtime`。CI 虚拟桌面不保存 renderer `page.screenshot()`；Browser tool 返回的 viewport PNG 仍由 E2E 断言。本地 E2E 会额外写入 `apps/desktop/output/playwright/electron-browser-sidebar.png`。
 
-`electron:make` 生成未签名的 Windows x64 MSIX，只证明 Forge maker 能完成基础制品生成；当前包不含锁定的 `codex.exe` 与 helper，也未经过签名、安装、升级、回滚或卸载验收。
+`electron:make` 生成未签名的 Windows x64 foundation MSIX，只证明 Forge maker 能完成基础制品生成；该命令不要求生成态 runtime。`electron:make:release` 才要求锁定的 Codex package 完整存在，但仍不代表 MSIX 已签名或通过安装、升级、回滚和卸载验收。
 
 `npm run test -- --run electron/main/app-server` 覆盖 Electron main 的 stdio/JSONL transport、initialize client 与进程 supervisor，包含真实 Node 子进程 fixture。它不启动 bundled `codex.exe`，不能替代当前锁定 codex 的协议和 thread 集成测试。
+
+### Electron Codex runtime
+
+源码与 Windows release package 锁见 `docs/REFERENCES.md` 和 `apps/desktop/resources/codex/runtime-lock.json`。生成的二进制不进入 Git；在仓库根使用 PowerShell 7 下载并校验官方 canonical package：
+
+```powershell
+pwsh -NoProfile -File scripts/vendor-electron-codex-runtime.ps1
+
+Set-Location apps\desktop
+npm run electron:runtime:verify
+npm run electron:make:release
+Set-Location ..\..
+```
+
+vendor 步骤按 tracked lock 验证 archive SHA-256、`codex-package.json`、`codex.exe`、code-mode host、`rg`、Windows sandbox helpers、License/NOTICE 的逐文件摘要，以及实际 EXE 的 Authenticode subject/thumbprint，并生成审计用 `runtime-manifest.json`。`electron:make:release` 不信任生成态 manifest 的摘要，会重新以 lock 校验实际文件，在 runtime 缺失、摘要或签名记录不一致时 fail closed；普通 `electron:make` 仍只用于不含 runtime 的 unsigned foundation CI。
 
 本地已有待验证的公开 `codex.exe` 时，可用显式临时 Home 跑真实 initialize + `thread/start.dynamicTools` 探针，避免污染共享 Home：
 
@@ -192,7 +208,7 @@ $env:BLACKRAIN_CODEX_PROBE_HOME = (Resolve-Path ..\..\.scratch).Path + "\electro
 npx vitest run electron/main/app-server/real-app-server-probe.test.ts
 ```
 
-这两个环境变量只用于测试；正式打包版拒绝 `BLACKRAIN_CODEX_BIN` 覆盖，只解析 `resources\codex\windows-x64\codex.exe`。
+这两个环境变量只用于测试；正式打包版拒绝 `BLACKRAIN_CODEX_BIN` 覆盖，只解析 `resources\codex\windows-x64\bin\codex.exe`。
 
 ## GitHub Actions 与 self-hosted Windows
 
@@ -239,7 +255,7 @@ npm run electron:make
 Set-Location ..\..
 ```
 
-当前输出为 `apps\desktop\out\electron\make\msix\x64\codex-monitor.msix`。该文件未签名、未安装，且不含 bundled `codex.exe` 与所需 helper；它不是发布候选，也不替代 spec 012 的安装、升级、回滚和卸载矩阵。
+当前输出为 `apps\desktop\out\electron\make\msix\x64\codex-monitor.msix`。普通 `electron:make` 的 foundation 制品未签名、未安装且不保证带 runtime；携带 runtime 的候选必须改用 `electron:make:release`。两者都不替代 spec 012 的安装、升级、回滚和卸载矩阵。
 
 签名方案拍板后，OV/EV 签名仍只在受控 Windows 机器或专用签名 runner 上执行。普通 PR runner 不持有长期 `.pfx`、私钥或 USB token。签名并验证 `Get-AuthenticodeSignature` 后记录 SHA-256，再创建 Draft Release 并上传已签名产物；人工确认安装矩阵前不得转为正式 Release。未来自动发布必须单独使用 GitHub Environment 人工审批，不得扩张现有 PR CI。
 

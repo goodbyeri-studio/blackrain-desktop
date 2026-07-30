@@ -82,5 +82,5 @@ dev 链路(本仓维护者):
 
 - 单元测试:跑当前 `npm run test` 全量用例,不锁历史测试数。
 - 集成测试:Windows 主机跑 `cargo check` + `cargo test model_gateway` + `npm run test` 全套;非 Windows 历史结果不代替 MVP 验收。
-- 协议探针:`python3 .scratch/m0_protocol_probe.py` + `m0_tool_driver.py` 在 Windows 主机上对当前锁定 rust-v0.144.5 / `87db9bc` 内核跑全绿。
+- 协议探针:`python3 .scratch/m0_protocol_probe.py` + `m0_tool_driver.py` 在 Windows 主机上对当前锁定 rust-v0.146.0 / `e363b08c` 内核跑全绿。
 - 人工验证:① `pwsh scripts/dev-client.ps1` 起到 GUI 可见、能发对话;② `npm run tauri:build:win` 产出 NSIS .exe;③ 双击安装包装到默认位置,开始菜单图标点开能起 App;④ Windows Credential Manager 写 / 读 / 清测 API key;⑤ 卸载干净不留垃圾。

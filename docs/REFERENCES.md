@@ -2,7 +2,7 @@
 
 | 项目 | 用途 | License | 本地位置 | 锁定版本 |
 |---|---|---|---|---|
-| [openai/codex](https://github.com/openai/codex) | CODE 引擎黑盒与 app-server 协议参考 | Apache-2.0 | `codex-upstream/` | `87db9bc18ba5bc82c1cb4e4381b44f693ee35623` / `rust-v0.144.5`（仅源码锁定；Windows 构建与产品验收未完成） |
+| [openai/codex](https://github.com/openai/codex) | CODE 引擎黑盒与 app-server 协议参考 | Apache-2.0 | `codex-upstream/` | `e363b08c9175ac1cbe5893615dd2cb9ddf95043b` / `rust-v0.146.0`（源码、官方 Windows package、Authenticode、packaged smoke 与 initialize/dynamicTools 探针已验证；真实模型和产品验收未完成） |
 | [Dimillian/CodexMonitor](https://github.com/Dimillian/CodexMonitor) | Desktop 壳上游 | MIT | `apps/desktop/` subtree | 以 subtree 提交记录为准 |
 | [ValueCell-ai/ClawX](https://github.com/ValueCell-ai/ClawX) | webview policy、崩溃恢复、Electron 打包次级参考 | MIT | 临时只读研究克隆，不进入产品依赖 | `960f6b298d1bafce74bf1b181b4534256df3e114` |
 | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | sidecar 生命周期、Windows 子进程与更新恢复次级参考 | MIT | 临时只读研究克隆，不进入产品依赖 | `339d968689a3b91c5f537d7198ff28abde32ab3b` |
@@ -39,3 +39,9 @@ Codex 当前可观察实现使用 renderer `<webview>` + main attach；BlackRain
 4. 上游源码检查不能替代 Windows Electron、真实模型、in-app browser 和安装/升级/卸载验证；迁移完成前的 Tauri 结果只作为迁移输入。
 5. 引用第三方代码时必须确认许可证并保留 NOTICE/署名。
 6. Codex App 是 Browser 功能和控制面第一参考；ClawX、Hermes 等仅作工程实现补充，不改变共享 IAB、唯一 agent 内核和单一 Browser backend 决策。
+
+## Windows Runtime 锁
+
+Electron 使用上游 canonical `codex-package-x86_64-pc-windows-msvc.tar.gz`，不再从单个本机 `codex.exe` 拼装发布资源。精确 release URL、archive SHA-256、源码 commit、License/NOTICE 摘要、必需文件逐项 SHA-256 和 OpenAI 签名身份由 `apps/desktop/resources/codex/runtime-lock.json` 锁定。
+
+生成的 runtime 位于 `apps/desktop/resources/codex/windows-x64/` 并保持 gitignored。`scripts/vendor-electron-codex-runtime.ps1` 必须按 tracked lock 验证 archive SHA-256、`codex-package.json`、完整文件集和 Codex 自有可执行文件的 Authenticode，再生成逐文件审计用 `runtime-manifest.json`；正式 make 通过 `npm run electron:make:release` 重新按 lock 校验实际文件并 fail closed。

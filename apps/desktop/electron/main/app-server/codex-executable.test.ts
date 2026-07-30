@@ -1,3 +1,5 @@
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { resolveCodexExecutablePath } from "./codex-executable";
@@ -28,5 +30,25 @@ describe("resolveCodexExecutablePath", () => {
         platform: "win32",
       }),
     ).toThrow(/正式制品/);
+  });
+
+  it("按官方 package 布局解析 bundled codex.exe", () => {
+    const resourcesPath = mkdtempSync(path.join(os.tmpdir(), "blackrain-codex-"));
+    const executablePath = path.join(
+      resourcesPath,
+      "codex",
+      "windows-x64",
+      "bin",
+      "codex.exe",
+    );
+    try {
+      mkdirSync(path.dirname(executablePath), { recursive: true });
+      copyFileSync(process.execPath, executablePath);
+      expect(
+        resolveCodexExecutablePath({ resourcesPath, platform: "win32" }),
+      ).toBe(path.normalize(executablePath));
+    } finally {
+      rmSync(resourcesPath, { recursive: true, force: true });
+    }
   });
 });

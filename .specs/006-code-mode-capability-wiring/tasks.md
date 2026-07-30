@@ -1,6 +1,6 @@
 # Tasks
 
-> 历史批次勾选表示「5 层包装 + 当时基线编译/shape 验证」,不表示当前 rust-v0.144.5 / `87db9bc` 已重验或 GUI 已落地。MVP 只接受 Windows 冒烟结果。
+> 历史批次勾选表示「5 层包装 + 当时基线编译/shape 验证」,不表示当前 rust-v0.146.0 / `e363b08c` 已重验或 GUI 已落地。MVP 只接受 Windows 冒烟结果。
 
 ## 第 1 批:A 类 bdd282f 新增(验证 pattern)✅ 完成 2026-06-28
 - [x] `thread/delete` 全 5 层(clone archive)— **验证 pattern 样板,cargo check + typecheck 双绿**
@@ -30,7 +30,7 @@
 
 ## 收尾
 - [x] `verification.md` 已记录 `bdd282f`→`cfead68` 的编译/typecheck/shape 实测结果
-- [ ] 对当前锁定 `87db9bc` 重跑全量 capability shape 探针,刷新 stub/认证/实验门控结论
+- [ ] 对当前锁定 `e363b08c` 重跑全量 capability shape 探针,刷新 stub/认证/实验门控结论
 - [ ] Windows `npm run tauri:dev:win` 冒烟(IPC→command→daemon→app-server 粘合 + GUI 能调用/能降级)
 - [ ] spec 005 逐项落地 GUI;不因 `@services/tauri.ts` 导出函数存在就勾选
 - [ ] 按 spec 012 将仍需保留的方法映射到 Electron main/preload/renderer，并删除 Tauri command、remote backend 与 daemon RPC 重复层
