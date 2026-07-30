@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
-import { mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { _electron as electron } from "playwright-core";
@@ -14,11 +15,18 @@ const executablePath = path.join(
   "electron.exe",
 );
 const appEntryPath = `${desktopRoot}${path.sep}.`;
+const appDataPath = await mkdtemp(
+  path.join(os.tmpdir(), "blackrain-electron-e2e-"),
+);
 
 const environment = { ...process.env };
+delete environment.ELECTRON_RUN_AS_NODE;
+delete environment.NODE_OPTIONS;
+delete environment.NODE_PATH;
 delete environment.BLACKRAIN_ELECTRON_SMOKE;
 delete environment.BLACKRAIN_ELECTRON_SMOKE_RESULT;
 environment.BLACKRAIN_ELECTRON_E2E = "1";
+environment.BLACKRAIN_ELECTRON_TEST_APP_DATA = appDataPath;
 
 let electronApplication;
 const fixtureServer = http.createServer((_request, response) => {
@@ -44,15 +52,15 @@ const fixtureServer = http.createServer((_request, response) => {
       </html>`,
   );
 });
-await new Promise((resolve, reject) => {
-  fixtureServer.once("error", reject);
-  fixtureServer.listen(0, "127.0.0.1", resolve);
-});
-const fixtureAddress = fixtureServer.address();
-assert.ok(fixtureAddress && typeof fixtureAddress !== "string");
-const browserFixtureUrl = `http://127.0.0.1:${fixtureAddress.port}/fixture`;
-
 try {
+  await new Promise((resolve, reject) => {
+    fixtureServer.once("error", reject);
+    fixtureServer.listen(0, "127.0.0.1", resolve);
+  });
+  const fixtureAddress = fixtureServer.address();
+  assert.ok(fixtureAddress && typeof fixtureAddress !== "string");
+  const browserFixtureUrl = `http://127.0.0.1:${fixtureAddress.port}/fixture`;
+
   electronApplication = await electron.launch({
     executablePath,
     args: [appEntryPath],
@@ -396,6 +404,15 @@ try {
       .replaceAll("\\", "/")
       .includes("/BlackRain/browser-data/"),
   );
+  const relativeStoragePath = path.relative(
+    appDataPath,
+    browserPageAudit.storagePath,
+  );
+  assert.ok(
+    relativeStoragePath &&
+      !relativeStoragePath.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativeStoragePath),
+  );
 
   const browserCloseContract = await window.evaluate(async ({ scope, tab }) => {
     let unsafeNavigationRejected = false;
@@ -448,5 +465,13 @@ try {
   );
 } finally {
   await electronApplication?.close().catch(() => undefined);
-  await new Promise((resolve) => fixtureServer.close(resolve));
+  if (fixtureServer.listening) {
+    await new Promise((resolve) => fixtureServer.close(resolve));
+  }
+  await rm(appDataPath, {
+    recursive: true,
+    force: true,
+    maxRetries: 3,
+    retryDelay: 200,
+  });
 }

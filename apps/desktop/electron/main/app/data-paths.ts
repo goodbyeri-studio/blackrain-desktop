@@ -11,6 +11,18 @@ export type BlackRainDataPaths = {
   artifacts: string;
 };
 
+export function resolveElectronAppDataPath(
+  defaultAppDataPath: string,
+  environment: Readonly<Record<string, string | undefined>>,
+): string {
+  const isTestRun =
+    environment.BLACKRAIN_ELECTRON_SMOKE === "1" ||
+    environment.BLACKRAIN_ELECTRON_E2E === "1";
+  const testAppDataPath = environment.BLACKRAIN_ELECTRON_TEST_APP_DATA?.trim();
+
+  return isTestRun && testAppDataPath ? testAppDataPath : defaultAppDataPath;
+}
+
 export function resolveBlackRainDataPaths(appDataPath: string): BlackRainDataPaths {
   const normalizedAppDataPath = appDataPath.trim();
   if (!normalizedAppDataPath || !path.isAbsolute(normalizedAppDataPath)) {

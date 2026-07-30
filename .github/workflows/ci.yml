@@ -114,6 +114,8 @@ jobs:
       - run: npm run electron:package
       - run: npm --ignore-scripts run electron:smoke
       - run: npm --ignore-scripts run electron:e2e
+        env:
+          DEBUG: pw:browser*
       - run: npm run electron:make
 
   gateway-checks:

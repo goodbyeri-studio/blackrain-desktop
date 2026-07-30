@@ -2,7 +2,10 @@ import { app, BrowserWindow } from "electron";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { createMainWindow } from "./app/create-main-window";
-import { ensureBlackRainDataPaths } from "./app/data-paths";
+import {
+  ensureBlackRainDataPaths,
+  resolveElectronAppDataPath,
+} from "./app/data-paths";
 import { BrowserViewManager } from "./browser/browser-view-manager";
 import { AppServerRuntime } from "./app-server/app-server-runtime";
 import { resolveCodexExecutablePath } from "./app-server/codex-executable";
@@ -26,7 +29,9 @@ if (
 }
 
 app.setName("BlackRain");
-const blackRainDataPaths = ensureBlackRainDataPaths(app.getPath("appData"));
+const blackRainDataPaths = ensureBlackRainDataPaths(
+  resolveElectronAppDataPath(app.getPath("appData"), process.env),
+);
 app.setPath("userData", blackRainDataPaths.appState);
 app.setPath("sessionData", blackRainDataPaths.browserData);
 app.setAppLogsPath(blackRainDataPaths.logs);
