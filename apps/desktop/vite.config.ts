@@ -88,6 +88,7 @@ export default defineConfig(async () => ({
       "src/**/*.test.ts",
       "src/**/*.test.tsx",
       "electron/**/*.test.ts",
+      "scripts/**/*.test.ts",
     ],
     setupFiles: ["src/test/vitest.setup.ts"],
     // 测试确定性：屏蔽 .env.local 的真实 Supabase 配置，让账号默认「未配置」。

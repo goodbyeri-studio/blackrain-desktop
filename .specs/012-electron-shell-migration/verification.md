@@ -1,6 +1,6 @@
 # Electron 桌面壳迁移验证
 
-> 当前已完成 M0 迁移盘点、M1 Electron 安全空壳、M2 stdio/JSONL transport/typed thread runtime/process supervisor fixture、首个 Browser host + UI + dynamic-tool/受限 CDP foundation，以及 unsigned MSIX 基础生成；bundled codex 制品、真实模型 turn、Agent 共页 E2E、签名与安装矩阵仍未完成或验证。
+> 当前已完成 M0 迁移盘点、M1 Electron 安全空壳、M2 stdio/JSONL transport/typed thread runtime/process supervisor fixture、首个 Browser host + UI + dynamic-tool/受限 CDP foundation、unsigned MSIX 基础生成，以及 Codex `rust-v0.146.0` canonical Windows package 的供应链锁、Authenticode、packaged smoke 和 initialize/dynamicTools 探针；真实模型 turn、Agent 共页 E2E、MSIX 签名与安装矩阵仍未完成或验证。
 
 ## 验证矩阵
 
@@ -17,7 +17,7 @@
 | 2026-07-30 | main/app-server stdio、数据目录与 Home 选择 | Electron typecheck + 目标测试 + packaged smoke + Playwright E2E | PASS | supervisor 默认保留标准 Codex Home 环境；BlackRain 只创建 `browser-data`/`app-state`/logs/artifacts 宿主目录。未使用 bundled codex |
 | 2026-07-30 | Browser `WebContentsView` host foundation | Browser 纯单测 + packaged Playwright Electron E2E | PASS | 本地 HTTP 页在 main-owned view 中加载；持久 session 路径、安全 WebPreferences、无 preload、bounds 裁剪、stale revision、popup/非法导航拒绝和 close cleanup 通过；尚无 UI/Agent 工具闭环 |
 | 2026-07-30 | Browser renderer UI foundation | renderer 单测 + production bundle Playwright Electron E2E | PASS | 当前 thread scope 下的侧栏、tab、地址导航、后退/前进/刷新/停止、加载/错误/崩溃状态、typed 状态事件及 ResizeObserver/visibility/modal occlusion 布局同步已接线；E2E 验证入口开合和 host 状态事件，尚未通过真实 app-server thread 从 UI 驱动同一页面 |
-| 2026-07-30 | App Server dynamic Browser adapter | 11 files / 35 tests + 本机 codex 协议探针 | 部分通过 | typed main API 覆盖 thread start/resume、turn start/interrupt；fixture 跑通 dynamicTools → `item/tool/call` → 同一 Browser registry → result，并覆盖 thread/turn/generation、取消和 30s deadline；本机 `codex-cli 0.146.0-alpha.3.1` 接受 initialize 与真实 `thread/start.dynamicTools`。尚非仓库锁定 bundled 版本，也未跑真实模型工具调用 |
+| 2026-07-30 | App Server dynamic Browser adapter | 11 files / 35 tests + 本机 codex 协议探针 | 部分通过 | typed main API 覆盖 thread start/resume、turn start/interrupt；fixture 跑通 dynamicTools → `item/tool/call` → 同一 Browser registry → result，并覆盖 thread/turn/generation、取消和 30s deadline；2026-07-31 已在锁定 `codex-cli 0.146.0` 重跑 initialize 与真实 `thread/start.dynamicTools`。尚未跑真实模型工具调用 |
 | 2026-07-30 | Browser 受限 CDP bootstrap | controller/adapter 单测 + 全量 Vitest + Electron typecheck + 本机 codex schema 探针 | 部分通过 | 同一 page debugger 上的顶层 AX snapshot/ref、click、type_text、viewport PNG、turn/document generation、TTL/大小限制和 teardown 已通过纯测试；真实可见 `WebContentsView` 由下一项 E2E 覆盖，真实模型共页、OOPIF/locator/CUA/hidden full-page capture 未验收 |
 | 2026-07-30 | Browser dynamic tool 同页 E2E | Playwright Electron + 开发态 main-only harness | PASS | 合成 `item/tool/call` 穿过真实 adapter/registry/controller，对可见 fixture page 完成 AX snapshot、type_text、click 和 PNG；前后 `webContents.id` 不变。packaged 强制禁用 harness；真实 app-server/model 共页仍未验收 |
 | 2026-07-30 | 标准 Codex Home 回归 | Electron Home/data-path 单测 + Tauri 静态检查 | 部分通过 | Electron 默认保留标准 Home 环境并停止创建 `agent-data`；Tauri `AppState` 已删除 app-data `codex-home` 全局注入。`cargo check` 已尝试，但本机缺少 MSVC `link.exe`，未完成 Rust 编译验证 |
@@ -26,6 +26,8 @@
 | 2026-07-30 | Gateway 本地边界与并发 | 8 个 Python unittest + Rust 源码审阅 + `rustfmt --check` | 部分通过 | 固定 bearer 已改为每进程随机 capability；JWT 使用同目录原子替换；长请求不阻塞 health；健康失败清理 child。Rust 编译仍被本机缺少 MSVC `link.exe` 阻塞 |
 | 2026-07-30 | Electron unsigned MSIX 与生产源码边界 | `npm run electron:make` + packaged smoke + Playwright Electron E2E + ASAR 条目检查 | PASS | Windows x64 生成 `codex-monitor.msix`（152,833,198 bytes）；manifest 指向 `BlackRain.exe`；ASAR 含 main/preload bundle但不含对应 `.map`。未签名、未安装，且 codex 资源目录仍无锁定二进制 |
 | 2026-07-30 | CI 门禁与 `windows-latest` 实跑 | GitHub Actions run `30531502333` + 本地隔离回归 | PASS | Windows Rust、JS、Gateway 全部通过；Electron production package、packaged smoke、显式 runtime 安装、Playwright host/UI/Browser E2E 与 unsigned MSIX make 全部通过。CI 使用 DOM 挂载断言，本地保留截图验证；不替代签名安装、升级、卸载实机矩阵 |
+| 2026-07-31 | Codex `rust-v0.146.0` Windows runtime 供应链与协议入口 | tag 解引用 + `electron:runtime:check-lock` + vendor + `electron:runtime:verify` + 篡改回归 + production package/smoke/release make + real app-server probe | PASS | archive SHA-256、canonical package 六个文件、raw License/NOTICE、四个 Codex EXE Authenticode、source/package 逐文件摘要和 OpenAI 签名身份均锚定到 tracked lock；同步替换二进制与生成态 manifest 的回归被拒绝；`codex-cli 0.146.0` initialize 和 `thread/start.dynamicTools` 通过；不代表真实模型 turn、server request/cancel、MSIX 签名或安装验收 |
+| 2026-07-31 | BlackRain Linux self-hosted runner | GitHub repo runner API + SSH 进程/cron + self-hosted workflow dispatch | PASS | `blackrain-do-ci-1` / `blackrain-linux` 在线；独立 runner/work 目录、fork PR 入口门控和 `LINUX_RUNNER` 路由已建立。主机为 Ubuntu，只承接 changes/JS/Gateway，不替代 Windows Electron/Rust jobs |
 | 待执行 | bundled codex app-server 接线 | 锁定 `codex.exe` Node 集成测试 | 未跑 | bundled 路径/制品、真实 initialize、subscription、退出与 Windows 子进程树 |
 | 待执行 | Agent Data / ThreadStore | bundled codex + CLI 兼容模式 | 未跑 | 标准共享 Home、自定义绝对 Home、首次登录与恢复 |
 | 待执行 | Windows helper 与沙箱 | 进程树 + restricted/elevated 工具执行 | 未跑 | code-mode host/command runner/ConPTY |
@@ -47,7 +49,7 @@
 - Gateway Python 并发/凭据读取测试已通过；Windows CI 已完成全部 Rust test target 编译，但 Gateway/credit JWT 的目标 Rust 测试尚未执行，不能仅凭 `--no-run` 登记行为 PASS。
 - codex-code-mode-host、codex-command-runner 等 helper 是否为当前锁定版本所需以及如何打包尚未验证。
 - main-owned `WebContentsView` factory、registry、bounds/occlusion、Browser UI 和首批 Agent adapter 已实现；窗口间 reparenting、App 重启恢复、真实 UI thread 路由和模型驱动共页尚无完整实现。
-- Forge 最终制品复制曾被 GitHub 网络中断；后续本地与 Windows CI 已成功完成 Windows x64 package、packaged smoke、Playwright Electron E2E 和 unsigned MSIX make。`resources/codex/windows-x64` 布局已进入 package，但当前只有 `.gitkeep`，不构成 bundled codex 制品验收。
+- Forge 最终制品复制曾被 GitHub 网络中断；后续本地与 Windows CI 已成功完成 Windows x64 package、packaged smoke、Playwright Electron E2E 和 unsigned MSIX make。2026-07-31 锁定 runtime 已进入本地 production package 并通过逐文件完整性与 smoke，但 MSIX 内含、签名、安装及产品 thread 启动仍未验收。
 - 公开 code-mode/node_repl 接缝能否承载自有 Browser client、以及标准 Electron 对 Owl page persistence 的降级能力尚未验证。
 - 多 view 的内存、GPU、DPI、z-order、modal 遮挡、输入法和崩溃恢复未测量。
 - 当前 Tauri 代码存在不能作为 Electron 进度证据。

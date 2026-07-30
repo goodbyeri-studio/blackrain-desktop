@@ -6,12 +6,6 @@ on:
       - "**/*.md"
       - "**/*.docx"
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - apps/desktop/src-tauri/Cargo.toml
-      - apps/desktop/src-tauri/Cargo.lock
 
 permissions:
   contents: read
@@ -23,11 +17,11 @@ concurrency:
 jobs:
   changes:
     name: Detect relevant changes
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
     outputs:
       gateway: ${{ steps.filter.outputs.gateway }}
       js: ${{ steps.filter.outputs.js }}
-      rust: ${{ steps.filter.outputs.rust }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -40,23 +34,16 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           js=false
-          rust=false
           gateway=false
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             js=true
-            rust=true
             gateway=true
           else
             while IFS= read -r file; do
               case "$file" in
-                .github/workflows/ci.yml|apps/desktop/electron/*|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/*|apps/desktop/scripts/*)
+                .github/workflows/ci.yml|apps/desktop/electron/*|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/resources/*|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/*|apps/desktop/scripts/*|scripts/vendor-electron-codex-runtime.ps1)
                   js=true
-                  ;;
-              esac
-              case "$file" in
-                .gitattributes|.github/workflows/ci.yml|apps/desktop/src-tauri/*|gateway/*|plugins/*|workbenches/*|scripts/check-windows-rust.ps1|scripts/release-client-win.ps1)
-                  rust=true
                   ;;
               esac
               case "$file" in
@@ -68,14 +55,13 @@ jobs:
           fi
 
           echo "js=$js" >> "$GITHUB_OUTPUT"
-          echo "rust=$rust" >> "$GITHUB_OUTPUT"
           echo "gateway=$gateway" >> "$GITHUB_OUTPUT"
 
   js-checks:
-    name: JS checks (Ubuntu)
+    name: JS checks (Linux)
     needs: changes
     if: needs.changes.outputs.js == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: apps/desktop
@@ -87,6 +73,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
+      - run: npm run electron:runtime:check-lock
       - run: npm run typecheck
       - run: npm run test
       - run: npm run lint
@@ -94,61 +81,14 @@ jobs:
       - run: npm run check:host-boundary
       - run: npm run codemod:ds:dry
 
-  windows-electron-artifacts:
-    name: Windows Electron artifacts
-    needs: changes
-    if: needs.changes.outputs.js == 'true'
-    runs-on: windows-latest
-    timeout-minutes: 35
-    defaults:
-      run:
-        working-directory: apps/desktop
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/desktop/package-lock.json
-      - run: npm ci
-      - run: npm run electron:package
-      - run: npm --ignore-scripts run electron:smoke
-      - name: Install Electron runtime for Playwright
-        run: npm run electron:install-runtime
-      - run: npm --ignore-scripts run electron:e2e
-        env:
-          DEBUG: pw:browser*
-      - run: npm run electron:make
-
   gateway-checks:
     name: Gateway checks
     needs: changes
     if: needs.changes.outputs.gateway == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - run: python -m unittest discover -s gateway -p 'test_gateway*.py' -v
-
-  windows-rust-checks:
-    name: Windows Rust checks
-    needs: changes
-    if: >-
-      needs.changes.outputs.rust == 'true' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: ${{ vars.WINDOWS_RUNNER || 'windows-latest' }}
-    timeout-minutes: 35
-    env:
-      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-    steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/desktop/src-tauri
-          cache-on-failure: true
-      - name: Run Windows Rust checks
-        shell: pwsh
-        run: pwsh -NoProfile -File scripts/check-windows-rust.ps1

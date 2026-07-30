@@ -9,7 +9,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     executableName: "BlackRain",
-    extraResource: ["src-tauri/resources/codex"],
+    extraResource: ["resources/codex"],
   },
   makers: [
     new MakerMSIX({

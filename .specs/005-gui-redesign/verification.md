@@ -64,7 +64,7 @@
 - **侧栏项目展开是有状态功能**：要接真实会话数据 + 相对时间 + hover 态，碰 `useThreadsReducer.ts` 热点，回归风险高，未评估。
 - **玻璃/噪点皮肤的可读性**：保留玻璃后，文字对比与边缘清晰度未在各界面验收。
 - **composer 一体化是结构改动**：非纯 CSS，碰 composer feature，未验回归。
-- **42 RPC 已接线 ≠ GUI 已完成**:spec 006 已记录壳层包装,但本 spec 的搜索/侧栏/管理界面仍需逐项实现与 Windows 交互验证;且当前锁定 rust-v0.144.5 / `87db9bc` 的 capability/Windows 重验未完成。
+- **42 RPC 已接线 ≠ GUI 已完成**:spec 006 已记录壳层包装,但本 spec 的搜索/侧栏/管理界面仍需逐项实现与 Windows 交互验证;且当前锁定 rust-v0.146.0 / `e363b08c` 的 capability/Windows 重验未完成。
 - Windows 全栈视觉/交互未验。
 - 4 套主题下批量改 token 的连锁回归未评估。
 - 首页 diff 表数值为目测估算，未经 DevTools 核实。

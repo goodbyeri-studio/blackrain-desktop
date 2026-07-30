@@ -14,7 +14,7 @@
 | 2026-07-29 | Browser renderer→main 布局合同 | Zod schema + 3 个 layout store 单测 | PASS | bounds/visibility/occlusion、active tab、window/view generation、单调 revision；尚未创建 WebContentsView |
 | 2026-07-30 | main-owned Browser host foundation | 4 个 Browser 纯单测 + Electron typecheck + production bundle Playwright E2E | PASS | 真实创建 `WebContentsView`；固定持久 partition；无 page preload；sandbox/Node off/context isolation；owner/thread/route/view generation；bounds 裁剪；popup、权限、下载和非 http(s) 默认拒绝；create/list/navigate/close 通过 Electron Browser session 内置 HTTP fixture |
 | 2026-07-30 | Browser UI foundation | renderer 单测 + production bundle Playwright Electron E2E | PASS | 当前 thread scope 的侧栏、tab、地址栏、back/forward/reload/stop、加载/错误/崩溃状态、typed 状态事件和 ResizeObserver/visibility/modal occlusion 已接线；E2E 验证 UI 入口开合、tab 状态事件和 reload/stop，真实 app-server thread 闭环仍未跑 |
-| 2026-07-30 | app-server Browser bootstrap 接缝 | fixture 纵向测试 + 本机 codex 协议探针 | 部分通过 | initialize experimental API、`thread/start.dynamicTools`、`item/tool/call` 结果、cancel/deadline 和同 registry list/goto/navigation 已验证；仓库采用版本锁定和真实模型 tool call 未跑 |
+| 2026-07-30 | app-server Browser bootstrap 接缝 | fixture 纵向测试 + 本机 codex 协议探针 | 部分通过 | fixture 已验证 initialize experimental API、`thread/start.dynamicTools`、`item/tool/call` 结果、cancel/deadline 和同 registry list/goto/navigation；2026-07-31 锁定 `codex-cli 0.146.0` 已接受 initialize 与 `thread/start.dynamicTools`，真实模型 tool call 未跑 |
 | 2026-07-30 | 受限 CDP Browser tools | controller/adapter 单测 + Electron typecheck + 本机 codex schema 探针 | 部分通过 | 顶层 AX snapshot（500 节点/64 KiB）、30 秒 ref、turn/tab/view/document/URL 绑定、click、type_text、输入触发导航、5 MiB viewport PNG、取消和 debugger teardown 通过 fake transport；iframe/OOPIF、locator/actionability、input-target token 和真实模型共页未跑 |
 | 2026-07-30 | dynamic tool 同一可见页面 E2E | Playwright Electron + main-only 合成 `item/tool/call` | PASS | 开发态显式 E2E harness 穿过真实 adapter/registry/CDP controller；AX ref 输入、点击后 DOM 结果、viewport PNG 和前后相同 `webContents.id` 已验证；harness 不进入 renderer 且 packaged 强制禁用，仍不代表真实 app-server/model tool call 已通过 |
 | 2026-07-30 | Browser owner 容量边界 | 4 个 BrowserRegistry 单测 + 全量 Vitest + packaged Electron E2E | PASS | main 在创建 page WebContents 前拒绝同 owner 第 65 个 tab；其他 owner 独立计数；尚未锁定 live/suspended page 工作集预算 |
@@ -30,7 +30,7 @@
 
 ## 未验证风险
 
-- 已用本机公开 `codex-cli 0.146.0-alpha.3.1` 证明 initialize 和 `thread/start.dynamicTools`，但仓库尚未升级并锁定采用版本，仍须在 bundled 制品上重跑完整探针。
+- 已在仓库锁定 `codex-cli 0.146.0` Windows runtime 上证明 initialize 和 `thread/start.dynamicTools`；真实模型发起的 `item/tool/call`、结果、取消和同页 E2E 仍须继续验证。
 - 尚未证明公开 code-mode/node_repl runtime 可承载自有 Browser client；私有 `nativePipe` 和 bundled plugin 不可作为实现依赖。
 - main-owned `WebContentsView`、registry、Browser UI、dynamic-tool adapter 和受限顶层 CDP controller 已有实现，合成 dynamic tool 已验证操作同一可见页面；窗口间 reparenting、App restart 恢复、完整 CDP/OOPIF backend 和真实 app-server UI thread route 仍未实现。
 - 尚未验证登录站点对 Electron session、反自动化策略和多因素认证的兼容性。

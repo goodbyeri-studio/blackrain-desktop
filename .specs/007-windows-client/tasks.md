@@ -41,18 +41,17 @@
 ## 阶段 3:Windows 专属能力实测
 
 - [ ] **Windows Credential Manager smoke**:写 / 读 / 状态 / 清理 API key 全跑(`keyring` crate 已支持,只需实测)。
-- [ ] **协议四探针 Windows 实测**:`python3 .scratch/m0_protocol_probe.py` 对当前锁定 rust-v0.144.5 / `87db9bc` 全绿。
+- [ ] **协议四探针 Windows 实测**:`python3 .scratch/m0_protocol_probe.py` 对当前锁定 rust-v0.146.0 / `e363b08c` 全绿。
 - [ ] **真实 DeepSeek 工具调用 Windows 实测**:`m0_tool_driver.py` 生成 hello.txt 内容为 2049。
 - [ ] **App 托管 sidecar 工具调用实测**:不由 dev 脚本预起 Gateway，让 App 自己 spawn；确认 `STRIP_TOOLS=0` 生效并完成真实 `commandExecution`。当前代码未覆盖默认值，是发布阻塞项。
 - [ ] **`windowsSandbox/{setupStart,readiness}` 探针**(`.specs/006` 链路在 Windows 上首次实跑):验证内核能正确回应 setup 流程,UI 复刻不在本 spec。
 - [ ] **doctor.mjs 提示文案完善**:LLVM/clang 缺失 / `LIBCLANG_PATH` 未设 / cmake 旧版本等场景的明确指引。
 
-## 阶段 4:CI(已有部分检查,发布矩阵待补)
+## 阶段 4:CI(仅保留 Linux 检查,Windows job 已冻结)
 
-- [x] `.github/workflows/ci.yml` 已存在：Ubuntu 先按 diff 分流，前端相关改动跑 JS typecheck/test/lint/DS/codemod；Rust 相关改动才启用 Windows workbench 专项。此勾选只表示 workflow 接线存在。
-- [x] Windows runner 只承担无法由 Ubuntu 替代的 Rust 代码级回归；同一 PR 旧 run 自动取消，普通 `main` push 不重复跑，Cargo 依赖变化才预热默认分支 cache。暂不加入 Tauri/NSIS build，避免把未签名制品和实机验收混入普通 PR CI。
-- [x] CI、本机和正式发布共用 `scripts/check-windows-rust.ps1`；`WINDOWS_RUNNER` 未设置时回退 `windows-latest`，设置后切换唯一 label 的 self-hosted Windows，fork PR 不进入开发机。
-- [ ] 在受控 Windows 开发机注册 `blackrain-windows` runner，使用非管理员专用服务账号，并连续验证 3 个 Rust PR。
+- [x] `.github/workflows/ci.yml` 已存在：按 diff 分流 Linux JS 与 Gateway 检查；同一 PR 的旧 run 自动取消。
+- [x] 原 Windows Electron/MSIX 与 Rust job 已移到 `.github/workflows-disabled/windows-ci.yml` 冻结，不生成 PR check，也不作为当前验证证据。
+- [ ] Windows Rust 检查继续复用 `scripts/check-windows-rust.ps1`，但只在受控 Windows 本机按发布需要执行。
 - [ ] NSIS 正式包仍只在 Windows 本机构建;若未来改为 CI 出包,需单独处理制品签名与密钥。
 - [ ] **明确不建 macos-latest runner**——decisions 已锁,CI 与代码库节奏同步。
 

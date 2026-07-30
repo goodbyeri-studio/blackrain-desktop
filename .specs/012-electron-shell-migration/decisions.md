@@ -98,3 +98,22 @@
 - 决策：生产 main/preload bundle 不生成 source map，避免 ASAR 通过 `sourcesContent` 分发宿主与 preload 源码；renderer 的调试策略另行按发布配置审计。
 - 打包：MSIX manifest 的 `appExecutable` 必须与 Forge `executableName` 一致，当前均为 `BlackRain.exe`。
 - CI：Node 22 Windows job 必须执行 package、packaged smoke、Playwright Electron E2E 和 unsigned MSIX make；本地 make 通过不替代签名、安装、升级或卸载验收。
+
+## 2026-07-31：Electron runtime 使用上游 canonical Codex package
+
+- 决策：源码和 Windows release package 锁升级到稳定版 `rust-v0.146.0` / `e363b08c9175ac1cbe5893615dd2cb9ddf95043b`；Electron 不再从单个本机 `codex.exe` 拼装运行时，而是消费上游 `codex-package-x86_64-pc-windows-msvc.tar.gz` 的原始目录合同。
+- 目录：生成态 runtime 进入 `apps/desktop/resources/codex/windows-x64/`，与 Tauri `src-tauri/resources` 分离并保持 gitignored；Forge 只复制 Electron 资源目录。
+- 完整性：仓库提交 release URL、archive SHA-256、完整 commit、License/NOTICE 摘要、必需文件逐项 SHA-256，以及 Codex 自有 `.exe` 的签名 subject/thumbprint；vendor 必须按锁校验 `codex-package.json`、每个文件摘要和实际 Authenticode，再生成仅作审计记录的 `runtime-manifest.json`。发布校验直接以 tracked lock 为可信根，不信任可与二进制同步修改的生成态 manifest；第三方 `rg.exe` 只按锁定 package 与文件摘要校验，不假定 OpenAI 签名。
+- 发布闸口：普通 `electron:make` 继续服务无大体积 runtime 的 unsigned foundation CI；`electron:make:release` 必须先执行 runtime 完整性校验并 fail closed。两者都不等于 MSIX 签名或安装验收。
+
+## 2026-07-31：Linux self-hosted CI 路由
+
+- `changes`、`js-checks` 和 `gateway-checks` 可由仓库变量 `LINUX_RUNNER` 路由到专属 label；未配置时回退 `ubuntu-latest`。
+- self-hosted 入口拒绝 fork PR，只接受当前私有仓库内的受信分支；BlackRain runner 使用独立注册、安装目录和 work 目录，不复用其他仓库 runner 状态。
+- Linux runner 不替代 `windows-electron-artifacts` 或 `windows-rust-checks`。Electron/MSIX、Windows Rust 和实机制品验收仍必须在 Windows runner/机器完成。
+
+## 2026-07-31：临时冻结 Windows CI
+
+- 活跃 `.github/workflows/ci.yml` 不再包含 Windows Electron/MSIX 或 Rust job，也不再生成对应的 success、failure 或 skipped check；PR 只执行 Linux JS/Gateway 检查。
+- 原 `windows-electron-artifacts` 和 `windows-rust-checks` 实现移入 `.github/workflows-disabled/windows-ci.yml` 冻结存档。该目录不被 GitHub Actions 加载，未来如需恢复，必须按届时架构重新审查后显式迁回。
+- 冻结 CI 不降低 Windows MVP 的 package、MSIX、Rust 与实机安装验收要求；这些验证改由 Windows 本机发布流程承担，冻结存档不得作为当前验证证据。

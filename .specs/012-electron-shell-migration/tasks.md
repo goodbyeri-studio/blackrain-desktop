@@ -9,10 +9,11 @@
 - [x] 盘点全部 Tauri command、plugin、window、event、resource 和打包依赖
 - [x] 建立 Tauri -> Electron 能力迁移矩阵、owner、测试和删除闸口
 - [x] 锁定 Electron 42、Forge 7、Vite 8、TypeScript 5.9、React 19 与 Node 版本，并完成 License、fuses、ASAR 和 CSP 基线
-- [ ] 将 codex 锁升级到或超过调研基线 `d06c7ac055920c7cb140c25ebda3f3db20197b45`，记录实际 tag/SHA 并重跑上游更新清单
-- [ ] 盘点并锁定 codex.exe、code-mode host、command runner、MCP/extension 等运行时制品、参数、hash、签名和 License
+- [x] 将源码与官方 Windows package 锁升级到稳定版 `rust-v0.146.0` / `e363b08c9175ac1cbe5893615dd2cb9ddf95043b`，高于调研版本基线；协议和 Windows 产品重验由后续任务单独验收
+- [x] 盘点并锁定 canonical Windows package 的 codex.exe、code-mode host、ripgrep、command runner、sandbox setup、参数、hash、签名和 License；MCP/extension 继续由原装 app-server 按上游合同管理，不另造宿主 runtime
+- [x] 锁定 canonical Windows package archive、六个必需文件、License/NOTICE 摘要与 Authenticode fail-closed vendor 合同，并在 Windows 本机实跑通过
 - [ ] 确定签名证书、更新源、发布密钥和回滚方案
-- [ ] 为锁定 codex 运行 initialize/dynamicTools/server-request 协议探针
+- [x] 为锁定 codex 运行 initialize 与 `thread/start.dynamicTools` 协议探针；真实 server request/tool result/cancel 仍由真实模型纵向切片验收
 - [x] 用本机公开 `codex-cli 0.146.0-alpha.3.1` 验证 initialize 与 `thread/start.dynamicTools` schema；采用版本锁定后仍需重跑上一项
 
 ## 阶段 1：Electron 安全空壳

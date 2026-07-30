@@ -9,7 +9,7 @@
 - [ ] 为每项能力标记所有权、依赖和验证等级
 - [ ] 建立公开来源与 License 记录
 - [ ] 对锁定 app-server 验证 experimental API、dynamicTools、`item/tool/call`、取消和结果 schema
-- [x] 对本机公开 `codex-cli 0.146.0-alpha.3.1` 完成 initialize 与 `thread/start.dynamicTools` 探针；采用版本锁定后重跑完整项
+- [x] 对本机公开 `codex-cli 0.146.0-alpha.3.1` 和仓库锁定 `codex-cli 0.146.0` 完成 initialize 与 `thread/start.dynamicTools` 探针；真实 server request/tool result/cancel 仍待模型纵向切片
 
 ## 阶段 1：Browser backend 与 host
 

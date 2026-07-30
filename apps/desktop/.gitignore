@@ -2,6 +2,7 @@
 logs
 *.log
 **-lock.**
+!resources/codex/runtime-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -38,6 +39,8 @@ CodexMonitor.zip
 .cursor/
 public/assets/material-icons/
 src-tauri/resources/codex/windows-x64/codex.exe
+resources/codex/windows-x64/*
+!resources/codex/windows-x64/.gitkeep
 src-tauri/resources/python/windows-x64/*
 !src-tauri/resources/python/windows-x64/.gitkeep
 
