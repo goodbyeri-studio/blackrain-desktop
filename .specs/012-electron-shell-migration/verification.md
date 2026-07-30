@@ -25,7 +25,7 @@
 | 2026-07-30 | App Server 异常 spawn 生命周期 | 3 个 process supervisor Vitest + 全量 Vitest + Electron typecheck | PASS | `error`/`exit`/`close` 幂等结算；不存在的 executable 会拒绝 start，后续 stop 可完成且 onExit 只调用一次；bundled `codex.exe` 与 Windows 进程树仍未验收 |
 | 2026-07-30 | Gateway 本地边界与并发 | 8 个 Python unittest + Rust 源码审阅 + `rustfmt --check` | 部分通过 | 固定 bearer 已改为每进程随机 capability；JWT 使用同目录原子替换；长请求不阻塞 health；健康失败清理 child。Rust 编译仍被本机缺少 MSVC `link.exe` 阻塞 |
 | 2026-07-30 | Electron unsigned MSIX 与生产源码边界 | `npm run electron:make` + packaged smoke + Playwright Electron E2E + ASAR 条目检查 | PASS | Windows x64 生成 `codex-monitor.msix`（152,833,198 bytes）；manifest 指向 `BlackRain.exe`；ASAR 含 main/preload bundle但不含对应 `.map`。未签名、未安装，且 codex 资源目录仍无锁定二进制 |
-| 2026-07-30 | CI 门禁与 `windows-latest` 实跑 | GitHub Actions runs `30525783917` / `30528857360` / `30529234179` / `30529634781` / `30529985702` / `30530578031` / `30530974949` + 本地隔离回归 | 部分通过 | Windows Rust、JS、Gateway 已获 PASS；Browser 侧栏在 CI 已完成打开、挂载与收起，但无交互桌面对收起后 opener 的 visible 判定超时，MSIX make 被跳过。UI 合同改为 DOM 挂载断言，截图仅在本地生成；远端继续验证 host、受限 Browser 控制和 MSIX，待复验 |
+| 2026-07-30 | CI 门禁与 `windows-latest` 实跑 | GitHub Actions run `30531502333` + 本地隔离回归 | PASS | Windows Rust、JS、Gateway 全部通过；Electron production package、packaged smoke、显式 runtime 安装、Playwright host/UI/Browser E2E 与 unsigned MSIX make 全部通过。CI 使用 DOM 挂载断言，本地保留截图验证；不替代签名安装、升级、卸载实机矩阵 |
 | 待执行 | bundled codex app-server 接线 | 锁定 `codex.exe` Node 集成测试 | 未跑 | bundled 路径/制品、真实 initialize、subscription、退出与 Windows 子进程树 |
 | 待执行 | Agent Data / ThreadStore | bundled codex + CLI 兼容模式 | 未跑 | 标准共享 Home、自定义绝对 Home、首次登录与恢复 |
 | 待执行 | Windows helper 与沙箱 | 进程树 + restricted/elevated 工具执行 | 未跑 | code-mode host/command runner/ConPTY |
