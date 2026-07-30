@@ -131,11 +131,13 @@ try {
   await browserEntry.evaluate((element) => element.click());
   await window.getByTestId("browser-sidebar").waitFor({ state: "attached" });
   assert.equal(await window.getByText("先打开一个对话").count(), 1);
-  const screenshotDirectory = path.join(desktopRoot, "output", "playwright");
-  await mkdir(screenshotDirectory, { recursive: true });
-  await window.screenshot({
-    path: path.join(screenshotDirectory, "electron-browser-sidebar.png"),
-  });
+  if (process.env.CI !== "true") {
+    const screenshotDirectory = path.join(desktopRoot, "output", "playwright");
+    await mkdir(screenshotDirectory, { recursive: true });
+    await window.screenshot({
+      path: path.join(screenshotDirectory, "electron-browser-sidebar.png"),
+    });
+  }
   await window
     .getByRole("button", { name: "收起浏览器" })
     .evaluate((element) => element.click());
