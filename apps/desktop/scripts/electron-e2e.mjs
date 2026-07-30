@@ -7,13 +7,6 @@ import { fileURLToPath } from "node:url";
 import { _electron as electron } from "playwright-core";
 
 const desktopRoot = fileURLToPath(new URL("..", import.meta.url));
-const executablePath = path.join(
-  desktopRoot,
-  "node_modules",
-  "electron",
-  "dist",
-  "electron.exe",
-);
 const appEntryPath = path.resolve(desktopRoot);
 const appDataPath = await mkdtemp(
   path.join(os.tmpdir(), "blackrain-electron-e2e-"),
@@ -29,6 +22,9 @@ environment.BLACKRAIN_ELECTRON_E2E = "1";
 environment.BLACKRAIN_ELECTRON_TEST_APP_DATA = appDataPath;
 
 let electronApplication;
+const logStage = (stage) => {
+  console.log(`[electron-e2e] ${new Date().toISOString()} ${stage}`);
+};
 const fixtureServer = http.createServer((_request, response) => {
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   response.end(
@@ -53,7 +49,6 @@ const fixtureServer = http.createServer((_request, response) => {
   );
 });
 try {
-  await access(executablePath);
   await access(appEntryPath);
   await new Promise((resolve, reject) => {
     fixtureServer.once("error", reject);
@@ -62,16 +57,19 @@ try {
   const fixtureAddress = fixtureServer.address();
   assert.ok(fixtureAddress && typeof fixtureAddress !== "string");
   const browserFixtureUrl = `http://127.0.0.1:${fixtureAddress.port}/fixture`;
+  logStage("fixture ready");
 
+  logStage("launching Electron");
   electronApplication = await electron.launch({
-    executablePath,
     args: [appEntryPath],
     cwd: desktopRoot,
     env: environment,
     timeout: 30_000,
   });
+  logStage("Electron launched");
 
   const window = await electronApplication.firstWindow({ timeout: 30_000 });
+  logStage("first window ready");
   await electronApplication.evaluate(({ BrowserWindow }) => {
     const mainWindow = BrowserWindow.getAllWindows()[0];
     if (!mainWindow) {
@@ -81,6 +79,7 @@ try {
     mainWindow.show();
   });
   await window.waitForLoadState("domcontentloaded");
+  logStage("renderer ready");
 
   assert.equal(await window.title(), "BlackRain");
   assert.equal(window.url(), "blackrain://app/index.html");
@@ -225,6 +224,7 @@ try {
   assert.ok(hostContract.browserEventCount > 0);
   assert.equal(hostContract.reload.browserTabId, hostContract.tab.browserTabId);
   assert.equal(hostContract.staleRevisionRejected, true);
+  logStage("host contract passed");
 
   const browserToolContract = await electronApplication.evaluate(
     async ({ webContents }, contract) => {
@@ -334,6 +334,7 @@ try {
     true,
   );
   assert.ok(browserToolContract.screenshotLength > 100);
+  logStage("Browser tool contract passed");
 
   const browserPageAudit = await electronApplication.evaluate(
     async ({ BrowserWindow, webContents }, expectedUrl) => {
@@ -427,6 +428,7 @@ try {
       !relativeStoragePath.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relativeStoragePath),
   );
+  logStage("Browser security audit passed");
 
   const browserCloseContract = await window.evaluate(async ({ scope, tab }) => {
     let unsafeNavigationRejected = false;
@@ -454,6 +456,7 @@ try {
     browserTabId: hostContract.tab.browserTabId,
   });
   assert.deepEqual(browserCloseContract.tabsAfterClose, []);
+  logStage("Browser close contract passed");
 
   const popupWasDenied = await window.evaluate(
     () => window.open("https://example.com", "_blank") === null,

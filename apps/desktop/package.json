@@ -21,7 +21,7 @@
     "preelectron:smoke": "npm run electron:package",
     "electron:smoke": "node scripts/electron-smoke.mjs",
     "preelectron:e2e": "npm run electron:package && npm run electron:install-runtime",
-    "electron:e2e": "node scripts/electron-e2e.mjs",
+    "electron:e2e": "node scripts/electron-e2e-supervisor.mjs",
     "electron:typecheck": "tsc -p tsconfig.electron.json --noEmit",
     "build:appimage": "NO_STRIP=1 tauri build --bundles appimage",
     "doctor": "sh scripts/doctor.sh",
