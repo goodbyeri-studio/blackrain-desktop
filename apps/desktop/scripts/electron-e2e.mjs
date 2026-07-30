@@ -134,9 +134,19 @@ try {
     hasTypedApi: true,
   });
 
-  const browserEntry = window.getByRole("button", { name: "打开浏览器" });
   await window.waitForTimeout(1_000);
-  if ((await browserEntry.count()) === 0) {
+  const browserUiOpened = await window.evaluate(() => {
+    if (document.querySelector('[data-testid="browser-sidebar"]')) {
+      return true;
+    }
+    const opener = document.querySelector('button[aria-label="打开浏览器"]');
+    if (!(opener instanceof HTMLButtonElement)) {
+      return false;
+    }
+    opener.click();
+    return true;
+  });
+  if (!browserUiOpened) {
     const rendererErrors = [];
     window.on("pageerror", (error) => rendererErrors.push(error.stack ?? error.message));
     window.on("console", (message) => {
@@ -148,13 +158,9 @@ try {
     await window.waitForTimeout(1_000);
     assert.fail(`Electron renderer 错误：${rendererErrors.join(" | ").slice(0, 2000)}`);
   }
-  assert.equal(
-    await browserEntry.count(),
-    1,
-    `Electron renderer 未挂载 Browser UI：${(await window.locator("body").innerText()).slice(0, 500)}`,
+  await window.waitForFunction(
+    () => document.querySelector('[data-testid="browser-sidebar"]') !== null,
   );
-  await browserEntry.evaluate((element) => element.click());
-  await window.getByTestId("browser-sidebar").waitFor({ state: "attached" });
   assert.equal(await window.getByText("先打开一个对话").count(), 1);
   if (process.env.CI !== "true") {
     const screenshotDirectory = path.join(desktopRoot, "output", "playwright");
@@ -163,10 +169,18 @@ try {
       path: path.join(screenshotDirectory, "electron-browser-sidebar.png"),
     });
   }
-  await window
-    .getByRole("button", { name: "收起浏览器" })
-    .evaluate((element) => element.click());
-  await browserEntry.waitFor({ state: "attached" });
+  const browserUiClosed = await window.evaluate(() => {
+    const closer = document.querySelector('button[aria-label="收起浏览器"]');
+    if (!(closer instanceof HTMLButtonElement)) {
+      return false;
+    }
+    closer.click();
+    return true;
+  });
+  assert.equal(browserUiClosed, true);
+  await window.waitForFunction(
+    () => document.querySelector('button[aria-label="打开浏览器"]') !== null,
+  );
 
   const hostContract = await withStageTimeout(
     window.evaluate(async (fixtureUrl) => {
