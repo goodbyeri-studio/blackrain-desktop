@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import http from "node:http";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +14,7 @@ const executablePath = path.join(
   "dist",
   "electron.exe",
 );
-const appEntryPath = `${desktopRoot}${path.sep}.`;
+const appEntryPath = path.resolve(desktopRoot);
 const appDataPath = await mkdtemp(
   path.join(os.tmpdir(), "blackrain-electron-e2e-"),
 );
@@ -53,6 +53,8 @@ const fixtureServer = http.createServer((_request, response) => {
   );
 });
 try {
+  await access(executablePath);
+  await access(appEntryPath);
   await new Promise((resolve, reject) => {
     fixtureServer.once("error", reject);
     fixtureServer.listen(0, "127.0.0.1", resolve);
