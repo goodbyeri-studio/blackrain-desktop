@@ -35,6 +35,7 @@
 
 ## 2026-07-13：Windows Rust 检查可切换 self-hosted，签名留在受控发布环境
 
+- 状态：已被 2026-07-31 的 Windows CI 冻结决策替代；以下仅保留历史背景。
 - 决策：CI 与本机发布共用 `scripts/check-windows-rust.ps1`。Windows job 的 `runs-on` 由 repository variable `WINDOWS_RUNNER` 选择；未设置时使用 `windows-latest`，设置为开发机唯一 label `blackrain-windows` 时使用 self-hosted。self-hosted 只执行本仓库内可信分支 PR，fork PR 不进入开发机。
 - 原因：Windows hosted 分钟按 2 倍计费，而 Windows 编译仍是 MVP 必要门禁。可切换 runner 能在开发机在线时消除 hosted Windows 计费，离线时保留明确回退；统一脚本避免本机、CI 和发布入口的命令漂移。
 - 边界：普通 PR CI 仍不构建 NSIS、不签名、不持有长期 `.pfx`、私钥或 EV USB token。正式包在受控 Windows 机器构建、签名并实机验证；未来自动发布只能使用专用签名 runner 与 GitHub Environment 人工审批。

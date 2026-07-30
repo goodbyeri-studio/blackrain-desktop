@@ -1,0 +1,52 @@
+# 冻结存档：此文件不在 .github/workflows/ 下，GitHub Actions 不会加载。
+# 如未来恢复 Windows CI，必须先按当时架构重新审查，再移动回 workflows 目录。
+name: Frozen Windows CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-electron-artifacts:
+    name: Windows Electron artifacts
+    runs-on: ${{ vars.WINDOWS_RUNNER || 'windows-latest' }}
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - run: npm run electron:runtime:check-lock
+      - run: npm run electron:package
+      - run: npm --ignore-scripts run electron:smoke
+      - name: Install Electron runtime for Playwright
+        run: npm run electron:install-runtime
+      - run: npm --ignore-scripts run electron:e2e
+        env:
+          DEBUG: pw:browser*
+      - run: npm run electron:make
+
+  windows-rust-checks:
+    name: Windows Rust checks
+    runs-on: ${{ vars.WINDOWS_RUNNER || 'windows-latest' }}
+    timeout-minutes: 35
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          cache-on-failure: true
+      - name: Run Windows Rust checks
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/check-windows-rust.ps1

@@ -57,7 +57,7 @@
 
 - [x] **Codex 内核 Windows 构建实测**:2026-06-30 已通过(8m40s 首次,产物 `target\debug\codex.exe`)。whisper-rs 0.12 + LLVM 22 的 bindgen 不兼容已记为已知问题,绕法 = Windows 走 dictation/stub.rs(详见 verification.md 失败记录)。
 - [ ] **签名方案**:首发未签名、OV 证书或 EV 证书尚未拍板;publisher/签名 hook 也尚未在 Windows 配置中落地。
-- [x] **CI 是否存在**:已有 `.github/workflows/ci.yml`；PR 先按路径分流，Ubuntu 承担前端 typecheck/test/lint/DS/codemod，只有 Rust 相关变化才启用 Windows 并跑统一专项脚本。Windows runner 可由 `WINDOWS_RUNNER` 在 hosted/self-hosted 间切换，fork PR 不进入开发机。它不打 NSIS、不签名，也不是完整 Windows 发布矩阵。
+- [x] **CI 是否存在**:已有 `.github/workflows/ci.yml`；活跃 PR CI 只承担 Linux 上的前端 typecheck/test/lint/DS/codemod 与 Gateway 检查。Windows Rust/Electron job 已冻结到 `.github/workflows-disabled/windows-ci.yml`，不再生成 PR check；Windows 验证由本机发布流程承担。
 - [x] **Windows 沙箱接入位置**:5 层链路属 `.specs/006`;本 spec 承担 Windows setup/readiness 真实环境验证,UI 归 spec 005。两项运行时验证仍未跑。
 - [ ] **Windows 支持基线**:当前视觉和 Mica 只按 Win11 开发;Win10 是正式支持、允许纯色降级,还是明确排除在 MVP 外,尚未收口。
 - [ ] **whisper-rs 升级或换 STT 后端**:0.12 + LLVM 22 不兼容已绕过(Windows dictation 走 stub),真实评估升级到 0.13+ 或换 sherpa-onnx/vosk 留作独立工作项,不阻塞 v1。

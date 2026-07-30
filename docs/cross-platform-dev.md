@@ -17,15 +17,13 @@
 
 | Job | Runner | 覆盖 |
 |---|---|---|
-| `changes` | `ubuntu-latest` | 按 diff 判断是否需要 JS、Gateway 或 Windows Rust 检查 |
-| `js-checks` | `ubuntu-latest` | typecheck/test/lint/DS/codemod |
-| `windows-electron-artifacts` | `windows-latest` | production package、packaged smoke、Playwright Electron host/UI/Browser E2E、unsigned MSIX make |
-| `gateway-checks` | `ubuntu-latest` | Gateway Python unittest |
-| `windows-rust-checks` | `WINDOWS_RUNNER`，未设置时为 `windows-latest` | 一次编译全部 Rust test targets，再跑 workbench 专项 |
+| `changes` | `LINUX_RUNNER`，未设置时为 `ubuntu-latest` | 按 diff 判断是否需要 JS 或 Gateway 检查 |
+| `js-checks` | `LINUX_RUNNER`，未设置时为 `ubuntu-latest` | typecheck/test/lint/DS/codemod |
+| `gateway-checks` | `LINUX_RUNNER`，未设置时为 `ubuntu-latest` | Gateway Python unittest |
 
-纯 Markdown/Word PR 不启动 workflow；普通 `main` push 不重复检查，只有 Cargo manifest/lock 变化时预热 Windows cache。self-hosted Windows 只影响 Rust job，并且只运行本仓库内可信分支；fork PR 不进入开发机。
+纯 Markdown/Word PR 不启动 workflow，普通 `main` push 也不触发该 workflow。self-hosted Linux runner 只运行本仓库内可信分支；fork PR 不进入该 runner。
 
-CI 包含 Windows 虚拟桌面中的 Electron host/UI/Browser foundation E2E 和 unsigned MSIX make，但不保存 renderer 页面截图，也不上传或发布 MSIX。CI 不包含 macOS runner、Tauri GUI/NSIS、真实模型对话、Browser 真实站点与登录/接管、Credential Manager、签名或 MSIX 安装/升级/回滚/卸载验收。PR 中不能写“CI 绿 = Windows 客户端已可交付”。
+活跃 CI 不包含 Windows 或 macOS runner，也不执行 Electron package/E2E/MSIX、Windows Rust、Tauri GUI/NSIS、真实模型对话、Browser 真实站点与登录/接管、Credential Manager、签名或安装/升级/回滚/卸载验收。原 Windows job 保存在 `.github/workflows-disabled/windows-ci.yml`，该目录不会被 GitHub Actions 加载。PR 中不能写“CI 绿 = Windows 客户端已可交付”。
 
 ## 代码边界矩阵
 

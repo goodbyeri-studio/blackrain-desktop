@@ -111,3 +111,9 @@
 - `changes`、`js-checks` 和 `gateway-checks` 可由仓库变量 `LINUX_RUNNER` 路由到专属 label；未配置时回退 `ubuntu-latest`。
 - self-hosted 入口拒绝 fork PR，只接受当前私有仓库内的受信分支；BlackRain runner 使用独立注册、安装目录和 work 目录，不复用其他仓库 runner 状态。
 - Linux runner 不替代 `windows-electron-artifacts` 或 `windows-rust-checks`。Electron/MSIX、Windows Rust 和实机制品验收仍必须在 Windows runner/机器完成。
+
+## 2026-07-31：临时冻结 Windows CI
+
+- 活跃 `.github/workflows/ci.yml` 不再包含 Windows Electron/MSIX 或 Rust job，也不再生成对应的 success、failure 或 skipped check；PR 只执行 Linux JS/Gateway 检查。
+- 原 `windows-electron-artifacts` 和 `windows-rust-checks` 实现移入 `.github/workflows-disabled/windows-ci.yml` 冻结存档。该目录不被 GitHub Actions 加载，未来如需恢复，必须按届时架构重新审查后显式迁回。
+- 冻结 CI 不降低 Windows MVP 的 package、MSIX、Rust 与实机安装验收要求；这些验证改由 Windows 本机发布流程承担，冻结存档不得作为当前验证证据。

@@ -47,16 +47,13 @@ npm run doctor:win
 Set-Location ..\..
 ```
 
-`npm run doctor:win` 只检查 CMake/LLVM，不检查 MSVC linker，也不代表 GUI、Office 或 NSIS 已验证。本机不安装 MSVC 时，不运行本地 Cargo/Tauri build；推送分支后由 `windows-latest` 的 `windows-rust-checks` 执行仓库 Rust test target 编译与专项测试：
+`npm run doctor:win` 只检查 CMake/LLVM，不检查 MSVC linker，也不代表 GUI、Office 或 NSIS 已验证。活跃 GitHub Actions 不再执行 Windows Rust 检查；需要验证时必须在装有完整工具链的 Windows 本机运行统一脚本：
 
 ```powershell
-# 仅在短命功能分支执行；禁止直接推送 main
-$branch = git branch --show-current
-git push -u origin $branch
-gh workflow run ci.yml --ref $branch
+& 'C:\Program Files\PowerShell\7\pwsh.exe' -NoLogo -NoProfile -File scripts\check-windows-rust.ps1
 ```
 
-该 CI 不构建 `codex-upstream`，也不替代 Tauri GUI、NSIS 或 Windows 实机验收。
+本机没有 MSVC 时不得把未运行写成通过；Linux CI 也不替代 Tauri GUI、NSIS 或 Windows 实机验收。
 
 ## 拉取并对齐 CODE 内核
 
@@ -210,9 +207,9 @@ npx vitest run electron/main/app-server/real-app-server-probe.test.ts
 
 这两个环境变量只用于测试；正式打包版拒绝 `BLACKRAIN_CODEX_BIN` 覆盖，只解析 `resources\codex\windows-x64\bin\codex.exe`。
 
-## GitHub Actions 与 self-hosted Windows
+## GitHub Actions 与 self-hosted runner
 
-CI 按路径分流四条检查：`js-checks` 和 `gateway-checks` 优先使用 `LINUX_RUNNER` 指向的受信 Linux self-hosted runner，未配置时回退 `ubuntu-latest`；`windows-electron-artifacts` 在 `windows-latest` 执行 package、packaged smoke、Playwright Electron E2E 和 unsigned MSIX make；`windows-rust-checks` 在 Windows 编译全部 Rust test targets 并执行专项检查。
+活跃 CI 只保留 `js-checks` 和 `gateway-checks`，优先使用 `LINUX_RUNNER` 指向的受信 Linux self-hosted runner，未配置时回退 `ubuntu-latest`。Windows Electron/MSIX 和 Rust job 已从活跃 workflow 移到 `.github/workflows-disabled/windows-ci.yml` 冻结存档；GitHub Actions 不加载该目录，因此 PR 不会创建 Windows check。
 
 `changes`、`js-checks` 和 `gateway-checks` 读取 `LINUX_RUNNER`；当前共享 CI 主机的 BlackRain 独立 runner label 为 `blackrain-linux`。配置或恢复 Linux 路由：
 
@@ -220,19 +217,7 @@ CI 按路径分流四条检查：`js-checks` 和 `gateway-checks` 优先使用 `
 gh variable set LINUX_RUNNER --body blackrain-linux
 ```
 
-`windows-rust-checks` 读取 `WINDOWS_RUNNER`；未配置时回退到 `windows-latest`。Windows 开发机稳定在线后，可在仓库 `Settings -> Actions -> Runners -> New self-hosted runner` 注册 runner，并添加唯一自定义 label `blackrain-windows`；随后执行：
-
-```bash
-gh variable set WINDOWS_RUNNER --body blackrain-windows
-```
-
-此变量只切换 Rust job，不改变检查覆盖。需要临时恢复 GitHub-hosted Windows 时删除变量：
-
-```bash
-gh variable delete WINDOWS_RUNNER
-```
-
-self-hosted runner 只接受本仓库内的可信分支 PR；`changes` 会在 fork PR 跳过，从入口阻止 Linux/Windows self-hosted job 执行。runner 应使用非管理员专用服务账号和独立 runner/work 目录，不保存 Supabase `service_role`、模型平台密钥、代码签名私钥或 EV USB token。对应主机离线时，先删除 `LINUX_RUNNER` 或 `WINDOWS_RUNNER`，否则 job 会排队等待而不会自动换回 hosted runner。
+self-hosted runner 只接受本仓库内的可信分支 PR；`changes` 会在 fork PR 跳过，从入口阻止 Linux self-hosted job 执行。runner 应使用非管理员专用服务账号和独立 runner/work 目录，不保存 Supabase `service_role`、模型平台密钥、代码签名私钥或 EV USB token。对应主机离线时，先删除 `LINUX_RUNNER`，否则 job 会排队等待而不会自动换回 hosted runner。
 
 ## Windows 本机发布
 
