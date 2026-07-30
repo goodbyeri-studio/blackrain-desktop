@@ -25,7 +25,19 @@ let electronApplication;
 const logStage = (stage) => {
   console.log(`[electron-e2e] ${new Date().toISOString()} ${stage}`);
 };
-const fixtureServer = http.createServer((_request, response) => {
+const withStageTimeout = (promise, stage, timeoutMs = 45_000) => {
+  let timeout;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timeout = setTimeout(() => {
+        reject(new Error(`[electron-e2e] ${stage} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    }),
+  ]).finally(() => clearTimeout(timeout));
+};
+const fixtureServer = http.createServer((request, response) => {
+  logStage(`fixture request ${request.method} ${request.url}`);
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   response.end(
     `<!doctype html>
@@ -61,7 +73,7 @@ try {
 
   logStage("launching Electron");
   electronApplication = await electron.launch({
-    args: [appEntryPath],
+    args: ["--no-proxy-server", appEntryPath],
     cwd: desktopRoot,
     env: environment,
     timeout: 30_000,
@@ -142,45 +154,21 @@ try {
     .evaluate((element) => element.click());
   await browserEntry.waitFor({ state: "attached" });
 
-  const hostContract = await window.evaluate(async (fixtureUrl) => {
-    const bootstrap = await globalThis.blackrain.app.getBootstrap();
-    const scope = { threadId: "thread-e2e", routeKey: "browser-sidebar" };
-    const browserEvents = [];
-    const unsubscribe = globalThis.blackrain.browser.onTabsChanged((event) => {
-      if (event.scope.threadId === scope.threadId) {
-        browserEvents.push(event);
-      }
-    });
-    const tab = await globalThis.blackrain.browser.createTab({
-      ...scope,
-      url: fixtureUrl,
-    });
-    const layout = await globalThis.blackrain.browser.setLayout({
-      windowGeneration: bootstrap.windowGeneration,
-      layoutRevision: 1,
-      ...scope,
-      activeTabId: tab.browserTabId,
-      views: [
-        {
-          browserTabId: tab.browserTabId,
-          viewGeneration: tab.viewGeneration,
-          bounds: { x: 700, y: 120, width: 900, height: 700 },
-          visible: true,
-          occluded: false,
-        },
-      ],
-    });
-    const reload = await globalThis.blackrain.browser.control({
-      ...scope,
-      browserTabId: tab.browserTabId,
-      viewGeneration: tab.viewGeneration,
-      action: "reload",
-    });
-    const tabs = await globalThis.blackrain.browser.listTabs(scope);
-
-    let staleRevisionRejected = false;
-    try {
-      await globalThis.blackrain.browser.setLayout({
+  const hostContract = await withStageTimeout(
+    window.evaluate(async (fixtureUrl) => {
+      const bootstrap = await globalThis.blackrain.app.getBootstrap();
+      const scope = { threadId: "thread-e2e", routeKey: "browser-sidebar" };
+      const browserEvents = [];
+      const unsubscribe = globalThis.blackrain.browser.onTabsChanged((event) => {
+        if (event.scope.threadId === scope.threadId) {
+          browserEvents.push(event);
+        }
+      });
+      const tab = await globalThis.blackrain.browser.createTab({
+        ...scope,
+        url: fixtureUrl,
+      });
+      const layout = await globalThis.blackrain.browser.setLayout({
         windowGeneration: bootstrap.windowGeneration,
         layoutRevision: 1,
         ...scope,
@@ -189,28 +177,55 @@ try {
           {
             browserTabId: tab.browserTabId,
             viewGeneration: tab.viewGeneration,
-            bounds: { x: 700, y: 120, width: 400, height: 300 },
+            bounds: { x: 700, y: 120, width: 900, height: 700 },
             visible: true,
             occluded: false,
           },
         ],
       });
-    } catch {
-      staleRevisionRejected = true;
-    }
+      const reload = await globalThis.blackrain.browser.control({
+        ...scope,
+        browserTabId: tab.browserTabId,
+        viewGeneration: tab.viewGeneration,
+        action: "reload",
+      });
+      const tabs = await globalThis.blackrain.browser.listTabs(scope);
 
-    unsubscribe();
-    return {
-      bootstrap,
-      layout,
-      scope,
-      tab,
-      reload,
-      tabs,
-      browserEventCount: browserEvents.length,
-      staleRevisionRejected,
-    };
-  }, browserFixtureUrl);
+      let staleRevisionRejected = false;
+      try {
+        await globalThis.blackrain.browser.setLayout({
+          windowGeneration: bootstrap.windowGeneration,
+          layoutRevision: 1,
+          ...scope,
+          activeTabId: tab.browserTabId,
+          views: [
+            {
+              browserTabId: tab.browserTabId,
+              viewGeneration: tab.viewGeneration,
+              bounds: { x: 700, y: 120, width: 400, height: 300 },
+              visible: true,
+              occluded: false,
+            },
+          ],
+        });
+      } catch {
+        staleRevisionRejected = true;
+      }
+
+      unsubscribe();
+      return {
+        bootstrap,
+        layout,
+        scope,
+        tab,
+        reload,
+        tabs,
+        browserEventCount: browserEvents.length,
+        staleRevisionRejected,
+      };
+    }, browserFixtureUrl),
+    "host contract",
+  );
   assert.equal(hostContract.bootstrap.version, "0.7.68");
   assert.equal(hostContract.bootstrap.platform, "win32");
   assert.ok(hostContract.bootstrap.windowGeneration > 0);
