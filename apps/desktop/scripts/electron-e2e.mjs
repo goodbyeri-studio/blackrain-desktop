@@ -72,6 +72,14 @@ try {
   });
 
   const window = await electronApplication.firstWindow({ timeout: 30_000 });
+  await electronApplication.evaluate(({ BrowserWindow }) => {
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    if (!mainWindow) {
+      throw new Error("Electron E2E 未找到主窗口");
+    }
+    mainWindow.setBounds({ x: 0, y: 0, width: 1200, height: 700 });
+    mainWindow.show();
+  });
   await window.waitForLoadState("domcontentloaded");
 
   assert.equal(await window.title(), "BlackRain");
@@ -120,15 +128,17 @@ try {
     1,
     `Electron renderer 未挂载 Browser UI：${(await window.locator("body").innerText()).slice(0, 500)}`,
   );
-  await browserEntry.dispatchEvent("click");
-  await window.getByRole("complementary", { name: "浏览器" }).waitFor();
+  await browserEntry.evaluate((element) => element.click());
+  await window.getByTestId("browser-sidebar").waitFor({ state: "attached" });
   assert.equal(await window.getByText("先打开一个对话").count(), 1);
   const screenshotDirectory = path.join(desktopRoot, "output", "playwright");
   await mkdir(screenshotDirectory, { recursive: true });
   await window.screenshot({
     path: path.join(screenshotDirectory, "electron-browser-sidebar.png"),
   });
-  await window.getByRole("button", { name: "收起浏览器" }).dispatchEvent("click");
+  await window
+    .getByRole("button", { name: "收起浏览器" })
+    .evaluate((element) => element.click());
   await browserEntry.waitFor({ state: "visible" });
 
   const hostContract = await window.evaluate(async (fixtureUrl) => {
