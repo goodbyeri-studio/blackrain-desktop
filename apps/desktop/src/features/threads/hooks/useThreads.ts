@@ -42,6 +42,7 @@ import { getSubagentDescendantThreadIds } from "@threads/utils/subagentTree";
 
 type UseThreadsOptions = {
   activeWorkspace: WorkspaceInfo | null;
+  workspaces?: WorkspaceInfo[];
   onWorkspaceConnected: (id: string) => void;
   onDebug?: (entry: DebugEntry) => void;
   ensureWorkspaceRuntimeCodexArgs?: (
@@ -76,6 +77,7 @@ const CASCADE_ARCHIVE_SKIP_TTL_MS = 120_000;
 
 export function useThreads({
   activeWorkspace,
+  workspaces = activeWorkspace ? [activeWorkspace] : [],
   onWorkspaceConnected,
   onDebug,
   ensureWorkspaceRuntimeCodexArgs,
@@ -144,6 +146,10 @@ export function useThreads({
   } = useThreadStorage();
 
   const activeWorkspaceId = activeWorkspace?.id ?? null;
+  const workspacePathById = useMemo(
+    () => new Map(workspaces.map((workspace) => [workspace.id, workspace.path])),
+    [workspaces],
+  );
   const { activeThreadId, activeItems } = useThreadSelectors({
     activeWorkspaceId,
     activeThreadIdByWorkspace: state.activeThreadIdByWorkspace,
@@ -568,6 +574,7 @@ export function useThreads({
     loadOlderThreadsForWorkspace,
     archiveThread,
   } = useThreadActions({
+    workspacePathById,
     dispatch,
     itemsByThread: state.itemsByThread,
     threadsByWorkspace: state.threadsByWorkspace,

@@ -14,11 +14,13 @@ import type {
   WorkspaceInfo,
 } from "@/types";
 import {
-  compactThread as compactThreadService,
   sendUserMessage as sendUserMessageService,
   steerTurn as steerTurnService,
-  startReview as startReviewService,
   interruptTurn as interruptTurnService,
+} from "@services/agent";
+import {
+  compactThread as compactThreadService,
+  startReview as startReviewService,
   getAppsList as getAppsListService,
   listMcpServerStatus as listMcpServerStatusService,
   rollbackThread as rollbackThreadService,
@@ -274,15 +276,18 @@ export function useThreadMessaging({
             workspace.id,
             threadId,
             finalText,
-            buildTurnStartPayload({
-              model: resolvedModel,
-              effort: resolvedEffort,
-              serviceTier: resolvedServiceTier,
-              collaborationMode: sanitizedCollaborationMode,
-              accessMode: resolvedAccessMode,
-              images,
-              appMentions,
-            }),
+            {
+              ...buildTurnStartPayload({
+                model: resolvedModel,
+                effort: resolvedEffort,
+                serviceTier: resolvedServiceTier,
+                collaborationMode: sanitizedCollaborationMode,
+                accessMode: resolvedAccessMode,
+                images,
+                appMentions,
+              }),
+              cwd: workspace.path,
+            },
           )) as Record<string, unknown>;
 
         const rpcError = extractRpcErrorMessage(response);

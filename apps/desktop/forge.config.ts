@@ -9,7 +9,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     executableName: "BlackRain",
-    extraResource: ["resources/codex"],
+    extraResource: ["resources/codex", "resources/browser-client"],
   },
   makers: [
     new MakerMSIX({

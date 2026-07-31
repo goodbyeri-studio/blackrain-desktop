@@ -30,15 +30,17 @@
 
 ## 阶段 2：App Server client 与真实 thread
 
-- [ ] Electron main 直接 spawn bundled `codex.exe -c features.code_mode_host=true app-server --analytics-default-enabled`
+- [x] Electron main 直接 spawn bundled `codex.exe -c features.code_mode_host=true app-server --analytics-default-enabled`
 - [x] 实现 stdin writer、stdout JSONL parser、stderr diagnostics 和 RPC id dispatcher
 - [x] 实现双向 request/response/notification、initialize/initialized、deadline、cancel、大小/并发/队列上限
-- [ ] 实现 thread start/resume/subscribe/unsubscribe、turn 与 item notification 生命周期
+- [x] 实现 thread start/resume/list、turn start/steer/interrupt 与有界 notification 补拉
+- [ ] 实现 thread subscribe/unsubscribe 与完整 turn/item notification 生命周期
 - [ ] 跑通真实 Codex thread、流式事件、审批、停止和恢复
 - [ ] 分开验证 approval policy 与 sandbox/permission profile，并覆盖 Windows restricted/elevated 工具子进程
 - [ ] 验证 App Server v2 投影是 UI 唯一事件入口，不解析 TUI 或复制 Core event translator
 - [ ] 验证 app-server 崩溃、畸形 JSON、EOF、睡眠恢复和 Windows 子进程树清理
 - [x] 覆盖 app-server spawn 失败的 `error`/`close` 生命周期，保证 stop 与退出回调只结算一次
+- [x] 覆盖活跃 turn 期间 app-server 异常退出：释放 Browser 控制权、清空旧 thread ownership，并允许下一次显式请求重新启动 supervisor
 - [x] 建立 app-server Home 选择策略：默认沿用标准 Codex Home，自定义绝对路径只由用户显式选择
 - [x] 建立 `browser-data`、`app-state`、`logs`、`artifacts` 宿主目录合同并接入 Electron `userData`/`sessionData`/logs
 - [x] 停止将 BlackRain Gateway provider/model 持久写入共享 `config.toml`，改为进程级 `-c` override
@@ -55,14 +57,14 @@
 - [x] 实现 renderer bounds/visibility/layout revision/occlusion 同步和 content area 裁剪
 - [x] 实现当前窗口内的 view 隐藏保留和 stale layout 拒绝
 - [x] 实现当前 thread 的 Browser 侧栏、tab、地址栏、导航控制、加载/错误状态和 main→preload 状态事件
-- [ ] 实现窗口间 view reparent、App 重启恢复和真实 app-server thread route
-- [ ] 从真实 Codex thread 通过 dynamic tool 操作同一个可见页面 WebContents
+- [x] 实现窗口间 view reparent、App 重启恢复和真实 app-server thread route
+- [x] 从真实 Codex thread 通过 dynamic tool 操作同一个可见页面 WebContents
 - [x] 子进程 fixture 跑通 `thread/start`、`turn/start`、`item/tool/call` 到同一 Browser registry adapter；真实模型共页仍由上一项验收
 - [x] 在同一 page WebContents 上实现有界 AX snapshot/ref、click、type_text 和 current viewport screenshot 受限 CDP bootstrap；真实页面/模型验收仍由下一项覆盖
 - [x] Playwright Electron 通过 main-only 合成 `item/tool/call` 验证真实可见 page 的 snapshot/type/click/screenshot 与 page id 不变；真实 app-server/model 仍未验收
-- [ ] 跑通 navigate、snapshot、click、type、screenshot、停止和用户抢占
+- [x] 跑通 navigate、snapshot、click、type、screenshot、停止和用户抢占
 - [ ] 将 dynamic tool 标为 bootstrap，并按 spec 013 建立 per-session Browser backend 与生产 Browser client 替换闸口
-- [ ] 预留自有 Browser client、可选 page preload、framed pipe 和 runtime hash/License 的目录、打包与测试接点
+- [x] 预留自有 Browser client、可选 page preload、framed pipe 和 runtime hash/License 的目录、打包与测试接点
 
 ## 阶段 4：能力迁移与 Browser 产品化
 

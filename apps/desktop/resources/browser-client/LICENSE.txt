@@ -1,0 +1,5 @@
+Copyright (c) 2026 BlackRain. All rights reserved.
+
+This Browser client is proprietary BlackRain software and is distributed only
+as part of an authorized BlackRain Desktop package. No third-party code is
+included in this file.

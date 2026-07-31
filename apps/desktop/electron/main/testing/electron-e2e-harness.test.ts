@@ -12,6 +12,7 @@ const globalHarness = globalThis as typeof globalThis & {
 function backend(): BrowserAgentBackend {
   return {
     listTabsForAgent: vi.fn(() => []),
+    createTabForAgent: vi.fn(async () => { throw new Error("not used"); }),
     navigateForAgent: vi.fn(async () => {
       throw new Error("not used");
     }),

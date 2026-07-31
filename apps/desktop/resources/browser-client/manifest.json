@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "name": "blackrain-browser-client",
+  "version": "0.1.0",
+  "protocolVersion": 1,
+  "license": "Proprietary",
+  "files": [
+    {
+      "path": "browser-client.mjs",
+      "sha256": "5c12996549c5f39cf6a2f4947b24cdd9e1d71cd57c94ca99b57c66031c5134d6"
+    },
+    {
+      "path": "LICENSE.txt",
+      "sha256": "4ab291b639c053589e10b68a1b53249fa7ed65f96aa198e5f58a720c28d2fded"
+    }
+  ]
+}

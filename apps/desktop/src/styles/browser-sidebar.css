@@ -84,6 +84,32 @@
   gap: 2px;
 }
 
+.browser-control-status {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  gap: 5px;
+  margin-right: 4px;
+  padding: 0 7px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-input) 72%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  font-size: 10px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+button.browser-control-status.is-agent {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--border-accent) 14%, var(--surface-input));
+  border-color: color-mix(in srgb, var(--border-accent) 48%, var(--border-subtle));
+}
+
+button.browser-control-status.is-agent:hover {
+  background: color-mix(in srgb, var(--border-accent) 22%, var(--surface-input));
+}
+
 .browser-icon-button {
   display: grid;
   width: 28px;
@@ -256,6 +282,103 @@
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.browser-request-banner {
+  display: grid;
+  min-height: 46px;
+  flex: 0 0 auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  color: var(--text-primary);
+  background: var(--cm-surface-panel-solid);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+}
+
+.browser-request-banner > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.browser-request-banner strong,
+.browser-request-banner span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-request-banner button {
+  height: 28px;
+  padding: 0 8px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  font-size: 11px;
+}
+
+.browser-request-banner button.is-primary {
+  color: var(--text-primary);
+  background: var(--cm-surface-hover);
+}
+
+.browser-dialog-banner span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.browser-dialog-banner input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 7px;
+  color: var(--text-primary);
+  background: var(--cm-surface-input, var(--cm-surface-panel-solid));
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.browser-console-log {
+  max-height: 140px;
+  flex: 0 0 auto;
+  overflow: auto;
+  color: var(--text-secondary);
+  background: var(--cm-surface-panel-solid);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+}
+
+.browser-console-log summary {
+  padding: 5px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.browser-console-log > div {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.browser-console-log p {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 3px 10px;
+}
+
+.browser-console-log p[data-level="error"] {
+  color: var(--text-danger, #e66a6a);
+}
+
+.browser-console-log code {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .browser-page-area,

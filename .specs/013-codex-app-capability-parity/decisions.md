@@ -62,6 +62,34 @@
 - 加固：随机 pipe endpoint、当前用户 ACL、256-bit capability token 和方法级 ownership 继续保留；不照搬只靠 runtime bridge/session filter 的信任假设。
 - 边界：只自研可审计 client 和协议，不复制 OpenAI `browser-client.mjs`、私有 `nativePipe` 或 bundled plugin。
 
+## 2026-07-31：先锁定自有 client/transport 制品，不提前切换生产入口
+
+- 决策：自有 Browser client、4-byte LE/8 MiB transport、capability、build/session/generation handshake 和断连取消先作为可测试、可打包的 main-owned 接点进入仓库；在当前用户 ACL 与公开 code-mode/node_repl 接缝得到证据前，不向 renderer 暴露 bootstrap，也不替代已跑通的 dynamic-tool bootstrap。
+- 原因：Node `net` 可以提供随机 Windows named pipe 和应用层认证，但不能单独证明 pipe DACL 仅允许当前用户；同时当前锁定 Codex runtime 尚未证明存在可分发的公开 client 注入接缝。先把协议、边界和制品完整性做实，避免以未验证私有接口或无 ACL pipe 冒充生产完成。
+- 删除闸口：公开 runtime 接缝、当前用户 ACL、MSIX 内含/启动和真实 app-server tool route 通过后，Browser client 才能成为唯一生产 adapter，随后关闭 dynamic tools 注册。
+
+## 2026-07-31：OOPIF ownership 使用当前 page target 的 frame 关系
+
+- 决策：main 仅附着 `Target.getTargets` 中 `type=iframe` 且 `targetId` 位于当前 `Page.getFrameTree`，或 `parentFrameId`/`openerId`/`openerFrameId` 可追溯到当前 page target 的候选；不得按 URL、origin 或 iframe 类型全局放行。
+- 原因：Electron 42/Chromium 的真实 OOPIF `TargetInfo` 使用 `parentFrameId` 指向顶层 page target，而顶层 `Page.getFrameTree` 不一定枚举跨进程 child。关系链交集既覆盖真实行为，也排除 BlackRain renderer 和其他 Browser page target。
+- 输入：OOPIF ref 保存 child session id；click/type 在对应 session 执行。`type_text` 以解析得到的远端 object id 作为短期 input-target token，在插入前重新验证 `isConnected` 与 `activeElement`，漂移即失败。
+
+## 2026-07-31：Agent 空 route 允许通过 `new_tab` 建立首个页面
+
+- 决策：dynamic tool 保留 `list_tabs` 只读枚举，并新增 `new_tab({ url? })`；创建必须使用 renderer 最近一次校验过的 route owner lease，创建后立即绑定当前 turn。
+- 原因：要求 Agent 先由用户手工创建 tab 会使空 thread 无法开始浏览，也会让真实模型验证掩盖生产入口缺失。
+- 边界：没有当前 renderer owner lease 时 fail closed；`new_tab` 取消在页面创建后销毁新记录，不允许借用其他 thread/window 的页面。
+
+## 2026-07-31：页面事件按 record 当前 owner 动态发送
+
+- 决策：Browser page/popup/CDP/console 事件不得捕获创建时的 `BrowserWindow`；每次事件按 record 的 window、webContents 和 generation 重新校验并发送。
+- 原因：窗口 detach/reparent 后旧闭包会继续向旧窗口发送，导致新 owner 收不到导航、崩溃和控制权变化事件。
+- 生命周期：release 或 owner 无效时停止发送并清除 route owner lease；reparent 后新 owner 立即成为唯一事件接收方。
+
+## 2026-07-31：workspace 事件归属由 thread/cwd 映射决定
+
+- 决策：`thread/list` 响应不得把全局历史 thread 批量登记到请求方 workspace；start/resume 在请求发出前登记 cwd，`thread/started` 与后续通知按已知 threadId 或最长 workspace cwd 前缀归属。
+- 原因：单 runtime 可服务多个 workspace，请求方不是全局 thread 的可靠 owner；通知可能和 RPC response 在同一 stdout chunk 中到达。
 ## 2026-07-29：Playwright 只作为现有页面的注入式语义运行时
 
 - 决策：复用或自研许可兼容的 selector、ARIA、actionability runtime，并注入当前 `WebContentsView` 页面 target；禁止启动第二个 Playwright Chromium 或建立旁路 `connectOverCDP` browser。

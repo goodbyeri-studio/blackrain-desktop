@@ -22,6 +22,10 @@ function record(
     canGoForward: false,
     crashed: false,
     error: null,
+    controlOwner: "user",
+    agentTurnId: null,
+    blockedAgentTurnId: null,
+    detached: false,
     ownerWebContentsId: 10,
     ownerWindowId: 20,
     ownerWindowGeneration: 2,
@@ -29,6 +33,11 @@ function record(
     webContentsId: 30,
     view: { id: "view-1" },
     ...overrides,
+    permissionRequest: overrides.permissionRequest ?? null,
+    download: overrides.download ?? null,
+    dialog: overrides.dialog ?? null,
+    consoleMessages: overrides.consoleMessages ?? [],
+    debuggerStatus: overrides.debuggerStatus ?? "attached",
   };
 }
 

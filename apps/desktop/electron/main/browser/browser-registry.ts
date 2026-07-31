@@ -1,6 +1,8 @@
 import type { BrowserRouteScope, BrowserTabState } from "../../shared/browser-tabs";
 
 export type BrowserTabRecord<TView> = BrowserTabState & {
+  blockedAgentTurnId: string | null;
+  detached: boolean;
   documentGeneration: number;
   ownerWebContentsId: number;
   ownerWindowId: number;

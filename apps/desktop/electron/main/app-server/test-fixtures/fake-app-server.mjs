@@ -32,11 +32,22 @@ input.on("line", (line) => {
     return;
   }
   if (message.method === "thread/list") {
-    send({ id: message.id, result: { data: [{ id: "thread-1" }] } });
+    send({ method: "test/thread-list-params", params: message.params });
+    send({
+      id: message.id,
+      result: {
+        data: [{ id: "thread-1", cwd: process.cwd() }],
+        nextCursor: "next-page",
+      },
+    });
     return;
   }
   if (message.method === "thread/start") {
     send({ id: message.id, result: { thread: { id: "thread-browser-1" } } });
+    send({
+      method: "thread/started",
+      params: { thread: { id: "thread-child-1", cwd: process.cwd() } },
+    });
     send({
       method: "test/dynamic-tools",
       params: { dynamicTools: message.params.dynamicTools },
@@ -44,6 +55,7 @@ input.on("line", (line) => {
     return;
   }
   if (message.method === "turn/start") {
+    send({ method: "test/turn-start-params", params: message.params });
     send({
       method: "turn/started",
       params: {
@@ -52,6 +64,10 @@ input.on("line", (line) => {
       },
     });
     send({ id: message.id, result: { turn: { id: "turn-browser-1" } } });
+    if (process.env.BLACKRAIN_FAKE_EXIT_AFTER_TURN_STARTED === "1") {
+      setImmediate(() => process.exit(17));
+      return;
+    }
     send({
       id: "browser-tool-1",
       method: "item/tool/call",
@@ -66,10 +82,22 @@ input.on("line", (line) => {
     });
     return;
   }
+  if (message.method === "turn/steer") {
+    send({ method: "test/turn-steer-params", params: message.params });
+    send({ id: message.id, result: { turnId: message.params.expectedTurnId } });
+    return;
+  }
   if (message.id === "browser-tool-1") {
     send({
       method: "test/browser-tool-result",
       params: message.result ?? message.error,
+    });
+    send({
+      method: "turn/completed",
+      params: {
+        threadId: "thread-browser-1",
+        turn: { id: "turn-browser-1" },
+      },
     });
   }
 });

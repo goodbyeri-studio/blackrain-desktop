@@ -29,14 +29,14 @@
 
 ## 阶段 2：真实 Agent Browser 闭环
 
-- [x] 在 `thread/start.dynamicTools` 注册 `blackrain_browser` 的 list/goto/back/forward/reload/stop 工具
+- [x] 在 `thread/start.dynamicTools` 注册 `blackrain_browser` 的 list/new_tab/goto/back/forward/reload/stop 工具
 - [x] main App Server client 将 `item/tool/call` 直接路由到同一 Browser registry，并支持 cancel/deadline
 - [x] 实现 dynamic-tool bootstrap 的顶层 AX snapshot、30 秒短期 ref、click、type_text 与 current viewport screenshot 受限 CDP 合同
-- [ ] 将 dynamic-tool 路径标记为 bootstrap adapter，并建立生产 Browser client 替换闸口
+- [x] 将 dynamic-tool 路径标记为 bootstrap adapter，并建立生产 Browser client 替换闸口
 - [ ] 跑通 tabs、navigation、snapshot、locator、CUA 和 screenshot
-- [ ] 实现用户接管与 agent 控制状态机
-- [ ] 验证真实 app-server Agent 与用户操作的是同一个可见 `WebContentsView` 页面；合成 dynamic tool E2E 已通过
-- [ ] 将标准化事件接入可见 UI 与 thread 流程
+- [x] 实现用户接管与 agent 控制状态机
+- [x] 验证真实 app-server Agent 与用户操作的是同一个可见 `WebContentsView` 页面
+- [x] 将标准化事件接入可见 UI 与 thread 流程
 
 ## 阶段 3：Browser 产品化
 
@@ -44,11 +44,11 @@
 - [ ] 验证公开 code-mode/node_repl 扩展接缝；不得依赖私有 `nativePipe` 或复制 bundled Browser plugin
 - [ ] 为每个 Codex session 建立 backend route，实现 session/build/generation handshake 与 `session_id`/`turn_id` request binding
 - [ ] 实现随机 pipe + 当前用户 ACL + capability token + 4-byte LE framing + 8 MiB 上限 + socket client id
-- [ ] 固定 Browser client hash、License 和版本，并验证 endpoint/token/session context 不进入 renderer、thread 或日志
+- [x] 固定 Browser client hash、License 和版本，并验证 endpoint/token/session context 不进入 renderer、thread 或日志
 - [ ] 在 Browser client 与 dynamic-tool adapter 之间确定唯一生产主路径并删除临时双路由
 - [ ] 在现有页面 target 注入 selector/actionability/增量 ARIA runtime；禁止启动独立 Playwright browser
-- [ ] 实现 iframe/OOPIF ARIA snapshot 合并和 route-scoped `Target.*` 虚拟化
-- [ ] 实现 input-target token、顶层 DOM 输入翻译、跨 origin target fallback 和显式失败语义
+- [x] 实现 iframe/OOPIF ARIA snapshot 合并和 route-scoped `Target.*` 虚拟化
+- [x] 实现 input-target token、顶层 DOM 输入翻译、跨 origin target fallback 和显式失败语义
 - [ ] 实现 hidden full-page capture surface、layout metrics 等待和 finally 恢复
 - [ ] 实现 tab origin/claim/handoff/deliverable 与 `turnEnded`/`tabs.finalize({keep})` 收口
 - [ ] 实现 frame/OOPIF target/session、dialog、console 和 debugger 恢复
@@ -61,15 +61,15 @@
 ## 阶段 4：验证与发布
 
 - [x] 单元测试 URL/navigation policy、bounds 裁剪、route ownership、旧 revision 和旧 generation；权限与下载默认拒绝由 Electron E2E/后续策略测试继续覆盖
-- [ ] 单元测试跨 profile、错误 owner 和 Agent/user 控制状态机
+- [x] 单元测试跨 profile、错误 owner 和 Agent/user 控制状态机
 - [x] 单元测试 AX snapshot 节点/文本上限、turn/document/TTL 失效、click/type_text 命令序列、PNG 类型/大小和 debugger teardown
 - [x] Playwright Electron E2E 覆盖本地页面 create/load/layout/list/unsafe-navigation/close host foundation
 - [x] Playwright Electron E2E 通过 main-only 合成 `item/tool/call` 覆盖真实可见 WebContentsView 的 snapshot/type_text/click/viewport screenshot，并确认 page id 不变
 - [x] renderer 单测覆盖 Browser UI create/navigate/reload/close；Electron E2E 覆盖 UI 入口开合和 main 状态事件
-- [ ] Playwright Electron E2E 从真实 thread 的 Browser UI 驱动同一 `WebContentsView`
+- [x] Playwright Electron E2E 从真实 bundled app-server thread 驱动同一可见 `WebContentsView`
 - [ ] Windows 真实站点登录保持与下载验证
 - [ ] MFA、反自动化、iframe/OOPIF、离线、权限拒绝和外部协议验证
-- [ ] renderer/page WebContents/app-server 重启、隐藏运行和 App restart 恢复验证
+- [ ] renderer/page WebContents/app-server 重启、隐藏运行和 App restart 恢复验证；page renderer 与 App restart 已通过，renderer/app-server restart 待补
 - [ ] Browser client/backend 断连、旧 generation、turn finalize 重试和资源无残留验证
 - [ ] 32 live detached pages/30 分钟保护候选的内存、GPU、挂起和恢复验证，并记录最终采用值
 - [ ] sidebar resize、DPI、多屏、z-order、modal 遮挡、焦点和输入法验证

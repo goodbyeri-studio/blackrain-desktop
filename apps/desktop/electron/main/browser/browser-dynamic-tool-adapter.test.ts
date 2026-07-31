@@ -18,6 +18,13 @@ const tab: BrowserTabState = {
   canGoForward: false,
   crashed: false,
   error: null,
+  controlOwner: "user",
+  agentTurnId: null,
+  permissionRequest: null,
+  download: null,
+  dialog: null,
+  consoleMessages: [],
+  debuggerStatus: "attached",
 };
 
 function request(
@@ -43,6 +50,7 @@ function request(
 function backend(): BrowserAgentBackend {
   return {
     listTabsForAgent: vi.fn(() => [tab]),
+    createTabForAgent: vi.fn(async () => tab),
     navigateForAgent: vi.fn(async () => tab),
     controlForAgent: vi.fn(() => tab),
     snapshotForAgent: vi.fn(async () => ({
@@ -67,6 +75,7 @@ function backend(): BrowserAgentBackend {
       mimeType: "image/png" as const,
       imageUrl: "data:image/png;base64,iVBORw0KGgo=",
     })),
+    completeAgentTurn: vi.fn(),
   };
 }
 
@@ -99,10 +108,31 @@ describe("BrowserDynamicToolAdapter", () => {
     expect(browser.navigateForAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         threadId: "thread-1",
+        turnId: "turn-1",
         browserTabId: "tab-1",
         url: "https://openai.com/",
       }),
       expect.any(AbortSignal),
+    );
+
+    await expect(
+      adapter.handleServerRequest(request("new_tab", { url: "https://openai.com/" })),
+    ).resolves.toEqual({
+      contentItems: [{ type: "inputText", text: JSON.stringify(tab) }],
+      success: true,
+    });
+    expect(browser.createTabForAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ threadId: "thread-1", turnId: "turn-1", url: "https://openai.com/" }),
+      expect.any(AbortSignal),
+    );
+
+    adapter.handleNotification("turn/completed", {
+      threadId: "thread-1",
+      turn: { id: "turn-1" },
+    });
+    expect(browser.completeAgentTurn).toHaveBeenCalledWith(
+      { threadId: "thread-1", routeKey: "browser-sidebar" },
+      "turn-1",
     );
   });
 
@@ -177,7 +207,11 @@ describe("BrowserDynamicToolAdapter", () => {
 
     await expect(
       adapter.handleServerRequest(
-        request("screenshot", { browserTabId: "tab-1", viewGeneration: 1 }),
+        request("screenshot", {
+          browserTabId: "tab-1",
+          viewGeneration: 1,
+          fullPage: true,
+        }),
       ),
     ).resolves.toEqual({
       contentItems: [
@@ -185,10 +219,15 @@ describe("BrowserDynamicToolAdapter", () => {
       ],
       success: true,
     });
+    expect(browser.screenshotForAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ fullPage: true }),
+      expect.any(AbortSignal),
+    );
 
     const names = BROWSER_DYNAMIC_TOOLS[0].tools.map((tool) => tool.name);
     expect(names).toEqual([
       "list_tabs",
+      "new_tab",
       "goto",
       "back",
       "forward",

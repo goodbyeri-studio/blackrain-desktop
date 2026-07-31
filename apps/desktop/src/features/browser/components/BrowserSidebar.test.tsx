@@ -18,6 +18,13 @@ const blankTab: BrowserTabState = {
   canGoForward: false,
   crashed: false,
   error: null,
+  controlOwner: "user",
+  agentTurnId: null,
+  permissionRequest: null,
+  download: null,
+  dialog: null,
+  consoleMessages: [],
+  debuggerStatus: "attached",
 };
 
 afterEach(() => {
@@ -45,18 +52,39 @@ describe("BrowserSidebar", () => {
           windowGeneration: 1,
         }),
       },
+      workspace: {
+        list: vi.fn(),
+        add: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        connect: vi.fn(),
+        isDirectory: vi.fn(),
+        pick: vi.fn(),
+      },
       agent: {
         getStatus: vi.fn().mockResolvedValue({ state: "idle" }),
+        getEvents: vi.fn().mockResolvedValue({
+          events: [],
+          latestSequence: 0,
+          resetRequired: false,
+        }),
+        onEvent: vi.fn().mockReturnValue(() => undefined),
+        listThreads: vi.fn(),
         startThread: vi.fn(),
         resumeThread: vi.fn(),
-        startTurn: vi.fn(),
-        interruptTurn: vi.fn(),
+      startTurn: vi.fn(),
+      steerTurn: vi.fn(),
+      interruptTurn: vi.fn(),
       },
       browser: {
         createTab,
         listTabs: vi.fn().mockResolvedValue([]),
         navigate,
         control,
+        takeControl: vi.fn().mockResolvedValue(blankTab),
+        respondPermission: vi.fn(),
+        resolveDownload: vi.fn(),
+        respondDialog: vi.fn(),
         closeTab,
         setLayout,
         onTabsChanged: vi.fn().mockReturnValue(() => undefined),
@@ -93,5 +121,107 @@ describe("BrowserSidebar", () => {
     await waitFor(() => expect(closeTab).toHaveBeenCalled());
     expect(createTab).toHaveBeenCalledWith(scope);
     expect(setLayout).toHaveBeenCalled();
+  });
+
+  it("展示 Agent 控制状态并允许用户主动接管同一 tab", async () => {
+    const agentTab: BrowserTabState = {
+      ...blankTab,
+      url: "https://example.com/",
+      title: "Example",
+      controlOwner: "agent",
+      agentTurnId: "turn-1",
+      dialog: {
+        requestId: "dialog-1",
+        type: "confirm",
+        message: "继续测试？",
+        defaultPrompt: "",
+        origin: "https://example.com",
+      },
+    };
+    const takeControl = vi.fn().mockResolvedValue({
+      ...agentTab,
+      controlOwner: "user",
+      agentTurnId: null,
+    });
+    const respondDialog = vi.fn().mockResolvedValue({
+      ...agentTab,
+      dialog: null,
+    });
+    window.blackrain = {
+      app: {
+        getBootstrap: vi.fn().mockResolvedValue({
+          version: "0.7.68",
+          platform: "win32",
+          windowGeneration: 1,
+        }),
+      },
+      workspace: {
+        list: vi.fn(),
+        add: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        connect: vi.fn(),
+        isDirectory: vi.fn(),
+        pick: vi.fn(),
+      },
+      agent: {
+        getStatus: vi.fn().mockResolvedValue({ state: "ready" }),
+        getEvents: vi.fn().mockResolvedValue({
+          events: [],
+          latestSequence: 0,
+          resetRequired: false,
+        }),
+        onEvent: vi.fn().mockReturnValue(() => undefined),
+        listThreads: vi.fn(),
+        startThread: vi.fn(),
+        resumeThread: vi.fn(),
+      startTurn: vi.fn(),
+      steerTurn: vi.fn(),
+      interruptTurn: vi.fn(),
+      },
+      browser: {
+        createTab: vi.fn(),
+        listTabs: vi.fn().mockResolvedValue([agentTab]),
+        navigate: vi.fn(),
+        control: vi.fn(),
+        takeControl,
+        respondPermission: vi.fn(),
+        resolveDownload: vi.fn(),
+        respondDialog,
+        closeTab: vi.fn(),
+        setLayout: vi.fn().mockResolvedValue({
+          accepted: true,
+          layoutRevision: 1,
+        }),
+        onTabsChanged: vi.fn().mockReturnValue(() => undefined),
+      },
+    };
+
+    render(<BrowserSidebar threadId="thread-1" />);
+
+    expect(await screen.findByText("继续测试？")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "继续" }));
+    await waitFor(() =>
+      expect(respondDialog).toHaveBeenCalledWith({
+        ...scope,
+        browserTabId: "tab-1",
+        viewGeneration: 1,
+        requestId: "dialog-1",
+        accept: true,
+      }),
+    );
+
+    const takeover = await screen.findByRole("button", {
+      name: "接管浏览器",
+    });
+    fireEvent.click(takeover);
+    await waitFor(() =>
+      expect(takeControl).toHaveBeenCalledWith({
+        ...scope,
+        browserTabId: "tab-1",
+        viewGeneration: 1,
+      }),
+    );
+    expect(await screen.findByLabelText("用户控制浏览器")).toBeTruthy();
   });
 });

@@ -16,6 +16,7 @@ describe.skipIf(!codexBin || !probeHome)("真实 codex app-server 协议探针",
     mkdirSync(probeHome, { recursive: true });
     const browser: BrowserAgentBackend = {
       listTabsForAgent: () => [],
+      createTabForAgent: async () => { throw new Error("协议探针不执行 Browser new_tab"); },
       navigateForAgent: async () => {
         throw new Error("协议探针不执行 Browser 导航");
       },

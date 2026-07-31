@@ -1,6 +1,6 @@
 # 快捷命令行
 
-> **状态（2026-07-30）**：本文件中的 `tauri:*`、Tauri Windows 和 NSIS 命令描述当前产品基线，不是最终发布路线。迁移中的 Electron 已有 Forge/Vite/MSIX、host/Browser foundation 和 Windows CI 验证命令，但尚未接入 bundled `codex.exe`、完成签名或安装矩阵，不能作为可发布客户端。
+> **状态（2026-07-31）**：本文件中的 `tauri:*`、Tauri Windows 和 NSIS 命令描述当前产品基线，不是最终发布路线。迁移中的 Electron 已接入 bundled `codex.exe`，并通过 Browser host、App 重启恢复和显式真实模型共页验证；签名、安装矩阵与完整 Electron 迁移仍未完成，不能作为可发布客户端。
 
 > BlackRain 日常启动、构建、发布和通用验证命令的唯一真源。模块 README/runbook 只保留不重复的局部诊断或协议探针。除特别标注外，路径均以仓库根 `BlackRain/` 为基准。
 > MVP 仅发行 Windows，主流程使用 PowerShell 7 (`pwsh`)；macOS / iOS 只作为 post-MVP 或上游资产。
@@ -164,7 +164,9 @@ Set-Location apps\desktop
 
 npm run electron:typecheck
 npm run test -- --run electron
+npm run electron:browser-client:verify
 npm run electron:runtime:check-lock
+npm run electron:app-server:probe
 npm run electron:package
 npm run electron:smoke
 npm run electron:e2e
@@ -174,13 +176,25 @@ npm run test -- --run electron/main/app-server
 Set-Location ..\..
 ```
 
-`electron:smoke` 的 prehook 会先重新生成 `out/electron/codex-monitor-win32-x64` production package，再运行带 production fuses 的真实制品。`electron:e2e` 的 prehook 会重建同一 package 并安装 Electron runtime，再由 Playwright 驱动开发 Electron 加载 production bundles，验证自定义协议、renderer Node 隔离、typed preload、IPC 布局 revision、外部导航、popup 拒绝，以及通过仅开发态 main harness 合成 dynamic tool 对同一可见 Browser page 执行 snapshot/type/click/screenshot。该 harness 不进入 renderer 且 packaged 强制禁用；E2E 仍不等于真实 app-server/model、签名或安装验收。当前 `electron:start` dev runner 仍需在锁定 Node 22 环境复核。
+`electron:smoke` 的 prehook 会先重新生成 `out/electron/codex-monitor-win32-x64` production package，再运行带 production fuses 的真实制品。`electron:e2e` 的 prehook 会重建同一 package 并安装 Electron runtime，再由 Playwright 驱动开发 Electron 加载 production bundles，验证自定义协议、renderer Node 隔离、typed preload、IPC 布局 revision、外部导航、popup 拒绝，以及通过仅开发态 main harness 对同一可见 Browser page 执行顶层与跨站 OOPIF snapshot/type/click/screenshot。该 harness 不进入 renderer 且 packaged 强制禁用；E2E 仍不等于真实站点、签名或安装验收。当前 `electron:start` dev runner 仍需在锁定 Node 22 环境复核。
+
+`electron:browser-client:verify` 校验自有 Browser client 的固定版本、protocol、License 和 SHA-256；`electron:package` 会在 prehook 先执行该校验。当前 client/transport 已有独立子进程和 framed pipe 测试，但尚未完成当前用户 ACL 证明、公开 code-mode runtime 接缝与唯一生产 adapter 切换。
 
 CI 已先执行一次 `electron:package`，所以用 `npm --ignore-scripts run electron:smoke` 和 `npm --ignore-scripts run electron:e2e` 复用该 package，并在 E2E 前显式执行 `electron:install-runtime`。CI 虚拟桌面不保存 renderer `page.screenshot()`；Browser tool 返回的 viewport PNG 仍由 E2E 断言。本地 E2E 会额外写入 `apps/desktop/output/playwright/electron-browser-sidebar.png`。
 
 `electron:make` 生成未签名的 Windows x64 foundation MSIX，只证明 Forge maker 能完成基础制品生成；该命令不要求生成态 runtime。`electron:make:release` 才要求锁定的 Codex package 完整存在，但仍不代表 MSIX 已签名或通过安装、升级、回滚和卸载验收。
 
-`npm run test -- --run electron/main/app-server` 覆盖 Electron main 的 stdio/JSONL transport、initialize client 与进程 supervisor，包含真实 Node 子进程 fixture。它不启动 bundled `codex.exe`，不能替代当前锁定 codex 的协议和 thread 集成测试。
+`npm run test -- --run electron/main/app-server` 覆盖 Electron main 的 stdio/JSONL transport、initialize client 与进程 supervisor，包含真实 Node 子进程 fixture；默认不会启动外部 Codex。`npm run electron:app-server:probe` 是 Windows x64 显式集成探针：它先按 tracked lock 校验生成态 runtime，再从生产资源布局解析 bundled `codex.exe`，使用系统临时目录中的隔离 Codex Home 跑 initialize、`thread/start.dynamicTools` 和优雅退出。该命令不调用模型，不能替代真实 turn、审批或恢复验收。
+
+本机标准 Codex Home 已登录时，可显式运行真实模型 Browser 共页 E2E：
+
+```powershell
+$env:BLACKRAIN_ELECTRON_REAL_AGENT_E2E = "1"
+node scripts/electron-e2e-supervisor.mjs
+Remove-Item Env:BLACKRAIN_ELECTRON_REAL_AGENT_E2E
+```
+
+该用例启动 bundled `codex-cli 0.146.0` 的真实 thread/turn，让模型调用 `blackrain_browser.screenshot` 操作同一可见 `WebContentsView`，并验证控制权释放和页面/App 重启恢复。命令会使用标准 Codex Home 的现有登录态，只能由开发者显式运行，不进入默认 CI，也不替代审批、真实站点或安装矩阵。
 
 ### Electron Codex runtime
 
@@ -191,13 +205,14 @@ pwsh -NoProfile -File scripts/vendor-electron-codex-runtime.ps1
 
 Set-Location apps\desktop
 npm run electron:runtime:verify
+npm run electron:app-server:probe
 npm run electron:make:release
 Set-Location ..\..
 ```
 
 vendor 步骤按 tracked lock 验证 archive SHA-256、`codex-package.json`、`codex.exe`、code-mode host、`rg`、Windows sandbox helpers、License/NOTICE 的逐文件摘要，以及实际 EXE 的 Authenticode subject/thumbprint，并生成审计用 `runtime-manifest.json`。`electron:make:release` 不信任生成态 manifest 的摘要，会重新以 lock 校验实际文件，在 runtime 缺失、摘要或签名记录不一致时 fail closed；普通 `electron:make` 仍只用于不含 runtime 的 unsigned foundation CI。
 
-本地已有待验证的公开 `codex.exe` 时，可用显式临时 Home 跑真实 initialize + `thread/start.dynamicTools` 探针，避免污染共享 Home：
+若要验证 runtime lock 之外的本地公开 `codex.exe`，仍可用显式临时 Home 运行底层探针，避免污染共享 Home：
 
 ```powershell
 $env:BLACKRAIN_CODEX_BIN = "C:\absolute\path\to\codex.exe"
