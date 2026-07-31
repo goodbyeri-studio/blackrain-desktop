@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import type { Dispatch, MutableRefObject } from "react";
 import type { RateLimitSnapshot, TurnPlan } from "@/types";
-import { interruptTurn as interruptTurnService } from "@services/tauri";
+import { interruptTurn as interruptTurnService } from "@services/agent";
 import { getThreadTimestamp } from "@utils/threadItems";
 import {
   asString,

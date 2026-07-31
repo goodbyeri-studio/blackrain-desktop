@@ -10,11 +10,15 @@ import {
 import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import Bot from "lucide-react/dist/esm/icons/bot";
+import Download from "lucide-react/dist/esm/icons/download";
 import Globe2 from "lucide-react/dist/esm/icons/globe-2";
 import PanelRightClose from "lucide-react/dist/esm/icons/panel-right-close";
 import PanelRightOpen from "lucide-react/dist/esm/icons/panel-right-open";
+import MousePointer2 from "lucide-react/dist/esm/icons/mouse-pointer-2";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import RotateCw from "lucide-react/dist/esm/icons/rotate-cw";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
 import X from "lucide-react/dist/esm/icons/x";
 import type { BootstrapInfo } from "../../../../electron/shared/ipc";
 import {
@@ -44,6 +48,13 @@ function tabLabel(tab: BrowserTabState): string {
   } catch {
     return tab.url;
   }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 0) return "大小未知";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function replaceTab(tabs: BrowserTabState[], next: BrowserTabState) {
@@ -81,6 +92,7 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
   const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
   const [commandError, setCommandError] = useState<string | null>(null);
+  const [dialogPrompt, setDialogPrompt] = useState("");
   const viewportRef = useRef<HTMLDivElement | null>(null);
 
   const activeTab = tabs.find((tab) => tab.browserTabId === activeTabId) ?? null;
@@ -161,6 +173,10 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
   useLayoutEffect(() => {
     setAddress(activeTab?.url === "about:blank" ? "" : activeTab?.url ?? "");
   }, [activeTab?.browserTabId, activeTab?.url]);
+
+  useEffect(() => {
+    setDialogPrompt(activeTab?.dialog?.defaultPrompt ?? "");
+  }, [activeTab?.dialog?.requestId, activeTab?.dialog?.defaultPrompt]);
 
   useEffect(() => {
     if (!host || !scope || !bootstrap) {
@@ -310,6 +326,86 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
     [host, scope],
   );
 
+  const takeControl = useCallback(async () => {
+    if (!host || !scope || !activeTab || activeTab.controlOwner !== "agent") {
+      return;
+    }
+    setCommandError(null);
+    try {
+      const tab = await host.browser.takeControl({
+        ...scope,
+        browserTabId: activeTab.browserTabId,
+        viewGeneration: activeTab.viewGeneration,
+      });
+      setTabs((current) => replaceTab(current, tab));
+    } catch (error) {
+      setCommandError(error instanceof Error ? error.message : String(error));
+    }
+  }, [activeTab, host, scope]);
+
+  const respondPermission = useCallback(
+    async (allow: boolean) => {
+      if (!host || !scope || !activeTab?.permissionRequest) return;
+      setCommandError(null);
+      try {
+        const tab = await host.browser.respondPermission({
+          ...scope,
+          browserTabId: activeTab.browserTabId,
+          viewGeneration: activeTab.viewGeneration,
+          requestId: activeTab.permissionRequest.requestId,
+          allow,
+        });
+        setTabs((current) => replaceTab(current, tab));
+      } catch (error) {
+        setCommandError(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [activeTab, host, scope],
+  );
+
+  const resolveDownload = useCallback(
+    async (action: "save" | "cancel") => {
+      if (!host || !scope || !activeTab?.download) return;
+      setCommandError(null);
+      try {
+        const tab = await host.browser.resolveDownload({
+          ...scope,
+          browserTabId: activeTab.browserTabId,
+          viewGeneration: activeTab.viewGeneration,
+          requestId: activeTab.download.requestId,
+          action,
+        });
+        setTabs((current) => replaceTab(current, tab));
+      } catch (error) {
+        setCommandError(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [activeTab, host, scope],
+  );
+
+  const respondDialog = useCallback(
+    async (accept: boolean) => {
+      if (!host || !scope || !activeTab?.dialog) return;
+      setCommandError(null);
+      try {
+        const tab = await host.browser.respondDialog({
+          ...scope,
+          browserTabId: activeTab.browserTabId,
+          viewGeneration: activeTab.viewGeneration,
+          requestId: activeTab.dialog.requestId,
+          accept,
+          ...(activeTab.dialog.type === "prompt"
+            ? { promptText: dialogPrompt }
+            : {}),
+        });
+        setTabs((current) => replaceTab(current, tab));
+      } catch (error) {
+        setCommandError(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [activeTab, dialogPrompt, host, scope],
+  );
+
   if (!host) {
     return null;
   }
@@ -336,6 +432,25 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
           <span>浏览器</span>
         </div>
         <div className="browser-sidebar-header-actions">
+          {activeTab ? (
+            activeTab.controlOwner === "agent" ? (
+              <button
+                type="button"
+                className="browser-control-status is-agent"
+                aria-label="接管浏览器"
+                title="接管浏览器"
+                onClick={() => void takeControl()}
+              >
+                <Bot size={13} aria-hidden />
+                <span>Agent 控制</span>
+              </button>
+            ) : (
+              <span className="browser-control-status" aria-label="用户控制浏览器">
+                <MousePointer2 size={13} aria-hidden />
+                <span>用户控制</span>
+              </span>
+            )
+          ) : null}
           <button
             type="button"
             className="browser-icon-button"
@@ -427,6 +542,7 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
             aria-label="浏览器地址"
             value={address}
             onChange={(event) => setAddress(event.target.value)}
+            onFocus={() => void takeControl()}
             placeholder="输入网址或 localhost 地址"
             disabled={!activeTab}
             spellCheck={false}
@@ -436,6 +552,88 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
       </div>
 
       {commandError ? <div className="browser-command-error">{commandError}</div> : null}
+
+      {activeTab?.debuggerStatus === "unavailable" ? (
+        <div className="browser-command-error" role="alert">
+          页面控制连接不可用，请重新加载此标签页。
+        </div>
+      ) : null}
+
+      {activeTab?.dialog ? (
+        <div className="browser-request-banner browser-dialog-banner" role="alertdialog" aria-label="页面对话框">
+          <ShieldAlert size={16} aria-hidden />
+          <div>
+            <strong>{activeTab.dialog.origin}</strong>
+            <span>{activeTab.dialog.message}</span>
+            {activeTab.dialog.type === "prompt" ? (
+              <input
+                aria-label="页面对话框输入"
+                value={dialogPrompt}
+                onChange={(event) => setDialogPrompt(event.target.value)}
+                maxLength={4096}
+              />
+            ) : null}
+          </div>
+          {activeTab.dialog.type !== "alert" ? (
+            <button type="button" onClick={() => void respondDialog(false)}>取消</button>
+          ) : null}
+          <button type="button" className="is-primary" onClick={() => void respondDialog(true)}>
+            {activeTab.dialog.type === "alert" ? "确定" : "继续"}
+          </button>
+        </div>
+      ) : null}
+
+      {activeTab?.permissionRequest ? (
+        <div className="browser-request-banner" role="alert">
+          <ShieldAlert size={16} aria-hidden />
+          <div>
+            <strong>{activeTab.permissionRequest.origin}</strong>
+            <span>请求 {activeTab.permissionRequest.permission} 权限</span>
+          </div>
+          <button type="button" onClick={() => void respondPermission(false)}>拒绝</button>
+          <button type="button" className="is-primary" onClick={() => void respondPermission(true)}>允许一次</button>
+        </div>
+      ) : null}
+
+      {activeTab?.download ? (
+        <div className="browser-request-banner" role="status">
+          <Download size={16} aria-hidden />
+          <div>
+            <strong>{activeTab.download.filename}</strong>
+            <span>
+              {activeTab.download.status === "pending"
+                ? formatBytes(activeTab.download.totalBytes)
+                : activeTab.download.status === "in-progress"
+                  ? `${formatBytes(activeTab.download.receivedBytes)} / ${formatBytes(activeTab.download.totalBytes)}`
+                  : activeTab.download.status === "completed"
+                    ? "下载完成"
+                    : activeTab.download.error ?? "下载失败"}
+            </span>
+          </div>
+          {activeTab.download.status === "pending" ? (
+            <>
+              <button type="button" onClick={() => void resolveDownload("cancel")}>取消</button>
+              <button type="button" className="is-primary" onClick={() => void resolveDownload("save")}>保存</button>
+            </>
+          ) : activeTab.download.status !== "in-progress" ? (
+            <button type="button" onClick={() => void resolveDownload("cancel")}>关闭</button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {activeTab && activeTab.consoleMessages.length > 0 ? (
+        <details className="browser-console-log">
+          <summary>页面日志（{activeTab.consoleMessages.length}）</summary>
+          <div>
+            {activeTab.consoleMessages.map((entry) => (
+              <p key={entry.id} data-level={entry.level}>
+                <span>{entry.level}</span>
+                <code>{entry.message}</code>
+              </p>
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       <div className="browser-page-area">
         {!scope ? (

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 const desktopRoot = fileURLToPath(new URL("..", import.meta.url));
+const powershell7Path = String.raw`C:\Program Files\PowerShell\7\pwsh.exe`;
 const executablePath = path.join(
   desktopRoot,
   "out",
@@ -149,7 +150,7 @@ function cleanupPackagedElectron() {
     return;
   }
   spawnSync(
-    "powershell.exe",
+    powershell7Path,
     [
       "-NoProfile",
       "-Command",

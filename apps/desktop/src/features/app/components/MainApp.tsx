@@ -504,6 +504,7 @@ export default function MainApp() {
     editAndRegenerateMessage,
   } = useThreads({
     activeWorkspace,
+    workspaces,
     onWorkspaceConnected: markWorkspaceConnected,
     onDebug: addDebugEntry,
     model: resolvedModel,

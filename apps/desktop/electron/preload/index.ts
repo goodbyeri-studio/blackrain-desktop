@@ -1,11 +1,17 @@
 import { contextBridge, ipcRenderer } from "electron";
 import {
+  AgentEventBatchSchema,
+  AgentEventCursorInputSchema,
+  AgentEventSchema,
   AgentRuntimeStatusSchema,
   AgentThreadAckSchema,
+  AgentThreadListInputSchema,
+  AgentThreadListResponseSchema,
   AgentThreadResumeInputSchema,
   AgentThreadStartInputSchema,
   AgentTurnAckSchema,
   AgentTurnInterruptInputSchema,
+  AgentTurnSteerInputSchema,
   AgentTurnStartInputSchema,
 } from "../shared/agent";
 import {
@@ -16,15 +22,29 @@ import {
   BrowserCloseTabAckSchema,
   BrowserControlInputSchema,
   BrowserCreateTabInputSchema,
+  BrowserDownloadDecisionInputSchema,
+  BrowserDialogDecisionInputSchema,
   BrowserNavigateInputSchema,
+  BrowserPermissionDecisionInputSchema,
   BrowserRouteScopeSchema,
   BrowserTabListSchema,
   BrowserTabRequestSchema,
   BrowserTabStateSchema,
+  BrowserTakeControlInputSchema,
   BrowserTabsChangedEventSchema,
 } from "../shared/browser-tabs";
 import type { BlackRainHostApi } from "../shared/host-api";
 import { BootstrapInfoSchema, IPC_CHANNELS } from "../shared/ipc";
+import {
+  WorkspaceAckSchema,
+  WorkspaceIdInputSchema,
+  WorkspaceInfoSchema,
+  WorkspaceListSchema,
+  WorkspacePathInputSchema,
+  WorkspacePathListSchema,
+  WorkspacePickInputSchema,
+  WorkspaceUpdateInputSchema,
+} from "../shared/workspaces";
 
 const api: BlackRainHostApi = {
   app: {
@@ -34,10 +54,86 @@ const api: BlackRainHostApi = {
       );
     },
   },
+  workspace: {
+    async list() {
+      return WorkspaceListSchema.parse(
+        await ipcRenderer.invoke(IPC_CHANNELS.workspaceList),
+      );
+    },
+    async add(input) {
+      return WorkspaceInfoSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.workspaceAdd,
+          WorkspacePathInputSchema.parse(input),
+        ),
+      );
+    },
+    async update(input) {
+      return WorkspaceInfoSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.workspaceUpdate,
+          WorkspaceUpdateInputSchema.parse(input),
+        ),
+      );
+    },
+    async remove(input) {
+      return WorkspaceAckSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.workspaceRemove,
+          WorkspaceIdInputSchema.parse(input),
+        ),
+      );
+    },
+    async connect(input) {
+      return WorkspaceAckSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.workspaceConnect,
+          WorkspaceIdInputSchema.parse(input),
+        ),
+      );
+    },
+    async isDirectory(input) {
+      return Boolean(await ipcRenderer.invoke(
+        IPC_CHANNELS.workspaceIsDirectory,
+        WorkspacePathInputSchema.parse(input),
+      ));
+    },
+    async pick(input) {
+      return WorkspacePathListSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.workspacePick,
+          WorkspacePickInputSchema.parse(input),
+        ),
+      );
+    },
+  },
   agent: {
     async getStatus() {
       return AgentRuntimeStatusSchema.parse(
         await ipcRenderer.invoke(IPC_CHANNELS.agentGetStatus),
+      );
+    },
+    async getEvents(input) {
+      return AgentEventBatchSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.agentGetEvents,
+          AgentEventCursorInputSchema.parse(input),
+        ),
+      );
+    },
+    onEvent(listener) {
+      const handler = (_event: Electron.IpcRendererEvent, input: unknown) => {
+        listener(AgentEventSchema.parse(input));
+      };
+      ipcRenderer.on(IPC_CHANNELS.agentEvent, handler);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.agentEvent, handler);
+    },
+    async listThreads(input) {
+      return AgentThreadListResponseSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.agentListThreads,
+          AgentThreadListInputSchema.parse(input),
+        ),
       );
     },
     async startThread(input) {
@@ -61,6 +157,14 @@ const api: BlackRainHostApi = {
         await ipcRenderer.invoke(
           IPC_CHANNELS.agentStartTurn,
           AgentTurnStartInputSchema.parse(input),
+        ),
+      );
+    },
+    async steerTurn(input) {
+      return AgentTurnAckSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.agentSteerTurn,
+          AgentTurnSteerInputSchema.parse(input),
         ),
       );
     },
@@ -103,6 +207,38 @@ const api: BlackRainHostApi = {
         await ipcRenderer.invoke(
           IPC_CHANNELS.browserControl,
           BrowserControlInputSchema.parse(input),
+        ),
+      );
+    },
+    async takeControl(input) {
+      return BrowserTabStateSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.browserTakeControl,
+          BrowserTakeControlInputSchema.parse(input),
+        ),
+      );
+    },
+    async respondPermission(input) {
+      return BrowserTabStateSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.browserRespondPermission,
+          BrowserPermissionDecisionInputSchema.parse(input),
+        ),
+      );
+    },
+    async resolveDownload(input) {
+      return BrowserTabStateSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.browserResolveDownload,
+          BrowserDownloadDecisionInputSchema.parse(input),
+        ),
+      );
+    },
+    async respondDialog(input) {
+      return BrowserTabStateSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.browserRespondDialog,
+          BrowserDialogDecisionInputSchema.parse(input),
         ),
       );
     },

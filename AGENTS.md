@@ -106,6 +106,6 @@ Desktop/Cloud 是闭源商业项目：
 
 Windows 浏览器登录、权限、下载、崩溃恢复、安装、升级和卸载必须实机验证。CI 或 macOS smoke 不能替代产品验收。
 
-`main` 永远可用且禁止直接 push。使用 `<type>/<短描述>` 短命分支、Conventional Commits、1 approve + CI 绿、Squash 合并并删除分支。
+`main` 永远可用且禁止直接 push。使用 `<type>/<短描述>` 短命分支、Conventional Commits、CI 绿、Squash 合并并删除分支。
 
 回复、文档和代码注释默认使用中文。

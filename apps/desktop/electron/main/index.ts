@@ -15,6 +15,7 @@ import {
   registerAppScheme,
 } from "./security/app-protocol";
 import { AppWindowRegistry } from "./security/window-registry";
+import { WorkspaceStore } from "./workspaces/workspace-store";
 import { installElectronE2eHarness } from "./testing/electron-e2e-harness";
 
 if (
@@ -38,7 +39,12 @@ app.setAppLogsPath(blackRainDataPaths.logs);
 registerAppScheme();
 
 const windows = new AppWindowRegistry();
-const browser = new BrowserViewManager();
+const browser = new BrowserViewManager(undefined, {
+  stateFilePath: path.join(blackRainDataPaths.appState, "browser-tabs.json"),
+});
+const workspaces = new WorkspaceStore(
+  path.join(blackRainDataPaths.appState, "workspaces.json"),
+);
 const disposeE2eHarness = installElectronE2eHarness(browser, {
   enabled: process.env.BLACKRAIN_ELECTRON_E2E === "1",
   packaged: app.isPackaged,
@@ -65,7 +71,7 @@ app.whenReady().then(() => {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`),
     );
   }
-  disposeIpc = registerIpcHandlers(windows, browser, agent);
+  disposeIpc = registerIpcHandlers(windows, browser, agent, workspaces);
   createMainWindow(windows, browser);
 
   app.on("activate", () => {

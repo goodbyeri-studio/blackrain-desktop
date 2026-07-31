@@ -45,7 +45,8 @@ describe("AppServerProcess", () => {
     const client = await processSupervisor.start();
     expect(processSupervisor.state).toBe("ready");
     await expect(client.request("thread/list")).resolves.toEqual({
-      data: [{ id: "thread-1" }],
+      data: [{ id: "thread-1", cwd: process.cwd() }],
+      nextCursor: "next-page",
     });
     await serverRequestCompleted;
     expect(notifications).toContainEqual({

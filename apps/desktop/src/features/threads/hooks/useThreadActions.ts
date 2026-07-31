@@ -7,13 +7,15 @@ import type {
   WorkspaceInfo,
 } from "@/types";
 import {
-  archiveThread as archiveThreadService,
-  forkThread as forkThreadService,
   listThreads as listThreadsService,
-  listWorkspaces as listWorkspacesService,
   resumeThread as resumeThreadService,
   startThread as startThreadService,
+} from "@services/agent";
+import {
+  archiveThread as archiveThreadService,
+  forkThread as forkThreadService,
 } from "@services/tauri";
+import { listWorkspaces as listWorkspacesService } from "@services/workspaces";
 import {
   getThreadTimestamp,
 } from "@utils/threadItems";
@@ -44,6 +46,7 @@ const THREAD_LIST_MAX_PAGES_DEFAULT = 6;
 const THREAD_LIST_CURSOR_PAGE_START = "__codex_monitor_page_start__";
 
 type UseThreadActionsOptions = {
+  workspacePathById?: ReadonlyMap<string, string>;
   dispatch: Dispatch<ThreadAction>;
   itemsByThread: ThreadState["itemsByThread"];
   threadsByWorkspace: ThreadState["threadsByWorkspace"];
@@ -73,6 +76,7 @@ type UseThreadActionsOptions = {
 };
 
 export function useThreadActions({
+  workspacePathById = new Map(),
   dispatch,
   itemsByThread,
   threadsByWorkspace,
@@ -155,7 +159,10 @@ export function useThreadActions({
         payload: { workspaceId },
       });
       try {
-        const response = await startThreadService(workspaceId);
+        const response = await startThreadService(
+          workspaceId,
+          workspacePathById.get(workspaceId),
+        );
         onDebug?.({
           id: `${Date.now()}-server-thread-start`,
           timestamp: Date.now(),
@@ -184,7 +191,7 @@ export function useThreadActions({
         throw error;
       }
     },
-    [dispatch, extractThreadId, loadedThreadsRef, onDebug],
+    [dispatch, extractThreadId, loadedThreadsRef, onDebug, workspacePathById],
   );
 
   const resumeThreadForWorkspace = useCallback(
@@ -226,7 +233,11 @@ export function useThreadActions({
       }
       try {
         const response =
-          (await resumeThreadService(workspaceId, threadId)) as
+          (await resumeThreadService(
+            workspaceId,
+            threadId,
+            workspacePathById.get(workspaceId),
+          )) as
             | Record<string, unknown>
             | null;
         onDebug?.({
@@ -348,6 +359,7 @@ export function useThreadActions({
       loadedThreadsRef,
       onDebug,
       replaceOnResumeRef,
+      workspacePathById,
     ],
   );
 

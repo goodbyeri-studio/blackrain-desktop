@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { pickWorkspacePath } from "@services/tauri";
+import { pickWorkspacePath } from "@services/workspaces";
 
 type WorkspaceFromUrlPromptState = {
   url: string;

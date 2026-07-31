@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Event, EventCallback, UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import type { AppServerEvent } from "../types";
+import type { BlackRainHostApi } from "../../electron/shared/host-api";
+import type { AgentEvent } from "../../electron/shared/agent";
 import {
   subscribeAppServerEvents,
   subscribeMenuCycleCollaborationMode,
@@ -17,6 +19,68 @@ vi.mock("@tauri-apps/api/event", () => ({
 describe("events subscriptions", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("在 Electron 中补拉、排序并去重 typed App Server 事件", async () => {
+    vi.stubGlobal("window", {});
+    let liveListener: ((event: AgentEvent) => void) | undefined;
+    let resolveBatch!: (value: Awaited<ReturnType<BlackRainHostApi["agent"]["getEvents"]>>) => void;
+    const stopHost = vi.fn();
+    window.blackrain = {
+      agent: {
+        onEvent(listener: (event: AgentEvent) => void) {
+          liveListener = listener;
+          return stopHost;
+        },
+        getEvents: vi.fn(
+          () =>
+            new Promise((resolve) => {
+              resolveBatch = resolve;
+            }),
+        ),
+      },
+    } as unknown as BlackRainHostApi;
+
+    const onEvent = vi.fn();
+    const cleanup = subscribeAppServerEvents(onEvent);
+    expect(liveListener).toBeTypeOf("function");
+    liveListener!({
+      sequence: 2,
+      workspaceId: "workspace-1",
+      method: "turn/completed",
+      params: { threadId: "thread-1" },
+    });
+    resolveBatch({
+      events: [
+        {
+          sequence: 1,
+          workspaceId: "workspace-1",
+          method: "turn/started",
+          params: { threadId: "thread-1" },
+        },
+        {
+          sequence: 2,
+          workspaceId: "workspace-1",
+          method: "turn/completed",
+          params: { threadId: "thread-1" },
+        },
+      ],
+      latestSequence: 2,
+      resetRequired: false,
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onEvent.mock.calls.map(([event]) => event.message.method)).toEqual([
+      "turn/started",
+      "turn/completed",
+    ]);
+    expect(onEvent.mock.calls[0]?.[0].workspace_id).toBe("workspace-1");
+    expect(listen).not.toHaveBeenCalled();
+
+    cleanup();
+    expect(stopHost).toHaveBeenCalledOnce();
   });
 
   it("delivers payloads and unsubscribes on cleanup", async () => {

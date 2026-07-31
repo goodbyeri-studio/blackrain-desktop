@@ -5,13 +5,13 @@ import type { DebugEntry, WorkspaceInfo, WorkspaceSettings } from "../../../type
 import { normalizeRootPath } from "../../threads/utils/threadNormalize";
 import {
   addWorkspace as addWorkspaceService,
-  addWorkspaceFromGitUrl as addWorkspaceFromGitUrlService,
   connectWorkspace as connectWorkspaceService,
   isWorkspacePathDir as isWorkspacePathDirService,
   listWorkspaces,
   removeWorkspace as removeWorkspaceService,
   updateWorkspaceSettings as updateWorkspaceSettingsService,
-} from "../../../services/tauri";
+} from "../../../services/workspaces";
+import { addWorkspaceFromGitUrl as addWorkspaceFromGitUrlService } from "../../../services/tauri";
 
 type UseWorkspaceCrudOptions = {
   onDebug?: (entry: DebugEntry) => void;

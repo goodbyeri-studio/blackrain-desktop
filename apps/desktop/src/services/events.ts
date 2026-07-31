@@ -5,6 +5,8 @@ import type {
   DictationModelStatus,
   TrayOpenThreadPayload,
 } from "../types";
+import type { AgentEvent } from "../../electron/shared/agent";
+import { getOptionalHostClient } from "../host/client";
 
 export type Unsubscribe = () => void;
 
@@ -91,7 +93,8 @@ function createEventHub<T>(eventName: string) {
   return { subscribe };
 }
 
-const appServerHub = createEventHub<AppServerEvent>("app-server-event");
+const tauriAppServerHub = createEventHub<AppServerEvent>("app-server-event");
+const electronAppServerHub = createElectronAppServerEventHub();
 const dictationDownloadHub = createEventHub<DictationModelStatus>("dictation-download");
 const dictationEventHub = createEventHub<DictationEvent>("dictation-event");
 const terminalOutputHub = createEventHub<TerminalOutputEvent>("terminal-output");
@@ -127,7 +130,87 @@ export function subscribeAppServerEvents(
   onEvent: (event: AppServerEvent) => void,
   options?: SubscriptionOptions,
 ): Unsubscribe {
-  return appServerHub.subscribe(onEvent, options);
+  return getOptionalHostClient()
+    ? electronAppServerHub.subscribe(onEvent, options)
+    : tauriAppServerHub.subscribe(onEvent, options);
+}
+
+function createElectronAppServerEventHub() {
+  const listeners = new Set<Listener<AppServerEvent>>();
+  let stopHost: Unsubscribe | null = null;
+  let lastSequence = 0;
+
+  const dispatch = (event: AgentEvent) => {
+    if (event.sequence <= lastSequence) return;
+    lastSequence = event.sequence;
+    const payload: AppServerEvent = {
+      workspace_id: event.workspaceId ?? "",
+      message: { method: event.method, params: event.params },
+    };
+    for (const listener of listeners) {
+      try {
+        listener(payload);
+      } catch (error) {
+        console.error("[events] Electron app-server listener failed", error);
+      }
+    }
+  };
+
+  const start = (options?: SubscriptionOptions) => {
+    const host = getOptionalHostClient();
+    if (!host || stopHost) return;
+
+    const pending: AgentEvent[] = [];
+    let hydrating = true;
+    stopHost = host.agent.onEvent((event) => {
+      if (hydrating) {
+        pending.push(event);
+      } else {
+        dispatch(event);
+      }
+    });
+    void host.agent
+      .getEvents({ afterSequence: lastSequence })
+      .then((batch) => {
+        if (batch.resetRequired) {
+          options?.onError?.(
+            new Error("Electron App Server 事件 cursor 已超出有界保留窗口"),
+          );
+        }
+        for (const event of [...batch.events, ...pending].sort(
+          (left, right) => left.sequence - right.sequence,
+        )) {
+          dispatch(event);
+        }
+      })
+      .catch((error) => options?.onError?.(error))
+      .finally(() => {
+        hydrating = false;
+        for (const event of pending.sort(
+          (left, right) => left.sequence - right.sequence,
+        )) {
+          dispatch(event);
+        }
+        pending.length = 0;
+      });
+  };
+
+  const subscribe = (
+    listener: Listener<AppServerEvent>,
+    options?: SubscriptionOptions,
+  ): Unsubscribe => {
+    listeners.add(listener);
+    start(options);
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0 && stopHost) {
+        stopHost();
+        stopHost = null;
+      }
+    };
+  };
+
+  return { subscribe };
 }
 
 export function subscribeDictationDownload(
