@@ -400,9 +400,14 @@ export class AppServerStdioRpcConnection {
         { once: true },
       );
     });
-    const handling = Promise.resolve().then(() =>
-      handler({ id, method, params, signal: controller.signal }),
-    );
+    let handling: Promise<unknown>;
+    try {
+      handling = Promise.resolve(
+        handler({ id, method, params, signal: controller.signal }),
+      );
+    } catch (error) {
+      handling = Promise.reject(error);
+    }
     void Promise.race([handling, aborted])
       .then((result) => this.#enqueue({ id, result: result ?? null }))
       .catch(() =>

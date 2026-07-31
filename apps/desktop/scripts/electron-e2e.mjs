@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,8 @@ const appEntryPath = path.resolve(desktopRoot);
 const browserFixtureUrl = "https://blackrain-e2e.test/fixture";
 const browserPartition = "persist:blackrain-browser-app";
 const runRealAgentE2e = process.env.BLACKRAIN_ELECTRON_REAL_AGENT_E2E === "1";
+const resourceReportPath = process.env.BLACKRAIN_BROWSER_RESOURCE_REPORT?.trim();
+const probeStartedAt = performance.now();
 const browserFixtureHtml = `<!doctype html>
   <html>
     <head><title>BlackRain Browser Fixture</title></head>
@@ -18,6 +20,9 @@ const browserFixtureHtml = `<!doctype html>
         <label>测试输入 <input aria-label="测试输入" value="before"></label>
         <button aria-label="应用输入">应用</button>
         <output aria-label="结果">before</output>
+        <button aria-label="立即购买">立即购买</button>
+        <output aria-label="购买次数">0</output>
+        <label>上传文件 <input type="file" aria-label="上传文件"></label>
         <iframe title="跨域测试框架" src="https://blackrain-frame.test/frame"></iframe>
       </main>
       <section aria-hidden="true" style="height: 1800px"></section>
@@ -26,6 +31,11 @@ const browserFixtureHtml = `<!doctype html>
         const output = document.querySelector("output");
         document.querySelector("button").addEventListener("click", () => {
           output.textContent = input.value;
+        });
+        const purchaseButton = document.querySelector('[aria-label="立即购买"]');
+        const purchaseCount = document.querySelector('[aria-label="购买次数"]');
+        purchaseButton.addEventListener("click", () => {
+          purchaseCount.textContent = String(Number(purchaseCount.textContent) + 1);
         });
       </script>
     </body>
@@ -70,6 +80,8 @@ if (runRealAgentE2e) {
 }
 
 let electronApplication;
+let startupMs = 0;
+let resourceBaseline;
 const logStage = (stage) => {
   console.log(`[electron-e2e] ${new Date().toISOString()} ${stage}`);
 };
@@ -93,6 +105,40 @@ const pollForValue = async (probe, stage, timeoutMs = 10_000) => {
   }
   throw new Error(`[electron-e2e] ${stage} timed out after ${timeoutMs}ms`);
 };
+const captureResourceMetrics = () =>
+  electronApplication.evaluate(({ app }) => {
+    const processes = app.getAppMetrics().map((metric) => ({
+      type: metric.type,
+      serviceName: metric.serviceName,
+      workingSetSizeKb: metric.memory?.workingSetSize ?? 0,
+      peakWorkingSetSizeKb: metric.memory?.peakWorkingSetSize ?? 0,
+      privateBytesKb: metric.memory?.privateBytes ?? 0,
+      sharedBytesKb: metric.memory?.sharedBytes ?? 0,
+    }));
+    const totals = processes.reduce(
+      (result, process) => ({
+        workingSetSizeKb: result.workingSetSizeKb + process.workingSetSizeKb,
+        peakWorkingSetSizeKb:
+          result.peakWorkingSetSizeKb + process.peakWorkingSetSizeKb,
+        privateBytesKb: result.privateBytesKb + process.privateBytesKb,
+        sharedBytesKb: result.sharedBytesKb + process.sharedBytesKb,
+      }),
+      {
+        workingSetSizeKb: 0,
+        peakWorkingSetSizeKb: 0,
+        privateBytesKb: 0,
+        sharedBytesKb: 0,
+      },
+    );
+    return {
+      capturedAt: new Date().toISOString(),
+      electronVersion: process.versions.electron,
+      processCount: processes.length,
+      totals,
+      processes,
+      gpuFeatureStatus: app.getGPUFeatureStatus(),
+    };
+  });
 try {
   await access(appEntryPath);
   logStage("launching Electron");
@@ -153,6 +199,7 @@ try {
   });
   await window.waitForLoadState("domcontentloaded");
   logStage("renderer ready");
+  startupMs = Math.round(performance.now() - probeStartedAt);
 
   assert.equal(await window.title(), "BlackRain");
   assert.equal(window.url(), "blackrain://app/index.html");
@@ -181,6 +228,7 @@ try {
       typeof globalThis.blackrain?.browser.control === "function" &&
       typeof globalThis.blackrain?.browser.takeControl === "function" &&
       typeof globalThis.blackrain?.browser.respondPermission === "function" &&
+      typeof globalThis.blackrain?.browser.respondSensitiveAction === "function" &&
       typeof globalThis.blackrain?.browser.resolveDownload === "function" &&
       typeof globalThis.blackrain?.browser.closeTab === "function" &&
       typeof globalThis.blackrain?.browser.setLayout === "function" &&
@@ -338,6 +386,116 @@ try {
   assert.equal(hostContract.staleRevisionRejected, true);
   logStage("host contract passed");
 
+  const oneTabMetrics = await captureResourceMetrics();
+  const workingSetSetup = await window.evaluate(async (contract) => {
+    const extraTabs = [];
+    for (let index = 0; index < 9; index += 1) {
+      extraTabs.push(await globalThis.blackrain.browser.createTab(contract.scope));
+    }
+    await globalThis.blackrain.browser.setLayout({
+      windowGeneration: contract.bootstrap.windowGeneration,
+      layoutRevision: 2,
+      ...contract.scope,
+      activeTabId: contract.tab.browserTabId,
+      views: [{
+        browserTabId: contract.tab.browserTabId,
+        viewGeneration: contract.tab.viewGeneration,
+        bounds: { x: 700, y: 120, width: 900, height: 700 },
+        visible: true,
+        occluded: false,
+      }],
+    });
+    let suspendedTabs = [];
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const tabs = await globalThis.blackrain.browser.listTabs(contract.scope);
+      suspendedTabs = tabs.filter((tab) => tab.pageLifecycle === "suspended");
+      if (suspendedTabs.length === 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const resumedTab = suspendedTabs[0];
+    if (!resumedTab) throw new Error("Browser working-set 未挂起后台 tab");
+    const tabs = await globalThis.blackrain.browser.listTabs(contract.scope);
+    return {
+      extraTabs,
+      resumedTab,
+      liveCount: tabs.filter((tab) => tab.pageLifecycle === "live").length,
+      suspendedCount: suspendedTabs.length,
+    };
+  }, hostContract);
+  const tenTabMetrics = await captureResourceMetrics();
+  const workingSetContract = await window.evaluate(async ({ contract, setup }) => {
+    const resumeStartedAt = performance.now();
+    await globalThis.blackrain.browser.setLayout({
+      windowGeneration: contract.bootstrap.windowGeneration,
+      layoutRevision: 3,
+      ...contract.scope,
+      activeTabId: setup.resumedTab.browserTabId,
+      views: [{
+        browserTabId: setup.resumedTab.browserTabId,
+        viewGeneration: setup.resumedTab.viewGeneration,
+        bounds: { x: 700, y: 120, width: 900, height: 700 },
+        visible: true,
+        occluded: false,
+      }],
+    });
+    let resumed = false;
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const tabs = await globalThis.blackrain.browser.listTabs(contract.scope);
+      resumed = tabs.some(
+        (tab) =>
+          tab.browserTabId === setup.resumedTab.browserTabId &&
+          tab.pageLifecycle === "live",
+      );
+      if (resumed) break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const resumeMs = Math.round(performance.now() - resumeStartedAt);
+    for (const tab of setup.extraTabs) {
+      const current = (await globalThis.blackrain.browser.listTabs(contract.scope))
+        .find((candidate) => candidate.browserTabId === tab.browserTabId);
+      if (!current) continue;
+      await globalThis.blackrain.browser.closeTab({
+        ...contract.scope,
+        browserTabId: current.browserTabId,
+        viewGeneration: current.viewGeneration,
+      });
+    }
+    await globalThis.blackrain.browser.setLayout({
+      windowGeneration: contract.bootstrap.windowGeneration,
+      layoutRevision: 4,
+      ...contract.scope,
+      activeTabId: contract.tab.browserTabId,
+      views: [{
+        browserTabId: contract.tab.browserTabId,
+        viewGeneration: contract.tab.viewGeneration,
+        bounds: { x: 700, y: 120, width: 900, height: 700 },
+        visible: true,
+        occluded: false,
+      }],
+    });
+    return {
+      liveCount: setup.liveCount,
+      suspendedCount: setup.suspendedCount,
+      resumed,
+      resumeMs,
+    };
+  }, { contract: hostContract, setup: workingSetSetup });
+  const afterCleanupMetrics = await captureResourceMetrics();
+  assert.equal(workingSetContract.suspendedCount, 2);
+  assert.equal(workingSetContract.liveCount, 8);
+  assert.equal(workingSetContract.resumed, true);
+  resourceBaseline = {
+    startupMs,
+    liveBudget: 8,
+    tenTabLiveCount: workingSetContract.liveCount,
+    tenTabSuspendedCount: workingSetContract.suspendedCount,
+    suspendedResumeMs: workingSetContract.resumeMs,
+    oneTab: oneTabMetrics,
+    tenTabs: tenTabMetrics,
+    afterCleanup: afterCleanupMetrics,
+  };
+  logStage("Browser working-set contract passed");
+
   const browserToolContract = await electronApplication.evaluate(
     async ({ webContents }, contract) => {
       const harness = globalThis.__blackrainElectronE2e;
@@ -366,6 +524,10 @@ try {
           page.once("did-stop-loading", handleLoaded);
         });
       }
+      await page.executeJavaScript(`
+        document.cookie = "blackrain_cookie_secret=cookie-secret-e2e; SameSite=Lax";
+        localStorage.setItem("blackrain_storage_secret", "storage-secret-e2e");
+      `);
 
       const turnId = "turn-e2e";
       harness.startBrowserTurn(contract.scope.threadId, turnId);
@@ -426,6 +588,57 @@ try {
           snapshotId: snapshot.snapshotId,
           ref: frameButtonRef,
         });
+        await page.executeJavaScript(`
+          (() => {
+            setTimeout(() => {
+              const button = document.createElement("button");
+              button.setAttribute("aria-label", "延迟操作");
+              button.textContent = "延迟操作";
+              button.addEventListener("click", () => {
+                document.body.dataset.delayedClicks = String(
+                  Number(document.body.dataset.delayedClicks || "0") + 1
+                );
+              });
+              document.querySelector("main").appendChild(button);
+            }, 200);
+          })()
+        `);
+        const delayedLocateResponse = await call("locate", {
+          ...baseArguments,
+          role: "button",
+          name: "延迟操作",
+          exact: true,
+          state: "actionable",
+          timeoutMs: 2_000,
+        });
+        const delayedLocateItem = delayedLocateResponse.contentItems?.[0];
+        if (delayedLocateItem?.type !== "inputText") {
+          throw new Error("Browser delayed locator 未返回 inputText");
+        }
+        const delayedLocator = JSON.parse(delayedLocateItem.text);
+        await call("click", {
+          ...baseArguments,
+          snapshotId: delayedLocator.snapshotId,
+          ref: delayedLocator.ref,
+        });
+        const frameLocateResponse = await call("locate", {
+          ...baseArguments,
+          role: "button",
+          name: "跨域已点击 frame typed",
+          exact: true,
+          state: "visible",
+          timeoutMs: 2_000,
+        });
+        const frameLocateItem = frameLocateResponse.contentItems?.[0];
+        if (frameLocateItem?.type !== "inputText") {
+          throw new Error("Browser OOPIF locator 未返回 inputText");
+        }
+        const frameLocator = JSON.parse(frameLocateItem.text);
+        await call("hover", {
+          ...baseArguments,
+          snapshotId: frameLocator.snapshotId,
+          ref: frameLocator.ref,
+        });
         const afterFrameClickResponse = await call("snapshot", baseArguments);
         const afterFrameClickItem = afterFrameClickResponse.contentItems?.[0];
         if (afterFrameClickItem?.type !== "inputText") {
@@ -454,7 +667,8 @@ try {
         };
         const dom = await page.executeJavaScript(`({
           inputValue: document.querySelector("input").value,
-          outputText: document.querySelector("output").textContent
+          outputText: document.querySelector("output").textContent,
+          delayedClickCount: document.body.dataset.delayedClicks || "0"
         })`);
         const currentPage = webContents
           .getAllWebContents()
@@ -471,6 +685,8 @@ try {
           snapshotText: snapshot.text,
           afterFrameClickSnapshotText: afterFrameClickSnapshot.text,
           dom,
+          delayedLocator,
+          frameLocator,
           screenshotPrefix: screenshotItem.imageUrl.slice(0, 30),
           screenshotLength: screenshotItem.imageUrl.length,
           viewportScreenshot: readPngDimensions(screenshotItem.imageUrl),
@@ -489,6 +705,8 @@ try {
   assert.match(browserToolContract.snapshotText, /测试输入/);
   assert.match(browserToolContract.snapshotText, /应用输入/);
   assert.match(browserToolContract.snapshotText, /跨域框架按钮/);
+  assert.doesNotMatch(browserToolContract.snapshotText, /cookie-secret-e2e/);
+  assert.doesNotMatch(browserToolContract.snapshotText, /storage-secret-e2e/);
   assert.match(
     browserToolContract.afterFrameClickSnapshotText,
     /跨域已点击 frame typed/,
@@ -496,7 +714,10 @@ try {
   assert.deepEqual(browserToolContract.dom, {
     inputValue: "agent typed",
     outputText: "agent typed",
+    delayedClickCount: "1",
   });
+  assert.equal(browserToolContract.delayedLocator.name, "延迟操作");
+  assert.equal(browserToolContract.frameLocator.name, "跨域已点击 frame typed");
   assert.equal(
     browserToolContract.screenshotPrefix.startsWith("data:image/png;base64,"),
     true,
@@ -508,6 +729,180 @@ try {
   );
   assert.equal(browserToolContract.visibleAfterFullPageCapture, true);
   logStage("Browser tool contract passed");
+
+  const startSensitiveClick = () =>
+    electronApplication.evaluate(async ({ webContents }, contract) => {
+      const harness = globalThis.__blackrainElectronE2e;
+      if (!harness) throw new Error("Electron E2E Browser harness 未安装");
+      const page = webContents
+        .getAllWebContents()
+        .find((candidate) => candidate.getURL() === contract.tab.url);
+      if (!page) throw new Error("Browser fixture page 不存在");
+      const baseArguments = {
+        browserTabId: contract.tab.browserTabId,
+        viewGeneration: contract.tab.viewGeneration,
+      };
+      const call = (tool, args) =>
+        harness.callBrowserTool({
+          threadId: contract.scope.threadId,
+          turnId: contract.turnId,
+          tool,
+          arguments: args,
+        });
+      const snapshotResponse = await call("snapshot", baseArguments);
+      const snapshotItem = snapshotResponse.contentItems?.[0];
+      if (snapshotItem?.type !== "inputText") {
+        throw new Error("Browser sensitive snapshot 未返回 inputText");
+      }
+      const snapshot = JSON.parse(snapshotItem.text);
+      const line = snapshot.text
+        .split("\n")
+        .find(
+          (candidate) =>
+            candidate.includes("[ref-") && candidate.includes('"立即购买"'),
+        );
+      const ref = line?.match(/\[(ref-[1-9][0-9]*)\]/)?.[1];
+      if (!ref) throw new Error("Browser snapshot 缺少敏感购买 ref");
+      await call("click", {
+        ...baseArguments,
+        snapshotId: snapshot.snapshotId,
+        ref,
+      });
+      return page.executeJavaScript(
+        'document.querySelector(\'[aria-label="购买次数"]\').textContent',
+      );
+    }, { ...hostContract, turnId: browserToolContract.turnId });
+
+  const firstSensitiveClick = startSensitiveClick();
+  const firstSensitiveRequest = await pollForValue(
+    async () => {
+      const tabs = await window.evaluate(
+        (scope) => globalThis.blackrain.browser.listTabs(scope),
+        hostContract.scope,
+      );
+      return tabs[0]?.sensitiveActionRequest ? tabs[0] : null;
+    },
+    "Browser sensitive action pending",
+  );
+  assert.equal(firstSensitiveRequest.sensitiveActionRequest.category, "purchase");
+  assert.equal(firstSensitiveRequest.sensitiveActionRequest.origin, "https://blackrain-e2e.test");
+  const countBeforeGrant = await electronApplication.evaluate(
+    ({ webContents }, url) => {
+      const page = webContents.getAllWebContents().find((item) => item.getURL() === url);
+      return page?.executeJavaScript(
+        'document.querySelector(\'[aria-label="购买次数"]\').textContent',
+      );
+    },
+    browserFixtureUrl,
+  );
+  assert.equal(await countBeforeGrant, "0");
+  await window.evaluate(
+    ({ scope, tab }) => globalThis.blackrain.browser.respondSensitiveAction({
+      ...scope,
+      browserTabId: tab.browserTabId,
+      viewGeneration: tab.viewGeneration,
+      requestId: tab.sensitiveActionRequest.requestId,
+      allow: true,
+    }),
+    { scope: hostContract.scope, tab: firstSensitiveRequest },
+  );
+  assert.equal(await firstSensitiveClick, "1");
+
+  const secondSensitiveClick = startSensitiveClick().then(
+    (value) => ({ ok: true, value }),
+    (error) => ({ ok: false, error }),
+  );
+  const secondSensitiveRequest = await pollForValue(
+    async () => {
+      const tabs = await window.evaluate(
+        (scope) => globalThis.blackrain.browser.listTabs(scope),
+        hostContract.scope,
+      );
+      return tabs[0]?.sensitiveActionRequest ? tabs[0] : null;
+    },
+    "Browser second sensitive action pending",
+  );
+  assert.notEqual(
+    secondSensitiveRequest.sensitiveActionRequest.requestId,
+    firstSensitiveRequest.sensitiveActionRequest.requestId,
+  );
+  await window.evaluate(
+    ({ scope, tab }) => globalThis.blackrain.browser.respondSensitiveAction({
+      ...scope,
+      browserTabId: tab.browserTabId,
+      viewGeneration: tab.viewGeneration,
+      requestId: tab.sensitiveActionRequest.requestId,
+      allow: false,
+    }),
+    { scope: hostContract.scope, tab: secondSensitiveRequest },
+  );
+  const deniedOutcome = await secondSensitiveClick;
+  assert.equal(deniedOutcome.ok, false);
+  assert.match(String(deniedOutcome.error), /用户拒绝 Browser 敏感动作/);
+  const countAfterDeny = await electronApplication.evaluate(
+    ({ webContents }, url) => {
+      const page = webContents.getAllWebContents().find((item) => item.getURL() === url);
+      return page?.executeJavaScript(
+        'document.querySelector(\'[aria-label="购买次数"]\').textContent',
+      );
+    },
+    browserFixtureUrl,
+  );
+  assert.equal(await countAfterDeny, "1");
+
+  const sensitiveKeyActivation = electronApplication.evaluate(
+    async ({ webContents }, contract) => {
+      const harness = globalThis.__blackrainElectronE2e;
+      if (!harness) throw new Error("Electron E2E Browser harness 未安装");
+      const page = webContents
+        .getAllWebContents()
+        .find((candidate) => candidate.getURL() === contract.tab.url);
+      if (!page) throw new Error("Browser fixture page 不存在");
+      await page.executeJavaScript(
+        'document.querySelector(\'[aria-label="立即购买"]\').focus()',
+      );
+      await harness.callBrowserTool({
+        threadId: contract.scope.threadId,
+        turnId: contract.turnId,
+        tool: "press_key",
+        arguments: {
+          browserTabId: contract.tab.browserTabId,
+          viewGeneration: contract.tab.viewGeneration,
+          key: "Enter",
+        },
+      });
+      return page.executeJavaScript(
+        'document.querySelector(\'[aria-label="购买次数"]\').textContent',
+      );
+    },
+    { ...hostContract, turnId: browserToolContract.turnId },
+  );
+  const sensitiveKeyRequest = await pollForValue(
+    async () => {
+      const tabs = await window.evaluate(
+        (scope) => globalThis.blackrain.browser.listTabs(scope),
+        hostContract.scope,
+      );
+      return tabs[0]?.sensitiveActionRequest ? tabs[0] : null;
+    },
+    "Browser keyboard activation pending",
+  );
+  assert.equal(
+    sensitiveKeyRequest.sensitiveActionRequest.category,
+    "keyboard-activation",
+  );
+  await window.evaluate(
+    ({ scope, tab }) => globalThis.blackrain.browser.respondSensitiveAction({
+      ...scope,
+      browserTabId: tab.browserTabId,
+      viewGeneration: tab.viewGeneration,
+      requestId: tab.sensitiveActionRequest.requestId,
+      allow: true,
+    }),
+    { scope: hostContract.scope, tab: sensitiveKeyRequest },
+  );
+  assert.equal(await sensitiveKeyActivation, "2");
+  logStage("Browser sensitive action grant passed");
 
   const takeoverContract = await window.evaluate(async (contract) => {
     const tabsBefore = await globalThis.blackrain.browser.listTabs(contract.scope);
@@ -575,7 +970,105 @@ try {
     globalThis.blackrain.browser.listTabs(scope), hostContract.scope);
   assert.equal(tabsAfterTurn[0]?.controlOwner, "user");
   assert.equal(tabsAfterTurn[0]?.agentTurnId, null);
+
+  const finalizeContract = await electronApplication.evaluate(
+    async (_electron, contract) => {
+      const harness = globalThis.__blackrainElectronE2e;
+      if (!harness) throw new Error("Electron E2E Browser harness 未安装");
+      const turnId = "turn-e2e-finalize";
+      harness.startBrowserTurn(contract.scope.threadId, turnId);
+      const call = (tool, args) => harness.callBrowserTool({
+        threadId: contract.scope.threadId,
+        turnId,
+        tool,
+        arguments: args,
+      });
+      try {
+        const createdResponse = await call("new_tab", {
+          url: new URL("/finalize-fixture", contract.tab.url).href,
+        });
+        const createdItem = createdResponse.contentItems?.[0];
+        if (createdItem?.type !== "inputText") {
+          throw new Error("Browser new_tab 未返回 inputText");
+        }
+        const created = JSON.parse(createdItem.text);
+        const finalizedResponse = await call("finalize", { keep: [] });
+        const finalizedItem = finalizedResponse.contentItems?.[0];
+        if (finalizedItem?.type !== "inputText") {
+          throw new Error("Browser finalize 未返回 inputText");
+        }
+        return { created, remaining: JSON.parse(finalizedItem.text) };
+      } finally {
+        harness.completeBrowserTurn(contract.scope.threadId, turnId);
+      }
+    },
+    hostContract,
+  );
+  assert.equal(finalizeContract.created.origin, "agent");
+  assert.equal(
+    finalizeContract.remaining.some(
+      (tab) => tab.browserTabId === finalizeContract.created.browserTabId,
+    ),
+    false,
+  );
+  assert.equal(
+    finalizeContract.remaining.some(
+      (tab) => tab.browserTabId === hostContract.tab.browserTabId,
+    ),
+    true,
+  );
   logStage("Browser takeover contract passed");
+
+  await electronApplication.evaluate(async () => {
+    const harness = globalThis.__blackrainElectronE2e;
+    if (!harness) throw new Error("Electron E2E Browser harness 未安装");
+    await harness.simulateSystemPowerCycle();
+  });
+  const powerCycleTab = await pollForValue(
+    () => window.evaluate(async (scope) => {
+      const tabs = await globalThis.blackrain.browser.listTabs(scope);
+      const tab = tabs[0];
+      return tab?.pageLifecycle === "live" && tab.debuggerStatus === "attached"
+        ? tab
+        : null;
+    }, hostContract.scope),
+    "Browser system power cycle recovery",
+  );
+  const powerCycleContract = await electronApplication.evaluate(
+    async (_electron, contract) => {
+      const harness = globalThis.__blackrainElectronE2e;
+      if (!harness) throw new Error("Electron E2E Browser harness 未安装");
+      const turnId = "turn-e2e-power-resume";
+      harness.startBrowserTurn(contract.scope.threadId, turnId);
+      try {
+        const response = await harness.callBrowserTool({
+          threadId: contract.scope.threadId,
+          turnId,
+          tool: "snapshot",
+          arguments: {
+            browserTabId: contract.tab.browserTabId,
+            viewGeneration: contract.tab.viewGeneration,
+          },
+        });
+        const item = response.contentItems?.[0];
+        return {
+          pageLifecycle: contract.tab.pageLifecycle,
+          debuggerStatus: contract.tab.debuggerStatus,
+          snapshotRecovered:
+            item?.type === "inputText" && item.text.includes("测试输入"),
+        };
+      } finally {
+        harness.completeBrowserTurn(contract.scope.threadId, turnId);
+      }
+    },
+    { scope: hostContract.scope, tab: powerCycleTab },
+  );
+  assert.deepEqual(powerCycleContract, {
+    pageLifecycle: "live",
+    debuggerStatus: "attached",
+    snapshotRecovered: true,
+  });
+  logStage("Browser simulated system power cycle passed");
 
   await electronApplication.evaluate(({ webContents }, expectedUrl) => {
     const page = webContents
@@ -585,6 +1078,8 @@ try {
     void page.executeJavaScript(`
       console.error("browser console e2e");
       console.log("password=browser-secret");
+      console.log("cookie=cookie-secret-e2e");
+      console.log("access_token=transport-secret-e2e");
     `);
   }, browserFixtureUrl);
   const consoleTab = await pollForValue(
@@ -608,6 +1103,12 @@ try {
     consoleTab.consoleMessages.some(
       (entry) => entry.message === "[已隐藏可能包含敏感信息的控制台消息]",
     ),
+  );
+  assert.equal(
+    consoleTab.consoleMessages.some((entry) =>
+      /cookie-secret-e2e|storage-secret-e2e|transport-secret-e2e/.test(entry.message),
+    ),
+    false,
   );
 
   await window.evaluate((scope) => {
@@ -669,6 +1170,9 @@ try {
       const popupWasDenied = await page.executeJavaScript(
         'window.open("/popup", "_blank") === null',
       );
+      const externalProtocolWasDenied = await page.executeJavaScript(
+        'window.open("mailto:blackrain@example.test", "_blank") === null',
+      );
       const geolocationPermission = await page.executeJavaScript(
         'navigator.permissions.query({ name: "geolocation" }).then((result) => result.state)',
       );
@@ -696,6 +1200,7 @@ try {
       return {
         found: true,
         popupWasDenied,
+        externalProtocolWasDenied,
         geolocationPermission,
         download: await downloadObserved,
         storagePath: page.session.storagePath,
@@ -714,6 +1219,7 @@ try {
   );
   assert.equal(browserPageAudit.found, true);
   assert.equal(browserPageAudit.popupWasDenied, true);
+  assert.equal(browserPageAudit.externalProtocolWasDenied, true);
   let popupTab;
   for (let attempt = 0; attempt < 40 && !popupTab; attempt += 1) {
     const tabs = await window.evaluate(
@@ -778,6 +1284,148 @@ try {
     { scope: hostContract.scope, tab: pendingDownloadTab },
   );
   assert.equal(downloadCancelledTab.download, null);
+
+  const downloadSavePath = path.join(appDataPath, "browser-fixture-saved.txt");
+  await electronApplication.evaluate(
+    async ({ dialog, webContents }, input) => {
+      const page = webContents.getAllWebContents().find(
+        (candidate) => candidate.getURL() === input.expectedUrl,
+      );
+      if (!page) throw new Error("下载保存 E2E 未找到 Browser page");
+      globalThis.__blackrainOriginalShowSaveDialog = dialog.showSaveDialog;
+      dialog.showSaveDialog = async () => ({
+        canceled: false,
+        filePath: input.savePath,
+      });
+      await page.executeJavaScript(`
+        (() => {
+          const link = document.createElement("a");
+          link.href = "/download";
+          link.download = "browser-fixture.txt";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        })()
+      `);
+    },
+    { expectedUrl: browserFixtureUrl, savePath: downloadSavePath },
+  );
+  const savePendingTab = await pollForValue(
+    () => window.evaluate(async (scope) => {
+      const tabs = await globalThis.blackrain.browser.listTabs(scope);
+      return tabs[0]?.download?.status === "pending" ? tabs[0] : null;
+    }, hostContract.scope),
+    "Browser download save pending",
+  );
+  await window.evaluate(
+    ({ scope, tab }) => globalThis.blackrain.browser.resolveDownload({
+      ...scope,
+      browserTabId: tab.browserTabId,
+      viewGeneration: tab.viewGeneration,
+      requestId: tab.download.requestId,
+      action: "save",
+    }),
+    { scope: hostContract.scope, tab: savePendingTab },
+  );
+  const savedDownloadTab = await pollForValue(
+    () => window.evaluate(async (scope) => {
+      const tabs = await globalThis.blackrain.browser.listTabs(scope);
+      return tabs[0]?.download?.status === "completed" ? tabs[0] : null;
+    }, hostContract.scope),
+    "Browser download save completed",
+  );
+  assert.equal(savedDownloadTab.download.status, "completed");
+  assert.equal(await readFile(downloadSavePath, "utf8"), "browser fixture download");
+  await electronApplication.evaluate(({ dialog }) => {
+    if (globalThis.__blackrainOriginalShowSaveDialog) {
+      dialog.showSaveDialog = globalThis.__blackrainOriginalShowSaveDialog;
+      delete globalThis.__blackrainOriginalShowSaveDialog;
+    }
+  });
+
+  const uploadPath = path.join(appDataPath, "browser-upload.txt");
+  await writeFile(uploadPath, "browser fixture upload", "utf8");
+  await electronApplication.evaluate(
+    async ({ dialog, webContents }, input) => {
+      const page = webContents.getAllWebContents().find(
+        (candidate) => candidate.getURL() === input.expectedUrl,
+      );
+      if (!page) throw new Error("file chooser E2E 未找到 Browser page");
+      globalThis.__blackrainOriginalShowOpenDialog = dialog.showOpenDialog;
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [input.uploadPath],
+      });
+      const bounds = await page.executeJavaScript(`
+        (() => {
+          const rect = document.querySelector('[aria-label="上传文件"]').getBoundingClientRect();
+          return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+        })()
+      `);
+      page.sendInputEvent({
+        type: "mouseDown",
+        x: bounds.x,
+        y: bounds.y,
+        button: "left",
+        clickCount: 1,
+      });
+      page.sendInputEvent({
+        type: "mouseUp",
+        x: bounds.x,
+        y: bounds.y,
+        button: "left",
+        clickCount: 1,
+      });
+    },
+    { expectedUrl: browserFixtureUrl, uploadPath },
+  );
+  const fileChooserPendingTab = await pollForValue(
+    () => window.evaluate(async (scope) => {
+      const tabs = await globalThis.blackrain.browser.listTabs(scope);
+      return tabs[0]?.fileChooserRequest ? tabs[0] : null;
+    }, hostContract.scope),
+    "Browser file chooser pending",
+  );
+  assert.equal(fileChooserPendingTab.fileChooserRequest.mode, "selectSingle");
+  assert.equal(
+    fileChooserPendingTab.fileChooserRequest.origin,
+    "https://blackrain-e2e.test",
+  );
+  await window.evaluate(
+    ({ scope, tab }) => globalThis.blackrain.browser.resolveFileChooser({
+      ...scope,
+      browserTabId: tab.browserTabId,
+      viewGeneration: tab.viewGeneration,
+      requestId: tab.fileChooserRequest.requestId,
+      action: "choose",
+    }),
+    { scope: hostContract.scope, tab: fileChooserPendingTab },
+  );
+  const uploadedFile = await electronApplication.evaluate(
+    async ({ webContents }, expectedUrl) => {
+      const page = webContents.getAllWebContents().find(
+        (candidate) => candidate.getURL() === expectedUrl,
+      );
+      if (!page) return null;
+      return page.executeJavaScript(`
+        (async () => {
+          const file = document.querySelector('[aria-label="上传文件"]').files[0];
+          return file ? { name: file.name, text: await file.text() } : null;
+        })()
+      `);
+    },
+    browserFixtureUrl,
+  );
+  assert.deepEqual(uploadedFile, {
+    name: "browser-upload.txt",
+    text: "browser fixture upload",
+  });
+  await electronApplication.evaluate(({ dialog }) => {
+    if (globalThis.__blackrainOriginalShowOpenDialog) {
+      dialog.showOpenDialog = globalThis.__blackrainOriginalShowOpenDialog;
+      delete globalThis.__blackrainOriginalShowOpenDialog;
+    }
+  });
 
   await electronApplication.evaluate(({ webContents }, expectedUrl) => {
     const page = webContents.getAllWebContents().find(
@@ -895,9 +1543,10 @@ try {
   );
   logStage("Browser security audit passed");
 
+  let realAgentContract = null;
   if (runRealAgentE2e) {
     logStage("starting real model Browser slice");
-    const realAgentContract = await withStageTimeout(
+    realAgentContract = await withStageTimeout(
       window.evaluate(async ({ cwd, fixtureUrl }) => {
         const thread = await globalThis.blackrain.agent.startThread({
           cwd,
@@ -952,7 +1601,7 @@ try {
           threadId: thread.threadId,
           cwd,
           prompt:
-            "这是 Browser 工具验收。你必须实际调用 blackrain_browser.screenshot 检查唯一打开的浏览器标签页；不调用工具就算任务失败，不得根据提示文字推测。工具返回后只回复页面标题。",
+            "这是 Browser MCP 工具验收。你必须实际调用 blackrain_browser server 的 browser_screenshot 工具检查唯一打开的浏览器标签页；不调用工具就算任务失败，不得根据提示文字推测。工具返回后只回复页面标题。",
           accessMode: "read-only",
         });
         const completedEvent = await completed;
@@ -1045,12 +1694,16 @@ try {
       rendererSecurity,
       hostContract,
       browserToolContract,
+      powerCycleContract,
       browserPageAudit,
+      realAgentContract,
       browserCloseContract,
       popupWasDenied,
+      resourceBaseline,
     })}`,
   );
 
+  const restartStartedAt = performance.now();
   await electronApplication.close();
   electronApplication = undefined;
   logStage("relaunching Electron for Browser recovery");
@@ -1105,6 +1758,9 @@ try {
   );
   assert.equal(recoveredTabs[0]?.url, browserFixtureUrl);
   assert.equal(recoveredTabs[0]?.controlOwner, "user");
+  resourceBaseline.appRestartRecoveryMs = Math.round(
+    performance.now() - restartStartedAt,
+  );
   const recoveredWorkspaces = await recoveryWindow.evaluate(() =>
     globalThis.blackrain.workspace.list());
   assert.equal(recoveredWorkspaces.length, 1);
@@ -1119,6 +1775,31 @@ try {
       viewGeneration: tab.viewGeneration,
     });
   }, { scope: recoverySeed.scope, tab: recoveredTabs[0] });
+  const resourceReport = {
+    recordedAt: new Date().toISOString(),
+    environment: {
+      platform: process.platform,
+      arch: process.arch,
+      osRelease: os.release(),
+      cpu: os.cpus()[0]?.model ?? "unknown",
+      node: process.version,
+    },
+    ...resourceBaseline,
+  };
+  console.log(
+    `[electron-e2e] Browser resource baseline: ${JSON.stringify(resourceReport)}`,
+  );
+  if (resourceReportPath) {
+    const resolvedReportPath = path.isAbsolute(resourceReportPath)
+      ? resourceReportPath
+      : path.resolve(desktopRoot, resourceReportPath);
+    await mkdir(path.dirname(resolvedReportPath), { recursive: true });
+    await writeFile(
+      resolvedReportPath,
+      `${JSON.stringify(resourceReport, null, 2)}\n`,
+      "utf8",
+    );
+  }
   logStage("Browser restart recovery passed");
 } catch (error) {
   console.error("[electron-e2e] failed", error);

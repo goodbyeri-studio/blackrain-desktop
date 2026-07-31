@@ -50,9 +50,11 @@ describe("Electron E2E main harness", () => {
 
   it("只在开发 E2E 中路由合成的 dynamic tool request", async () => {
     const browser = backend();
+    const simulateSystemPowerCycle = vi.fn(async () => undefined);
     const dispose = installElectronE2eHarness(browser, {
       enabled: true,
       packaged: false,
+      simulateSystemPowerCycle,
     });
     const harness = globalHarness.__blackrainElectronE2e;
     expect(harness).toBeDefined();
@@ -73,6 +75,8 @@ describe("Electron E2E main harness", () => {
       threadId: "thread-e2e",
       routeKey: "browser-sidebar",
     });
+    await harness?.simulateSystemPowerCycle();
+    expect(simulateSystemPowerCycle).toHaveBeenCalledTimes(1);
 
     dispose();
     expect(globalHarness.__blackrainElectronE2e).toBeUndefined();

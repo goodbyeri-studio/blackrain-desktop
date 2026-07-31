@@ -21,6 +21,8 @@ function record(
     canGoBack: false,
     canGoForward: false,
     crashed: false,
+    pageLifecycle: "live",
+    lastActiveAt: 1,
     error: null,
     controlOwner: "user",
     agentTurnId: null,

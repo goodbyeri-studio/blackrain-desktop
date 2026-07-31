@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A1：账号领域类型。
+// 账号领域类型。
 // 与 Supabase profiles 表对齐（design.md「数据模型」）。
 
 // 三档套餐。MVP 只实做 free；plus/pro 占位（价格/额度待定）。

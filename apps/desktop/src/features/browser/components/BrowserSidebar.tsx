@@ -12,10 +12,12 @@ import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 import Bot from "lucide-react/dist/esm/icons/bot";
 import Download from "lucide-react/dist/esm/icons/download";
+import FileUp from "lucide-react/dist/esm/icons/file-up";
 import Globe2 from "lucide-react/dist/esm/icons/globe-2";
 import PanelRightClose from "lucide-react/dist/esm/icons/panel-right-close";
 import PanelRightOpen from "lucide-react/dist/esm/icons/panel-right-open";
 import MousePointer2 from "lucide-react/dist/esm/icons/mouse-pointer-2";
+import Pause from "lucide-react/dist/esm/icons/pause";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import RotateCw from "lucide-react/dist/esm/icons/rotate-cw";
 import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
@@ -55,6 +57,29 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function sensitiveActionLabel(
+  category: NonNullable<BrowserTabState["sensitiveActionRequest"]>["category"],
+): string {
+  return {
+    "keyboard-activation": "键盘激活",
+    login: "登录",
+    authorize: "授权",
+    send: "发送",
+    publish: "发布",
+    purchase: "购买或支付",
+    delete: "删除",
+  }[category];
+}
+
+function controlStatusLabel(tab: BrowserTabState): string {
+  if (tab.controlOwner === "agent") return "Agent 控制";
+  if (tab.handoff && tab.deliverable) return "用户 · Agent 交付";
+  if (tab.origin === "popup") return "用户 · 弹窗";
+  if (tab.origin === "restored") return "用户 · 已恢复";
+  if (tab.origin === "agent") return "用户 · Agent 创建";
+  return "用户控制";
 }
 
 function replaceTab(tabs: BrowserTabState[], next: BrowserTabState) {
@@ -406,6 +431,46 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
     [activeTab, dialogPrompt, host, scope],
   );
 
+  const respondSensitiveAction = useCallback(
+    async (allow: boolean) => {
+      if (!host || !scope || !activeTab?.sensitiveActionRequest) return;
+      setCommandError(null);
+      try {
+        const tab = await host.browser.respondSensitiveAction({
+          ...scope,
+          browserTabId: activeTab.browserTabId,
+          viewGeneration: activeTab.viewGeneration,
+          requestId: activeTab.sensitiveActionRequest.requestId,
+          allow,
+        });
+        setTabs((current) => replaceTab(current, tab));
+      } catch (error) {
+        setCommandError(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [activeTab, host, scope],
+  );
+
+  const resolveFileChooser = useCallback(
+    async (action: "choose" | "cancel") => {
+      if (!host || !scope || !activeTab?.fileChooserRequest) return;
+      setCommandError(null);
+      try {
+        const tab = await host.browser.resolveFileChooser({
+          ...scope,
+          browserTabId: activeTab.browserTabId,
+          viewGeneration: activeTab.viewGeneration,
+          requestId: activeTab.fileChooserRequest.requestId,
+          action,
+        });
+        setTabs((current) => replaceTab(current, tab));
+      } catch (error) {
+        setCommandError(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [activeTab, host, scope],
+  );
+
   if (!host) {
     return null;
   }
@@ -442,12 +507,12 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
                 onClick={() => void takeControl()}
               >
                 <Bot size={13} aria-hidden />
-                <span>Agent 控制</span>
+                <span>{controlStatusLabel(activeTab)}</span>
               </button>
             ) : (
               <span className="browser-control-status" aria-label="用户控制浏览器">
                 <MousePointer2 size={13} aria-hidden />
-                <span>用户控制</span>
+                <span>{controlStatusLabel(activeTab)}</span>
               </span>
             )
           ) : null}
@@ -488,7 +553,13 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
                 title={tabLabel(tab)}
                 onClick={() => setActiveTabId(tab.browserTabId)}
               >
-                {tab.crashed ? <AlertTriangle size={13} aria-hidden /> : <Globe2 size={13} aria-hidden />}
+                {tab.crashed ? (
+                  <AlertTriangle size={13} aria-hidden />
+                ) : tab.pageLifecycle === "suspended" ? (
+                  <Pause size={13} aria-hidden />
+                ) : (
+                  <Globe2 size={13} aria-hidden />
+                )}
                 <span>{tabLabel(tab)}</span>
               </button>
               <button
@@ -618,6 +689,49 @@ export function BrowserSidebar({ threadId }: BrowserSidebarProps) {
           ) : activeTab.download.status !== "in-progress" ? (
             <button type="button" onClick={() => void resolveDownload("cancel")}>关闭</button>
           ) : null}
+        </div>
+      ) : null}
+
+      {activeTab?.sensitiveActionRequest ? (
+        <div
+          className="browser-request-banner"
+          role="alertdialog"
+          aria-label="敏感网页动作确认"
+        >
+          <ShieldAlert size={16} aria-hidden />
+          <div>
+            <strong>{activeTab.sensitiveActionRequest.origin}</strong>
+            <span>
+              Agent 请求{ sensitiveActionLabel(activeTab.sensitiveActionRequest.category) }：
+              {activeTab.sensitiveActionRequest.label}
+            </span>
+          </div>
+          <button type="button" onClick={() => void respondSensitiveAction(false)}>
+            拒绝
+          </button>
+          <button
+            type="button"
+            className="is-primary"
+            onClick={() => void respondSensitiveAction(true)}
+          >
+            确认一次
+          </button>
+        </div>
+      ) : null}
+
+      {activeTab?.fileChooserRequest ? (
+        <div className="browser-request-banner" role="alert">
+          <FileUp size={16} aria-hidden />
+          <div>
+            <strong>{activeTab.fileChooserRequest.origin}</strong>
+            <span>
+              请求选择{activeTab.fileChooserRequest.mode === "selectMultiple" ? "多个" : "一个"}文件
+            </span>
+          </div>
+          <button type="button" onClick={() => void resolveFileChooser("cancel")}>取消</button>
+          <button type="button" className="is-primary" onClick={() => void resolveFileChooser("choose")}>
+            选择文件
+          </button>
         </div>
       ) : null}
 

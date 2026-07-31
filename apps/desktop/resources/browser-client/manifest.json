@@ -7,11 +7,15 @@
   "files": [
     {
       "path": "browser-client.mjs",
-      "sha256": "5c12996549c5f39cf6a2f4947b24cdd9e1d71cd57c94ca99b57c66031c5134d6"
+      "sha256": "72492ddbbf997cb3106def5c1bf3c2c3aaddc88cfbd8c0f8707e18b063b26858"
+    },
+    {
+      "path": "browser-mcp-server.mjs",
+      "sha256": "e3295202bd190ce04ab42781deedb07c5d202c2a1c15b8c177551ad7b06682bb"
     },
     {
       "path": "LICENSE.txt",
-      "sha256": "4ab291b639c053589e10b68a1b53249fa7ed65f96aa198e5f58a720c28d2fded"
+      "sha256": "c3bd25e18ee76e560a991ad2c10d5b01ce88c558a4fab296bb13f5a9cdc6feae"
     }
   ]
 }

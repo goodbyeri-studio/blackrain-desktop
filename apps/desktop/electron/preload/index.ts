@@ -4,10 +4,14 @@ import {
   AgentEventCursorInputSchema,
   AgentEventSchema,
   AgentRuntimeStatusSchema,
+  AgentServerRequestResponseAckSchema,
+  AgentServerRequestResponseInputSchema,
   AgentThreadAckSchema,
   AgentThreadListInputSchema,
   AgentThreadListResponseSchema,
   AgentThreadResumeInputSchema,
+  AgentThreadUnsubscribeInputSchema,
+  AgentThreadUnsubscribeResponseSchema,
   AgentThreadStartInputSchema,
   AgentTurnAckSchema,
   AgentTurnInterruptInputSchema,
@@ -24,9 +28,11 @@ import {
   BrowserCreateTabInputSchema,
   BrowserDownloadDecisionInputSchema,
   BrowserDialogDecisionInputSchema,
+  BrowserFileChooserDecisionInputSchema,
   BrowserNavigateInputSchema,
   BrowserPermissionDecisionInputSchema,
   BrowserRouteScopeSchema,
+  BrowserSensitiveActionDecisionInputSchema,
   BrowserTabListSchema,
   BrowserTabRequestSchema,
   BrowserTabStateSchema,
@@ -152,6 +158,14 @@ const api: BlackRainHostApi = {
         ),
       );
     },
+    async unsubscribeThread(input) {
+      return AgentThreadUnsubscribeResponseSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.agentUnsubscribeThread,
+          AgentThreadUnsubscribeInputSchema.parse(input),
+        ),
+      );
+    },
     async startTurn(input) {
       return AgentTurnAckSchema.parse(
         await ipcRenderer.invoke(
@@ -173,6 +187,14 @@ const api: BlackRainHostApi = {
         await ipcRenderer.invoke(
           IPC_CHANNELS.agentInterruptTurn,
           AgentTurnInterruptInputSchema.parse(input),
+        ),
+      );
+    },
+    async respondToServerRequest(input) {
+      return AgentServerRequestResponseAckSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.agentRespondServerRequest,
+          AgentServerRequestResponseInputSchema.parse(input),
         ),
       );
     },
@@ -239,6 +261,22 @@ const api: BlackRainHostApi = {
         await ipcRenderer.invoke(
           IPC_CHANNELS.browserRespondDialog,
           BrowserDialogDecisionInputSchema.parse(input),
+        ),
+      );
+    },
+    async resolveFileChooser(input) {
+      return BrowserTabStateSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.browserResolveFileChooser,
+          BrowserFileChooserDecisionInputSchema.parse(input),
+        ),
+      );
+    },
+    async respondSensitiveAction(input) {
+      return BrowserTabStateSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.browserRespondSensitiveAction,
+          BrowserSensitiveActionDecisionInputSchema.parse(input),
         ),
       );
     },

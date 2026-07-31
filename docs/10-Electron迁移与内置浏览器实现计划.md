@@ -1,6 +1,6 @@
 # 10 Electron 迁移与内置浏览器实现计划
 
-> **状态（2026-07-30）**：目标架构已按 Codex Desktop App 进程、协议、持久化和 Windows 制品调研修正；Electron 安全空壳、App Server transport、Browser host/UI/受限 CDP foundation 与 unsigned MSIX CI 已实现。当前产品流程仍是 Tauri，真实 bundled app-server、Agent 共页和发布矩阵尚未完成。本文是 [运行时真源](09-运行时架构与里程碑.md) 的实施展开；需求、决策和验收分别以 [spec 012](../.specs/012-electron-shell-migration/) 与 [spec 013](../.specs/013-codex-app-capability-parity/) 为准。
+> **状态（2026-08-01）**：内置浏览器是唯一当前 P0。标准 stdio MCP + 随包 Node adapter 已通过锁定 `0.146.0` 实制品探针并成为 Electron 生产入口，真实模型 screenshot 同页纵向切片通过；基础 role/name locator、wait/actionability/CUA、同用户 token/generation 拒绝、用户接管、OOPIF、合成站点敏感购买确认、实际下载、file chooser 和 App 恢复也有当前证据。另一个真实 Windows 用户账户的 ACL、审批/停止/恢复矩阵、注入式增量 ARIA/完整 selector runtime、真实站点、安全与产品矩阵尚未完成。本文保留整体 Electron 迁移路线，当前任务与验收只看 [001 内置浏览器](../.specs/001-in-app-browser/)；P1 全量迁移当前不建立第二个 spec。
 
 ## 结论
 
@@ -8,7 +8,8 @@ BlackRain 以 Codex App 的可观察行为和 Browser 控制面作为第一实�
 
 ```text
 原装 codex app-server
-  -> Browser 工具调用
+  -> 标准 stdio MCP 工具调用
+  -> BlackRain Node Browser adapter
   -> BlackRain Browser client
   -> authenticated per-session local transport
   -> Electron main Browser backend
@@ -109,7 +110,8 @@ BlackRain Electron
   │   ├─ codex-core / tools / policy
   │   ├─ standard Codex Home / ThreadStore
   │   └─ code-mode/MCP/sandbox helper processes
-  ├─ BlackRain Browser client（生产目标，受信任 tool runtime）
+  ├─ BlackRain Node stdio MCP adapter（随包 Node 22 runtime）
+  ├─ BlackRain Browser client
   │   └─ authenticated per-session local transport -> main BrowserBackend
   └─ optional Model Gateway
 ```
@@ -169,19 +171,24 @@ app-server item/tool/call
 
 每个锁定版本必须先做协议探针。若 dynamic tools schema 或 server request 不匹配，Browser agent 控制必须 fail closed 并降级为手动浏览，不能静默改走第二 agent runtime。
 
-dynamic tools 只作 bootstrap。Codex 架构对齐的生产链路是：
+dynamic tools 只作 bootstrap。已验证的生产链路是：
 
 ```text
-app-server / code-mode tool execution
+codex-core MCP tool execution
+  -> BlackRain Node stdio MCP adapter
   -> BlackRain Browser client
   -> authenticated local transport
   -> per-session Browser backend route
   -> main BrowserBackend
 ```
 
-Browser client 必须基于公开、可分发的受信任 runtime 接缝自行实现，不复制 OpenAI `browser-client.mjs`、私有 `nativePipe` 或 bundled plugin。每个 Codex session 有独立 backend route；discovery/handshake 校验 app build、session id 和 backend generation，每次请求继续携带 `session_id`、`turn_id` 与受限 session context。
+Browser adapter/client 基于公开、可分发的标准 stdio MCP 自行实现，不复制 OpenAI `node_repl.exe`、`browser-client.mjs`、私有 `nativePipe` 或 bundled plugin。adapter 从 codex-core 注入的 `_meta.threadId` 与 `x-codex-turn-metadata` 读取可信 session/thread/turn，main transport 再校验 app build、capability、active turn 和 backend generation。
 
-Windows transport 初始合同为：随机 pipe endpoint、当前用户 ACL、256-bit capability token、4-byte little-endian payload length、UTF-8 JSON-RPC、8 MiB 单帧上限和每 socket client id。response 只返回发起连接，事件按 route 定向或受控广播；session/build filter 不能代替认证。
+这条生产链路已在锁定 Windows `codex-cli 0.146.0` 上通过进程级探针：`-c mcp_servers.blackrain_browser.*` 配置、MCP ready/tool discovery、`mcpServer/tool/call`、可信 metadata 透传和 backend 命中均通过。code-mode V8 的 Node import 失败只证明 V8 不承担 `.mjs` 加载；独立 Node MCP 才是加载层。0.146.0 会清空 MCP 子进程环境，bootstrap 变量通过公开 `env_vars` 名称白名单转发，secret 值不进入命令行。
+
+Electron 发布入口始终注册 MCP adapter，生产 `thread/start` 不再提交 dynamic tools；main 自加载 client 已退出产品入口。正式包锁定 Node.js `22.23.2` Windows x64，只携带 `node.exe` 与 MIT `LICENSE`，并对 Node、adapter 和 client 执行 SHA-256 gate；Electron `RunAsNode` fuse 保持关闭。
+
+Windows transport 初始合同为：随机 pipe endpoint、仅目标用户/系统 ACL、256-bit capability token、4-byte little-endian payload length、UTF-8 JSON-RPC、8 MiB 单帧上限和每 socket client id。response 只返回发起连接，事件按 route 定向或受控广播；session/build filter 不能代替认证。这是 BlackRain 自有 v1 协议，不与 OpenAI 私有 pipe 互操作；长度前缀和上限是独立的有界解析选择。ACL 只证明用户边界，token 拒绝未持有 capability 的 client，不声称抵御可读取同用户进程内存或环境的恶意代码。
 
 目标高层 API 对齐 Codex Browser 的能力分层：
 
@@ -193,7 +200,7 @@ Windows transport 初始合同为：随机 pipe endpoint、当前用户 ACL、25
 - `artifact`：screenshot、download metadata、debug log。
 - `cdp`：默认受限到当前 tab/origin；full CDP 只在 Developer mode。
 
-snapshot/locator 在现有页面 target 注入许可兼容的 selector、actionability 和增量 ARIA runtime，递归合并 iframe/OOPIF 语义树；禁止 `chromium.launch()` 或 `connectOverCDP()` 建立旁路 browser。P0 先用 dynamic tools 完成纵向切片，再切换到自有 Browser client；发布前必须删除或关闭 dynamic-tool 生产入口，不能形成长期双路由。
+snapshot/locator 在现有页面 target 注入许可兼容的 selector、actionability 和增量 ARIA runtime，递归合并 iframe/OOPIF 语义树；禁止 `chromium.launch()` 或 `connectOverCDP()` 建立旁路 browser。早期 P0 曾用 dynamic tools 完成纵向切片；当前已切换到标准 stdio MCP、随包 Node adapter 和自有 Browser client，dynamic-tool 生产入口已关闭，发布态不得重新形成双路由。
 
 ## Codex 功能对齐的 Browser view
 
@@ -239,7 +246,7 @@ Native view 不受普通 DOM z-index 控制。打开 modal、菜单、tooltip �
 
 ### Profile
 
-P0 使用一个 App 专属持久 profile `persist:blackrain-browser-app`，对齐 Codex 的登录保持行为。profile 属于用户，不属于 thread；thread 只拥有 route/tab 控制权。Cookie、Local Storage、密码和浏览历史不写入 thread、模型上下文、App Server 日志或诊断包。
+P0 使用一个 App 专属持久 profile `persist:blackrain-browser-app`，对齐 Codex 的登录保持行为。profile 属于用户，不属于 thread；thread 只拥有 route/tab 控制权。Cookie、Local Storage、认证 token、密码和浏览历史不被自动读取或写入 thread、模型上下文、App Server 日志或诊断包；显式 snapshot/ARIA/截图中的用户可见内容可能进入模型，产品必须显示 origin、控制方和活动状态。
 
 逻辑 route/page ownership 与实际 storage partition 分离。`routeKey`、`browserStorageId`、generation 和 page record 用于授权、恢复和生命周期映射，所有 P0 页面仍使用同一个持久 session，不能把 route id 当成每 tab Cookie partition。
 
@@ -264,6 +271,7 @@ main 通过页面 `webContents.debugger` 管理 debugger 1.3、target/session、
 - popup 默认阻止；允许时转换为受管 tab 或显式外部打开。
 - 下载必须先取得一次性 grant，绑定 `webContentsId + appSessionId + URL + TTL`。
 - agent 自动文件上传在 P0 禁止；文件选择必须由用户主动完成。
+- 登录、授权、发送、发布、购买、删除及其他不可逆或高影响动作使用 main-owned 一次性 grant，绑定 origin、动作类别、session/turn、TTL 和 generation；网页或模型不能自行批准。
 - Browser 页面、截图、下载和 console 都是不可信输入。
 
 ### 控制状态机
@@ -275,7 +283,7 @@ user -> agent_requesting -> agent
 任意状态 -> suspended / crashed
 ```
 
-用户输入拥有最高优先级，可立即中止待执行 agent 输入。转换期间不接受双方输入；每次转换产生标准化事件，并可由 thread 的停止操作取消。
+用户主动输入拥有最高优先级，键盘、点击、滚轮和上下文菜单可立即中止待执行 agent 输入；被动鼠标移动/进入/离开不表示接管意图。转换期间不接受双方主动输入；每次转换产生标准化事件，并可由 thread 的停止操作取消。
 
 ### Tab 与 turn 收口
 
@@ -286,7 +294,9 @@ user -> agent_requesting -> agent
 
 ## Tauri 到 Electron 的迁移波次
 
-### M0：盘点与冻结
+> **当前排序**：M0-M3 是已经建立的代码基础和历史运行摘要；M4 是唯一当前 P0，但其生产 adapter 接缝已被锁定 runtime 实制品探针判定阻塞；M5 属于 Browser P0 完成后的 P1。除解除 M4 阻塞外，不并行扩张 M5。
+
+### M0：盘点与冻结（基础已建立）
 
 - 盘点 Tauri commands、events、plugins、windows、resources、capabilities、NSIS 和 CI。
 - 为每项能力标记 `renderer-only`、`Electron main/preload`、`codex app-server` 或 `delete`。
@@ -296,7 +306,7 @@ user -> agent_requesting -> agent
 
 退出闸口：迁移矩阵完整，每个兼容层有删除任务，dynamic tools 探针有记录。
 
-### M1：Electron 空壳与安全基线
+### M1：Electron 空壳与安全基线（代码基础存在，历史运行待补证）
 
 - 建立 main/preload/renderer 入口，复用现有 Vite renderer。
 - 配置 sandbox、context isolation、CSP、自定义 app protocol、导航和 popup 策略。
@@ -306,7 +316,7 @@ user -> agent_requesting -> agent
 
 退出闸口：Windows 可启动、无 Node renderer、非法 IPC 和导航被拒绝。
 
-### M2：App Server client 与真实 Codex thread
+### M2：App Server client 与真实 Codex thread（代码基础存在，历史运行待补证）
 
 - main 直接监管 bundled `codex.exe app-server`，实现 StdioConnection 与 JSONL dispatcher。
 - 建立双向 request/response/notification、初始化、取消、deadline、订阅、退出和重启状态机。
@@ -317,7 +327,7 @@ user -> agent_requesting -> agent
 
 退出闸口：真实模型 thread 在 Electron 中端到端通过，app-server 崩溃、renderer 崩溃和 App 重启可恢复。
 
-### M3：单 tab Browser 纵向切片
+### M3：单 tab Browser 纵向切片（代码基础存在，历史运行待补证）
 
 - 建立 Browser backend、registry、main-owned `WebContentsView` 和 bounds/visibility 同步。
 - 跑通持久 profile、tab 创建、挂载、隐藏、导航、snapshot、click、type、screenshot。
@@ -327,20 +337,20 @@ user -> agent_requesting -> agent
 
 退出闸口：用户和 agent 共享同一 `WebContentsView` 页面，不存在独立 headless browser；modal 不被 native view 遮挡。
 
-### M4：Browser 产品化
+### M4：Browser 产品化（唯一当前 P0）
 
 - 多 tab、view retention/reparenting、live/suspended/persisted 工作集、恢复、frame/OOPIF、download grant、权限和 popup。
-- 验证公开 code-mode/node_repl 扩展接缝，自研 Browser skill/client；不得依赖私有 `nativePipe` 或复制 bundled plugin。
-- 完成 per-session backend、session/turn binding、随机 pipe/ACL/token、4-byte LE framing、8 MiB 上限、client id 和断连恢复，并替换 dynamic-tool bootstrap。
+- 标准 stdio MCP + 随包 Node adapter 已通过锁定 `0.146.0` 实制品探针并完成生产切换；继续禁止私有 `nativePipe`、复制 bundled plugin 或永久 dynamic tools。
+- 完成 per-session backend、session/turn binding、随机 pipe、目标用户 ACL、无 token/旧 token 拒绝、4-byte LE framing、8 MiB 上限、client id 和断连恢复，并替换 dynamic-tool bootstrap。
 - 完成注入式 selector/actionability/增量 ARIA、OOPIF snapshot、route-scoped targets、input-target token 和 hidden capture surface。
 - 完成 tab origin/claim/handoff/deliverable、turn/finalize 收口与资源无残留验证。
-- 登录、MFA、反自动化、下载、离线、renderer crash 和 App restart 实测。
+- 合成站点敏感购买确认/拒绝、实际下载、file chooser 和 App restart 已有 E2E；继续完成真实站点登录、MFA、反自动化、权限、离线和 renderer crash 实测。
 - raw CDP Developer mode、企业禁用和审计记录。
 - 验证 32 live pages/30 分钟保护候选并锁定实际工作集；记录内存、GPU、DPI、多屏、焦点和输入法基线。
 
-退出闸口：spec 013 的 Windows Browser 矩阵通过。
+退出闸口：`001-in-app-browser` 的 Windows Browser 矩阵通过。
 
-### M5：剩余宿主能力与发布
+### M5：剩余宿主能力与发布（P1）
 
 - 迁移文件、Git、终端、设置、凭据、通知、菜单、快捷键、深链和更新。
 - 按 Codex App 分层把终端迁移到 Electron main 的 `node-pty` 能力，并把 Electron 自有状态与 Codex ThreadStore 分库、分目录管理。
@@ -375,7 +385,7 @@ apps/desktop/
 
 ## 发布前不可跳过的验证
 
-- 锁定 app-server 版本的 initialize、thread、server request 和 dynamic tools 探针。
+- 锁定 app-server 版本的 initialize、thread、MCP ready/tool call/metadata 和 dynamic-tools bootstrap 探针。
 - Browser bounds 越界、旧 layout revision、旧 window/view generation、跨 thread/profile 和错误 owner 拒绝测试。
 - 页面 WebContents 内 `require`、`process`、`window.blackrain` 和 App preload 均不可见；可选 page preload 不向网页暴露全局对象或原始 IPC。
 - 未授权本地进程不能调用 Browser backend。

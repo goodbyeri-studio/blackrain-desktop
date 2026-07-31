@@ -2,7 +2,7 @@
 
 > 当前目标锁：`e363b08c9175ac1cbe5893615dd2cb9ddf95043b` / `rust-v0.146.0`。源码和官方 release package 锁定不等于 Windows runtime 或产品验收。
 
-> **宿主状态（2026-07-26）**：当前 checkout 仍是 Tauri；Electron 是唯一目标宿主。下方旧 Tauri 命令和证据在迁移完成前仅作为基线，新的 Browser/宿主验收按 specs 012/013 补齐。
+> **宿主状态（2026-07-31）**：当前完整产品仍是 Tauri；Electron 是唯一目标宿主。下方旧 Tauri 命令和证据在迁移完成前仅作为基线，当前 Browser/宿主验收统一写入 `001-in-app-browser`。
 
 ## 更新前
 
@@ -23,7 +23,7 @@ git -C codex-upstream rev-parse HEAD
 ## 代码与合同
 
 - [ ] 更新 `docs/REFERENCES.md` 和脚本中的 tag/SHA。
-- [ ] 重跑 spec 006 的 app-server 能力账本。
+- [ ] 重跑 `001-in-app-browser` 依赖的 app-server/Browser 工具协议探针。
 - [ ] 检查标准 Codex Home schema、config/auth/session/rollout/SQLite，并验证 App 与 CLI 的共享和恢复兼容性。
 - [ ] 检查 Gateway 的 Responses、流式、工具调用和错误映射。
 - [ ] 检查 Electron main App Server client 与目标 app-server 协议、启动参数和 helper 制品是否仍一致。
@@ -38,7 +38,7 @@ git -C codex-upstream rev-parse HEAD
 - [ ] 验证停止、审批、恢复、附件和工具调用。
 - [ ] 构建并解包 Electron Windows 制品（打包方案待 012 决策）。
 - [ ] 执行安装、升级、卸载和残留检查。
-- [ ] 将真实结果写入 spec 007/006 verification。
+- [ ] 将真实结果写入 `001-in-app-browser/verification.md`；非 Browser 路线只更新对应运行手册。
 
 ## 结果记录
 

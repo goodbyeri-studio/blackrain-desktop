@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useAccount } from "../context/AccountProvider";
 import { LoginScreen } from "./LoginScreen";
 
-// 002-accounts-credits：登录门禁。决定开屏放不放用户进 App。
+// 登录门禁：决定是否允许用户进入 App。
 // - unconfigured（无 Supabase env，dev/本地）→ 直接进，不拦（保本地可用）。
 // - loading（恢复会话中）→ 开屏占位。
 // - signed-out（无缓存会话 / 显式登出）→ 登录页。

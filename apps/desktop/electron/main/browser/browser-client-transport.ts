@@ -51,7 +51,14 @@ type ConnectionState = {
   buffer: Buffer;
   handshaken: boolean;
   requestIds: Set<string>;
-  pending: Map<string, AbortController>;
+  pending: Map<
+    string,
+    {
+      controller: AbortController;
+      threadId: string;
+      turnId: string;
+    }
+  >;
 };
 
 export type BrowserClientBootstrap = Readonly<{
@@ -71,6 +78,7 @@ export type BrowserClientTransportOptions = {
   endpoint?: string;
   capabilityToken?: string;
   requestTimeoutMs?: number;
+  multiSession?: boolean;
 };
 
 export class BrowserClientTransportServer {
@@ -81,8 +89,10 @@ export class BrowserClientTransportServer {
   readonly #endpoint: string;
   readonly #capabilityToken: string;
   readonly #requestTimeoutMs: number;
+  readonly #multiSession: boolean;
   readonly #connections = new Set<ConnectionState>();
-  #activeTurnId: string | null = null;
+  readonly #registeredThreads = new Set<string>();
+  readonly #activeTurns = new Map<string, string>();
   #server?: Server;
   #startPromise?: Promise<BrowserClientBootstrap>;
 
@@ -104,6 +114,10 @@ export class BrowserClientTransportServer {
     }
     this.#requestTimeoutMs =
       options.requestTimeoutMs ?? BROWSER_CLIENT_REQUEST_TIMEOUT_MS;
+    this.#multiSession = options.multiSession ?? false;
+    if (!this.#multiSession) {
+      this.#registeredThreads.add(this.#codexSessionId);
+    }
   }
 
   start(): Promise<BrowserClientBootstrap> {
@@ -124,7 +138,12 @@ export class BrowserClientTransportServer {
       };
       server.once("error", handleError);
       server.once("listening", handleListening);
-      server.listen(this.#endpoint);
+      server.listen({
+        path: this.#endpoint,
+        ...(process.platform === "win32"
+          ? { readableAll: false, writableAll: false }
+          : {}),
+      });
     }).finally(() => {
       this.#startPromise = undefined;
     });
@@ -132,49 +151,75 @@ export class BrowserClientTransportServer {
     return startPromise;
   }
 
-  setActiveTurn(turnId: string): void {
-    const nextTurnId = identifierSchema.parse(turnId);
-    if (this.#activeTurnId && this.#activeTurnId !== nextTurnId) {
-      const previousTurnId = this.#activeTurnId;
-      for (const connection of this.#connections) {
-        for (const controller of connection.pending.values()) {
-          controller.abort(new Error("Browser client turn 已被新 turn 替代"));
-        }
-      }
-      this.#backend.completeAgentTurn?.(
-        { threadId: this.#codexSessionId, routeKey: "browser-sidebar" },
-        previousTurnId,
-      );
-    }
-    this.#activeTurnId = nextTurnId;
+  registerThread(threadId: string): void {
+    this.#registeredThreads.add(identifierSchema.parse(threadId));
   }
 
-  completeTurn(turnId: string): void {
-    const parsedTurnId = identifierSchema.parse(turnId);
-    if (this.#activeTurnId !== parsedTurnId) return;
-    this.#activeTurnId = null;
-    for (const connection of this.#connections) {
-      for (const controller of connection.pending.values()) {
-        controller.abort(new Error("Browser client turn 已完成"));
+  unregisterThread(threadId: string): void {
+    const parsedThreadId = identifierSchema.parse(threadId);
+    this.#registeredThreads.delete(parsedThreadId);
+    this.#activeTurns.delete(parsedThreadId);
+    this.#abortPending(parsedThreadId, undefined, "Browser client thread 已注销");
+  }
+
+  setActiveTurn(threadId: string, turnId?: string): void {
+    const parsedThreadId = this.#multiSession
+      ? identifierSchema.parse(threadId)
+      : this.#codexSessionId;
+    const nextTurnId = identifierSchema.parse(
+      this.#multiSession ? turnId : threadId,
+    );
+    if (!this.#registeredThreads.has(parsedThreadId)) {
+      throw new Error("Browser client thread 未注册或已失效");
+    }
+    const previousTurnId = this.#activeTurns.get(parsedThreadId);
+    if (previousTurnId && previousTurnId !== nextTurnId) {
+      this.#abortPending(
+        parsedThreadId,
+        previousTurnId,
+        "Browser client turn 已被新 turn 替代",
+      );
+      if (!this.#multiSession) {
+        this.#backend.completeAgentTurn?.(
+          { threadId: parsedThreadId, routeKey: "browser-sidebar" },
+          previousTurnId,
+        );
       }
     }
-    this.#backend.completeAgentTurn?.(
-      { threadId: this.#codexSessionId, routeKey: "browser-sidebar" },
-      parsedTurnId,
+    this.#activeTurns.set(parsedThreadId, nextTurnId);
+  }
+
+  completeTurn(threadId: string, turnId?: string): void {
+    const parsedThreadId = this.#multiSession
+      ? identifierSchema.parse(threadId)
+      : this.#codexSessionId;
+    const parsedTurnId = identifierSchema.parse(
+      this.#multiSession ? turnId : threadId,
     );
+    if (this.#activeTurns.get(parsedThreadId) !== parsedTurnId) return;
+    this.#activeTurns.delete(parsedThreadId);
+    this.#abortPending(parsedThreadId, parsedTurnId, "Browser client turn 已完成");
+    if (!this.#multiSession) {
+      this.#backend.completeAgentTurn?.(
+        { threadId: parsedThreadId, routeKey: "browser-sidebar" },
+        parsedTurnId,
+      );
+    }
   }
 
   async stop(): Promise<void> {
     const server = this.#server;
     this.#server = undefined;
-    const activeTurnId = this.#activeTurnId;
-    if (activeTurnId) {
-      this.#backend.completeAgentTurn?.(
-        { threadId: this.#codexSessionId, routeKey: "browser-sidebar" },
-        activeTurnId,
-      );
+    if (!this.#multiSession) {
+      for (const [threadId, turnId] of this.#activeTurns) {
+        this.#backend.completeAgentTurn?.(
+          { threadId, routeKey: "browser-sidebar" },
+          turnId,
+        );
+      }
     }
-    this.#activeTurnId = null;
+    this.#activeTurns.clear();
+    this.#registeredThreads.clear();
     for (const connection of this.#connections) {
       this.#closeConnection(connection, "Browser client backend 已停止");
     }
@@ -268,14 +313,18 @@ export class BrowserClientTransportServer {
       }
       const params = ToolCallParamsSchema.parse(request.params);
       if (
-        params.session_id !== this.#codexSessionId ||
-        params.turn_id !== this.#activeTurnId
+        !this.#registeredThreads.has(params.session_id) ||
+        params.turn_id !== this.#activeTurns.get(params.session_id)
       ) {
         this.#sendError(connection, request.id, -32003, "Browser session/turn 已失效");
         return;
       }
       const controller = new AbortController();
-      connection.pending.set(requestKey, controller);
+      connection.pending.set(requestKey, {
+        controller,
+        threadId: params.session_id,
+        turnId: params.turn_id,
+      });
       const timeout = setTimeout(
         () => controller.abort(new Error("Browser client request 超时")),
         this.#requestTimeoutMs,
@@ -317,7 +366,12 @@ export class BrowserClientTransportServer {
       this.#fatal(connection, "Browser client 必须先握手", request.id);
       return;
     }
-    const params = HandshakeParamsSchema.parse(request.params);
+    const parsed = HandshakeParamsSchema.safeParse(request.params);
+    if (!parsed.success) {
+      this.#fatal(connection, "Browser client 握手参数非法", request.id);
+      return;
+    }
+    const params = parsed.data;
     if (
       !constantTimeEqual(params.capabilityToken, this.#capabilityToken) ||
       params.appBuild !== this.#appBuild ||
@@ -384,12 +438,25 @@ export class BrowserClientTransportServer {
 
   #closeConnection(connection: ConnectionState, reason: string): void {
     if (!this.#connections.delete(connection)) return;
-    for (const controller of connection.pending.values()) {
-      controller.abort(new Error(reason));
+    for (const pending of connection.pending.values()) {
+      pending.controller.abort(new Error(reason));
     }
     connection.pending.clear();
     connection.requestIds.clear();
     if (!connection.socket.destroyed) connection.socket.destroy();
+  }
+
+  #abortPending(threadId: string, turnId: string | undefined, reason: string): void {
+    for (const connection of this.#connections) {
+      for (const pending of connection.pending.values()) {
+        if (
+          pending.threadId === threadId &&
+          (turnId === undefined || pending.turnId === turnId)
+        ) {
+          pending.controller.abort(new Error(reason));
+        }
+      }
+    }
   }
 }
 

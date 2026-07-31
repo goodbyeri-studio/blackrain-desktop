@@ -6,6 +6,10 @@ import {
   validateLock,
   verifyRuntime,
 } from "./verify-codex-runtime.mjs";
+import {
+  validateNodeRuntimeLock,
+  verifyNodeRuntime,
+} from "./verify-node-runtime.mjs";
 
 if (process.platform !== "win32") {
   throw new Error("bundled Codex app-server 探针仅支持 Windows x64");
@@ -27,6 +31,21 @@ const runtimeRoot = path.join(
 const lock = JSON.parse(await readFile(lockPath, "utf8"));
 const { platform } = validateLock(lock);
 await verifyRuntime(lock, platform, { runtimeRoot });
+const nodeLockPath = path.join(
+  desktopRoot,
+  "resources",
+  "node-runtime",
+  "runtime-lock.json",
+);
+const nodeRuntimeRoot = path.join(
+  desktopRoot,
+  "resources",
+  "node-runtime",
+  "windows-x64",
+);
+const nodeLock = JSON.parse(await readFile(nodeLockPath, "utf8"));
+const { platform: nodePlatform } = validateNodeRuntimeLock(nodeLock);
+await verifyNodeRuntime(nodeLock, nodePlatform, nodeRuntimeRoot);
 
 const vitestEntry = path.join(
   desktopRoot,
@@ -39,11 +58,20 @@ const result = spawnSync(
   [
     vitestEntry,
     "run",
+    "--no-file-parallelism",
     "electron/main/app-server/bundled-app-server-probe.test.ts",
+    "electron/main/app-server/bundled-browser-mcp-probe.test.ts",
   ],
   {
     cwd: desktopRoot,
-    env: { ...process.env, BLACKRAIN_BUNDLED_CODEX_PROBE: "1" },
+    env: {
+      ...process.env,
+      BLACKRAIN_BUNDLED_CODEX_PROBE: "1",
+      BLACKRAIN_BROWSER_MCP_PROBE_NODE: path.join(
+        nodeRuntimeRoot,
+        "node.exe",
+      ),
+    },
     stdio: "inherit",
     windowsHide: true,
   },

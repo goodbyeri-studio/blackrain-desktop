@@ -58,6 +58,13 @@ function backend(): BrowserAgentBackend {
       url: tab.url,
       text: 'RootWebArea "Example"',
     })),
+    locateForAgent: vi.fn(async () => ({
+      snapshotId: "snapshot-1",
+      ref: "ref-1",
+      role: "button",
+      name: "提交",
+      url: tab.url,
+    })),
     clickForAgent: vi.fn(async () => ({
       browserTabId: tab.browserTabId,
       viewGeneration: tab.viewGeneration,
@@ -186,6 +193,28 @@ describe("BrowserDynamicToolAdapter", () => {
       success: true,
     });
 
+    await adapter.handleServerRequest(
+      request("locate", {
+        browserTabId: "tab-1",
+        viewGeneration: 1,
+        role: "button",
+        name: "提交",
+        exact: true,
+        state: "actionable",
+        timeoutMs: 2_000,
+      }),
+    );
+    expect(browser.locateForAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: "button",
+        name: "提交",
+        exact: true,
+        state: "actionable",
+        timeoutMs: 2_000,
+      }),
+      expect.any(AbortSignal),
+    );
+
     const refArgs = {
       browserTabId: "tab-1",
       viewGeneration: 1,
@@ -234,9 +263,14 @@ describe("BrowserDynamicToolAdapter", () => {
       "reload",
       "stop",
       "snapshot",
+      "locate",
       "click",
+      "hover",
       "type_text",
+      "press_key",
+      "scroll",
       "screenshot",
+      "finalize",
     ]);
   });
 });

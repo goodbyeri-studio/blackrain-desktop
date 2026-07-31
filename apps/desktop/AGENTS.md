@@ -1,10 +1,10 @@
 # BlackRain Desktop Agent Guide
 
-> **状态（2026-07-31）**：当前完整产品流程仍是 CodexMonitor 衍生的 Tauri + React + Rust 实现；迁移中的 Electron 已接通最小 workspace、真实 thread/turn/steer/interrupt、事件投影和 Browser 纵向切片。锁定 `codex-cli 0.146.0` 的真实模型已在 Windows 本机通过同一可见 `WebContentsView` screenshot 工具调用、用户接管、权限/下载拦截、page/App 重启恢复；跨站 OOPIF snapshot/click/type 与自有 Browser client/framed transport foundation 也已通过测试。生产 ACL/runtime 接缝与唯一 adapter 切换、完整 locator/CUA、真实站点登录和发布矩阵仍未完成。迁移合同以仓库根 `.specs/012-electron-shell-migration/` 为准，Codex App 能力与 Browser 以 `.specs/013-codex-app-capability-parity/` 为准。
+> **状态（2026-08-01）**：唯一当前 P0 是内置浏览器，任务与验收只以 `.specs/001-in-app-browser/` 为准；Browser 所需 Electron/App Server/制品支撑也统一写入该 spec。当前完整产品流程仍是 Tauri。锁定 `codex-cli 0.146.0` 已通过标准 stdio MCP、随包 Node 22 adapter、自有 Browser client/transport 接入唯一 main backend，生产 `thread/start` 不再提交 dynamic tools；真实模型已通过 MCP screenshot 操作同一可见 tab 并在 turn 后释放控制，同用户 no/wrong/stale-token 拒绝及基础 role/name locator、wait/actionability/CUA 已有当前测试证据。另一个真实 Windows 用户账户的 ACL 探针、审批/停止/恢复矩阵、注入式增量 ARIA/完整 selector runtime、真实站点和 Windows 产品矩阵仍未完成。
 
 ## 项目快照
 
-BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前完整产品流程仍运行于 React/Vite + Tauri/Rust；`electron/` 已建立 M1 安全空壳、M2 stdio/JSONL transport、锁定 `codex-cli 0.146.0` Windows canonical package 供应链，以及 M3 main-owned `WebContentsView` host/UI/受限 CDP/OOPIF Browser 纵向切片。Electron 已有最小 workspace、产品 thread/turn facade 和可打包的自有 Browser client/transport foundation，并通过真实模型 Agent 共页 E2E，但尚未完成其余 Tauri 能力迁移、Browser client 生产切换和发布验收。不得把 Browser P0 纵向切片通过写成 Electron 客户端或全量迁移已经完成。
+BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前完整产品流程仍运行于 React/Vite + Tauri/Rust；`electron/` 已建立 M1 安全空壳、M2 stdio/JSONL transport、锁定 `codex-cli 0.146.0` Windows canonical package 供应链，以及 M3 main-owned `WebContentsView` host/UI/受限 CDP/OOPIF Browser 纵向切片。Electron 已有最小 workspace、产品 thread/turn facade，以及已切换为生产入口的可打包自有 Browser MCP adapter/client/transport；真实模型 Agent 共页 E2E 有历史通过摘要，但缺失的 commit、命令、日志和制品索引必须在 `verification.md` 补齐。尚未完成其余 Tauri 能力迁移、Browser P0 剩余安全与产品闸口和发布验收，不得把 Browser P0 纵向切片写成 Electron 客户端或全量迁移已经完成。
 
 目标宿主边界：
 
@@ -23,14 +23,14 @@ Model Gateway       可选协议翻译 sidecar
 3. `src-tauri/src/shared/*` 与 daemon 是当前 Tauri 迁移输入；新增目标态能力按所有权进入 Electron main/preload/renderer 或原装 app-server，不再扩建永久 daemon。
 4. 当前 Tauri App/daemon adapter 只作迁移输入；目标 Electron main 不重复实现 app-server 的 agent、工具、审批或持久化逻辑。
 5. renderer 不接触 Node.js、原始 IPC、secret、App Server transport 或任意文件系统。
-6. Browser 网页不加载 App preload；spec 013 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用 page preload。所有导航、权限、下载、弹窗和 CDP 由宿主集中控制。
+6. Browser 网页不加载 App preload；当前 spec 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用 page preload。所有导航、权限、下载、弹窗和 CDP 由宿主集中控制。
 7. 目标 Electron App 沿用 Codex 标准 Home 解析并与 CLI 共享配置、能力和可恢复 thread；不得自动派生 BlackRain 专属 `CODEX_HOME`。
 8. bundled `codex.exe` 路径与 Codex Home 是两个独立配置域；切换二进制不得切换或复制 Home。
 9. Gateway 只做模型协议翻译，不持有 thread、Browser 或 UI 状态；BlackRain 专属 provider/model 只用进程级 `-c` override，不写共享 `config.toml`。
 10. provider secret/credit token 的规范副本进入系统凭据库；Gateway 运行时凭据桥放 BlackRain app-data 的专用目录，不进入 Codex Home。
 11. Tauri -> Electron 迁移期兼容层必须带删除任务，不建立永久双宿主。
 12. Browser 采用 main-owned `WebContentsView`、统一 registry、view retention/reparenting 和持久 profile；React 只控制侧边栏布局，不得另起 Playwright/headless agent browser。
-13. Browser 工具按 Codex session/turn 绑定到唯一 main backend；dynamic tools 只作 bootstrap，生产 Browser client/transport 必须鉴权、有界并带删除临时 adapter 的闸口。
+13. Browser 工具按 Codex session/turn 绑定到唯一 main backend；发布态使用标准 stdio MCP + 随包 Node adapter + 鉴权有界 transport，dynamic tools 只作测试/bootstrap。
 
 ## 当前 Tauri 代码路由
 
@@ -41,7 +41,7 @@ Model Gateway       可选协议翻译 sidecar
 3. 前端 IPC：`src/services/tauri.ts`
 4. daemon RPC：`src-tauri/src/bin/blackrain_daemon/rpc.rs` 及 `rpc/*`
 
-新增或修改命令必须同步所有相关层和测试，并在 spec 012 中登记迁移归属。Electron 建立后，新的宿主 API 不应继续扩张 `tauri.ts`。
+新增或修改命令必须同步所有相关层和测试。Browser 功能及其宿主依赖统一登记到 `001-in-app-browser`。Electron 建立后，新的宿主 API 不应继续扩张 `tauri.ts`。
 
 ## 前端规则
 

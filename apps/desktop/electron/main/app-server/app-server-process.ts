@@ -1,4 +1,5 @@
 import {
+  execFile,
   spawn,
   type ChildProcessWithoutNullStreams,
   type SpawnOptionsWithoutStdio,
@@ -36,6 +37,7 @@ export type AppServerProcessOptions = {
   stopGraceMs?: number;
   connection?: AppServerRpcConnectionOptions;
   onExit?: (exit: AppServerExit) => void;
+  terminateProcessTree?: (pid: number) => Promise<void>;
 };
 
 export class AppServerProcess {
@@ -138,7 +140,11 @@ export class AppServerProcess {
     } catch (error) {
       this.#state = "failed";
       this.#connection?.close("App Server process 启动失败");
-      child.kill();
+      if (child.pid) {
+        await (this.#options.terminateProcessTree ?? terminateProcessTree)(child.pid);
+      } else {
+        child.kill();
+      }
       throw error;
     }
   }
@@ -176,9 +182,37 @@ export class AppServerProcess {
       return gracefulExit.exit;
     }
 
-    this.#child.kill();
+    if (this.#child.pid) {
+      await (this.#options.terminateProcessTree ?? terminateProcessTree)(
+        this.#child.pid,
+      );
+    } else {
+      this.#child.kill();
+    }
     return await exitPromise;
   }
+}
+
+export function terminateProcessTree(pid: number): Promise<void> {
+  if (!Number.isSafeInteger(pid) || pid <= 0) {
+    return Promise.reject(new Error("App Server process pid 非法"));
+  }
+  if (process.platform !== "win32") {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // 进程可能已在 grace deadline 与强制回收之间退出。
+    }
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    execFile(
+      "taskkill.exe",
+      ["/PID", String(pid), "/T", "/F"],
+      { windowsHide: true },
+      () => resolve(),
+    );
+  });
 }
 
 export function buildAppServerArguments(
@@ -187,6 +221,8 @@ export function buildAppServerArguments(
   return [
     "-c",
     "features.code_mode_host=true",
+    "-c",
+    "features.code_mode=true",
     ...extraCodexArgs,
     "app-server",
     "--analytics-default-enabled",

@@ -44,6 +44,7 @@ class FakeDebugger implements BrowserDebuggerTransport {
     { x: 0, y: 0, width: 1200, height: 2400 },
   ];
   layoutMetricCalls = 0;
+  mutationRevision = 0;
   frameTree: Record<string, unknown> = {
     frame: { id: "main-frame", url: "https://example.com/" },
   };
@@ -99,6 +100,8 @@ class FakeDebugger implements BrowserDebuggerTransport {
         return { targetInfos: this.targetInfos };
       case "Page.getFrameTree":
         return { frameTree: this.frameTree };
+      case "Page.createIsolatedWorld":
+        return { executionContextId: sessionId ? 201 : 101 };
       case "Page.getLayoutMetrics": {
         const index = Math.min(
           this.layoutMetricCalls,
@@ -117,6 +120,8 @@ class FakeDebugger implements BrowserDebuggerTransport {
         return { data: this.screenshotData };
       case "Runtime.callFunctionOn":
         return { result: { value: true } };
+      case "Runtime.evaluate":
+        return { result: { value: this.mutationRevision } };
       default:
         return {};
     }
@@ -139,15 +144,39 @@ function createTarget(pageDebugger: FakeDebugger) {
 }
 
 describe("BrowserCdpController", () => {
+  it("通过 CDP 切换页面 active/frozen 生命周期", async () => {
+    const pageDebugger = new FakeDebugger();
+    const controller = new BrowserCdpController();
+
+    await controller.setPageLifecycle(10, pageDebugger, "frozen");
+    await controller.setPageLifecycle(10, pageDebugger, "active");
+
+    expect(pageDebugger.calls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: "Page.setWebLifecycleState",
+          params: { state: "frozen" },
+        }),
+        expect.objectContaining({
+          method: "Page.setWebLifecycleState",
+          params: { state: "active" },
+        }),
+      ]),
+    );
+  });
+
   it("标准化 dialog 事件、响应命令并在意外 detach 后恢复 debugger", async () => {
     const pageDebugger = new FakeDebugger();
     const controller = new BrowserCdpController();
     const dialogs: unknown[] = [];
+    const fileChoosers: unknown[] = [];
     const statuses: string[] = [];
     await controller.observeTarget(10, pageDebugger, {
         isAlive: () => true,
         onDialogOpening: (dialog) => dialogs.push(dialog),
         onDialogClosed: vi.fn(),
+        onFileChooserOpening: (chooser, sessionId) =>
+          fileChoosers.push({ chooser, sessionId }),
         onDebuggerStatus: (status) => statuses.push(status),
     });
 
@@ -158,6 +187,36 @@ describe("BrowserCdpController", () => {
     });
     expect(dialogs).toEqual([
         expect.objectContaining({ message: "继续吗？", type: "confirm" }),
+    ]);
+    pageDebugger.emit(
+      "message",
+      "Page.fileChooserOpened",
+      { mode: "selectSingle", backendNodeId: 102, frameId: "main-frame" },
+      "",
+    );
+    pageDebugger.emit(
+      "message",
+      "Page.fileChooserOpened",
+      { mode: "selectMultiple", backendNodeId: 202, frameId: "child-frame" },
+      "session-frame-1",
+    );
+    expect(fileChoosers).toEqual([
+      {
+        chooser: {
+          mode: "selectSingle",
+          backendNodeId: 102,
+          frameId: "main-frame",
+        },
+        sessionId: undefined,
+      },
+      {
+        chooser: {
+          mode: "selectMultiple",
+          backendNodeId: 202,
+          frameId: "child-frame",
+        },
+        sessionId: "session-frame-1",
+      },
     ]);
     await controller.handleJavaScriptDialog(10, true);
     expect(pageDebugger.calls).toContainEqual({
@@ -263,7 +322,16 @@ describe("BrowserCdpController", () => {
       new AbortController().signal,
     );
 
-    expect(pageDebugger.calls).toEqual([
+    expect(pageDebugger.calls.map((call) => call.method)).toEqual([
+      "DOM.resolveNode",
+      "Runtime.callFunctionOn",
+      "Runtime.releaseObject",
+      "DOM.scrollIntoViewIfNeeded",
+      "DOM.getBoxModel",
+      "Input.dispatchMouseEvent",
+      "Input.dispatchMouseEvent",
+    ]);
+    expect(pageDebugger.calls.slice(-3)).toEqual([
       { method: "DOM.getBoxModel", params: { backendNodeId: 101 } },
       {
         method: "Input.dispatchMouseEvent",
@@ -364,6 +432,270 @@ describe("BrowserCdpController", () => {
     expect(pageDebugger.calls.some((call) => call.method === "Input.insertText")).toBe(
       false,
     );
+  });
+
+  it("为 Enter 键发送可激活页面控件的完整 CDP 键盘事件", async () => {
+    const pageDebugger = new FakeDebugger();
+    const controller = new BrowserCdpController();
+    const { target } = createTarget(pageDebugger);
+
+    await controller.pressKey(target, "Enter", new AbortController().signal);
+
+    expect(pageDebugger.calls.slice(-2)).toEqual([
+      {
+        method: "Input.dispatchKeyEvent",
+        params: {
+          type: "keyDown",
+          key: "Enter",
+          code: "Enter",
+          windowsVirtualKeyCode: 13,
+          nativeVirtualKeyCode: 13,
+          text: "\r",
+          unmodifiedText: "\r",
+        },
+      },
+      {
+        method: "Input.dispatchKeyEvent",
+        params: {
+          type: "keyUp",
+          key: "Enter",
+          code: "Enter",
+          windowsVirtualKeyCode: 13,
+          nativeVirtualKeyCode: 13,
+        },
+      },
+    ]);
+  });
+
+  it("等待唯一 locator 出现并通过两帧 actionability 稳定检查", async () => {
+    const pageDebugger = new FakeDebugger();
+    const original = pageDebugger.sendCommand.bind(pageDebugger);
+    let reads = 0;
+    pageDebugger.sendCommand = vi.fn(async (method, params, sessionId) => {
+      if (method === "Accessibility.getFullAXTree" && !sessionId) {
+        reads += 1;
+        if (reads === 2) {
+          pageDebugger.axNodes = [
+            ...pageDebugger.axNodes,
+            {
+              nodeId: "delayed-button",
+              role: { value: "button" },
+              name: { value: "延迟操作" },
+              backendDOMNodeId: 103,
+            },
+          ];
+        }
+      }
+      return original(method, params, sessionId);
+    });
+    const controller = new BrowserCdpController();
+    const { target } = createTarget(pageDebugger);
+
+    await expect(
+      controller.locate(
+        target,
+        { role: "button", name: "延迟操作", exact: true, timeoutMs: 500 },
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({ role: "button", name: "延迟操作" }),
+    );
+    expect(reads).toBe(2);
+    expect(pageDebugger.calls).toContainEqual(
+      expect.objectContaining({
+        method: "Runtime.callFunctionOn",
+        params: expect.objectContaining({
+          arguments: [{ value: "actionable" }],
+          awaitPromise: true,
+        }),
+      }),
+    );
+  });
+
+  it("合并增量 ARIA 更新，locator 轮询不重复读取完整 AX tree", async () => {
+    const pageDebugger = new FakeDebugger();
+    const controller = new BrowserCdpController();
+    const { target } = createTarget(pageDebugger);
+    await controller.observeTarget(target.webContentsId, pageDebugger, {
+      isAlive: () => true,
+      onDialogOpening: vi.fn(),
+      onDialogClosed: vi.fn(),
+      onDebuggerStatus: vi.fn(),
+    });
+
+    await controller.snapshot(target, new AbortController().signal);
+    pageDebugger.emit("message", "Accessibility.nodesUpdated", {
+      nodes: [
+        {
+          nodeId: "incremental-button",
+          role: { value: "button" },
+          name: { value: "增量操作" },
+          backendDOMNodeId: 104,
+        },
+      ],
+    });
+
+    await expect(
+      controller.locate(
+        target,
+        { role: "button", name: "增量操作", exact: true, timeoutMs: 0 },
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ name: "增量操作" }));
+    expect(
+      pageDebugger.calls.filter(
+        (call) => call.method === "Accessibility.getFullAXTree",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("isolated selector runtime 发现语义 DOM 变化后刷新 AX tree", async () => {
+    const pageDebugger = new FakeDebugger();
+    const controller = new BrowserCdpController();
+    const { target } = createTarget(pageDebugger);
+    await controller.observeTarget(target.webContentsId, pageDebugger, {
+      isAlive: () => true,
+      onDialogOpening: vi.fn(),
+      onDialogClosed: vi.fn(),
+      onDebuggerStatus: vi.fn(),
+    });
+
+    await controller.snapshot(target, new AbortController().signal);
+    pageDebugger.axNodes = [
+      ...pageDebugger.axNodes,
+      {
+        nodeId: "mutation-button",
+        role: { value: "button" },
+        name: { value: "DOM 变化" },
+        backendDOMNodeId: 105,
+      },
+    ];
+    pageDebugger.mutationRevision = 1;
+    const changed = await controller.snapshot(
+      target,
+      new AbortController().signal,
+    );
+
+    expect(changed.text).toContain('button "DOM 变化"');
+    expect(
+      pageDebugger.calls.filter(
+        (call) => call.method === "Accessibility.getFullAXTree",
+      ),
+    ).toHaveLength(2);
+    expect(pageDebugger.calls).toContainEqual(
+      expect.objectContaining({
+        method: "Page.createIsolatedWorld",
+        params: expect.objectContaining({
+          worldName: "blackrain-browser-runtime",
+          grantUniveralAccess: false,
+        }),
+      }),
+    );
+  });
+
+  it("区分 attached 与 actionable，并为不可操作元素返回有界超时", async () => {
+    const pageDebugger = new FakeDebugger();
+    const original = pageDebugger.sendCommand.bind(pageDebugger);
+    pageDebugger.sendCommand = vi.fn(async (method, params, sessionId) => {
+      if (
+        method === "Runtime.callFunctionOn" &&
+        String(params?.functionDeclaration).includes("requestAnimationFrame")
+      ) {
+        return { result: { value: false } };
+      }
+      return original(method, params, sessionId);
+    });
+    const controller = new BrowserCdpController();
+    const { target } = createTarget(pageDebugger);
+
+    await expect(
+      controller.locate(
+        target,
+        { role: "button", name: "提交", exact: true, state: "attached", timeoutMs: 0 },
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ name: "提交" }));
+    await expect(
+      controller.locate(
+        target,
+        { role: "button", name: "提交", exact: true, timeoutMs: 0 },
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow(/等待超时.*state=actionable.*尚未达到 actionable/);
+  });
+
+  it("locator 匹配不唯一时立即返回明确失败", async () => {
+    const pageDebugger = new FakeDebugger();
+    pageDebugger.axNodes = [
+      ...pageDebugger.axNodes,
+      {
+        nodeId: "duplicate-button",
+        role: { value: "button" },
+        name: { value: "提交" },
+        backendDOMNodeId: 103,
+      },
+    ];
+    const controller = new BrowserCdpController();
+    const { target } = createTarget(pageDebugger);
+
+    await expect(
+      controller.locate(
+        target,
+        { role: "button", name: "提交", exact: true, timeoutMs: 500 },
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow(/匹配到 2 个元素/);
+  });
+
+  it("OOPIF locator 轮询复用同一 child session", async () => {
+    const pageDebugger = new FakeDebugger();
+    pageDebugger.targetInfos = [
+      {
+        targetId: "frame-1",
+        type: "iframe",
+        url: "https://cross-origin.example/frame",
+        parentFrameId: "page-1",
+      },
+    ];
+    pageDebugger.frameTree = {
+      frame: { id: "main-frame", url: "https://example.com/" },
+      childFrames: [
+        { frame: { id: "frame-1", url: "https://cross-origin.example/frame" } },
+      ],
+    };
+    const original = pageDebugger.sendCommand.bind(pageDebugger);
+    let frameReads = 0;
+    pageDebugger.sendCommand = vi.fn(async (method, params, sessionId) => {
+      if (method === "Accessibility.getFullAXTree" && sessionId) {
+        frameReads += 1;
+        pageDebugger.oopifAxNodes =
+          frameReads === 1
+            ? []
+            : [
+                {
+                  nodeId: "frame-button",
+                  role: { value: "button" },
+                  name: { value: "跨域延迟操作" },
+                  backendDOMNodeId: 201,
+                },
+              ];
+      }
+      return original(method, params, sessionId);
+    });
+    const controller = new BrowserCdpController();
+    const { target } = createTarget(pageDebugger);
+
+    await expect(
+      controller.locate(
+        target,
+        { role: "button", name: "跨域延迟操作", exact: true, timeoutMs: 500 },
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ name: "跨域延迟操作" }));
+    expect(frameReads).toBe(2);
+    expect(
+      pageDebugger.calls.filter((call) => call.method === "Target.attachToTarget"),
+    ).toHaveLength(1);
   });
 
   it("只附着当前 page 派生的 OOPIF，并用对应 session 执行 ref", async () => {

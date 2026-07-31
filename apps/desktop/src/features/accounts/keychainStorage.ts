@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A1.4：Supabase SDK 的钥匙串 storage adapter。
+// Supabase SDK 的钥匙串 storage adapter。
 // Supabase 默认把 session 存 localStorage（明文、可被扒）。桌面端改存系统钥匙串：
 // 把 SDK 的 getItem/setItem/removeItem 转发到 Rust account_session_* 命令。
 //

@@ -2,12 +2,18 @@ import type { BrowserRouteScope, BrowserTabState } from "../../shared/browser-ta
 
 export type BrowserTabRecord<TView> = BrowserTabState & {
   blockedAgentTurnId: string | null;
+  createdByTurnId?: string | null;
   detached: boolean;
+  deliverable?: boolean;
   documentGeneration: number;
+  handoff?: boolean;
+  lastActiveAt: number;
+  origin?: "user" | "agent" | "popup" | "restored";
   ownerWebContentsId: number;
   ownerWindowId: number;
   ownerWindowGeneration: number;
   profileId: typeof import("./browser-policy").BROWSER_PARTITION;
+  pageLifecycle: "live" | "suspended" | "persisted" | "crashed";
   webContentsId: number;
   view: TView;
 };

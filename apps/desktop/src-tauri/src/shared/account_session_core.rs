@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A1.4：Supabase 会话 token 的系统钥匙串存取（领域核心）。
+// Supabase 会话 token 的系统钥匙串存取（领域核心）。
 // App 与 Daemon 都只做薄适配器，调用本模块。
 //
 // 为什么进钥匙串而非 localStorage：会话 token 等同登录凭据，桌面端必须存系统凭据库，

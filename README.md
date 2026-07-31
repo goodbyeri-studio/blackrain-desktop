@@ -4,10 +4,9 @@ BlackRain 是一款以 OpenAI 开源 `codex-rs` 为唯一 agent 内核的桌面 
 
 ## 当前目标
 
-两个并列 P0：
+唯一当前 P0 是 **in-app browser**：在 Electron 中交付持久登录态、页面控制、用户接管、locator/CUA、CDP、截图、下载、权限、安全隔离和恢复，并让真实 Codex turn 操作用户看到的同一个页面。
 
-1. **Codex App 能力补齐**：建立开源内核与完整桌面产品之间的能力差距账本，首先交付 in-app browser，包括持久登录态、页面控制、用户接管、CDP、截图、下载、权限和恢复。
-2. **Electron 壳迁移**：把 CodexMonitor 衍生的 Tauri 壳完整迁移到 Codex App 同构的 Electron/React/App Server 架构，不长期维护 Tauri 或自定义 daemon 宿主。
+Electron 仍是唯一目标宿主，但当前只推进解除 Browser P0 阻塞所需的 main/preload/App Server/制品工作。项目、Git、终端、设置等 Tauri 能力的全量迁移和 Tauri 删除排在 Browser P0 之后。
 
 工作台、Session Orchestrator、专家市场和 OPC/工作室全部暂停，不进入当前 P0/P1 路线。已有代码与 specs 作为冻结资产保留，但不能再被描述为当前产品第一主语或近期交付目标。
 
@@ -26,9 +25,9 @@ BlackRain Electron（目标态）
 
 ## 当前实现
 
-当前产品主流程仍是 CodexMonitor 衍生的 Tauri + React + Rust，实现中包含 CODE 界面、app-server 接缝、daemon/shared core 和模型网关原型。仓库同时已经建立 Electron 42/Forge/Vite 安全空壳、main-owned `WebContentsView` Browser host/UI、dynamic-tool/受限 CDP bootstrap 和 App Server stdio client foundation；Windows CI 已通过 production package、packaged smoke、Playwright Electron E2E 与 unsigned MSIX make。
+当前完整产品主流程仍是 CodexMonitor 衍生的 Tauri + React + Rust。仓库同时已经建立 Electron 42/Forge/Vite 安全空壳、main-owned `WebContentsView` Browser host/UI、App Server stdio client、锁定的 bundled `codex-cli 0.146.0` runtime、受限 CDP/OOPIF 和自有 Browser client/transport foundation。
 
-这些迁移证据仍不等于 Electron 客户端可交付：bundled `codex.exe`、真实模型 thread/审批/恢复、生产 Browser client、Agent 真实共页、签名以及安装/升级/回滚/卸载矩阵尚未完成。目标架构、代码存在、验证通过和发布可用必须分开陈述。
+真实模型 Agent 共页、用户接管、权限/下载拦截和 page/App restart 恢复已有 Windows 证据；生产 Browser client 的当前用户 ACL/公开 runtime 接缝/唯一 adapter、完整 locator/CUA、真实站点和 Windows 发布矩阵仍未完成。目标架构、代码存在、验证通过和发布可用必须分开陈述。
 
 ## 仓库
 
@@ -44,13 +43,10 @@ docs/              产品、架构与运行手册
 
 ## 真源
 
+- 当前唯一 spec：[.specs/001-in-app-browser/](.specs/001-in-app-browser/)
 - 产品形态：[docs/04-产品形态.md](docs/04-产品形态.md)
 - 运行时与里程碑：[docs/09-运行时架构与里程碑.md](docs/09-运行时架构与里程碑.md)
 - Electron 与 Browser 实施计划：[docs/10-Electron迁移与内置浏览器实现计划.md](docs/10-Electron迁移与内置浏览器实现计划.md)
-- Electron 迁移：[.specs/012-electron-shell-migration/](.specs/012-electron-shell-migration/)
-- Codex App 能力补齐与 Browser：[.specs/013-codex-app-capability-parity/](.specs/013-codex-app-capability-parity/)
-- codex 能力接线：[.specs/006-code-mode-capability-wiring/](.specs/006-code-mode-capability-wiring/)
-- 跨产品边界：[.specs/010-three-project-platform/](.specs/010-three-project-platform/)
 - 日常命令：[docs/commands.md](docs/commands.md)
 
 ## 架构纪律

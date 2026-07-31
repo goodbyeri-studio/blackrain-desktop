@@ -1,6 +1,6 @@
 # BlackRain Desktop Codebase Map (Task-Oriented)
 
-> **Migration note (2026-07-29):** this maps the current Tauri codebase. Electron is the only target host; spec 012 now follows the Codex Desktop topology in which Electron main directly owns the App Server client. The Rust daemon/shared core below is migration input, not a target runtime boundary.
+> **Migration note (2026-07-31):** this maps the current Tauri codebase. Electron is the only target host; the active `001-in-app-browser` spec covers only Browser P0 and its direct host dependencies. The Rust daemon/shared core below is migration input, not a target runtime boundary.
 
 Canonical navigation guide for the BlackRain desktop shell. The codebase is derived from CodexMonitor, but current file names and release scope follow BlackRain.
 
@@ -8,7 +8,7 @@ Related docs:
 
 - Repository status: `../../../README.md`
 - Setup/build/release: `../../../docs/commands.md`
-- Workbench package/lifecycle contract: `../../../.specs/008-expert-workbench-package/`
+- Current Browser P0 contract: `../../../.specs/001-in-app-browser/`
 - Localization/i18n: `docs/i18n.md`
 - iOS remote over Tailscale (TCP): `docs/mobile-ios-tailscale-blueprint.md`
 
@@ -36,7 +36,7 @@ If a behavior must work in both app and daemon, implement it in `src-tauri/src/s
 | Add/change app-server event handling in UI | `src/services/events.ts`, `src/features/app/hooks/useAppServerEvents.ts`, `src/utils/appServerEvents.ts`, `src/features/threads/utils/threadNormalize.ts` |
 | Change thread state transitions | `src/features/threads/hooks/useThreadsReducer.ts`, `src/features/threads/hooks/threadReducer/*`, `src/features/threads/hooks/useThreads.ts`, focused thread hooks under `src/features/threads/hooks/*` |
 | Change workspace lifecycle/worktree behavior | `src/features/workspaces/hooks/useWorkspaces.ts`, `src-tauri/src/workspaces/commands.rs`, `src-tauri/src/shared/workspaces_core.rs`, `src-tauri/src/shared/workspaces_core/*`, `src-tauri/src/shared/worktree_core.rs` |
-| Add workbench inspect/install/activate/verify/uninstall | No implementation path is canonical yet. Start from spec 008, put cross-runtime domain logic in a new `src-tauri/src/shared/*` core, then add App/Daemon thin adapters and frontend IPC/UI. Do not overload existing workspace/worktree cores. |
+| Add workbench inspect/install/activate/verify/uninstall | Paused and not part of the current product route. Do not add an implementation path until product priority is explicitly changed and a new sole spec replaces the Browser spec. |
 | Change settings model/load/update | `src/features/settings/components/SettingsView.tsx`, `src/features/settings/hooks/useAppSettings.ts`, `src/services/tauri.ts`, `src-tauri/src/settings/mod.rs`, `src-tauri/src/shared/settings_core.rs`, `src-tauri/src/types.rs`, `src/types.ts` |
 | Change Git/GitHub backend behavior | `src/features/git/hooks/*`, `src/services/tauri.ts`, `src-tauri/src/git/mod.rs`, `src-tauri/src/shared/git_ui_core.rs`, `src-tauri/src/shared/git_ui_core/*`, `src-tauri/src/shared/git_core.rs`, `src-tauri/src/bin/blackrain_daemon/rpc.rs`, `src-tauri/src/bin/blackrain_daemon/rpc/git.rs` |
 | Change prompts CRUD/listing behavior | `src/features/prompts/hooks/useCustomPrompts.ts`, `src/features/prompts/components/PromptPanel.tsx`, `src/services/tauri.ts`, `src-tauri/src/prompts.rs`, `src-tauri/src/shared/prompts_core.rs`, `src-tauri/src/bin/blackrain_daemon/rpc.rs` |

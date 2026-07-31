@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A1.4：账号会话钥匙串命令（App 进程薄适配器）。
+// 账号会话钥匙串命令（App 进程薄适配器）。
 // 领域逻辑在 shared::account_session_core；这里只做命令暴露。
 // 前端 Supabase storage adapter 调这三个命令完成 session 持久化。
 

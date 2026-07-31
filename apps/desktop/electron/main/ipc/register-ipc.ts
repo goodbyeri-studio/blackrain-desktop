@@ -130,6 +130,12 @@ export function registerIpcHandlers(
     return agent.interruptTurn(input);
   });
 
+  ipcMain.handle(IPC_CHANNELS.agentRespondServerRequest, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return agent.respondToServerRequest(input);
+  });
+
   ipcMain.handle(IPC_CHANNELS.browserCreateTab, (event, input: unknown) => {
     assertMainFrame(event);
     const sender = registry.require(event.sender.id, "main");
@@ -194,6 +200,35 @@ export function registerIpcHandlers(
     );
   });
 
+  ipcMain.handle(
+    IPC_CHANNELS.browserRespondSensitiveAction,
+    (event, input: unknown) => {
+      assertMainFrame(event);
+      const sender = registry.require(event.sender.id, "main");
+      return browser.respondSensitiveAction(
+        requireOwnerWindow(event),
+        sender.generation,
+        input,
+      );
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.agentUnsubscribeThread, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return agent.unsubscribeThread(input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.browserResolveFileChooser, (event, input: unknown) => {
+    assertMainFrame(event);
+    const sender = registry.require(event.sender.id, "main");
+    return browser.resolveFileChooser(
+      requireOwnerWindow(event),
+      sender.generation,
+      input,
+    );
+  });
+
   ipcMain.handle(IPC_CHANNELS.browserCloseTab, (event, input: unknown) => {
     assertMainFrame(event);
     const sender = registry.require(event.sender.id, "main");
@@ -221,17 +256,21 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(IPC_CHANNELS.agentListThreads);
     ipcMain.removeHandler(IPC_CHANNELS.agentStartThread);
     ipcMain.removeHandler(IPC_CHANNELS.agentResumeThread);
+    ipcMain.removeHandler(IPC_CHANNELS.agentUnsubscribeThread);
     ipcMain.removeHandler(IPC_CHANNELS.agentStartTurn);
     ipcMain.removeHandler(IPC_CHANNELS.agentSteerTurn);
     ipcMain.removeHandler(IPC_CHANNELS.agentInterruptTurn);
+    ipcMain.removeHandler(IPC_CHANNELS.agentRespondServerRequest);
     ipcMain.removeHandler(IPC_CHANNELS.browserCreateTab);
     ipcMain.removeHandler(IPC_CHANNELS.browserListTabs);
     ipcMain.removeHandler(IPC_CHANNELS.browserNavigate);
     ipcMain.removeHandler(IPC_CHANNELS.browserControl);
     ipcMain.removeHandler(IPC_CHANNELS.browserTakeControl);
     ipcMain.removeHandler(IPC_CHANNELS.browserRespondPermission);
+    ipcMain.removeHandler(IPC_CHANNELS.browserRespondSensitiveAction);
     ipcMain.removeHandler(IPC_CHANNELS.browserResolveDownload);
     ipcMain.removeHandler(IPC_CHANNELS.browserRespondDialog);
+    ipcMain.removeHandler(IPC_CHANNELS.browserResolveFileChooser);
     ipcMain.removeHandler(IPC_CHANNELS.browserCloseTab);
     ipcMain.removeHandler(IPC_CHANNELS.browserSetLayout);
   };

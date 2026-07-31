@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A1.6：credit 余额展示格式化。
+// credit 余额展示格式化。
 // 纯函数，可单测。余额可为负（并发超卖，下次充值补齐）。
 
 import { PLAN_DESCRIPTORS, type AccountPlan } from "../types";

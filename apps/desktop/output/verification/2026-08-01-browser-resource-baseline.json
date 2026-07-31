@@ -1,0 +1,235 @@
+{
+  "recordedAt": "2026-07-31T19:03:03.971Z",
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "osRelease": "10.0.26200",
+    "cpu": "AMD Ryzen 7 5800H with Radeon Graphics         ",
+    "node": "v24.18.1"
+  },
+  "startupMs": 1033,
+  "liveBudget": 8,
+  "tenTabLiveCount": 8,
+  "tenTabSuspendedCount": 2,
+  "suspendedResumeMs": 6,
+  "oneTab": {
+    "capturedAt": "2026-07-31T19:02:58.949Z",
+    "electronVersion": "42.3.0",
+    "processCount": 6,
+    "totals": {
+      "workingSetSizeKb": 672008,
+      "peakWorkingSetSizeKb": 832388,
+      "privateBytesKb": 456608,
+      "sharedBytesKb": 0
+    },
+    "processes": [
+      {
+        "type": "Browser",
+        "workingSetSizeKb": 137788,
+        "peakWorkingSetSizeKb": 144128,
+        "privateBytesKb": 102772,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "GPU",
+        "serviceName": "GPU",
+        "workingSetSizeKb": 121464,
+        "peakWorkingSetSizeKb": 132268,
+        "privateBytesKb": 177096,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Utility",
+        "serviceName": "network.mojom.NetworkService",
+        "workingSetSizeKb": 52384,
+        "peakWorkingSetSizeKb": 53840,
+        "privateBytesKb": 16052,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Tab",
+        "workingSetSizeKb": 159652,
+        "peakWorkingSetSizeKb": 300160,
+        "privateBytesKb": 103284,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Tab",
+        "workingSetSizeKb": 100192,
+        "peakWorkingSetSizeKb": 100572,
+        "privateBytesKb": 28000,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Tab",
+        "workingSetSizeKb": 100528,
+        "peakWorkingSetSizeKb": 101420,
+        "privateBytesKb": 29404,
+        "sharedBytesKb": 0
+      }
+    ],
+    "gpuFeatureStatus": {
+      "2d_canvas": "enabled",
+      "direct_rendering_display_compositor": "disabled_off_ok",
+      "gpu_compositing": "enabled",
+      "multiple_raster_threads": "enabled_on",
+      "opengl": "enabled_on",
+      "rasterization": "enabled",
+      "raw_draw": "disabled_off_ok",
+      "skia_graphite": "disabled_off",
+      "trees_in_viz": "disabled_off",
+      "video_decode": "enabled",
+      "video_encode": "enabled",
+      "webgl": "enabled",
+      "webgpu": "enabled",
+      "webnn": "disabled_off"
+    }
+  },
+  "tenTabs": {
+    "capturedAt": "2026-07-31T19:02:59.077Z",
+    "electronVersion": "42.3.0",
+    "processCount": 6,
+    "totals": {
+      "workingSetSizeKb": 678400,
+      "peakWorkingSetSizeKb": 832388,
+      "privateBytesKb": 462528,
+      "sharedBytesKb": 0
+    },
+    "processes": [
+      {
+        "type": "Browser",
+        "workingSetSizeKb": 139876,
+        "peakWorkingSetSizeKb": 144128,
+        "privateBytesKb": 104572,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "GPU",
+        "serviceName": "GPU",
+        "workingSetSizeKb": 120572,
+        "peakWorkingSetSizeKb": 132268,
+        "privateBytesKb": 176096,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Utility",
+        "serviceName": "network.mojom.NetworkService",
+        "workingSetSizeKb": 52384,
+        "peakWorkingSetSizeKb": 53840,
+        "privateBytesKb": 16052,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Tab",
+        "workingSetSizeKb": 164380,
+        "peakWorkingSetSizeKb": 300160,
+        "privateBytesKb": 108044,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Tab",
+        "workingSetSizeKb": 100284,
+        "peakWorkingSetSizeKb": 100572,
+        "privateBytesKb": 28064,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Tab",
+        "workingSetSizeKb": 100904,
+        "peakWorkingSetSizeKb": 101420,
+        "privateBytesKb": 29700,
+        "sharedBytesKb": 0
+      }
+    ],
+    "gpuFeatureStatus": {
+      "2d_canvas": "enabled",
+      "direct_rendering_display_compositor": "disabled_off_ok",
+      "gpu_compositing": "enabled",
+      "multiple_raster_threads": "enabled_on",
+      "opengl": "enabled_on",
+      "rasterization": "enabled",
+      "raw_draw": "disabled_off_ok",
+      "skia_graphite": "disabled_off",
+      "trees_in_viz": "disabled_off",
+      "video_decode": "enabled",
+      "video_encode": "enabled",
+      "webgl": "enabled",
+      "webgpu": "enabled",
+      "webnn": "disabled_off"
+    }
+  },
+  "afterCleanup": {
+    "capturedAt": "2026-07-31T19:02:59.197Z",
+    "electronVersion": "42.3.0",
+    "processCount": 6,
+    "totals": {
+      "workingSetSizeKb": 687244,
+      "peakWorkingSetSizeKb": 832388,
+      "privateBytesKb": 470736,
+      "sharedBytesKb": 0
+    },
+    "processes": [
+      {
+        "type": "Browser",
+        "workingSetSizeKb": 139736,
+        "peakWorkingSetSizeKb": 144128,
+        "privateBytesKb": 104080,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "GPU",
+        "serviceName": "GPU",
+        "workingSetSizeKb": 120580,
+        "peakWorkingSetSizeKb": 132268,
+        "privateBytesKb": 176104,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Utility",
+        "serviceName": "network.mojom.NetworkService",
+        "workingSetSizeKb": 52384,
+        "peakWorkingSetSizeKb": 53840,
+        "privateBytesKb": 16052,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Tab",
+        "workingSetSizeKb": 173352,
+        "peakWorkingSetSizeKb": 300160,
+        "privateBytesKb": 116736,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Tab",
+        "workingSetSizeKb": 100288,
+        "peakWorkingSetSizeKb": 100572,
+        "privateBytesKb": 28064,
+        "sharedBytesKb": 0
+      },
+      {
+        "type": "Tab",
+        "workingSetSizeKb": 100904,
+        "peakWorkingSetSizeKb": 101420,
+        "privateBytesKb": 29700,
+        "sharedBytesKb": 0
+      }
+    ],
+    "gpuFeatureStatus": {
+      "2d_canvas": "enabled",
+      "direct_rendering_display_compositor": "disabled_off_ok",
+      "gpu_compositing": "enabled",
+      "multiple_raster_threads": "enabled_on",
+      "opengl": "enabled_on",
+      "rasterization": "enabled",
+      "raw_draw": "disabled_off_ok",
+      "skia_graphite": "disabled_off",
+      "trees_in_viz": "disabled_off",
+      "video_decode": "enabled",
+      "video_encode": "enabled",
+      "webgl": "enabled",
+      "webgpu": "enabled",
+      "webnn": "disabled_off"
+    }
+  },
+  "appRestartRecoveryMs": 1873
+}

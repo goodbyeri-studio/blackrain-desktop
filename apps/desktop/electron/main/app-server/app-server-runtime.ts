@@ -4,7 +4,9 @@ import {
   AgentThreadListInputSchema,
   AgentThreadListResponseSchema,
   AgentThreadResumeInputSchema,
+  AgentServerRequestResponseInputSchema,
   AgentThreadStartInputSchema,
+  AgentThreadUnsubscribeInputSchema,
   AgentTurnInterruptInputSchema,
   AgentTurnSteerInputSchema,
   AgentTurnStartInputSchema,
@@ -17,9 +19,12 @@ import {
   BrowserDynamicToolAdapter,
   type BrowserAgentBackend,
 } from "../browser/browser-dynamic-tool-adapter";
+import { BrowserClientRuntime } from "../browser/browser-client-runtime";
+import { BrowserMcpRuntime } from "../browser/browser-mcp-runtime";
 import { AppServerProcess } from "./app-server-process";
 import { AgentEventStream } from "./agent-event-stream";
 import type { CodexHomeSelection } from "./codex-home";
+import type { AppServerServerRequest } from "./rpc-types";
 
 const identifierSchema = z.string().trim().min(1).max(128);
 const ThreadResponseSchema = z
@@ -35,6 +40,9 @@ const TurnResponseSchema = z
 const TurnSteerResponseSchema = z
   .object({ turnId: identifierSchema })
   .passthrough();
+const ThreadUnsubscribeResponseSchema = z
+  .object({ status: z.enum(["unsubscribed", "notSubscribed"]) })
+  .passthrough();
 const THREAD_LIST_SOURCE_KINDS = [
   "cli",
   "vscode",
@@ -44,12 +52,38 @@ const THREAD_LIST_SOURCE_KINDS = [
   "subAgentThreadSpawn",
   "unknown",
 ] as const;
+const FORWARDED_SERVER_REQUESTS = new Set([
+  "item/commandExecution/requestApproval",
+  "item/fileChange/requestApproval",
+  "item/permissions/requestApproval",
+  "item/tool/requestUserInput",
+]);
+
+type PendingServerRequest = {
+  workspaceId: string;
+  resolve: (result: unknown) => void;
+  reject: (error: Error) => void;
+  abortCleanup: () => void;
+};
+
+type SuspendedRuntimeOwnership = {
+  threads: Array<{
+    threadId: string;
+    cwd?: string;
+    workspaceId?: string;
+  }>;
+  workspaceCwds: Array<[workspaceId: string, cwd: string]>;
+};
 
 export type AppServerRuntimeOptions = {
   resolveExecutablePath: () => string;
   cwd: string;
   clientVersion: string;
   browserBackend: BrowserAgentBackend;
+  resolveBrowserClientPath?: () => string;
+  resolveBrowserMcpAdapterPath?: () => string;
+  resolveBrowserMcpNodePath?: () => string;
+  enableBrowserDynamicToolsBootstrap?: boolean;
   environment?: NodeJS.ProcessEnv;
   codexHome?: CodexHomeSelection;
   extraCodexArgs?: readonly string[];
@@ -61,17 +95,65 @@ export type AppServerRuntimeOptions = {
 export class AppServerRuntime {
   readonly #options: AppServerRuntimeOptions;
   readonly #browserTools: BrowserDynamicToolAdapter;
+  readonly #browserMcp?: BrowserMcpRuntime;
+  readonly #dynamicToolsBootstrapEnabled: boolean;
   readonly #events = new AgentEventStream();
   readonly #threads = new Set<string>();
   readonly #threadWorkspaces = new Map<string, string>();
   readonly #threadCwds = new Map<string, string>();
   readonly #workspaceCwds = new Map<string, string>();
+  readonly #pendingServerRequests = new Map<string, PendingServerRequest>();
   #process?: AppServerProcess;
   #startPromise?: Promise<void>;
+  #restartAfterSystemResume = false;
+  #suspendedRuntimeOwnership?: SuspendedRuntimeOwnership;
 
   constructor(options: AppServerRuntimeOptions) {
     this.#options = options;
-    this.#browserTools = new BrowserDynamicToolAdapter(options.browserBackend);
+    const hasMcpConfiguration = Boolean(
+      options.resolveBrowserClientPath &&
+        options.resolveBrowserMcpAdapterPath &&
+        options.resolveBrowserMcpNodePath,
+    );
+    const dynamicToolsBootstrapEnabled =
+      options.enableBrowserDynamicToolsBootstrap === true;
+    const hasAnyBrowserRuntimeResolver = Boolean(
+      options.resolveBrowserClientPath ||
+        options.resolveBrowserMcpAdapterPath ||
+        options.resolveBrowserMcpNodePath,
+    );
+    if (hasMcpConfiguration && dynamicToolsBootstrapEnabled) {
+      throw new Error("Browser MCP 与 dynamic tools bootstrap 不能同时启用");
+    }
+    if (
+      hasAnyBrowserRuntimeResolver &&
+      !hasMcpConfiguration &&
+      !dynamicToolsBootstrapEnabled
+    ) {
+      throw new Error("Browser MCP 配置不完整，拒绝静默降级到 dynamic tools");
+    }
+    this.#dynamicToolsBootstrapEnabled = dynamicToolsBootstrapEnabled;
+    this.#browserMcp = hasMcpConfiguration
+      ? new BrowserMcpRuntime({
+          backend: options.browserBackend,
+          appBuild: options.clientVersion,
+          resolveClientPath: options.resolveBrowserClientPath!,
+          resolveAdapterPath: options.resolveBrowserMcpAdapterPath!,
+          resolveNodeExecutablePath: options.resolveBrowserMcpNodePath!,
+        })
+      : undefined;
+    const bootstrapClientRuntime =
+      dynamicToolsBootstrapEnabled && options.resolveBrowserClientPath
+      ? new BrowserClientRuntime({
+          backend: options.browserBackend,
+          appBuild: options.clientVersion,
+          resolveClientModulePath: options.resolveBrowserClientPath,
+        })
+      : undefined;
+    this.#browserTools = new BrowserDynamicToolAdapter(
+      options.browserBackend,
+      this.#browserMcp ?? bootstrapClientRuntime,
+    );
   }
 
   status(): AgentRuntimeStatus {
@@ -104,7 +186,9 @@ export class AppServerRuntime {
         approvalPolicy: "on-request",
         sandbox: "workspace-write",
         threadSource: "blackrain",
-        dynamicTools: BROWSER_DYNAMIC_TOOLS,
+        ...(this.#dynamicToolsBootstrapEnabled
+          ? { dynamicTools: BROWSER_DYNAMIC_TOOLS }
+          : {}),
       }),
     );
     this.#threads.add(response.thread.id);
@@ -174,13 +258,87 @@ export class AppServerRuntime {
     return request;
   }
 
+  respondToServerRequest(input: unknown): { ok: true } {
+    const response = AgentServerRequestResponseInputSchema.parse(input);
+    const key = rpcIdKey(response.requestId);
+    const pending = this.#pendingServerRequests.get(key);
+    if (!pending || pending.workspaceId !== response.workspaceId) {
+      throw new Error("App Server request 已失效或不属于当前 workspace");
+    }
+    this.#pendingServerRequests.delete(key);
+    pending.abortCleanup();
+    pending.resolve(response.result);
+    return { ok: true };
+  }
+
+  async prepareForSystemSuspend(): Promise<void> {
+    const shouldRestart =
+      this.#process?.state === "starting" ||
+      this.#process?.state === "ready" ||
+      Boolean(this.#startPromise);
+    this.#restartAfterSystemResume ||= shouldRestart;
+    if (this.#startPromise) {
+      await this.#startPromise.catch(() => undefined);
+    }
+    const ownership = shouldRestart ? this.#snapshotRuntimeOwnership() : undefined;
+    await this.stop();
+    if (ownership) this.#suspendedRuntimeOwnership = ownership;
+  }
+
+  async resumeFromSystemSleep(): Promise<void> {
+    if (!this.#restartAfterSystemResume) return;
+    const ownership = this.#suspendedRuntimeOwnership;
+    try {
+      await this.#ensureStarted();
+      if (ownership) {
+        for (const [workspaceId, cwd] of ownership.workspaceCwds) {
+          this.#workspaceCwds.set(workspaceId, cwd);
+        }
+        for (const thread of ownership.threads) {
+          const resumed = await this.resumeThread({
+            threadId: thread.threadId,
+            ...(thread.cwd ? { cwd: thread.cwd } : {}),
+            ...(thread.workspaceId ? { workspaceId: thread.workspaceId } : {}),
+          });
+          if (resumed.threadId !== thread.threadId) {
+            throw new Error("系统唤醒后 App Server 恢复了不一致的 thread");
+          }
+        }
+      }
+      this.#suspendedRuntimeOwnership = undefined;
+      this.#restartAfterSystemResume = false;
+    } catch (error) {
+      await this.stop().catch(() => undefined);
+      throw error;
+    }
+  }
+
   async stop(): Promise<void> {
+    if (!this.#restartAfterSystemResume) {
+      this.#suspendedRuntimeOwnership = undefined;
+    }
     if (!this.#process) {
+      await this.#browserTools.stop();
       this.#resetRuntimeOwnership();
       return;
     }
     await this.#process.stop();
+    await this.#browserTools.stop();
     this.#resetRuntimeOwnership();
+  }
+
+  async unsubscribeThread(input: unknown) {
+    const request = AgentThreadUnsubscribeInputSchema.parse(input);
+    this.#requireThread(request.threadId);
+    const client = await this.#ensureStarted();
+    const response = ThreadUnsubscribeResponseSchema.parse(
+      await client.request("thread/unsubscribe", request),
+    );
+    await this.#browserTools.unregisterThread(request.threadId);
+    this.#threads.delete(request.threadId);
+    this.#threadCwds.delete(request.threadId);
+    this.#threadWorkspaces.delete(request.threadId);
+    return { threadId: request.threadId, status: response.status };
   }
 
   getEvents(input: unknown) {
@@ -224,22 +382,29 @@ export class AppServerRuntime {
     ) {
       throw new Error(`App Server runtime 当前不可启动: ${this.#process.state}`);
     }
+    const browserMcpLaunch = await this.#browserMcp?.start();
     const processSupervisor = new AppServerProcess({
       executablePath: this.#options.resolveExecutablePath(),
       cwd: this.#options.cwd,
       clientVersion: this.#options.clientVersion,
-      environment: this.#options.environment,
+      environment: {
+        ...this.#options.environment,
+        ...browserMcpLaunch?.environment,
+      },
       codexHome: this.#options.codexHome,
-      extraCodexArgs: this.#options.extraCodexArgs,
+      extraCodexArgs: [
+        ...(browserMcpLaunch?.codexArgs ?? []),
+        ...(this.#options.extraCodexArgs ?? []),
+      ],
       launchArguments: this.#options.launchArguments,
       onExit: () => {
         if (this.#process !== processSupervisor) return;
         this.#resetRuntimeOwnership();
+        void this.#browserTools.stop();
       },
       connection: {
         serverRequestTimeoutMs: 30_000,
-        onServerRequest: (request) =>
-          this.#browserTools.handleServerRequest(request),
+        onServerRequest: (request) => this.#handleServerRequest(request),
         onNotification: (method, params) => {
           this.#registerThreadNotification(method, params);
           this.#browserTools.handleNotification(method, params);
@@ -254,15 +419,97 @@ export class AppServerRuntime {
       },
     });
     this.#process = processSupervisor;
-    await processSupervisor.start();
+    try {
+      await processSupervisor.start();
+    } catch (error) {
+      await this.#browserTools.stop();
+      throw error;
+    }
   }
 
   #resetRuntimeOwnership(): void {
+    this.#rejectPendingServerRequests("App Server runtime 已停止或重启");
     this.#browserTools.reset();
     this.#threads.clear();
     this.#threadWorkspaces.clear();
     this.#threadCwds.clear();
     this.#workspaceCwds.clear();
+  }
+
+  #snapshotRuntimeOwnership(): SuspendedRuntimeOwnership {
+    return {
+      threads: [...this.#threads].map((threadId) => ({
+        threadId,
+        ...(this.#threadCwds.get(threadId)
+          ? { cwd: this.#threadCwds.get(threadId) }
+          : {}),
+        ...(this.#threadWorkspaces.get(threadId)
+          ? { workspaceId: this.#threadWorkspaces.get(threadId) }
+          : {}),
+      })),
+      workspaceCwds: [...this.#workspaceCwds],
+    };
+  }
+
+  #handleServerRequest(request: AppServerServerRequest): Promise<unknown> {
+    if (request.method === "item/tool/call") {
+      if (!this.#dynamicToolsBootstrapEnabled) {
+        return Promise.reject(new Error("发布态不接受 dynamic Browser tool request"));
+      }
+      return this.#browserTools.handleServerRequest(request);
+    }
+    if (!FORWARDED_SERVER_REQUESTS.has(request.method)) {
+      return Promise.reject(new Error(`未支持的 App Server request: ${request.method}`));
+    }
+    const workspaceId = this.#workspaceForNotification(request.params);
+    if (!workspaceId) {
+      return Promise.reject(new Error("App Server request 无法绑定到已注册 workspace"));
+    }
+    const key = rpcIdKey(request.id);
+    if (this.#pendingServerRequests.has(key)) {
+      return Promise.reject(new Error("App Server request id 重复"));
+    }
+    return new Promise((resolve, reject) => {
+      const handleAbort = () => {
+        const pending = this.#pendingServerRequests.get(key);
+        if (!pending) return;
+        this.#pendingServerRequests.delete(key);
+        pending.abortCleanup();
+        reject(new Error("App Server request 已取消或超时"));
+      };
+      request.signal.addEventListener("abort", handleAbort, { once: true });
+      const pending: PendingServerRequest = {
+        workspaceId,
+        resolve,
+        reject,
+        abortCleanup: () => request.signal.removeEventListener("abort", handleAbort),
+      };
+      this.#pendingServerRequests.set(key, pending);
+      if (request.signal.aborted) {
+        handleAbort();
+        return;
+      }
+      const published = this.#events.publish(
+        request.method,
+        request.params,
+        workspaceId,
+        request.id,
+      );
+      if (!published) {
+        this.#pendingServerRequests.delete(key);
+        pending.abortCleanup();
+        reject(new Error("App Server request 超出事件大小上限"));
+      }
+    });
+  }
+
+  #rejectPendingServerRequests(reason: string): void {
+    const pendingRequests = [...this.#pendingServerRequests.values()];
+    this.#pendingServerRequests.clear();
+    for (const pending of pendingRequests) {
+      pending.abortCleanup();
+      pending.reject(new Error(reason));
+    }
   }
 
   #workspaceForNotification(params: unknown): string | null {
@@ -411,4 +658,8 @@ function getNotificationCwd(
     if (typeof candidate === "string" && path.isAbsolute(candidate)) return candidate;
   }
   return undefined;
+}
+
+function rpcIdKey(id: string | number): string {
+  return `${typeof id}:${id}`;
 }

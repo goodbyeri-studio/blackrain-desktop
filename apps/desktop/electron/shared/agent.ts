@@ -20,6 +20,15 @@ export const AgentThreadResumeInputSchema = z.object({
   workspaceId: identifierSchema.optional(),
 });
 
+export const AgentThreadUnsubscribeInputSchema = z.object({
+  threadId: identifierSchema,
+});
+
+export const AgentThreadUnsubscribeResponseSchema = z.object({
+  threadId: identifierSchema,
+  status: z.enum(["unsubscribed", "notSubscribed"]),
+});
+
 export const AgentThreadListInputSchema = z.object({
   workspaceId: identifierSchema,
   cursor: z.string().trim().min(1).max(4_096).nullable().optional(),
@@ -65,6 +74,29 @@ export const AgentTurnInterruptInputSchema = z.object({
   turnId: identifierSchema,
 });
 
+const AgentServerRequestIdSchema = z.union([
+  z.number().int().safe(),
+  z.string().trim().min(1).max(128),
+]);
+
+export const AgentServerRequestResponseInputSchema = z.object({
+  workspaceId: identifierSchema,
+  requestId: AgentServerRequestIdSchema,
+  result: z.union([
+    z.object({ decision: z.enum(["accept", "decline"]) }),
+    z.object({
+      answers: z.record(
+        z.string().trim().min(1).max(256),
+        z.object({ answers: z.array(z.string().max(16_384)).max(64) }),
+      ),
+    }),
+  ]),
+});
+
+export const AgentServerRequestResponseAckSchema = z.object({
+  ok: z.literal(true),
+});
+
 export const AgentThreadAckSchema = z.object({
   threadId: identifierSchema,
   thread: z.record(z.string(), z.unknown()).optional(),
@@ -94,6 +126,7 @@ export const AgentEventSchema = z.object({
   workspaceId: identifierSchema.nullable(),
   method: z.string().trim().min(1).max(256),
   params: z.unknown(),
+  requestId: AgentServerRequestIdSchema.optional(),
 });
 
 export const AgentEventBatchSchema = z.object({
@@ -104,11 +137,15 @@ export const AgentEventBatchSchema = z.object({
 
 export type AgentThreadStartInput = z.infer<typeof AgentThreadStartInputSchema>;
 export type AgentThreadResumeInput = z.infer<typeof AgentThreadResumeInputSchema>;
+export type AgentThreadUnsubscribeInput = z.infer<typeof AgentThreadUnsubscribeInputSchema>;
+export type AgentThreadUnsubscribeResponse = z.infer<typeof AgentThreadUnsubscribeResponseSchema>;
 export type AgentThreadListInput = z.infer<typeof AgentThreadListInputSchema>;
 export type AgentThreadListResponse = z.infer<typeof AgentThreadListResponseSchema>;
 export type AgentTurnStartInput = z.infer<typeof AgentTurnStartInputSchema>;
 export type AgentTurnSteerInput = z.infer<typeof AgentTurnSteerInputSchema>;
 export type AgentTurnInterruptInput = z.infer<typeof AgentTurnInterruptInputSchema>;
+export type AgentServerRequestResponseInput = z.infer<typeof AgentServerRequestResponseInputSchema>;
+export type AgentServerRequestResponseAck = z.infer<typeof AgentServerRequestResponseAckSchema>;
 export type AgentThreadAck = z.infer<typeof AgentThreadAckSchema>;
 export type AgentTurnAck = z.infer<typeof AgentTurnAckSchema>;
 export type AgentRuntimeStatus = z.infer<typeof AgentRuntimeStatusSchema>;

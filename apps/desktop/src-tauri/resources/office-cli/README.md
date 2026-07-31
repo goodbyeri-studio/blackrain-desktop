@@ -28,7 +28,7 @@ Why we vendor binaries here instead of the full OfficeCLI source repository:
 
 - The product target is for the BlackRain installer to ship Office support out of the box.
 - We do not need OfficeCLI's full source history or build chain in this repo.
-- Our product-specific integration lives in the Tauri runtime bridge, built-in plugin, and the current office-agent content skeleton. The installable workbench lifecycle is specified separately in `.specs/008-expert-workbench-package/` and is not implemented by this resource directory.
+- Our product-specific integration lives in the Tauri runtime bridge, built-in plugin, and the current office-agent content skeleton. The installable workbench lifecycle is paused, has no active spec, and is not implemented by this resource directory.
 
 Current product scope:
 
@@ -36,6 +36,6 @@ Current product scope:
 - macOS installers: not built or validated for the current MVP
 - Linux: not bundled in this product scope
 
-This resource inventory proves only that binaries/assets are present. Windows installer inclusion and installed-runtime behavior require the NSIS smoke recorded in `.specs/007-windows-client/verification.md`; workbench installation and lifecycle require `.specs/008-expert-workbench-package/verification.md`.
+This resource inventory proves only that binaries/assets are present. Windows installer inclusion, installed-runtime behavior, workbench installation, and lifecycle have no current delivery evidence or active spec.
 
 Before release, the distributable NOTICE/third-party attribution must explicitly register OfficeCLI and the packaged installer must retain the license/vendor metadata. `apps/desktop/NOTICE` has not yet been updated for OfficeCLI.

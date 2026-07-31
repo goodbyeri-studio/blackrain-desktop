@@ -75,6 +75,7 @@ describe("BrowserSidebar", () => {
       startTurn: vi.fn(),
       steerTurn: vi.fn(),
       interruptTurn: vi.fn(),
+      respondToServerRequest: vi.fn(),
       },
       browser: {
         createTab,
@@ -83,8 +84,10 @@ describe("BrowserSidebar", () => {
         control,
         takeControl: vi.fn().mockResolvedValue(blankTab),
         respondPermission: vi.fn(),
+        respondSensitiveAction: vi.fn(),
         resolveDownload: vi.fn(),
         respondDialog: vi.fn(),
+        resolveFileChooser: vi.fn(),
         closeTab,
         setLayout,
         onTabsChanged: vi.fn().mockReturnValue(() => undefined),
@@ -137,6 +140,13 @@ describe("BrowserSidebar", () => {
         defaultPrompt: "",
         origin: "https://example.com",
       },
+      sensitiveActionRequest: {
+        requestId: "sensitive-1",
+        category: "purchase",
+        origin: "https://example.com",
+        label: "Pay now",
+        expiresAt: Date.now() + 25_000,
+      },
     };
     const takeControl = vi.fn().mockResolvedValue({
       ...agentTab,
@@ -146,6 +156,10 @@ describe("BrowserSidebar", () => {
     const respondDialog = vi.fn().mockResolvedValue({
       ...agentTab,
       dialog: null,
+    });
+    const respondSensitiveAction = vi.fn().mockResolvedValue({
+      ...agentTab,
+      sensitiveActionRequest: null,
     });
     window.blackrain = {
       app: {
@@ -178,6 +192,7 @@ describe("BrowserSidebar", () => {
       startTurn: vi.fn(),
       steerTurn: vi.fn(),
       interruptTurn: vi.fn(),
+      respondToServerRequest: vi.fn(),
       },
       browser: {
         createTab: vi.fn(),
@@ -186,8 +201,10 @@ describe("BrowserSidebar", () => {
         control: vi.fn(),
         takeControl,
         respondPermission: vi.fn(),
+        respondSensitiveAction,
         resolveDownload: vi.fn(),
         respondDialog,
+        resolveFileChooser: vi.fn(),
         closeTab: vi.fn(),
         setLayout: vi.fn().mockResolvedValue({
           accepted: true,
@@ -208,6 +225,18 @@ describe("BrowserSidebar", () => {
         viewGeneration: 1,
         requestId: "dialog-1",
         accept: true,
+      }),
+    );
+
+    expect(screen.getByText(/Agent 请求购买或支付/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "确认一次" }));
+    await waitFor(() =>
+      expect(respondSensitiveAction).toHaveBeenCalledWith({
+        ...scope,
+        browserTabId: "tab-1",
+        viewGeneration: 1,
+        requestId: "sensitive-1",
+        allow: true,
       }),
     );
 

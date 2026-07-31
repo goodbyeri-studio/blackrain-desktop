@@ -1,5 +1,7 @@
 import { createConnection } from "node:net";
 
+// 此 client 需要受信任 Node runtime；Codex code-mode V8 isolate 不能直接加载它。
+
 const PROTOCOL_VERSION = 1;
 const MAX_FRAME_BYTES = 8 * 1024 * 1024;
 

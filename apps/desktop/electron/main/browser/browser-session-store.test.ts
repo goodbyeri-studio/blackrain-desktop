@@ -27,6 +27,17 @@ describe("BrowserSessionStore", () => {
       url: "https://example.com/",
       title: "Example",
       viewGeneration: 1,
+      origin: "agent",
+      claim: { controlOwner: "agent", turnId: "turn-1" },
+      handoff: true,
+      deliverable: true,
+      navigationEntries: [
+        { url: "https://example.com/start", title: "Start" },
+        { url: "https://example.com/", title: "Example" },
+      ],
+      activeNavigationIndex: 1,
+      restorePolicy: "reload",
+      profileId: "persist:blackrain-browser-app",
     });
     store.upsert({
       browserTabId: "tab-2",
@@ -35,6 +46,14 @@ describe("BrowserSessionStore", () => {
       url: "about:blank",
       title: "",
       viewGeneration: 2,
+      origin: "user",
+      claim: { controlOwner: "user", turnId: null },
+      handoff: false,
+      deliverable: false,
+      navigationEntries: [{ url: "about:blank", title: "" }],
+      activeNavigationIndex: 0,
+      restorePolicy: "reload",
+      profileId: "persist:blackrain-browser-app",
     });
 
     const restored = new BrowserSessionStore(filePath);
@@ -45,9 +64,54 @@ describe("BrowserSessionStore", () => {
         browserTabId: "tab-1",
         url: "https://example.com/",
         touchedAt: 10,
+        origin: "agent",
+        claim: { controlOwner: "agent", turnId: "turn-1" },
+        handoff: true,
+        deliverable: true,
+        activeNavigationIndex: 1,
+        restorePolicy: "reload",
+        profileId: "persist:blackrain-browser-app",
       }),
     ]);
-    expect(JSON.parse(readFileSync(filePath, "utf8")).schemaVersion).toBe(1);
+    expect(JSON.parse(readFileSync(filePath, "utf8")).schemaVersion).toBe(2);
+  });
+
+  it("兼容读取 v1 状态并补齐最低 reload 恢复合同", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "blackrain-browser-state-"));
+    roots.push(root);
+    const filePath = path.join(root, "browser-tabs.json");
+    writeFileSync(
+      filePath,
+      JSON.stringify({
+        schemaVersion: 1,
+        tabs: [{
+          browserTabId: "tab-legacy",
+          threadId: "thread-1",
+          routeKey: "browser-sidebar",
+          url: "https://example.com/legacy",
+          title: "Legacy",
+          viewGeneration: 4,
+          touchedAt: 30,
+        }],
+      }),
+    );
+
+    const restored = new BrowserSessionStore(filePath).list({
+      threadId: "thread-1",
+      routeKey: "browser-sidebar",
+    });
+    expect(restored).toEqual([
+      expect.objectContaining({
+        browserTabId: "tab-legacy",
+        origin: "restored",
+        claim: { controlOwner: "user", turnId: null },
+        navigationEntries: [
+          { url: "https://example.com/legacy", title: "Legacy" },
+        ],
+        activeNavigationIndex: 0,
+        restorePolicy: "reload",
+      }),
+    ]);
   });
 
   it("忽略损坏状态且不执行任意恢复", () => {

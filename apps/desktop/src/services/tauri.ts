@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { getOptionalHostClient } from "../host/client";
 import type { Options as NotificationOptions } from "@tauri-apps/plugin-notification";
 import type {
   AppSettings,
@@ -558,6 +559,14 @@ export async function respondToServerRequest(
   requestId: number | string,
   decision: "accept" | "decline",
 ) {
+  const host = getOptionalHostClient();
+  if (host) {
+    return host.agent.respondToServerRequest({
+      workspaceId,
+      requestId,
+      result: { decision },
+    });
+  }
   return invoke("respond_to_server_request", {
     workspaceId,
     requestId,
@@ -570,6 +579,14 @@ export async function respondToUserInputRequest(
   requestId: number | string,
   answers: Record<string, { answers: string[] }>,
 ) {
+  const host = getOptionalHostClient();
+  if (host) {
+    return host.agent.respondToServerRequest({
+      workspaceId,
+      requestId,
+      result: { answers },
+    });
+  }
   return invoke("respond_to_server_request", {
     workspaceId,
     requestId,
@@ -1814,7 +1831,7 @@ export async function sendNotification(
   await attemptFallback();
 }
 
-// 002-accounts-credits / M-A1.4：账号会话 token 钥匙串存取。
+// 账号会话 token 钥匙串存取。
 // 供前端 Supabase storage adapter 调用，把 session JSON 持久化进系统凭据库。
 export async function accountSessionGet(key: string): Promise<string | null> {
   return invoke<string | null>("account_session_get", { key });

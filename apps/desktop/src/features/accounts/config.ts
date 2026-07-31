@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A1：Supabase 连接配置。
+// Supabase 连接配置。
 // 走 Vite 的 import.meta.env（VITE_ 前缀才会注入前端）。
 // 仅 URL + anon key 可进前端——anon key 受 RLS 约束，是公开可分发的；
 // service-role key 绝不进前端（只在平台代理服务端，见 design.md）。

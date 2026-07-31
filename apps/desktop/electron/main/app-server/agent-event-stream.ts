@@ -19,6 +19,7 @@ export class AgentEventStream {
     method: string,
     params: unknown,
     workspaceId: string | null,
+    requestId?: string | number,
   ): AgentEvent | null {
     let cloned: { method: string; params: unknown };
     try {
@@ -36,6 +37,7 @@ export class AgentEventStream {
       workspaceId,
       method: cloned.method,
       params: cloned.params,
+      ...(requestId === undefined ? {} : { requestId }),
     });
     this.#events.push(event);
     if (this.#events.length > MAX_AGENT_EVENTS) {

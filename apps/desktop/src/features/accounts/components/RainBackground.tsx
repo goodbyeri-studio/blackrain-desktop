@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-// 002-accounts-credits：登录开屏雨幕（银翼杀手 2049 霓虹雨夜）。
+// 登录开屏雨幕背景。
 // 真实感：3 层视差景深（远/中/近，速度·粗细·亮度各异）+ 斜风飘移 + 偶发霓虹着色。
 // 性能：按层「批量成一条 path，整层 stroke 一次」——上百根雨丝每帧仅 ~4 次绘制调用；
 //       用时间戳 delta 归一化速度，掉帧不变速；prefers-reduced-motion 静止；jsdom 跳过。

@@ -9,6 +9,8 @@ const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
 const MAX_FULL_PAGE_DIMENSION = 16_384;
 const MAX_FULL_PAGE_PIXELS = 64 * 1024 * 1024;
 const MAX_OOPIF_TARGETS = 16;
+const MAX_LOCATOR_TIMEOUT_MS = 10_000;
+const LOCATOR_POLL_INTERVAL_MS = 100;
 const DEBUGGER_RECOVERY_DELAYS_MS = [0, 250, 2_000] as const;
 
 const AxValueSchema = z.object({ value: z.unknown() }).passthrough();
@@ -33,6 +35,9 @@ const AxNodeSchema = z
   })
   .passthrough();
 const AxTreeSchema = z.object({ nodes: z.array(AxNodeSchema).max(100_000) }).passthrough();
+const AxNodesUpdatedSchema = z
+  .object({ nodes: z.array(AxNodeSchema).max(100_000) })
+  .passthrough();
 const BoxModelSchema = z
   .object({
     model: z
@@ -60,6 +65,16 @@ const DialogOpeningSchema = z
     type: z.enum(["alert", "confirm", "prompt", "beforeunload"]),
     defaultPrompt: z.string().max(64 * 1024).optional(),
   })
+  .passthrough();
+const FileChooserOpeningSchema = z
+  .object({
+    mode: z.enum(["selectSingle", "selectMultiple"]),
+    backendNodeId: z.number().int().positive(),
+    frameId: z.string().min(1),
+  })
+  .passthrough();
+const IsolatedWorldSchema = z
+  .object({ executionContextId: z.number().int().positive() })
   .passthrough();
 const LayoutMetricsSchema = z
   .object({
@@ -142,8 +157,55 @@ const SELECT_EDITABLE_CONTENT = `function () {
 }`;
 
 const VALIDATE_INPUT_TARGET = `function () {
-  return this.isConnected && this.ownerDocument.activeElement === this;
+  if (!this.isConnected || this.ownerDocument.activeElement !== this) return false;
+  if (this instanceof HTMLInputElement || this instanceof HTMLTextAreaElement) {
+    return !this.disabled && !this.readOnly;
+  }
+  return this.isContentEditable;
 }`;
+
+const VALIDATE_STABLE_TARGET = `async function (state) {
+  const sample = () => {
+    if (!this.isConnected) return null;
+    const style = this.ownerDocument.defaultView.getComputedStyle(this);
+    if (style.visibility === 'hidden' || style.display === 'none') return null;
+    const rect = this.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    if (state === 'actionable') {
+      if (this.matches?.(':disabled,[aria-disabled="true"]')) return null;
+      if (style.pointerEvents === 'none') return null;
+    }
+    return [rect.x, rect.y, rect.width, rect.height];
+  };
+  const first = sample();
+  if (!first) return false;
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const second = sample();
+  return Boolean(second && first.every((value, index) => Math.abs(value - second[index]) < 1));
+}`;
+
+const READ_SEMANTIC_DOM_REVISION = `(() => {
+  const key = Symbol.for("blackrain.browser.semantic-dom-revision.v1");
+  let state = globalThis[key];
+  if (!state) {
+    state = { revision: 0 };
+    const observer = new MutationObserver(() => { state.revision += 1; });
+    observer.observe(document, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: [
+        "role", "aria-label", "aria-labelledby", "aria-describedby",
+        "aria-hidden", "aria-disabled", "aria-checked", "aria-expanded",
+        "aria-pressed", "aria-selected", "alt", "title", "placeholder",
+        "value", "disabled", "hidden", "inert", "tabindex", "contenteditable"
+      ]
+    });
+    Object.defineProperty(globalThis, key, { value: state });
+  }
+  return state.revision;
+})()`;
 
 export interface BrowserDebuggerTransport {
   isAttached(): boolean;
@@ -170,6 +232,10 @@ export type BrowserCdpObserver = {
   isAlive(): boolean;
   onDialogOpening(dialog: z.infer<typeof DialogOpeningSchema>): void;
   onDialogClosed(): void;
+  onFileChooserOpening?(
+    chooser: z.infer<typeof FileChooserOpeningSchema>,
+    sessionId?: string,
+  ): void;
   onDebuggerStatus(status: BrowserDebuggerStatus): void;
 };
 
@@ -190,6 +256,16 @@ export type BrowserSnapshotResult = {
   text: string;
 };
 
+export type BrowserLocatorResult = {
+  snapshotId: string;
+  ref: string;
+  role: string;
+  name: string;
+  url: string;
+};
+
+export type BrowserLocatorState = "attached" | "visible" | "actionable";
+
 export type BrowserActionResult = {
   browserTabId: string;
   viewGeneration: number;
@@ -204,6 +280,7 @@ export type BrowserScreenshotResult = BrowserActionResult & {
 type SnapshotRef = {
   backendDOMNodeId: number;
   role: string;
+  name: string;
   sessionId?: string;
 };
 
@@ -227,11 +304,21 @@ type ObserverRecord = {
   recoveryTimer?: ReturnType<typeof setTimeout>;
 };
 
+type AxTreeCache = {
+  documentGeneration: number;
+  executionContextId: number;
+  mutationRevision: number;
+  url: string;
+  nodes: Map<string, z.infer<typeof AxNodeSchema>>;
+};
+
 export class BrowserCdpController {
   readonly #snapshots = new Map<string, SnapshotRecord>();
   readonly #debuggers = new Map<number, BrowserDebuggerTransport>();
   readonly #observers = new Map<number, ObserverRecord>();
   readonly #orphanedChildSessions = new Map<number, Set<string>>();
+  readonly #oopifSessions = new Map<number, Map<string, string>>();
+  readonly #axTrees = new Map<string, AxTreeCache>();
   readonly #now: () => number;
 
   constructor(now: () => number = Date.now) {
@@ -257,11 +344,29 @@ export class BrowserCdpController {
     const messageListener = (...args: unknown[]) => {
       const method = typeof args[1] === "string" ? args[1] : "";
       const params = args[2];
+      const sessionId =
+        typeof args[3] === "string" && args[3].length > 0
+          ? args[3]
+          : undefined;
+      const activeObserver =
+        this.#observers.get(webContentsId)?.observer ?? observer;
       if (method === "Page.javascriptDialogOpening") {
         const parsed = DialogOpeningSchema.safeParse(params);
-        if (parsed.success) observer.onDialogOpening(parsed.data);
+        if (parsed.success) activeObserver.onDialogOpening(parsed.data);
       } else if (method === "Page.javascriptDialogClosed") {
-        observer.onDialogClosed();
+        activeObserver.onDialogClosed();
+      } else if (method === "Page.fileChooserOpened") {
+        const parsed = FileChooserOpeningSchema.safeParse(params);
+        if (parsed.success) {
+          activeObserver.onFileChooserOpening?.(parsed.data, sessionId);
+        }
+      } else if (method === "Accessibility.nodesUpdated") {
+        const parsed = AxNodesUpdatedSchema.safeParse(params);
+        if (parsed.success) {
+          this.#mergeAxNodes(webContentsId, sessionId, parsed.data.nodes);
+        }
+      } else if (method === "Accessibility.loadComplete") {
+        this.#axTrees.delete(axTreeKey(webContentsId, sessionId));
       }
     };
     const detachListener = () => {
@@ -269,6 +374,7 @@ export class BrowserCdpController {
         this.#debuggers.delete(webContentsId);
       }
       this.invalidateDocument(webContentsId);
+      this.#oopifSessions.delete(webContentsId);
       if (!observer.isAlive()) return;
       observer.onDebuggerStatus("recovering");
       this.#scheduleObserverRecovery(webContentsId, 0);
@@ -314,11 +420,11 @@ export class BrowserCdpController {
     this.#attach(target);
     this.#flushOrphanedChildSessions(target.webContentsId);
     const tree = AxTreeSchema.parse(
-      await this.#command(target, signal, "Accessibility.getFullAXTree"),
+      await this.#readAxTree(target, signal),
     );
     const snapshotId = randomUUID();
     const refs = new Map<string, SnapshotRef>();
-    this.invalidateDocument(target.webContentsId);
+    this.#deleteSnapshots(target.webContentsId);
     const childFrames = await this.#snapshotOopifTargets(target, signal);
     let remainingNodes = MAX_SNAPSHOT_NODES;
     const segments: string[] = [];
@@ -364,6 +470,15 @@ export class BrowserCdpController {
   ): Promise<BrowserActionResult> {
     const node = this.#requireRef(target, snapshotId, ref);
     this.#attach(target);
+    await this.#validateActionable(target, node, signal);
+    await this.#command(
+      target,
+      signal,
+      "DOM.scrollIntoViewIfNeeded",
+      { backendNodeId: node.backendDOMNodeId },
+      false,
+      node.sessionId,
+    );
     let model: z.infer<typeof BoxModelSchema>;
     try {
       model = BoxModelSchema.parse(
@@ -391,6 +506,198 @@ export class BrowserCdpController {
       button: "left",
       clickCount: 1,
     }, true, node.sessionId);
+    return actionResult(target);
+  }
+
+  async setPageLifecycle(
+    webContentsId: number,
+    pageDebugger: BrowserDebuggerTransport,
+    state: "active" | "frozen",
+  ): Promise<void> {
+    this.#attachTransport(webContentsId, pageDebugger);
+    await pageDebugger.sendCommand("Page.setWebLifecycleState", { state });
+    if (state === "frozen") this.invalidateDocument(webContentsId);
+  }
+
+  describeRef(
+    target: BrowserCdpTarget,
+    snapshotId: string,
+    ref: string,
+  ): BrowserLocatorResult {
+    const node = this.#requireRef(target, snapshotId, ref);
+    return {
+      snapshotId,
+      ref,
+      role: node.role,
+      name: node.name,
+      url: target.url,
+    };
+  }
+
+  async setFileInputFiles(
+    webContentsId: number,
+    backendNodeId: number,
+    files: readonly string[],
+    sessionId?: string,
+  ): Promise<void> {
+    const pageDebugger = this.#debuggers.get(webContentsId);
+    if (!pageDebugger?.isAttached()) {
+      throw new Error("Browser debugger 当前不可用，无法响应文件选择器");
+    }
+    await pageDebugger.sendCommand(
+      "DOM.setFileInputFiles",
+      { backendNodeId, files: [...files] },
+      sessionId,
+    );
+  }
+
+  async locate(
+    target: BrowserCdpTarget,
+    query: {
+      role?: string;
+      name: string;
+      exact?: boolean;
+      state?: BrowserLocatorState;
+      timeoutMs?: number;
+    },
+    signal: AbortSignal,
+  ): Promise<BrowserLocatorResult> {
+    const expectedName = query.name.trim();
+    const expectedRole = query.role?.trim().toLocaleLowerCase();
+    const state = query.state ?? "actionable";
+    const timeoutMs = Math.min(
+      MAX_LOCATOR_TIMEOUT_MS,
+      Math.max(0, Math.trunc(query.timeoutMs ?? 5_000)),
+    );
+    const deadline = Date.now() + timeoutMs;
+    let lastFailure = "未找到匹配元素";
+    for (;;) {
+      const snapshot = await this.snapshot(target, signal);
+      const record = this.#snapshots.get(snapshot.snapshotId);
+      if (!record) throw new Error("Browser locator snapshot 已失效");
+      const matches = [...record.refs.entries()].filter(([, candidate]) => {
+        if (expectedRole && candidate.role.toLocaleLowerCase() !== expectedRole) {
+          return false;
+        }
+        return query.exact
+          ? candidate.name === expectedName
+          : candidate.name
+              .toLocaleLowerCase()
+              .includes(expectedName.toLocaleLowerCase());
+      });
+      if (matches.length > 1) {
+        throw new Error(
+          `Browser locator 匹配到 ${matches.length} 个元素，请提供更精确的 role/name`,
+        );
+      }
+      if (matches.length === 1) {
+        const [ref, candidate] = matches[0];
+        if (
+          state === "attached" ||
+          (await this.#isStableTarget(target, candidate, state, signal))
+        ) {
+          return {
+            snapshotId: snapshot.snapshotId,
+            ref,
+            role: candidate.role,
+            name: candidate.name,
+            url: snapshot.url,
+          };
+        }
+        lastFailure = `匹配元素尚未达到 ${state} 状态`;
+      } else {
+        lastFailure = "未找到匹配元素";
+      }
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        throw new Error(
+          `Browser locator 等待超时 (${timeoutMs}ms): role=${query.role ?? "*"}, name=${JSON.stringify(expectedName)}, state=${state}; ${lastFailure}`,
+        );
+      }
+      await waitForLocatorPoll(
+        signal,
+        Math.min(LOCATOR_POLL_INTERVAL_MS, remaining),
+      );
+    }
+  }
+
+  async hover(
+    target: BrowserCdpTarget,
+    snapshotId: string,
+    ref: string,
+    signal: AbortSignal,
+  ): Promise<BrowserActionResult> {
+    const node = this.#requireRef(target, snapshotId, ref);
+    this.#attach(target);
+    await this.#validateActionable(target, node, signal);
+    await this.#command(
+      target,
+      signal,
+      "DOM.scrollIntoViewIfNeeded",
+      { backendNodeId: node.backendDOMNodeId },
+      false,
+      node.sessionId,
+    );
+    const box = BoxModelSchema.parse(
+      await this.#command(
+        target,
+        signal,
+        "DOM.getBoxModel",
+        { backendNodeId: node.backendDOMNodeId },
+        false,
+        node.sessionId,
+      ),
+    );
+    const [x, y] = quadCenter(box.model.border ?? box.model.content);
+    await this.#command(
+      target,
+      signal,
+      "Input.dispatchMouseEvent",
+      { type: "mouseMoved", x, y },
+      false,
+      node.sessionId,
+    );
+    return actionResult(target);
+  }
+
+  async pressKey(
+    target: BrowserCdpTarget,
+    key: string,
+    signal: AbortSignal,
+  ): Promise<BrowserActionResult> {
+    this.#assertTarget(target);
+    this.#attach(target);
+    const { text, ...keyEvent } = cdpKeyEvent(key);
+    await this.#command(target, signal, "Input.dispatchKeyEvent", {
+      type: text === undefined ? "rawKeyDown" : "keyDown",
+      ...keyEvent,
+      ...(text === undefined ? {} : { text, unmodifiedText: text }),
+    });
+    await this.#command(
+      target,
+      signal,
+      "Input.dispatchKeyEvent",
+      { type: "keyUp", ...keyEvent },
+      true,
+    );
+    return actionResult(target);
+  }
+
+  async scroll(
+    target: BrowserCdpTarget,
+    deltaX: number,
+    deltaY: number,
+    signal: AbortSignal,
+  ): Promise<BrowserActionResult> {
+    this.#assertTarget(target);
+    this.#attach(target);
+    await this.#command(target, signal, "Input.dispatchMouseEvent", {
+      type: "mouseWheel",
+      x: 1,
+      y: 1,
+      deltaX,
+      deltaY,
+    });
     return actionResult(target);
   }
 
@@ -498,6 +805,12 @@ export class BrowserCdpController {
   }
 
   invalidateDocument(webContentsId: number): void {
+    this.#deleteSnapshots(webContentsId);
+    this.#oopifSessions.delete(webContentsId);
+    this.#deleteAxTrees(webContentsId);
+  }
+
+  #deleteSnapshots(webContentsId: number): void {
     for (const [snapshotId, snapshot] of this.#snapshots) {
       if (snapshot.webContentsId === webContentsId) {
         this.#deleteSnapshot(snapshotId, snapshot);
@@ -508,6 +821,7 @@ export class BrowserCdpController {
   disposeTarget(webContentsId: number): void {
     this.invalidateDocument(webContentsId);
     this.#orphanedChildSessions.delete(webContentsId);
+    this.#oopifSessions.delete(webContentsId);
     const observed = this.#observers.get(webContentsId);
     this.#observers.delete(webContentsId);
     if (observed) {
@@ -534,6 +848,7 @@ export class BrowserCdpController {
       this.disposeTarget(webContentsId);
     }
     this.#snapshots.clear();
+    this.#axTrees.clear();
   }
 
   #attach(target: BrowserCdpTarget): void {
@@ -563,6 +878,10 @@ export class BrowserCdpController {
     if (!observed || !observed.observer.isAlive()) return;
     this.#attachTransport(webContentsId, observed.debugger);
     await observed.debugger.sendCommand("Page.enable");
+    await observed.debugger.sendCommand("Accessibility.enable");
+    await observed.debugger.sendCommand("Page.setInterceptFileChooserDialog", {
+      enabled: true,
+    });
   }
 
   #scheduleObserverRecovery(webContentsId: number, attempt: number): void {
@@ -618,6 +937,96 @@ export class BrowserCdpController {
       throw new Error("Browser ref 不存在或不可操作");
     }
     return node;
+  }
+
+  async #validateActionable(
+    target: BrowserCdpTarget,
+    node: SnapshotRef,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const resolved = ResolvedNodeSchema.parse(
+      await this.#command(
+        target,
+        signal,
+        "DOM.resolveNode",
+        { backendNodeId: node.backendDOMNodeId },
+        false,
+        node.sessionId,
+      ),
+    );
+    const objectId = resolved.object.objectId;
+    try {
+      if (!(await this.#callStableTarget(target, node, objectId, "actionable", signal))) {
+        throw new Error(
+          "Browser ref 当前不可操作：元素已断开、隐藏、禁用或不接收指针事件",
+        );
+      }
+    } finally {
+      try {
+        await target.debugger.sendCommand(
+          "Runtime.releaseObject",
+          { objectId },
+          node.sessionId,
+        );
+      } catch {
+        // 导航或 frame teardown 会自动释放远端 object。
+      }
+    }
+  }
+
+  async #isStableTarget(
+    target: BrowserCdpTarget,
+    node: SnapshotRef,
+    state: Exclude<BrowserLocatorState, "attached">,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    const resolved = ResolvedNodeSchema.parse(
+      await this.#command(
+        target,
+        signal,
+        "DOM.resolveNode",
+        { backendNodeId: node.backendDOMNodeId },
+        false,
+        node.sessionId,
+      ),
+    );
+    const objectId = resolved.object.objectId;
+    try {
+      return await this.#callStableTarget(target, node, objectId, state, signal);
+    } finally {
+      await target.debugger
+        .sendCommand("Runtime.releaseObject", { objectId }, node.sessionId)
+        .catch(() => undefined);
+    }
+  }
+
+  async #callStableTarget(
+    target: BrowserCdpTarget,
+    node: SnapshotRef,
+    objectId: string,
+    state: Exclude<BrowserLocatorState, "attached">,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    const validation = CallFunctionResultSchema.parse(
+      await this.#command(
+        target,
+        signal,
+        "Runtime.callFunctionOn",
+        {
+          objectId,
+          functionDeclaration: VALIDATE_STABLE_TARGET,
+          arguments: [{ value: state }],
+          awaitPromise: true,
+          returnByValue: true,
+        },
+        false,
+        node.sessionId,
+      ),
+    );
+    return (
+      validation.exceptionDetails === undefined &&
+      validation.result?.value === true
+    );
   }
 
   #assertTarget(target: BrowserCdpTarget): void {
@@ -720,37 +1129,52 @@ export class BrowserCdpController {
       url: string;
       nodes: z.infer<typeof AxNodeSchema>[];
     }> = [];
-    const attachedSessions: string[] = [];
+    const sessions = this.#oopifSessions.get(target.webContentsId) ?? new Map();
+    this.#oopifSessions.set(target.webContentsId, sessions);
+    const selectedIds = new Set(selected.map((frame) => frame.targetId));
+    for (const targetId of sessions.keys()) {
+      if (!selectedIds.has(targetId)) sessions.delete(targetId);
+    }
+    const attachedSessions: Array<{ targetId: string; sessionId: string }> = [];
     try {
       for (const frame of selected) {
-        const attached = AttachTargetSchema.parse(
-          await this.#command(target, signal, "Target.attachToTarget", {
-            targetId: frame.targetId,
-            flatten: true,
-          }),
-        );
-        attachedSessions.push(attached.sessionId);
-        const tree = AxTreeSchema.parse(
+        let sessionId = sessions.get(frame.targetId);
+        if (!sessionId) {
+          const attached = AttachTargetSchema.parse(
+            await this.#command(target, signal, "Target.attachToTarget", {
+              targetId: frame.targetId,
+              flatten: true,
+            }),
+          );
+          sessionId = attached.sessionId;
+          sessions.set(frame.targetId, sessionId);
+          attachedSessions.push({ targetId: frame.targetId, sessionId });
           await this.#command(
             target,
             signal,
-            "Accessibility.getFullAXTree",
+            "Accessibility.enable",
             undefined,
             false,
-            attached.sessionId,
-          ),
+            sessionId,
+          );
+        }
+        const tree = AxTreeSchema.parse(
+          await this.#readAxTree(target, signal, sessionId),
         );
         frames.push({
-          sessionId: attached.sessionId,
+          sessionId,
           url: frame.url,
           nodes: tree.nodes,
         });
       }
       return frames;
     } catch (error) {
-      for (const sessionId of attachedSessions) {
+      for (const attached of attachedSessions) {
+        if (sessions.get(attached.targetId) === attached.sessionId) {
+          sessions.delete(attached.targetId);
+        }
         void target.debugger
-          .sendCommand("Target.detachFromTarget", { sessionId })
+          .sendCommand("Target.detachFromTarget", { sessionId: attached.sessionId })
           .catch(() => undefined);
       }
       throw new Error(`Browser OOPIF snapshot 失败: ${errorMessage(error)}`);
@@ -775,6 +1199,145 @@ export class BrowserCdpController {
     // 因此这里只丢弃旧引用，不向 page debugger 发送 detach 命令。
     void pending;
   }
+
+  async #readAxTree(
+    target: BrowserCdpTarget,
+    signal: AbortSignal,
+    sessionId?: string,
+  ): Promise<z.infer<typeof AxTreeSchema>> {
+    const key = axTreeKey(target.webContentsId, sessionId);
+    let cached = this.#axTrees.get(key);
+    let runtime:
+      | { executionContextId: number; mutationRevision: number }
+      | undefined;
+    if (this.#observers.has(target.webContentsId)) {
+      try {
+        runtime = await this.#readSemanticDomRevision(
+          target,
+          signal,
+          cached?.executionContextId,
+          sessionId,
+        );
+      } catch {
+        this.#axTrees.delete(key);
+        cached = undefined;
+        runtime = await this.#readSemanticDomRevision(
+          target,
+          signal,
+          undefined,
+          sessionId,
+        );
+      }
+    }
+    if (
+      cached &&
+      cached.documentGeneration === target.documentGeneration &&
+      cached.url === target.url &&
+      runtime?.mutationRevision === cached.mutationRevision
+    ) {
+      return { nodes: [...cached.nodes.values()] };
+    }
+    const tree = AxTreeSchema.parse(
+      await this.#command(
+        target,
+        signal,
+        "Accessibility.getFullAXTree",
+        undefined,
+        false,
+        sessionId,
+      ),
+    );
+    if (runtime) {
+      this.#axTrees.set(key, {
+        documentGeneration: target.documentGeneration,
+        executionContextId: runtime.executionContextId,
+        mutationRevision: runtime.mutationRevision,
+        url: target.url,
+        nodes: new Map(tree.nodes.map((node) => [node.nodeId, node])),
+      });
+    }
+    return tree;
+  }
+
+  async #readSemanticDomRevision(
+    target: BrowserCdpTarget,
+    signal: AbortSignal,
+    existingExecutionContextId?: number,
+    sessionId?: string,
+  ): Promise<{ executionContextId: number; mutationRevision: number }> {
+    let executionContextId = existingExecutionContextId;
+    if (!executionContextId) {
+      const frameTree = PageFrameTreeSchema.parse(
+        await this.#command(
+          target,
+          signal,
+          "Page.getFrameTree",
+          undefined,
+          false,
+          sessionId,
+        ),
+      ).frameTree;
+      executionContextId = IsolatedWorldSchema.parse(
+        await this.#command(
+          target,
+          signal,
+          "Page.createIsolatedWorld",
+          {
+            frameId: frameTree.frame.id,
+            worldName: "blackrain-browser-runtime",
+            grantUniveralAccess: false,
+          },
+          false,
+          sessionId,
+        ),
+      ).executionContextId;
+    }
+    const evaluation = CallFunctionResultSchema.parse(
+      await this.#command(
+        target,
+        signal,
+        "Runtime.evaluate",
+        {
+          contextId: executionContextId,
+          expression: READ_SEMANTIC_DOM_REVISION,
+          returnByValue: true,
+        },
+        false,
+        sessionId,
+      ),
+    );
+    const revision = evaluation.result?.value;
+    if (
+      evaluation.exceptionDetails !== undefined ||
+      typeof revision !== "number" ||
+      !Number.isSafeInteger(revision) ||
+      revision < 0
+    ) {
+      throw new Error("Browser selector runtime 未返回有效 DOM revision");
+    }
+    return { executionContextId, mutationRevision: revision };
+  }
+
+  #mergeAxNodes(
+    webContentsId: number,
+    sessionId: string | undefined,
+    nodes: z.infer<typeof AxNodeSchema>[],
+  ): void {
+    const cached = this.#axTrees.get(axTreeKey(webContentsId, sessionId));
+    if (!cached) return;
+    for (const node of nodes) cached.nodes.set(node.nodeId, node);
+  }
+
+  #deleteAxTrees(webContentsId: number): void {
+    const prefix = `${webContentsId}\u0000`;
+    for (const key of this.#axTrees.keys()) {
+      if (key.startsWith(prefix)) this.#axTrees.delete(key);
+    }
+  }
+}
+
+function axTreeKey(webContentsId: number, sessionId?: string): string {
+  return `${webContentsId}\u0000${sessionId ?? ""}`;
 }
 
 function formatSnapshot(
@@ -824,7 +1387,12 @@ function formatSnapshot(
     lines.push(line);
     bytes += lineBytes;
     if (ref && node.backendDOMNodeId !== undefined) {
-      refs.set(ref, { backendDOMNodeId: node.backendDOMNodeId, role, sessionId });
+      refs.set(ref, {
+        backendDOMNodeId: node.backendDOMNodeId,
+        role,
+        name,
+        sessionId,
+      });
     }
   }
   if (truncated || visited < nodes.length) {
@@ -886,6 +1454,22 @@ function validateFullPageClip(size: {
     throw new Error("Browser full-page capture 尺寸超过 16384 px / 64 MiP 上限");
   }
   return { x, y, width, height, scale: 1 };
+}
+
+function waitForLocatorPoll(signal: AbortSignal, timeoutMs: number): Promise<void> {
+  throwIfAborted(signal);
+  return new Promise((resolve, reject) => {
+    const handleAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason ?? new Error("Browser locator 已取消"));
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", handleAbort);
+      resolve();
+    }, timeoutMs);
+    timer.unref?.();
+    signal.addEventListener("abort", handleAbort, { once: true });
+  });
 }
 
 function formatAxState(
@@ -954,6 +1538,40 @@ function actionResult(target: BrowserCdpTarget): BrowserActionResult {
     viewGeneration: target.viewGeneration,
     url: target.url,
   };
+}
+
+function cdpKeyEvent(key: string): Record<string, unknown> & { text?: string } {
+  const normalized = key.toLocaleLowerCase();
+  if (normalized === "enter") {
+    return {
+      key: "Enter",
+      code: "Enter",
+      windowsVirtualKeyCode: 13,
+      nativeVirtualKeyCode: 13,
+      text: "\r",
+    };
+  }
+  if (normalized === "numpadenter") {
+    return {
+      key: "Enter",
+      code: "NumpadEnter",
+      windowsVirtualKeyCode: 13,
+      nativeVirtualKeyCode: 13,
+      location: 3,
+      isKeypad: true,
+      text: "\r",
+    };
+  }
+  if (key === " " || normalized === "space" || normalized === "spacebar") {
+    return {
+      key: " ",
+      code: "Space",
+      windowsVirtualKeyCode: 32,
+      nativeVirtualKeyCode: 32,
+      text: " ",
+    };
+  }
+  return { key };
 }
 
 function throwIfAborted(signal: AbortSignal): void {

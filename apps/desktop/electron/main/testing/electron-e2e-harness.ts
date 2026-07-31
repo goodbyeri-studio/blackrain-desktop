@@ -16,11 +16,16 @@ export type ElectronE2eHarness = {
     arguments: unknown;
   }): Promise<unknown>;
   completeBrowserTurn(threadId: string, turnId: string): void;
+  simulateSystemPowerCycle(): Promise<void>;
 };
 
 export function installElectronE2eHarness(
   browserBackend: BrowserAgentBackend,
-  options: { enabled: boolean; packaged: boolean },
+  options: {
+    enabled: boolean;
+    packaged: boolean;
+    simulateSystemPowerCycle?: () => Promise<void>;
+  },
 ): () => void {
   if (!options.enabled || options.packaged) return () => undefined;
 
@@ -53,6 +58,12 @@ export function installElectronE2eHarness(
         threadId,
         turn: { id: turnId },
       });
+    },
+    async simulateSystemPowerCycle() {
+      if (!options.simulateSystemPowerCycle) {
+        throw new Error("Electron E2E 系统电源周期未安装");
+      }
+      await options.simulateSystemPowerCycle();
     },
   };
 

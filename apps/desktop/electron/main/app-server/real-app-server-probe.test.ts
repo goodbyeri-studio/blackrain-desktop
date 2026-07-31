@@ -41,6 +41,7 @@ describe.skipIf(!codexBin || !probeHome)("真实 codex app-server 协议探针",
       cwd: process.cwd(),
       clientVersion: "0.7.68-probe",
       browserBackend: browser,
+      enableBrowserDynamicToolsBootstrap: true,
       codexHome: { mode: "custom", path: probeHome },
     });
     try {

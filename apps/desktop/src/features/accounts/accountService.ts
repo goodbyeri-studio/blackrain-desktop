@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A1.3：账号服务层。
+// 账号服务层。
 // 把 Supabase Auth + profiles 查询收口到一处，hook/UI 只调这里，不直接碰 SDK。
 
 import type { Session, User } from "@supabase/supabase-js";

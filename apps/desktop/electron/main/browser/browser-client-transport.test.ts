@@ -81,12 +81,13 @@ describe("BrowserClientTransportServer", () => {
     });
   });
 
-  it("拒绝错误 capability、build、session 或 generation", async () => {
+  it("拒绝缺失或错误 capability、build、session 或 generation", async () => {
     const backend = createBackend();
     const { server, bootstrap } = await startServer(backend);
     servers.push(server);
 
     for (const overrides of [
+      { capabilityToken: undefined },
       { capabilityToken: "x".repeat(43) },
       { appBuild: "other-build" },
       { codexSessionId: "thread-2" },
@@ -98,6 +99,37 @@ describe("BrowserClientTransportServer", () => {
       await client.closed();
     }
     expect(backend.listTabsForAgent).not.toHaveBeenCalled();
+  });
+
+  it("服务重启后拒绝旧 token 和旧 backend generation", async () => {
+    const backend = createBackend();
+    const first = await startServer(backend);
+    await first.server.stop();
+
+    const server = new BrowserClientTransportServer({
+      backend,
+      appBuild: "0.7.68-test",
+      codexSessionId: "thread-1",
+      backendGeneration: 8,
+      endpoint: first.bootstrap.endpoint,
+      capabilityToken: "new-token-".padEnd(43, "x"),
+      requestTimeoutMs: 1_000,
+    });
+    const bootstrap = await server.start();
+    servers.push(server);
+
+    const staleClient = await connectClient(bootstrap.endpoint);
+    sockets.push(staleClient.socket);
+    staleClient.send(handshake(1, first.bootstrap));
+    await staleClient.closed();
+
+    const currentClient = await connectClient(bootstrap.endpoint);
+    sockets.push(currentClient.socket);
+    currentClient.send(handshake(2, bootstrap));
+    await expect(currentClient.next()).resolves.toMatchObject({
+      id: 2,
+      result: { backendGeneration: 8 },
+    });
   });
 
   it("对旧 turn fail closed，并在完成 turn 后撤销 Agent 控制", async () => {
@@ -183,6 +215,50 @@ describe("BrowserClientTransportServer", () => {
     await vi.waitFor(() => expect(operationSignal).toBeDefined());
     client.socket.destroy();
     await vi.waitFor(() => expect(operationSignal?.aborted).toBe(true));
+  });
+
+  it("超过 transport deadline 会中止 Browser 操作并返回有界错误", async () => {
+    let operationSignal: AbortSignal | undefined;
+    const backend = createBackend();
+    backend.snapshotForAgent.mockImplementation((_input, signal) => {
+      operationSignal = signal;
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), {
+          once: true,
+        });
+      });
+    });
+    const server = new BrowserClientTransportServer({
+      backend,
+      appBuild: "0.7.68-test",
+      codexSessionId: "thread-1",
+      backendGeneration: 7,
+      requestTimeoutMs: 25,
+    });
+    const bootstrap = await server.start();
+    servers.push(server);
+    server.setActiveTurn("turn-1");
+    const client = await connectClient(bootstrap.endpoint);
+    sockets.push(client.socket);
+    client.send(handshake(1, bootstrap));
+    await client.next();
+    client.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "browser.call",
+      params: {
+        session_id: "thread-1",
+        turn_id: "turn-1",
+        tool: "snapshot",
+        arguments: { browserTabId: "tab-1", viewGeneration: 1 },
+      },
+    });
+
+    await expect(client.next()).resolves.toMatchObject({
+      id: 2,
+      error: { code: -32000, message: "Browser client request 超时" },
+    });
+    expect(operationSignal?.aborted).toBe(true);
   });
 
   it("stop 会释放活跃 Browser Agent turn", async () => {

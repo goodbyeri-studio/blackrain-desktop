@@ -5,7 +5,7 @@
 - [ ] 阅读相关 `README.md` / `docs/` / `AGENTS.md`
 - [ ] 确认是否涉及 `apps/desktop/AGENTS.md`
 - [ ] 确认是否触碰 `codex-upstream`，默认不改内核
-- [ ] 若涉及工作台，确认是否需要同步 `.specs/008-expert-workbench-package/`
+- [ ] 若涉及暂停路线，确认已先更新产品优先级并替换当前唯一 spec
 - [ ] 列出需要验证的真实命令或探针
 - [ ] 对每个关键项分别列出:代码/配置存在、验证通过、发布可交付;不混用同一个勾选项
 
