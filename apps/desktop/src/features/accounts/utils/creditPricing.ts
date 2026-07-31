@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A1.8：模型 credit 倍率。
+// 模型 credit 倍率。
 // 比值钉死 DeepSeek 真实价：pro 是 flash 的 3 倍（decisions.md「模型倍率」）。
 // 表达为 flash 0.5x / pro 1.5x。前端只用于「展示倍率标签」；
 // 真正的 token→credit 扣减在平台代理服务端做（M-A2），此处不扣费。

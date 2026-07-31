@@ -145,7 +145,11 @@ function createElectronAppServerEventHub() {
     lastSequence = event.sequence;
     const payload: AppServerEvent = {
       workspace_id: event.workspaceId ?? "",
-      message: { method: event.method, params: event.params },
+      message: {
+        method: event.method,
+        params: event.params,
+        ...(event.requestId === undefined ? {} : { id: event.requestId }),
+      },
     };
     for (const listener of listeners) {
       try {

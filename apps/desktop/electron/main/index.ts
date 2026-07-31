@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, powerMonitor } from "electron";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { createMainWindow } from "./app/create-main-window";
@@ -17,6 +17,10 @@ import {
 import { AppWindowRegistry } from "./security/window-registry";
 import { WorkspaceStore } from "./workspaces/workspace-store";
 import { installElectronE2eHarness } from "./testing/electron-e2e-harness";
+import {
+  bindSystemPowerEvents,
+  SystemPowerLifecycle,
+} from "./app/system-power-lifecycle";
 
 if (
   process.env.BLACKRAIN_ELECTRON_SMOKE === "1" &&
@@ -45,10 +49,9 @@ const browser = new BrowserViewManager(undefined, {
 const workspaces = new WorkspaceStore(
   path.join(blackRainDataPaths.appState, "workspaces.json"),
 );
-const disposeE2eHarness = installElectronE2eHarness(browser, {
-  enabled: process.env.BLACKRAIN_ELECTRON_E2E === "1",
-  packaged: app.isPackaged,
-});
+const browserClientResourceRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "browser-client")
+  : path.join(app.getAppPath(), "resources", "browser-client");
 const agent = new AppServerRuntime({
   resolveExecutablePath: () =>
     resolveCodexExecutablePath({
@@ -59,9 +62,33 @@ const agent = new AppServerRuntime({
   cwd: process.cwd(),
   clientVersion: app.getVersion(),
   browserBackend: browser,
+  resolveBrowserClientPath: () =>
+    path.join(browserClientResourceRoot, "browser-client.mjs"),
+  resolveBrowserMcpAdapterPath: () =>
+    path.join(browserClientResourceRoot, "browser-mcp-server.mjs"),
+  resolveBrowserMcpNodePath: () =>
+    app.isPackaged
+      ? path.join(
+          process.resourcesPath,
+          "node-runtime",
+          "windows-x64",
+          "node.exe",
+        )
+      : process.env.BLACKRAIN_NODE_BIN?.trim() || "node",
   onDiagnostic: (line) => console.error(`[codex app-server] ${line}`),
 });
+const powerLifecycle = new SystemPowerLifecycle([browser, agent]);
+const disposeE2eHarness = installElectronE2eHarness(browser, {
+  enabled: process.env.BLACKRAIN_ELECTRON_E2E === "1",
+  packaged: app.isPackaged,
+  simulateSystemPowerCycle: async () => {
+    powerLifecycle.suspend();
+    powerLifecycle.resume();
+    await powerLifecycle.whenIdle();
+  },
+});
 let disposeIpc: (() => void) | undefined;
+let disposePowerEvents: (() => void) | undefined;
 let shutdownStarted = false;
 let shutdownComplete = false;
 
@@ -71,6 +98,7 @@ app.whenReady().then(() => {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`),
     );
   }
+  disposePowerEvents = bindSystemPowerEvents(powerMonitor, powerLifecycle);
   disposeIpc = registerIpcHandlers(windows, browser, agent, workspaces);
   createMainWindow(windows, browser);
 
@@ -92,11 +120,16 @@ app.on("before-quit", (event) => {
   event.preventDefault();
   if (shutdownStarted) return;
   shutdownStarted = true;
+  disposePowerEvents?.();
+  powerLifecycle.dispose();
   disposeE2eHarness();
   disposeIpc?.();
-  browser.dispose();
-  void agent.stop().finally(() => {
-    shutdownComplete = true;
-    app.quit();
-  });
+  void powerLifecycle
+    .whenIdle()
+    .then(() => agent.stop())
+    .finally(() => {
+      browser.dispose();
+      shutdownComplete = true;
+      app.quit();
+    });
 });

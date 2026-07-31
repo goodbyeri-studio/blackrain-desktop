@@ -6,7 +6,7 @@
 #   $env:DEV_MODEL = "deepseek-v4-pro"; pwsh scripts/dev-client.ps1
 #   $env:GW_PORT = "9000"; pwsh scripts/dev-client.ps1
 #
-# 与 dev-client.sh 对等(PowerShell 版,见 .specs/007-windows-client)。
+# 与 dev-client.sh 对等的 PowerShell 开发入口；发布验证见 docs/commands.md。
 # 前提：① cp .env.example .env 并填好 DEEPSEEK_API_KEY
 #       ② 内核已编译(见 docs/commands.md「内核构建」Windows 段)
 #       ③ apps\desktop 已 npm install

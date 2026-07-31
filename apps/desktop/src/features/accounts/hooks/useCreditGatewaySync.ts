@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A2：会话 → 网关 credit 模式同步。
+// 会话到网关的 credit 模式同步。
 // 订阅 Supabase auth 变化：
 //  - 登录/有会话 → 写 JWT 文件；若从 dev 切到 credit（base_url 变）则重启网关。
 //  - token 刷新 → 只重写 JWT 文件（网关每请求读文件，无需重启）。

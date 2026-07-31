@@ -14,8 +14,8 @@
 
 - 产品形态以 `docs/04-产品形态.md` 为准。
 - 运行时以 `docs/09-运行时架构与里程碑.md` 为准。
-- Electron 迁移以 `.specs/012-electron-shell-migration/` 为准。
-- 能力补齐与 Browser 以 `.specs/013-codex-app-capability-parity/` 为准。
+- 当前唯一交付 spec 是 `.specs/001-in-app-browser/`，包含 Browser 及其直接宿主依赖。
+- 完整 Electron 迁移路线保留在 `docs/09-运行时架构与里程碑.md` 和 `docs/10-Electron迁移与内置浏览器实现计划.md`，当前不建立第二个 spec。
 - 当前代码仍是 Tauri；目标 Electron 拓扑不得冒充已实现状态。
 - 保留 React UI；目标 Electron main 按 Codex App 架构直接启动并驱动原装 `codex app-server`，当前 Rust daemon/shared core 只作迁移输入并最终删除。
 - 沿用 Codex 标准 Home 与 CLI 共享配置和 thread，不建立 BlackRain 专属 `CODEX_HOME`。

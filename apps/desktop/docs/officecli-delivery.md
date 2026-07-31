@@ -1,6 +1,6 @@
 # OfficeCLI 内置交付状态
 
-> 本文记录当前仓库中的 OfficeCLI 集成边界。资源和代码存在不等于当前锁定内核、账号、Gateway、工作台生命周期、会话编排和 NSIS 全链路已经发布验收。Windows 发布真源是 [spec 007 verification](../../../.specs/007-windows-client/verification.md)，工作台包真源是 [spec 008](../../../.specs/008-expert-workbench-package/)，激活后的执行真源是 [spec 011](../../../.specs/011-workbench-session-orchestration/)。
+> 本文只记录暂停的 OfficeCLI 历史集成边界。资源和代码存在不等于当前锁定内核、账号、Gateway、工作台生命周期、会话编排和 NSIS 全链路已经发布验收。旧 Windows/工作台 spec 已删除，当前没有 Office 产品交付真源；恢复前必须先调整产品优先级并建立新的唯一 spec。
 
 ## 当前结论
 
@@ -85,7 +85,7 @@ pwsh scripts/release-client-win.ps1
 
 ## 发布验收口径
 
-当前版本只有在以下项目全部写入 `.specs/007-windows-client/verification.md` 后，才能称为 Windows 可交付：
+当前版本只有在以下项目全部完成 Windows 实机记录后，才能称为 Windows 可交付；当前没有 Office 交付 spec，因此这些项目不在排期内：
 
 - `git lfs pull` 后 OfficeCLI 不是 LFS pointer。
 - NSIS 包内包含 OfficeCLI、Gateway、plugin、workbench、Codex 和 Python runtime。
@@ -98,9 +98,9 @@ pwsh scripts/release-client-win.ps1
 
 ## 后续事项
 
-- 工作台会话编排与双 surface：`.specs/011-workbench-session-orchestration/`。
+- 工作台会话编排与双 surface：暂停，无当前合同。
 - Office 场景质量基线：在 011 的执行合同落地后补充专项任务与验证结果。
-- Windows NSIS、Credential Manager、真实工具调用、安装/卸载：`.specs/007-windows-client/`。
-- 工作台 Manifest、依赖、激活、升级、回滚和卸载：`.specs/008-expert-workbench-package/`。
+- Windows NSIS、Credential Manager、真实工具调用、安装/卸载：暂停路线，恢复时重新定义验收。
+- 工作台 Manifest、依赖、激活、升级、回滚和卸载：暂停路线，恢复时重新定义生命周期合同。
 - OfficeCLI 上游升级时重新 vendor，并同步 `SHA256SUMS` 与 `VENDOR.json`。
 - Windows COM 只作为少量 Office 专有能力的兜底，不作为主路径。

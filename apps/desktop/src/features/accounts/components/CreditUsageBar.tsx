@@ -10,7 +10,7 @@ export interface CreditUsageBarProps {
   online: boolean;
 }
 
-// 002-accounts-credits：积分额度条。从 ledger 派生总额/已用，画「已用 / 总额」。
+// 积分额度条：从 ledger 派生总额/已用，显示“已用 / 总额”。
 export function CreditUsageBar({ userId, credits, online }: CreditUsageBarProps) {
   const [summary, setSummary] = useState<CreditSummary | null>(null);
   const [error, setError] = useState(false);

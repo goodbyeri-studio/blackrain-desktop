@@ -2,13 +2,13 @@
 
 架构文档 [03](../docs/03-系统架构.md) 第 ② 层、[05 模型路由](../docs/05-模型路由.md)。把国产模型统一抽象成 OpenAI 兼容客户端,**用户在模型广场手动选 provider**;并解决 codex 默认走 Responses、而国产模型多是 Chat Completions 的协议落差。
 
-> **当前状态（2026-07-24）**：本目录是所有 codex 模型会话共用的协议翻译层。`gateway.py` 已在 CODE surface 证明链路可行并进入打包资源配置，但仍是生产化未完成的原型；工作台 surface 接入由 [spec 011](../.specs/011-workbench-session-orchestration/) 约束，目前尚未实现。已记录的完整工具调用只在显式 `STRIP_TOOLS=0` 的开发/探针路径通过。当前 App 托管 spawn 未覆盖默认值 `1`，普通启动会剥除工具，这是待修发布阻塞项。Windows 发布级证据看 `.specs/007-windows-client/verification.md`；配置存在不等于安装包已验收。
+> **当前状态（2026-07-31）**：本目录是仅在模型提供方不支持 Responses API 时使用的可选协议翻译 sidecar。`gateway.py` 已证明 DeepSeek 链路可行并进入历史打包配置，但仍是生产化未完成的原型；它不是当前 Browser P0，也没有 active spec。已记录的完整工具调用只在显式 `STRIP_TOOLS=0` 的开发/探针路径通过，配置存在不等于安装包已验收。
 
 ## 关键约束（接国产模型的命门）
 
 codex 默认 `wire_api="responses"`，网关必须实现 `/v1/responses` 端点 + **Responses⇄Chat 双向翻译**（SSE 语义事件 / function_call / reasoning / 消息重排）。**只翻 Chat Completions 的普通网关对 codex 无效。**
 
-⚠️ **`wire_api="chat"` 直连这条捷径已被上游删除**（2026-06 在内核 51b3cd5 实测，见 [codex#7782](https://github.com/openai/codex/discussions/7782)）。因此本翻译层**从 M1 起就是硬依赖**，不是可选的后期演进。
+⚠️ **`wire_api="chat"` 直连这条捷径已被上游删除**（2026-06 在内核 51b3cd5 实测，见 [codex#7782](https://github.com/openai/codex/discussions/7782)）。因此对于只提供 Chat Completions 的模型路径，本翻译层是硬依赖；原生支持 Responses 的 provider 不经过 Gateway。
 
 ## `gateway.py` —— 已验证的最小原型
 

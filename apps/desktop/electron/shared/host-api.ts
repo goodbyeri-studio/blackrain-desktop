@@ -5,9 +5,11 @@ import type {
   BrowserCreateTabInput,
   BrowserDownloadDecisionInput,
   BrowserDialogDecisionInput,
+  BrowserFileChooserDecisionInput,
   BrowserNavigateInput,
   BrowserPermissionDecisionInput,
   BrowserRouteScope,
+  BrowserSensitiveActionDecisionInput,
   BrowserTabRequest,
   BrowserTabState,
   BrowserTakeControlInput,
@@ -26,10 +28,14 @@ import type {
   AgentEventBatch,
   AgentEventCursorInput,
   AgentRuntimeStatus,
+  AgentServerRequestResponseAck,
+  AgentServerRequestResponseInput,
   AgentThreadAck,
   AgentThreadListInput,
   AgentThreadListResponse,
   AgentThreadResumeInput,
+  AgentThreadUnsubscribeInput,
+  AgentThreadUnsubscribeResponse,
   AgentThreadStartInput,
   AgentTurnAck,
   AgentTurnInterruptInput,
@@ -57,9 +63,11 @@ export interface BlackRainHostApi {
     listThreads(input: AgentThreadListInput): Promise<AgentThreadListResponse>;
     startThread(input: AgentThreadStartInput): Promise<AgentThreadAck>;
     resumeThread(input: AgentThreadResumeInput): Promise<AgentThreadAck>;
+    unsubscribeThread?(input: AgentThreadUnsubscribeInput): Promise<AgentThreadUnsubscribeResponse>;
     startTurn(input: AgentTurnStartInput): Promise<AgentTurnAck>;
     steerTurn(input: AgentTurnSteerInput): Promise<AgentTurnAck>;
     interruptTurn(input: AgentTurnInterruptInput): Promise<AgentTurnAck>;
+    respondToServerRequest(input: AgentServerRequestResponseInput): Promise<AgentServerRequestResponseAck>;
   };
   browser: {
     createTab(input: BrowserCreateTabInput): Promise<BrowserTabState>;
@@ -68,8 +76,10 @@ export interface BlackRainHostApi {
     control(input: BrowserControlInput): Promise<BrowserTabState>;
     takeControl(input: BrowserTakeControlInput): Promise<BrowserTabState>;
     respondPermission(input: BrowserPermissionDecisionInput): Promise<BrowserTabState>;
+    respondSensitiveAction(input: BrowserSensitiveActionDecisionInput): Promise<BrowserTabState>;
     resolveDownload(input: BrowserDownloadDecisionInput): Promise<BrowserTabState>;
     respondDialog(input: BrowserDialogDecisionInput): Promise<BrowserTabState>;
+    resolveFileChooser(input: BrowserFileChooserDecisionInput): Promise<BrowserTabState>;
     closeTab(input: BrowserTabRequest): Promise<BrowserCloseTabAck>;
     setLayout(update: BrowserLayoutUpdate): Promise<BrowserLayoutAck>;
     onTabsChanged(

@@ -8,19 +8,15 @@
 
 BlackRain 以 OpenAI 开源 `codex-rs` 为唯一 agent 内核，自行补齐完整桌面 Codex 产品需要的宿主能力，并尽可能对齐官方 Codex App 的核心功能与体验。
 
-当前两个并列 P0：
-
-1. 补齐 Codex App 宿主能力，首项是 in-app browser。
-2. 将 CodexMonitor 衍生的 Tauri 壳完整迁移为 Electron。
+唯一当前 P0 是交付 in-app browser。Electron 是唯一目标宿主，但当前只推进解除 Browser P0 阻塞所需的宿主能力；其余 Tauri 全量迁移和删除进入 P1。锁定 `codex-cli 0.146.0` 已通过标准 stdio MCP + BlackRain 随包 Node adapter 接入自有 Browser client；code-mode V8 不直接加载 Node 模块。dynamic tools 和 main 自加载 bridge 只保留测试/bootstrap，不得进入发布态第二路由。
 
 工作台、Session Orchestrator、专家市场和 OPC/工作室均已暂停。不得把它们写成当前产品第一主语、当前里程碑或近期交付承诺。`2049 App` / `2049` 只允许出现在必须保留的历史兼容制品名中。
 
 ## 真源
 
+- 当前唯一 spec：`.specs/001-in-app-browser/`
 - 产品形态：`docs/04-产品形态.md`
 - 运行时架构：`docs/09-运行时架构与里程碑.md`
-- Electron 迁移：`.specs/012-electron-shell-migration/`
-- Codex App 能力补齐：`.specs/013-codex-app-capability-parity/`
 - 当前完成度：对应 spec 的 `verification.md` 与实际代码
 - 日常命令：`docs/commands.md`
 
@@ -71,9 +67,9 @@ BlackRain（Electron）
 
 ## Living Spec
 
-跨两层以上、改变运行时边界、形成用户可感知新流程、需要多 PR 接手或依赖易漂移假设的功能必须建立 spec。复制 `.specs/_template/`，保留 requirements/design/tasks/decisions/verification 五个文件。
+同一时刻只保留一个业务 living spec。当前所有 in-app browser 及其直接依赖的 Electron、App Server、Browser client、安全、恢复和 Windows 验收工作统一进入 `001-in-app-browser`。
 
-Electron 宿主改动归 012；Codex App 能力矩阵与 in-app browser 归 013。现有 005/006 可继续记录 GUI 与 app-server 能力接线，但不得覆盖 012/013 的宿主边界。
+Browser P0 完成前不得预建下一项 spec。优先级切换时，先更新产品真源，再用 `.specs/_template/` 建立新的唯一 spec，并删除已完成 spec；历史通过 Git 保留，不建立 archive spec 目录。
 
 ## 桌面架构纪律
 
@@ -84,8 +80,8 @@ Electron 宿主改动归 012；Codex App 能力矩阵与 in-app browser 归 013�
 - preload 只暴露类型化 allowlist，不暴露原始 IPC 或 Node.js。
 - 当前 Rust daemon/shared core 只是 Tauri 迁移输入；目标态按 Codex App 分层把 agent 能力交给原装 app-server，把桌面宿主能力放入 Electron main/preload，不保留永久 BlackRain daemon。
 - Browser `WebContentsView` 只由 main 创建和持有；renderer 只上报经过校验的 bounds、visibility、active tab 和 UI 遮挡状态。
-- Browser 页面不得加载 App preload；spec 013 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用最小 page preload。
-- Browser 工具生产链按 Codex session/turn 绑定到唯一 main backend；dynamic tools 只作 bootstrap，自有 Browser client/transport 必须鉴权、有界并在发布前成为唯一生产 adapter。
+- Browser 页面不得加载 App preload；当前 spec 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用最小 page preload。
+- Browser 工具生产链按 Codex session/turn 绑定到唯一 main backend；发布态只使用进程级注册的标准 stdio MCP + 随包 Node adapter + 自有鉴权 transport，dynamic tools 只作测试/bootstrap。
 - main 必须校验 route、thread、window、view generation 和 profile ownership，并强制页面 WebContents 安全参数。
 - Codex App 的可观察 Browser 行为与控制面是第一实现基线；ClawX、Hermes 等项目只补充通用 Electron 工程经验。
 - 迁移期兼容层必须带删除任务，不建立永久 Tauri/Electron 分叉。

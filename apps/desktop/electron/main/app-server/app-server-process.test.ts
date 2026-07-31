@@ -72,6 +72,8 @@ describe("AppServerProcess", () => {
       "-c",
       "features.code_mode_host=true",
       "-c",
+      "features.code_mode=true",
+      "-c",
       "model=example",
       "app-server",
       "--analytics-default-enabled",
@@ -98,4 +100,77 @@ describe("AppServerProcess", () => {
     expect(processSupervisor.state).toBe("failed");
     expect(onExit).toHaveBeenCalledOnce();
   });
+
+  it("grace deadline 后强制回收 Windows App Server 进程树", async () => {
+    const fixturePath = fileURLToPath(
+      new URL("./test-fixtures/fake-app-server.mjs", import.meta.url),
+    );
+    const terminateProcessTree = vi.fn(async (pid: number) => {
+      process.kill(pid, "SIGKILL");
+    });
+    const processSupervisor = new AppServerProcess({
+      executablePath: process.execPath,
+      launchArguments: [fixturePath],
+      cwd: process.cwd(),
+      clientVersion: "0.7.68",
+      environment: { BLACKRAIN_FAKE_KEEP_ALIVE: "1" },
+      stopGraceMs: 20,
+      terminateProcessTree,
+      connection: {
+        onServerRequest: async () => ({ decision: "decline" }),
+      },
+    });
+
+    await processSupervisor.start();
+    await expect(processSupervisor.stop()).resolves.toMatchObject({
+      expected: true,
+    });
+    expect(terminateProcessTree).toHaveBeenCalledWith(expect.any(Number));
+    expect(processSupervisor.state).toBe("stopped");
+  });
+
+  it.runIf(process.platform === "win32")(
+    "使用 taskkill /T /F 回收 App Server 后代进程",
+    async () => {
+      const fixturePath = fileURLToPath(
+        new URL("./test-fixtures/fake-app-server.mjs", import.meta.url),
+      );
+      let resolveDescendant!: (pid: number) => void;
+      const descendant = new Promise<number>((resolve) => {
+        resolveDescendant = resolve;
+      });
+      const processSupervisor = new AppServerProcess({
+        executablePath: process.execPath,
+        launchArguments: [fixturePath],
+        cwd: process.cwd(),
+        clientVersion: "0.7.68",
+        environment: {
+          BLACKRAIN_FAKE_KEEP_ALIVE: "1",
+          BLACKRAIN_FAKE_SPAWN_DESCENDANT: "1",
+        },
+        stopGraceMs: 20,
+        connection: {
+          onServerRequest: async () => ({ decision: "decline" }),
+          onNotification: (method, params) => {
+            if (
+              method === "test/descendant-started" &&
+              params &&
+              typeof params === "object" &&
+              "pid" in params &&
+              typeof params.pid === "number"
+            ) {
+              resolveDescendant(params.pid);
+            }
+          },
+        },
+      });
+
+      await processSupervisor.start();
+      const descendantPid = await descendant;
+      await processSupervisor.stop();
+      await vi.waitFor(() => {
+        expect(() => process.kill(descendantPid, 0)).toThrow();
+      });
+    },
+  );
 });

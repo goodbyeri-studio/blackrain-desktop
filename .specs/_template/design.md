@@ -11,7 +11,7 @@
 - 属于 `apps/desktop` 的逻辑：
 - 属于 `gateway` 的逻辑：
 - 属于 `plugins` / `workbenches` 的内容：
-- 若涉及工作台生命周期：与 `.specs/008-expert-workbench-package/` 的关系：
+- 若涉及暂停路线：产品优先级变更和唯一 spec 替换关系：
 - 明确不改 `codex-upstream` 的部分：
 
 ## 数据流

@@ -1,4 +1,4 @@
-// 002-accounts-credits / M-A1.3：Supabase 客户端单例。
+// Supabase 客户端单例。
 // 惰性创建：未配置（缺 env）时返回 null，调用方走降级 UI。
 // session 持久化走钥匙串 adapter（keychainStorage），不落 localStorage。
 

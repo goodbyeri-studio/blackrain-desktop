@@ -5,7 +5,7 @@ import { CreditUsageBar } from "@/features/accounts/components/CreditUsageBar";
 import { planLabel } from "@/features/accounts/utils/creditDisplay";
 import { ACCOUNT_PLANS, PLAN_DESCRIPTORS } from "@/features/accounts/types";
 
-// 002-accounts-credits：设置页账号区。
+// 设置页账号区。
 // 进入 App 时门禁已保证 signed-in / unconfigured，故此处不再放内联登录。
 // 展示当前账号 + 积分额度条 + 登出 + 三档套餐占位。
 export function SettingsAccountSection() {

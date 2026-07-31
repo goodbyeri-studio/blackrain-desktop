@@ -15,14 +15,17 @@ import {
   BrowserCreateTabInputSchema,
   BrowserDialogDecisionInputSchema,
   BrowserDownloadDecisionInputSchema,
+  BrowserFileChooserDecisionInputSchema,
   BrowserNavigateInputSchema,
   BrowserPermissionDecisionInputSchema,
   BrowserRouteScopeSchema,
+  BrowserSensitiveActionDecisionInputSchema,
   BrowserTabRequestSchema,
   BrowserTakeControlInputSchema,
   type BrowserCloseTabAck,
   type BrowserControlInput,
   type BrowserRouteScope,
+  type BrowserSensitiveActionCategory,
   type BrowserTabRequest,
   type BrowserTabState,
 } from "../../shared/browser-tabs";
@@ -54,9 +57,14 @@ import type {
   BrowserAgentControlInput,
   BrowserAgentNavigateInput,
   BrowserAgentScreenshotInput,
+  BrowserLocatorInput,
+  BrowserPressKeyInput,
+  BrowserScrollInput,
   BrowserSnapshotRefInput,
   BrowserTypeTextInput,
 } from "./browser-dynamic-tool-adapter";
+import { BrowserSensitiveActionPolicy } from "./browser-sensitive-action-policy";
+import { planBrowserWorkingSet } from "./browser-working-set";
 
 const securedBrowserSessions = new WeakSet<Session>();
 const PERMISSION_REQUEST_TTL_MS = 30_000;
@@ -64,6 +72,9 @@ const MAX_CONSOLE_MESSAGES = 20;
 const CONSOLE_EVENT_COALESCE_MS = 100;
 const DOWNLOAD_REQUEST_TTL_MS = 60_000;
 const DOWNLOAD_GRANT_TTL_MS = 15_000;
+const FILE_CHOOSER_REQUEST_TTL_MS = 60_000;
+const SENSITIVE_ACTION_REQUEST_TTL_MS = 25_000;
+const AGENT_INPUT_ECHO_TIMEOUT_MS = 250;
 const CONFIRMABLE_PERMISSIONS = new Set([
   "clipboard-read",
   "display-capture",
@@ -83,7 +94,37 @@ type PendingDownload = {
   browserTabId: string;
   expiresAt: number;
   filename: string;
+  timer: NodeJS.Timeout;
   url: string;
+};
+
+type PendingFileChooser = {
+  browserTabId: string;
+  backendNodeId: number;
+  expiresAt: number;
+  mode: "selectSingle" | "selectMultiple";
+  sessionId?: string;
+  timer: NodeJS.Timeout;
+};
+
+type PendingSensitiveAction = {
+  browserTabId: string;
+  category: BrowserSensitiveActionCategory;
+  origin: string;
+  threadId: string;
+  turnId: string;
+  viewGeneration: number;
+  expiresAt: number;
+  timer: NodeJS.Timeout;
+  signal: AbortSignal;
+  abortListener: () => void;
+  resolve: () => void;
+  reject: (error: Error) => void;
+};
+
+type AgentInputDispatch = {
+  keyboardEchoes: number;
+  mouseEchoes: number;
 };
 
 export class BrowserViewManager {
@@ -93,21 +134,30 @@ export class BrowserViewManager {
   readonly #cdp: BrowserCdpController;
   readonly #sessions: BrowserSessionStore;
   readonly #agentOperations = new Map<string, Set<AbortController>>();
-  readonly #agentInputDispatches = new Map<string, Set<symbol>>();
+  readonly #agentInputDispatches = new Map<string, Set<AgentInputDispatch>>();
   readonly #desiredVisibility = new Map<string, boolean>();
   readonly #captureVisibilityHolds = new Map<string, number>();
   readonly #consoleEmitTimers = new Map<string, ReturnType<typeof setTimeout>>();
   readonly #pendingPermissions = new Map<string, PendingPermission>();
   readonly #permissionGrants = new Map<string, number>();
   readonly #pendingDownloads = new Map<string, PendingDownload>();
+  readonly #pendingFileChoosers = new Map<string, PendingFileChooser>();
   readonly #downloadGrants = new Map<string, { expiresAt: number; savePath: string }>();
+  readonly #pendingSensitiveActions = new Map<string, PendingSensitiveAction>();
+  readonly #lifecycleTransitions = new Map<string, Promise<void>>();
+  readonly #sensitiveActions: BrowserSensitiveActionPolicy;
 
   constructor(
     cdp: BrowserCdpController = new BrowserCdpController(),
-    options: { stateFilePath?: string } = {},
+    options: {
+      stateFilePath?: string;
+      sensitiveActionPolicy?: BrowserSensitiveActionPolicy;
+    } = {},
   ) {
     this.#cdp = cdp;
     this.#sessions = new BrowserSessionStore(options.stateFilePath);
+    this.#sensitiveActions =
+      options.sensitiveActionPolicy ?? new BrowserSensitiveActionPolicy();
   }
 
   async createTab(
@@ -131,6 +181,7 @@ export class BrowserViewManager {
         await record.view.webContents.loadURL(normalizeBrowserUrl(request.url));
       }
       this.#refreshState(record);
+      record.pageLifecycle = record.crashed ? "crashed" : "live";
       this.#persistRecord(record);
       this.#emitTabsChanged(ownerWindow, record);
       return tabState(record);
@@ -198,6 +249,8 @@ export class BrowserViewManager {
     );
     try {
       throwIfAborted(signal);
+      record.origin = "agent";
+      record.createdByTurnId = turnId;
       this.#claimForAgent(record, turnId);
       return tabState(record);
     } catch (error) {
@@ -244,7 +297,7 @@ export class BrowserViewManager {
     );
   }
 
-  controlForAgent(input: BrowserAgentControlInput): BrowserTabState {
+  async controlForAgent(input: BrowserAgentControlInput): Promise<BrowserTabState> {
     const request = BrowserControlInputSchema.parse(input);
     const record = this.#registry.requireForRoute(
       request,
@@ -252,6 +305,8 @@ export class BrowserViewManager {
       request.viewGeneration,
     );
     this.#claimForAgent(record, input.turnId);
+    await this.#transitionPageLifecycle(record, "live");
+    record.lastActiveAt = Date.now();
     this.#applyControl(record, request.action);
     this.#refreshState(record);
     this.#persistRecord(record);
@@ -270,18 +325,81 @@ export class BrowserViewManager {
     );
   }
 
+  async locateForAgent(input: BrowserLocatorInput, signal: AbortSignal) {
+    const request = BrowserTabRequestSchema.parse(input);
+    const record = this.#requireAgentRecord(request);
+    return this.#runAgentOperation(record, input.turnId, signal, (operationSignal) =>
+      this.#cdp.locate(
+        this.#cdpTarget(record, input.turnId),
+        {
+          role: input.role,
+          name: input.name,
+          exact: input.exact,
+          state: input.state,
+          timeoutMs: input.timeoutMs,
+        },
+        operationSignal,
+      ),
+    );
+  }
+
   async clickForAgent(
     input: BrowserSnapshotRefInput,
     signal: AbortSignal,
   ) {
     const request = BrowserTabRequestSchema.parse(input);
     const record = this.#requireAgentRecord(request);
-    return this.#runAgentInputOperation(
+    return this.#runAgentOperation(
+      record,
+      input.turnId,
+      signal,
+      async (operationSignal) => {
+        const target = this.#cdpTarget(record, input.turnId);
+        const locator = this.#cdp.describeRef(
+          target,
+          input.snapshotId,
+          input.ref,
+        );
+        const policy = this.#sensitiveActions.evaluate(locator);
+        if (policy.decision === "deny") {
+          throw new Error(`企业策略禁止 Browser ${policy.category} 动作`);
+        }
+        if (policy.decision === "confirm") {
+          await this.#requestSensitiveAction(
+            record,
+            input.turnId,
+            policy.category,
+            locator.name,
+            operationSignal,
+          );
+        }
+        throwIfAborted(operationSignal);
+        return this.#runAgentInputDispatch(
+          record,
+          { mouseEchoes: 2 },
+          () => this.#cdp.click(
+            target,
+            input.snapshotId,
+            input.ref,
+            operationSignal,
+          ),
+        );
+      },
+    );
+  }
+
+  async hoverForAgent(
+    input: BrowserSnapshotRefInput,
+    signal: AbortSignal,
+  ) {
+    const request = BrowserTabRequestSchema.parse(input);
+    const record = this.#requireAgentRecord(request);
+    return this.#runAgentOperation(
       record,
       input.turnId,
       signal,
       (operationSignal) =>
-        this.#cdp.click(
+        this.#cdp.hover(
           this.#cdpTarget(record, input.turnId),
           input.snapshotId,
           input.ref,
@@ -296,7 +414,7 @@ export class BrowserViewManager {
   ) {
     const request = BrowserTabRequestSchema.parse(input);
     const record = this.#requireAgentRecord(request);
-    return this.#runAgentInputOperation(
+    return this.#runAgentOperation(
       record,
       input.turnId,
       signal,
@@ -306,6 +424,60 @@ export class BrowserViewManager {
           input.snapshotId,
           input.ref,
           input.text,
+          operationSignal,
+        ),
+    );
+  }
+
+  async pressKeyForAgent(input: BrowserPressKeyInput, signal: AbortSignal) {
+    const request = BrowserTabRequestSchema.parse(input);
+    const record = this.#requireAgentRecord(request);
+    return this.#runAgentOperation(
+      record,
+      input.turnId,
+      signal,
+      async (operationSignal) => {
+        const policy = this.#sensitiveActions.evaluateKey(input.key);
+        if (policy.decision === "deny") {
+          throw new Error("企业策略禁止 Browser 键盘激活动作");
+        }
+        if (policy.decision === "confirm") {
+          await this.#requestSensitiveAction(
+            record,
+            input.turnId,
+            policy.category,
+            `按键 ${input.key === " " ? "Space" : input.key}`,
+            operationSignal,
+          );
+        }
+        throwIfAborted(operationSignal);
+        return this.#runAgentInputDispatch(
+          record,
+          { keyboardEchoes: 2 },
+          () =>
+            this.#cdp.pressKey(
+              this.#cdpTarget(record, input.turnId),
+              input.key,
+              operationSignal,
+            ),
+        );
+      },
+    );
+  }
+
+  async scrollForAgent(input: BrowserScrollInput, signal: AbortSignal) {
+    const request = BrowserTabRequestSchema.parse(input);
+    const record = this.#requireAgentRecord(request);
+    return this.#runAgentInputOperation(
+      record,
+      input.turnId,
+      signal,
+      { mouseEchoes: 1 },
+      (operationSignal) =>
+        this.#cdp.scroll(
+          this.#cdpTarget(record, input.turnId),
+          input.deltaX,
+          input.deltaY,
           operationSignal,
         ),
     );
@@ -369,6 +541,8 @@ export class BrowserViewManager {
       request.viewGeneration,
     );
     this.#takeControlRecord(record);
+    await this.#transitionPageLifecycle(record, "live");
+    record.lastActiveAt = Date.now();
     await record.view.webContents.loadURL(normalizeBrowserUrl(request.url));
     this.#refreshState(record);
     this.#persistRecord(record);
@@ -376,11 +550,11 @@ export class BrowserViewManager {
     return tabState(record);
   }
 
-  control(
+  async control(
     ownerWindow: BrowserWindow,
     windowGeneration: number,
     input: unknown,
-  ): BrowserTabState {
+  ): Promise<BrowserTabState> {
     const request = BrowserControlInputSchema.parse(input);
     const record = this.#registry.requireOwned(
       this.#owner(ownerWindow, windowGeneration),
@@ -389,6 +563,8 @@ export class BrowserViewManager {
       request.viewGeneration,
     );
     this.#takeControlRecord(record);
+    await this.#transitionPageLifecycle(record, "live");
+    record.lastActiveAt = Date.now();
     this.#applyControl(record, request.action);
     this.#refreshState(record);
     this.#persistRecord(record);
@@ -486,9 +662,16 @@ export class BrowserViewManager {
     );
     const pending = this.#pendingDownloads.get(request.requestId);
     if (
+      pending?.browserTabId === record.browserTabId &&
+      pending.expiresAt <= Date.now()
+    ) {
+      this.#clearPendingDownload(record, request.requestId);
+      this.#emitTabsChangedForRecord(record);
+      throw new Error("Browser download request 已失效");
+    }
+    if (
       !pending ||
       pending.browserTabId !== record.browserTabId ||
-      pending.expiresAt <= Date.now() ||
       record.download?.requestId !== request.requestId
     ) {
       if (request.action === "cancel" && record.download?.requestId === request.requestId) {
@@ -498,7 +681,7 @@ export class BrowserViewManager {
       }
       throw new Error("Browser download request 已失效");
     }
-    this.#pendingDownloads.delete(request.requestId);
+    this.#clearPendingDownload(record, request.requestId);
     if (request.action === "cancel") {
       record.download = null;
       this.#emitTabsChangedForRecord(record);
@@ -549,21 +732,137 @@ export class BrowserViewManager {
   }
 
   completeAgentTurn(scope: BrowserRouteScope, turnId: string): void {
-    for (const record of this.#registry.listForRoute(scope)) {
-      if (
-        record.agentTurnId !== turnId &&
-        record.blockedAgentTurnId !== turnId
-      ) {
-        continue;
+    this.finalizeAgentTurn(scope, turnId, []);
+  }
+
+  async resolveFileChooser(
+    ownerWindow: BrowserWindow,
+    windowGeneration: number,
+    input: unknown,
+  ): Promise<BrowserTabState> {
+    const request = BrowserFileChooserDecisionInputSchema.parse(input);
+    const record = this.#registry.requireOwned(
+      this.#owner(ownerWindow, windowGeneration),
+      request,
+      request.browserTabId,
+      request.viewGeneration,
+    );
+    const pending = this.#pendingFileChoosers.get(request.requestId);
+    if (
+      !pending ||
+      pending.browserTabId !== record.browserTabId ||
+      pending.expiresAt <= Date.now() ||
+      record.fileChooserRequest?.requestId !== request.requestId
+    ) {
+      throw new Error("Browser file chooser request 已失效");
+    }
+    clearTimeout(pending.timer);
+    this.#pendingFileChoosers.delete(request.requestId);
+    this.#takeControlRecord(record);
+    await this.#transitionPageLifecycle(record, "live");
+    record.lastActiveAt = Date.now();
+    let files: string[] = [];
+    if (request.action === "choose") {
+      const selection = await dialog.showOpenDialog(ownerWindow, {
+        title: "选择要提供给网页的文件",
+        properties: [
+          "openFile",
+          ...(pending.mode === "selectMultiple" ? ["multiSelections" as const] : []),
+        ],
+      });
+      if (!selection.canceled) files = selection.filePaths;
+    }
+    try {
+      await this.#cdp.setFileInputFiles(
+        record.webContentsId,
+        pending.backendNodeId,
+        files,
+        pending.sessionId,
+      );
+    } finally {
+      record.fileChooserRequest = null;
+      this.#emitTabsChangedForRecord(record);
+    }
+    return tabState(record);
+  }
+
+  respondSensitiveAction(
+    ownerWindow: BrowserWindow,
+    windowGeneration: number,
+    input: unknown,
+  ): BrowserTabState {
+    const request = BrowserSensitiveActionDecisionInputSchema.parse(input);
+    const record = this.#registry.requireOwned(
+      this.#owner(ownerWindow, windowGeneration),
+      request,
+      request.browserTabId,
+      request.viewGeneration,
+    );
+    const pending = this.#pendingSensitiveActions.get(request.requestId);
+    if (
+      !pending ||
+      pending.browserTabId !== record.browserTabId ||
+      pending.threadId !== record.threadId ||
+      pending.turnId !== record.agentTurnId ||
+      pending.viewGeneration !== record.viewGeneration ||
+      pending.origin !== safeOrigin(record.url) ||
+      pending.expiresAt <= Date.now() ||
+      record.sensitiveActionRequest?.requestId !== request.requestId
+    ) {
+      if (pending) {
+        this.#settleSensitiveAction(
+          request.requestId,
+          false,
+          "Browser 敏感动作确认已因页面、turn 或 generation 漂移失效",
+        );
       }
+      throw new Error("Browser 敏感动作确认已失效");
+    }
+    this.#settleSensitiveAction(
+      request.requestId,
+      request.allow,
+      request.allow ? "" : "用户拒绝 Browser 敏感动作",
+    );
+    return tabState(record);
+  }
+
+  finalizeAgentTurn(
+    scope: BrowserRouteScope,
+    turnId: string,
+    keep: readonly string[],
+  ): BrowserTabState[] {
+    const request = BrowserRouteScopeSchema.parse(scope);
+    const keepIds = new Set(keep);
+    const records = this.#registry.listForRoute(request);
+    for (const record of records) {
+      const belongsToTurn =
+        record.agentTurnId === turnId ||
+        record.blockedAgentTurnId === turnId ||
+        record.createdByTurnId === turnId;
+      if (!belongsToTurn) continue;
+      if (keepIds.has(record.browserTabId)) {
+        record.deliverable = true;
+        record.handoff = true;
+      }
+      const shouldClose =
+        record.origin === "agent" &&
+        record.createdByTurnId === turnId &&
+        !record.deliverable &&
+        !record.handoff;
       this.#abortAgentOperations(record, "Browser Agent turn 已结束");
       this.#cdp.invalidateDocument(record.webContentsId);
+      if (shouldClose) {
+        const ownerWindow = this.#ownerWindowForRecord(record);
+        if (ownerWindow) this.#destroyRecord(record, ownerWindow);
+        continue;
+      }
       record.controlOwner = "user";
       record.agentTurnId = null;
       record.blockedAgentTurnId = null;
       this.#persistRecord(record);
       this.#emitTabsChangedForRecord(record);
     }
+    return this.#registry.listForRoute(request).map((record) => tabState(record));
   }
 
   setLayout(
@@ -608,10 +907,12 @@ export class BrowserViewManager {
           bounds.width > 0 &&
           bounds.height > 0;
       this.#desiredVisibility.set(record.browserTabId, visible);
+      if (visible) record.lastActiveAt = Date.now();
       record.view.setVisible(
         visible && !this.#captureVisibilityHolds.has(record.browserTabId),
       );
     }
+    this.#rebalanceWorkingSet(owner);
     return ack;
   }
 
@@ -629,10 +930,19 @@ export class BrowserViewManager {
         // 窗口关闭期间 native view 可能已被 Electron 移除。
       }
       record.detached = true;
+      record.pageLifecycle = "persisted";
       record.controlOwner = "user";
       record.agentTurnId = null;
       record.blockedAgentTurnId = null;
       this.#persistRecord(record);
+      this.#registry.remove(record.browserTabId);
+      this.#desiredVisibility.delete(record.browserTabId);
+      this.#captureVisibilityHolds.delete(record.browserTabId);
+      this.#lifecycleTransitions.delete(record.browserTabId);
+      this.#clearConsoleEmitTimer(record.browserTabId);
+      if (!record.view.webContents.isDestroyed()) {
+        record.view.webContents.close();
+      }
     }
     for (const [key, routeOwner] of this.#routeOwners) {
       if (
@@ -645,6 +955,67 @@ export class BrowserViewManager {
     this.#layouts.remove(owner.webContentsId);
   }
 
+  async prepareForSystemSuspend(): Promise<void> {
+    const transitions: Promise<void>[] = [];
+    for (const record of this.#registry.all()) {
+      const activeTurnId = record.agentTurnId;
+      this.#clearPendingForRecord(record, "系统即将睡眠，Browser 授权已失效");
+      this.#abortAgentOperations(record, "系统即将睡眠");
+      this.#cdp.invalidateDocument(record.webContentsId);
+      if (activeTurnId) {
+        record.handoff = true;
+        record.blockedAgentTurnId = activeTurnId;
+      }
+      record.controlOwner = "user";
+      record.agentTurnId = null;
+      this.#persistRecord(record);
+      this.#emitTabsChangedForRecord(record);
+      if (!record.crashed && !record.view.webContents.isDestroyed()) {
+        transitions.push(this.#transitionPageLifecycle(record, "suspended"));
+      }
+    }
+    await Promise.all(transitions);
+  }
+
+  async resumeFromSystemSleep(): Promise<void> {
+    const visibleTransitions: Promise<void>[] = [];
+    const owners = new Map<string, BrowserOwner>();
+    for (const record of this.#registry.all()) {
+      const owner = {
+        webContentsId: record.ownerWebContentsId,
+        windowId: record.ownerWindowId,
+        windowGeneration: record.ownerWindowGeneration,
+      };
+      owners.set(
+        `${owner.webContentsId}:${owner.windowId}:${owner.windowGeneration}`,
+        owner,
+      );
+      if (record.view.webContents.isDestroyed()) {
+        record.crashed = true;
+        record.pageLifecycle = "crashed";
+        record.loading = false;
+        this.#emitTabsChangedForRecord(record);
+        continue;
+      }
+      this.#cdp.disposeTarget(record.webContentsId);
+      record.debuggerStatus = "recovering";
+      this.#observeCdp(record);
+      if (record.crashed) {
+        record.crashed = false;
+        record.pageLifecycle = "live";
+        record.error = null;
+        record.view.webContents.reload();
+      }
+      if (this.#desiredVisibility.get(record.browserTabId) === true) {
+        visibleTransitions.push(this.#transitionPageLifecycle(record, "live"));
+      }
+      this.#persistRecord(record);
+      this.#emitTabsChangedForRecord(record);
+    }
+    await Promise.all(visibleTransitions);
+    for (const owner of owners.values()) this.#rebalanceWorkingSet(owner);
+  }
+
   dispose(): void {
     for (const record of this.#registry.all()) {
       this.#clearPendingForRecord(record);
@@ -653,6 +1024,7 @@ export class BrowserViewManager {
       this.#registry.remove(record.browserTabId);
       this.#desiredVisibility.delete(record.browserTabId);
       this.#captureVisibilityHolds.delete(record.browserTabId);
+      this.#lifecycleTransitions.delete(record.browserTabId);
       this.#clearConsoleEmitTimer(record.browserTabId);
       if (!record.view.webContents.isDestroyed()) {
         record.view.webContents.close();
@@ -661,6 +1033,7 @@ export class BrowserViewManager {
     this.#cdp.dispose();
     this.#desiredVisibility.clear();
     this.#captureVisibilityHolds.clear();
+    this.#lifecycleTransitions.clear();
     for (const timer of this.#consoleEmitTimers.values()) clearTimeout(timer);
     this.#consoleEmitTimers.clear();
   }
@@ -805,12 +1178,21 @@ export class BrowserViewManager {
     }
     this.#downloadGrants.delete(grantKey);
     if (!isDownloadUrlAllowed(url)) return false;
+    if (record.download?.status === "pending") {
+      this.#clearPendingDownload(record, record.download.requestId);
+    }
     const requestId = randomUUID();
     const filename = safeFilename(item.getFilename());
+    const timer = setTimeout(() => {
+      this.#clearPendingDownload(record, requestId);
+      this.#emitTabsChangedForRecord(record);
+    }, DOWNLOAD_REQUEST_TTL_MS);
+    timer.unref?.();
     this.#pendingDownloads.set(requestId, {
       browserTabId: record.browserTabId,
       expiresAt: Date.now() + DOWNLOAD_REQUEST_TTL_MS,
       filename,
+      timer,
       url,
     });
     record.download = {
@@ -829,6 +1211,87 @@ export class BrowserViewManager {
     return this.#registry.all().find((record) => record.webContentsId === webContentsId);
   }
 
+  #requestSensitiveAction(
+    record: BrowserTabRecord<WebContentsView>,
+    turnId: string,
+    category: BrowserSensitiveActionCategory,
+    label: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    if (record.sensitiveActionRequest) {
+      this.#settleSensitiveAction(
+        record.sensitiveActionRequest.requestId,
+        false,
+        "Browser 敏感动作确认已被新请求替代",
+      );
+    }
+    const requestId = randomUUID();
+    const origin = safeOrigin(record.url);
+    const expiresAt = Date.now() + SENSITIVE_ACTION_REQUEST_TTL_MS;
+    return new Promise<void>((resolve, reject) => {
+      const abortListener = () => {
+        this.#settleSensitiveAction(
+          requestId,
+          false,
+          errorMessage(signal.reason) || "Browser 敏感动作已取消",
+        );
+      };
+      const timer = setTimeout(() => {
+        this.#settleSensitiveAction(
+          requestId,
+          false,
+          "Browser 敏感动作确认已超时",
+        );
+      }, SENSITIVE_ACTION_REQUEST_TTL_MS);
+      timer.unref?.();
+      this.#pendingSensitiveActions.set(requestId, {
+        browserTabId: record.browserTabId,
+        category,
+        origin,
+        threadId: record.threadId,
+        turnId,
+        viewGeneration: record.viewGeneration,
+        expiresAt,
+        timer,
+        signal,
+        abortListener,
+        resolve,
+        reject,
+      });
+      record.sensitiveActionRequest = {
+        requestId,
+        category,
+        origin,
+        label: truncateText(label, 1024) || category,
+        expiresAt,
+      };
+      signal.addEventListener("abort", abortListener, { once: true });
+      this.#emitTabsChangedForRecord(record);
+      if (signal.aborted) abortListener();
+    });
+  }
+
+  #settleSensitiveAction(
+    requestId: string,
+    allow: boolean,
+    reason: string,
+  ): void {
+    const pending = this.#pendingSensitiveActions.get(requestId);
+    if (!pending) return;
+    this.#pendingSensitiveActions.delete(requestId);
+    clearTimeout(pending.timer);
+    pending.signal.removeEventListener("abort", pending.abortListener);
+    const record = this.#registry
+      .all()
+      .find((candidate) => candidate.browserTabId === pending.browserTabId);
+    if (record?.sensitiveActionRequest?.requestId === requestId) {
+      record.sensitiveActionRequest = null;
+      this.#emitTabsChangedForRecord(record);
+    }
+    if (allow) pending.resolve();
+    else pending.reject(new Error(reason || "Browser 敏感动作未获授权"));
+  }
+
   #rejectPermission(requestId: string): void {
     const pending = this.#pendingPermissions.get(requestId);
     if (!pending) return;
@@ -843,13 +1306,31 @@ export class BrowserViewManager {
     pending.callback(false);
   }
 
-  #clearPendingForRecord(record: BrowserTabRecord<WebContentsView>): void {
+  #clearPendingForRecord(
+    record: BrowserTabRecord<WebContentsView>,
+    reason = "Browser tab 已关闭或失去 owner",
+  ): void {
+    if (record.sensitiveActionRequest) {
+      this.#settleSensitiveAction(
+        record.sensitiveActionRequest.requestId,
+        false,
+        reason,
+      );
+    }
     if (record.permissionRequest) {
       this.#rejectPermission(record.permissionRequest.requestId);
     }
     if (record.download) {
-      this.#pendingDownloads.delete(record.download.requestId);
+      this.#clearPendingDownload(record, record.download.requestId);
       record.download = null;
+    }
+    if (record.fileChooserRequest) {
+      const pending = this.#pendingFileChoosers.get(
+        record.fileChooserRequest.requestId,
+      );
+      if (pending) clearTimeout(pending.timer);
+      this.#pendingFileChoosers.delete(record.fileChooserRequest.requestId);
+      record.fileChooserRequest = null;
     }
     for (const key of this.#permissionGrants.keys()) {
       if (key.startsWith(`${record.webContentsId}:`)) this.#permissionGrants.delete(key);
@@ -873,9 +1354,19 @@ export class BrowserViewManager {
           threadId: record.threadId,
           routeKey: record.routeKey,
           url,
-        }).catch((error) => {
-          console.error("Browser popup 转换为受控 tab 失败", error);
-        });
+        })
+          .then((tab) => {
+            const popup = this.#registry.requireForRoute(
+              record,
+              tab.browserTabId,
+              tab.viewGeneration,
+            );
+            popup.origin = "popup";
+            this.#persistRecord(popup);
+          })
+          .catch((error) => {
+            console.error("Browser popup 转换为受控 tab 失败", error);
+          });
       }
       return { action: "deny" };
     });
@@ -931,6 +1422,7 @@ export class BrowserViewManager {
     });
     page.on("render-process-gone", () => {
       record.crashed = true;
+      record.pageLifecycle = "crashed";
       record.loading = false;
       record.dialog = null;
       record.debuggerStatus = "recovering";
@@ -939,11 +1431,20 @@ export class BrowserViewManager {
       this.#emitTabsChangedForRecord(record);
     });
     page.on("before-input-event", () => {
-      if (this.#agentInputDispatches.has(record.browserTabId)) return;
+      const consumed = this.#consumeAgentInputEcho(record, "keyboard");
+      if (consumed) return;
       this.#takeControlRecord(record);
     });
-    page.on("before-mouse-event", () => {
-      if (this.#agentInputDispatches.has(record.browserTabId)) return;
+    page.on("before-mouse-event", (_event, mouse) => {
+      if (
+        mouse.type === "mouseMove" ||
+        mouse.type === "mouseEnter" ||
+        mouse.type === "mouseLeave"
+      ) {
+        return;
+      }
+      const consumed = this.#consumeAgentInputEcho(record, "mouse");
+      if (consumed) return;
       this.#takeControlRecord(record);
     });
     page.on("console-message", (details) => {
@@ -1012,12 +1513,20 @@ export class BrowserViewManager {
       controlOwner: "user",
       agentTurnId: null,
       permissionRequest: null,
+      sensitiveActionRequest: null,
       download: null,
+      fileChooserRequest: null,
       dialog: null,
       consoleMessages: [],
       debuggerStatus: "recovering",
+      pageLifecycle: restored ? "persisted" : "live",
+      lastActiveAt: restored?.touchedAt ?? Date.now(),
       blockedAgentTurnId: null,
+      createdByTurnId: null,
       detached: false,
+      deliverable: restored?.deliverable ?? false,
+      handoff: restored?.handoff ?? false,
+      origin: restored?.origin ?? "user",
       ownerWebContentsId: owner.webContentsId,
       ownerWindowId: owner.windowId,
       ownerWindowGeneration: owner.windowGeneration,
@@ -1103,11 +1612,49 @@ export class BrowserViewManager {
         }
       }
       this.#refreshState(record);
+      record.pageLifecycle = record.crashed ? "crashed" : "live";
       this.#persistRecord(record);
     }
   }
 
+  #clearPendingDownload(
+    record: BrowserTabRecord<WebContentsView>,
+    requestId: string,
+  ): void {
+    const pending = this.#pendingDownloads.get(requestId);
+    if (pending) clearTimeout(pending.timer);
+    this.#pendingDownloads.delete(requestId);
+    if (
+      record.download?.requestId === requestId &&
+      record.download.status === "pending"
+    ) {
+      record.download = null;
+    }
+  }
+
   #persistRecord(record: BrowserTabRecord<WebContentsView>): void {
+    const navigation = record.view.webContents.navigationHistory;
+    const activeEntryIndex = navigation.getActiveIndex();
+    const storedNavigationEntries = navigation
+      .getAllEntries()
+      .map((entry, index) => ({ entry, index }))
+      .filter(
+        ({ entry }) =>
+          isAllowedPageNavigation(entry.url) || entry.url === "about:blank",
+      )
+      .slice(-128)
+      .map(({ entry, index }) => ({
+        index,
+        url: entry.url,
+        title: truncateText(entry.title, 1024),
+      }));
+    const activeNavigationIndex = storedNavigationEntries.findIndex(
+      (entry) => entry.index === activeEntryIndex,
+    );
+    const navigationEntries = storedNavigationEntries.map(({ url, title }) => ({
+      url,
+      title,
+    }));
     this.#sessions.upsert({
       browserTabId: record.browserTabId,
       threadId: record.threadId,
@@ -1115,6 +1662,17 @@ export class BrowserViewManager {
       url: record.url,
       title: record.title,
       viewGeneration: record.viewGeneration,
+      origin: record.origin ?? "user",
+      claim: {
+        controlOwner: record.controlOwner,
+        turnId: record.agentTurnId,
+      },
+      handoff: record.handoff === true,
+      deliverable: record.deliverable === true,
+      navigationEntries,
+      activeNavigationIndex,
+      restorePolicy: "reload",
+      profileId: record.profileId,
     });
   }
 
@@ -1144,6 +1702,7 @@ export class BrowserViewManager {
       return;
     }
     record.blockedAgentTurnId = record.agentTurnId;
+    record.handoff = true;
     record.controlOwner = "user";
     record.agentTurnId = null;
     this.#abortAgentOperations(record, "用户已接管 Browser tab");
@@ -1168,6 +1727,8 @@ export class BrowserViewManager {
     controllers.add(controller);
     this.#agentOperations.set(record.browserTabId, controllers);
     try {
+      await this.#transitionPageLifecycle(record, "live");
+      record.lastActiveAt = Date.now();
       return await operation(controller.signal);
     } finally {
       requestSignal.removeEventListener("abort", handleRequestAbort);
@@ -1175,6 +1736,11 @@ export class BrowserViewManager {
       if (controllers.size === 0) {
         this.#agentOperations.delete(record.browserTabId);
       }
+      this.#rebalanceWorkingSet({
+        webContentsId: record.ownerWebContentsId,
+        windowId: record.ownerWindowId,
+        windowGeneration: record.ownerWindowGeneration,
+      });
     }
   }
 
@@ -1182,31 +1748,66 @@ export class BrowserViewManager {
     record: BrowserTabRecord<WebContentsView>,
     turnId: string,
     requestSignal: AbortSignal,
+    expectedEchoes: { keyboardEchoes?: number; mouseEchoes?: number },
     operation: (signal: AbortSignal) => Promise<T>,
   ): Promise<T> {
-    const token = Symbol("browser-agent-input");
-    const tokens = this.#agentInputDispatches.get(record.browserTabId) ?? new Set();
-    tokens.add(token);
-    this.#agentInputDispatches.set(record.browserTabId, tokens);
+    return this.#runAgentOperation(
+      record,
+      turnId,
+      requestSignal,
+      (signal) =>
+        this.#runAgentInputDispatch(record, expectedEchoes, () => operation(signal)),
+    );
+  }
+
+  async #runAgentInputDispatch<T>(
+    record: BrowserTabRecord<WebContentsView>,
+    expectedEchoes: { keyboardEchoes?: number; mouseEchoes?: number },
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const dispatch: AgentInputDispatch = {
+      keyboardEchoes: expectedEchoes.keyboardEchoes ?? 0,
+      mouseEchoes: expectedEchoes.mouseEchoes ?? 0,
+    };
+    const dispatches =
+      this.#agentInputDispatches.get(record.browserTabId) ?? new Set();
+    dispatches.add(dispatch);
+    this.#agentInputDispatches.set(record.browserTabId, dispatches);
     try {
-      return await this.#runAgentOperation(
-        record,
-        turnId,
-        requestSignal,
-        operation,
-      );
+      return await operation();
     } finally {
-      // Electron may emit before-input-event / before-mouse-event after the CDP
-      // command promise resolves. Keep this token through the current event-loop
-      // turn so the echoed Agent input is not mistaken for a user takeover.
-      setImmediate(() => {
-        if (this.#agentInputDispatches.get(record.browserTabId) !== tokens) return;
-        tokens.delete(token);
-        if (tokens.size === 0) {
+      // If Electron never echoes the injected event, expire the marker instead
+      // of letting it suppress a later physical input.
+      const timer = setTimeout(() => {
+        if (this.#agentInputDispatches.get(record.browserTabId) !== dispatches) return;
+        dispatches.delete(dispatch);
+        if (dispatches.size === 0) {
           this.#agentInputDispatches.delete(record.browserTabId);
         }
-      });
+      }, AGENT_INPUT_ECHO_TIMEOUT_MS);
+      timer.unref?.();
     }
+  }
+
+  #consumeAgentInputEcho(
+    record: BrowserTabRecord<WebContentsView>,
+    kind: "keyboard" | "mouse",
+  ): boolean {
+    const dispatches = this.#agentInputDispatches.get(record.browserTabId);
+    if (!dispatches) return false;
+    for (const dispatch of dispatches) {
+      const key = kind === "keyboard" ? "keyboardEchoes" : "mouseEchoes";
+      if (dispatch[key] <= 0) continue;
+      dispatch[key] -= 1;
+      if (dispatch.keyboardEchoes === 0 && dispatch.mouseEchoes === 0) {
+        dispatches.delete(dispatch);
+      }
+      if (dispatches.size === 0) {
+        this.#agentInputDispatches.delete(record.browserTabId);
+      }
+      return true;
+    }
+    return false;
   }
 
   #abortAgentOperations(
@@ -1269,6 +1870,7 @@ export class BrowserViewManager {
       case "reload":
         record.error = null;
         record.crashed = false;
+        record.pageLifecycle = "live";
         record.view.webContents.reload();
         break;
       case "stop":
@@ -1301,14 +1903,76 @@ export class BrowserViewManager {
     const page = record.view.webContents;
     if (page.isDestroyed()) {
       record.crashed = true;
+      record.pageLifecycle = "crashed";
       record.loading = false;
       return;
     }
     record.url = page.getURL() || "about:blank";
-    record.title = page.getTitle();
+    record.title = truncateText(page.getTitle(), 1024);
     record.loading = page.isLoading();
     record.canGoBack = page.navigationHistory.canGoBack();
     record.canGoForward = page.navigationHistory.canGoForward();
+  }
+
+  #rebalanceWorkingSet(owner: BrowserOwner): void {
+    const records = this.#registry.listOwned(owner);
+    const states = planBrowserWorkingSet(
+      records.map((record) => ({
+        browserTabId: record.browserTabId,
+        crashed: record.crashed || record.view.webContents.isDestroyed(),
+        lastActiveAt: record.lastActiveAt,
+        protected:
+          this.#desiredVisibility.get(record.browserTabId) === true ||
+          (this.#agentOperations.get(record.browserTabId)?.size ?? 0) > 0,
+      })),
+    );
+    for (const record of records) {
+      const state = states.get(record.browserTabId);
+      if (state === "crashed") {
+        record.pageLifecycle = "crashed";
+      } else if (state) {
+        void this.#transitionPageLifecycle(record, state);
+      }
+    }
+  }
+
+  async #transitionPageLifecycle(
+    record: BrowserTabRecord<WebContentsView>,
+    state: "live" | "suspended",
+  ): Promise<void> {
+    const previous = this.#lifecycleTransitions.get(record.browserTabId);
+    const transition = (previous ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(async () => {
+        if (
+          !this.#registry.all().includes(record) ||
+          record.crashed ||
+          record.view.webContents.isDestroyed() ||
+          record.pageLifecycle === state
+        ) {
+          return;
+        }
+        await this.#cdp.setPageLifecycle(
+          record.webContentsId,
+          record.view.webContents.debugger,
+          state === "live" ? "active" : "frozen",
+        );
+        if (!this.#registry.all().includes(record)) return;
+        record.pageLifecycle = state;
+        this.#emitTabsChangedForRecord(record);
+      })
+      .catch(() => {
+        if (this.#registry.all().includes(record) && state === "suspended") {
+          record.pageLifecycle = "live";
+        }
+      })
+      .finally(() => {
+        if (this.#lifecycleTransitions.get(record.browserTabId) === transition) {
+          this.#lifecycleTransitions.delete(record.browserTabId);
+        }
+      });
+    this.#lifecycleTransitions.set(record.browserTabId, transition);
+    await transition;
   }
 
   #observeCdp(record: BrowserTabRecord<WebContentsView>): void {
@@ -1331,6 +1995,46 @@ export class BrowserViewManager {
         onDialogClosed: () => {
           if (!record.dialog) return;
           record.dialog = null;
+          this.#emitTabsChangedForRecord(record);
+        },
+        onFileChooserOpening: (chooser, sessionId) => {
+          if (record.fileChooserRequest) {
+            const previous = this.#pendingFileChoosers.get(
+              record.fileChooserRequest.requestId,
+            );
+            if (previous) clearTimeout(previous.timer);
+            this.#pendingFileChoosers.delete(record.fileChooserRequest.requestId);
+          }
+          const requestId = randomUUID();
+          const timer = setTimeout(() => {
+            const pending = this.#pendingFileChoosers.get(requestId);
+            if (!pending) return;
+            this.#pendingFileChoosers.delete(requestId);
+            record.fileChooserRequest = null;
+            void this.#cdp
+              .setFileInputFiles(
+                record.webContentsId,
+                pending.backendNodeId,
+                [],
+                pending.sessionId,
+              )
+              .catch(() => undefined);
+            this.#emitTabsChangedForRecord(record);
+          }, FILE_CHOOSER_REQUEST_TTL_MS);
+          timer.unref?.();
+          this.#pendingFileChoosers.set(requestId, {
+            browserTabId: record.browserTabId,
+            backendNodeId: chooser.backendNodeId,
+            expiresAt: Date.now() + FILE_CHOOSER_REQUEST_TTL_MS,
+            mode: chooser.mode,
+            sessionId,
+            timer,
+          });
+          record.fileChooserRequest = {
+            requestId,
+            mode: chooser.mode,
+            origin: safeOrigin(record.url),
+          };
           this.#emitTabsChangedForRecord(record);
         },
         onDebuggerStatus: (status: BrowserDebuggerStatus) => {
@@ -1392,6 +2096,7 @@ export class BrowserViewManager {
     }
     this.#desiredVisibility.delete(record.browserTabId);
     this.#captureVisibilityHolds.delete(record.browserTabId);
+    this.#lifecycleTransitions.delete(record.browserTabId);
     this.#clearConsoleEmitTimer(record.browserTabId);
     this.#sessions.remove(record.browserTabId);
     try {
@@ -1473,11 +2178,18 @@ function tabState(record: BrowserTabRecord<WebContentsView>): BrowserTabState {
     error: record.error,
     controlOwner: record.controlOwner,
     agentTurnId: record.agentTurnId,
+    origin: record.origin ?? "user",
+    handoff: record.handoff === true,
+    deliverable: record.deliverable === true,
     permissionRequest: record.permissionRequest,
+    sensitiveActionRequest: record.sensitiveActionRequest ?? null,
     download: record.download,
+    fileChooserRequest: record.fileChooserRequest ?? null,
     dialog: record.dialog,
     consoleMessages: record.consoleMessages,
     debuggerStatus: record.debuggerStatus,
+    pageLifecycle: record.pageLifecycle,
+    lastActiveAt: record.lastActiveAt,
   };
 }
 
@@ -1547,4 +2259,8 @@ function isDownloadUrlAllowed(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? "");
 }

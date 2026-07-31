@@ -19,7 +19,11 @@ export async function verifyBrowserClient(root = DEFAULT_ROOT) {
   ) {
     throw new Error("Browser client manifest 合同非法");
   }
-  const expectedPaths = new Set(["browser-client.mjs", "LICENSE.txt"]);
+  const expectedPaths = new Set([
+    "browser-client.mjs",
+    "browser-mcp-server.mjs",
+    "LICENSE.txt",
+  ]);
   if (manifest.files.length !== expectedPaths.size) {
     throw new Error("Browser client manifest 文件集不完整");
   }

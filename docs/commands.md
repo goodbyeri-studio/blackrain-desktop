@@ -155,7 +155,7 @@ npm run tauri:build:win
 Set-Location ..\..
 ```
 
-按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；desktop renderer、Tauri command 或 Electron 迁移改动额外跑 `check:host-boundary`；Rust 改动跑统一的 `check-windows-rust.ps1`。发布级结论还必须完成 [.specs/007 verification](../.specs/007-windows-client/verification.md) 中适用的 Windows 实机项。
+按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；desktop renderer、Tauri command 或 Electron 迁移改动额外跑 `check:host-boundary`；Rust 改动跑统一的 `check-windows-rust.ps1`。Browser 发布级结论还必须完成 [001 verification](../.specs/001-in-app-browser/verification.md) 中适用的 Windows 实机项；完整 Electron 发布按 [09](09-运行时架构与里程碑.md) 的全量发布判定执行。
 
 ### Electron 迁移开发验证
 
@@ -165,7 +165,11 @@ Set-Location apps\desktop
 npm run electron:typecheck
 npm run test -- --run electron
 npm run electron:browser-client:verify
+npm run electron:browser-runtime-seam:probe
+npm run electron:browser-runtime-seam:gate
 npm run electron:runtime:check-lock
+npm run electron:node-runtime:check-lock
+npm run electron:node-runtime:verify
 npm run electron:app-server:probe
 npm run electron:package
 npm run electron:smoke
@@ -176,15 +180,17 @@ npm run test -- --run electron/main/app-server
 Set-Location ..\..
 ```
 
-`electron:smoke` 的 prehook 会先重新生成 `out/electron/codex-monitor-win32-x64` production package，再运行带 production fuses 的真实制品。`electron:e2e` 的 prehook 会重建同一 package 并安装 Electron runtime，再由 Playwright 驱动开发 Electron 加载 production bundles，验证自定义协议、renderer Node 隔离、typed preload、IPC 布局 revision、外部导航、popup 拒绝，以及通过仅开发态 main harness 对同一可见 Browser page 执行顶层与跨站 OOPIF snapshot/type/click/screenshot。该 harness 不进入 renderer 且 packaged 强制禁用；E2E 仍不等于真实站点、签名或安装验收。当前 `electron:start` dev runner 仍需在锁定 Node 22 环境复核。
+`electron:smoke` 的 prehook 会先重新生成 `out/electron/codex-monitor-win32-x64` production package，再运行带 production fuses 的真实制品。`electron:e2e` 的 prehook 会重建同一 package 并安装 Electron runtime，再由 Playwright 驱动开发 Electron 加载 production bundles，验证自定义协议、renderer Node 隔离、typed preload、IPC 布局 revision、外部导航、popup 拒绝，以及通过仅开发态 main harness 对同一可见 Browser page 执行顶层与跨站 OOPIF snapshot/type/click/screenshot、敏感购买单次确认/拒绝、实际下载、用户 file chooser、接管和 App restart recovery。该 harness 不进入 renderer 且 packaged 强制禁用；E2E 仍不等于真实站点、签名或安装验收。当前 `electron:start` dev runner 仍需在锁定 Node 22 环境复核。
 
-`electron:browser-client:verify` 校验自有 Browser client 的固定版本、protocol、License 和 SHA-256；`electron:package` 会在 prehook 先执行该校验。当前 client/transport 已有独立子进程和 framed pipe 测试，但尚未完成当前用户 ACL 证明、公开 code-mode runtime 接缝与唯一生产 adapter 切换。
+`electron:browser-client:verify` 校验自有 Browser MCP adapter/client 的固定版本、protocol、License 和 SHA-256；`electron:node-runtime:verify` 校验随包 Node.js 22 Windows x64 的版本、archive/逐文件摘要与 MIT License。`electron:package` 会先执行 Codex、Node 和 Browser 三组 gate。当前标准 stdio MCP 生产接缝、唯一 adapter 切换、同用户无/错/旧 token/generation 拒绝和真实模型 MCP screenshot turn 已通过；仍缺另一个真实 Windows 用户账户的 named pipe ACL 拒绝探针。威胁模型不声称抵御能够读取同用户进程内存或环境的恶意代码。
+
+`electron:browser-runtime-seam:probe` 直接驱动锁定 Windows `codex-code-mode-host.exe` 的 protocol v1，保留“V8 不能加载 Node/文件模块”的负向证据。`supported=false` 只否定 V8 直载方案，不再是 release gate；生产接缝由 `electron:app-server:probe` 的标准 stdio MCP 实制品测试判定。`electron:browser-runtime-seam:gate` 仅供防止误把 V8 当 Node loader 的架构回归，当前按设计 exit 2。
 
 CI 已先执行一次 `electron:package`，所以用 `npm --ignore-scripts run electron:smoke` 和 `npm --ignore-scripts run electron:e2e` 复用该 package，并在 E2E 前显式执行 `electron:install-runtime`。CI 虚拟桌面不保存 renderer `page.screenshot()`；Browser tool 返回的 viewport PNG 仍由 E2E 断言。本地 E2E 会额外写入 `apps/desktop/output/playwright/electron-browser-sidebar.png`。
 
 `electron:make` 生成未签名的 Windows x64 foundation MSIX，只证明 Forge maker 能完成基础制品生成；该命令不要求生成态 runtime。`electron:make:release` 才要求锁定的 Codex package 完整存在，但仍不代表 MSIX 已签名或通过安装、升级、回滚和卸载验收。
 
-`npm run test -- --run electron/main/app-server` 覆盖 Electron main 的 stdio/JSONL transport、initialize client 与进程 supervisor，包含真实 Node 子进程 fixture；默认不会启动外部 Codex。`npm run electron:app-server:probe` 是 Windows x64 显式集成探针：它先按 tracked lock 校验生成态 runtime，再从生产资源布局解析 bundled `codex.exe`，使用系统临时目录中的隔离 Codex Home 跑 initialize、`thread/start.dynamicTools` 和优雅退出。该命令不调用模型，不能替代真实 turn、审批或恢复验收。
+`npm run test -- --run electron/main/app-server` 覆盖 Electron main 的 stdio/JSONL transport、initialize client 与进程 supervisor，包含真实 Node 子进程 fixture；默认不会启动外部 Codex。`npm run electron:app-server:probe` 是 Windows x64 显式集成探针：它按 tracked lock 校验 bundled `codex.exe`，串行使用隔离 Codex Home 跑 initialize/thread/优雅退出，并通过进程级 `-c` 注册 Browser stdio MCP，验证 MCP ready/tool discovery、`mcpServer/tool/call`、可信 `_meta` 透传和同一 backend 命中。该命令不调用模型，不能替代真实 turn、审批或恢复验收。
 
 本机标准 Codex Home 已登录时，可显式运行真实模型 Browser 共页 E2E：
 
@@ -202,15 +208,17 @@ Remove-Item Env:BLACKRAIN_ELECTRON_REAL_AGENT_E2E
 
 ```powershell
 pwsh -NoProfile -File scripts/vendor-electron-codex-runtime.ps1
+pwsh -NoProfile -File scripts/vendor-electron-node-runtime.ps1
 
 Set-Location apps\desktop
 npm run electron:runtime:verify
+npm run electron:node-runtime:verify
 npm run electron:app-server:probe
 npm run electron:make:release
 Set-Location ..\..
 ```
 
-vendor 步骤按 tracked lock 验证 archive SHA-256、`codex-package.json`、`codex.exe`、code-mode host、`rg`、Windows sandbox helpers、License/NOTICE 的逐文件摘要，以及实际 EXE 的 Authenticode subject/thumbprint，并生成审计用 `runtime-manifest.json`。`electron:make:release` 不信任生成态 manifest 的摘要，会重新以 lock 校验实际文件，在 runtime 缺失、摘要或签名记录不一致时 fail closed；普通 `electron:make` 仍只用于不含 runtime 的 unsigned foundation CI。
+Codex vendor 按 tracked lock 验证 archive、`codex-package.json`、EXE/helper、License/NOTICE 摘要与 Authenticode；Node vendor 验证官方 `nodejs.org` archive、`node.exe` 版本/摘要和 MIT License。两者生成审计 manifest。`electron:package` 与 `electron:make:release` 会重新以 lock 校验实际文件，缺失或不一致时 fail closed。
 
 若要验证 runtime lock 之外的本地公开 `codex.exe`，仍可用显式临时 Home 运行底层探针，避免污染共享 Home：
 
@@ -261,7 +269,7 @@ npm run electron:make
 Set-Location ..\..
 ```
 
-当前输出为 `apps\desktop\out\electron\make\msix\x64\codex-monitor.msix`。普通 `electron:make` 的 foundation 制品未签名、未安装且不保证带 runtime；携带 runtime 的候选必须改用 `electron:make:release`。两者都不替代 spec 012 的安装、升级、回滚和卸载矩阵。
+当前输出为 `apps\desktop\out\electron\make\msix\x64\codex-monitor.msix`。普通 `electron:make` 的 foundation 制品未签名、未安装且不保证带 runtime；携带 runtime 的候选必须改用 `electron:make:release`。两者都不替代 `001-in-app-browser/verification.md` 要求的 Browser runtime 制品检查；完整安装、升级、回滚和卸载属于后续 Electron 发布路线。
 
 签名方案拍板后，OV/EV 签名仍只在受控 Windows 机器或专用签名 runner 上执行。普通 PR runner 不持有长期 `.pfx`、私钥或 USB token。签名并验证 `Get-AuthenticodeSignature` 后记录 SHA-256，再创建 Draft Release 并上传已签名产物；人工确认安装矩阵前不得转为正式 Release。未来自动发布必须单独使用 GitHub Environment 人工审批，不得扩张现有 PR CI。
 

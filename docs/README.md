@@ -10,10 +10,9 @@
 | 用户看到的产品形态与优先级 | `docs/04-产品形态.md` |
 | 目标运行时、当前迁移状态与里程碑 | `docs/09-运行时架构与里程碑.md` |
 | Electron 与内置 Browser 的实施波次 | `docs/10-Electron迁移与内置浏览器实现计划.md` |
-| Electron 壳怎样迁移 | `.specs/012-electron-shell-migration/` |
-| Codex App 能力差距、in-app browser 怎样实现 | `.specs/013-codex-app-capability-parity/` |
-| 原装 codex 能力怎样接入壳 | `.specs/006-code-mode-capability-wiring/` |
-| 某功能完成了什么 | 对应 `verification.md` + 实际代码/配置 |
+| 当前 P0 需求、设计、任务、决策和验证 | `.specs/001-in-app-browser/` |
+| 整体 Electron 迁移路线 | `docs/09` 里程碑 + `docs/10` 迁移波次；当前无第二个 spec |
+| 当前功能完成了什么 | `001-in-app-browser/verification.md` + 实际代码/配置 |
 
 `tasks.md` 勾选、目标拓扑和旧测试不能替代当前证据。发生冲突时，产品优先级看 04，运行时边界看 09，具体实现看对应 spec。
 
@@ -40,8 +39,7 @@
 | [08 仓库与上游](08-仓库结构与上游策略.md) | codex 只读上游、Tauri 迁移起点和 Electron 归属 |
 | [09 运行时与里程碑](09-运行时架构与里程碑.md) | **唯一运行时真源** |
 | [10 Electron 与 Browser 实施计划](10-Electron迁移与内置浏览器实现计划.md) | Codex 式 Electron/Browser 分层、协议、迁移波次和闸口 |
-| [spec 012](../.specs/012-electron-shell-migration/) | Electron 全量迁移 |
-| [spec 013](../.specs/013-codex-app-capability-parity/) | 能力矩阵与 in-app browser |
+| [001 内置浏览器](../.specs/001-in-app-browser/) | **唯一当前 spec/P0**：Browser 及其 Electron、App Server 和 Windows 支撑 |
 
 ## 状态标签
 
@@ -61,5 +59,5 @@
 - Codex App 的公开行为和合法可观察 Browser 控制面是第一实现基线；其他 Electron 项目只提供次级工程参考。
 - 工作台、市场、Office 参考包和 OPC 必须标记为暂停，不写成近期路线图。
 - Windows 是当前发布验收平台；其他平台 smoke 不能替代 Windows 证据。
-- 新跨层能力建立 spec；命令只有真实存在后才写入 `commands.md`。
+- 同一时刻只保留一个业务 spec；当前 P0 完成后再按新优先级替换。命令只有真实存在后才写入 `commands.md`。
 - 文档和代码同 PR 更新，不保留悬空的“以后补文档”。

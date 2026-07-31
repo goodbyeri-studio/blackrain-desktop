@@ -750,7 +750,7 @@ pub(crate) async fn thread_background_terminals_clean_core(
         .await
 }
 
-// 复杂/变形参数:前端构造完整 kernel params,壳原样透传(见 spec 006 decisions)
+// 复杂/变形参数：前端构造完整 kernel params，壳原样透传。
 
 pub(crate) async fn thread_goal_set_core(
     sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
