@@ -17,9 +17,16 @@ export class DesktopShellService {
 
   revealPath(input: unknown): void {
     const request = FilePathInputSchema.parse(input);
-    if (!path.isAbsolute(request.path)) {
+    const isWindowsPath =
+      /^[a-z]:[\\/]/iu.test(request.path) || /^[/\\]{2}[^/\\]/u.test(request.path);
+    const pathApi = isWindowsPath && path.win32.isAbsolute(request.path)
+      ? path.win32
+      : path.posix.isAbsolute(request.path)
+        ? path.posix
+        : null;
+    if (!pathApi) {
       throw new Error("只允许在文件管理器中显示绝对路径");
     }
-    this.provider.showItemInFolder(path.normalize(request.path));
+    this.provider.showItemInFolder(pathApi.normalize(request.path));
   }
 }

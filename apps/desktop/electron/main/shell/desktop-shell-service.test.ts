@@ -36,6 +36,10 @@ describe("DesktopShellService", () => {
     expect(provider.showItemInFolder).toHaveBeenCalledWith(
       "C:\\workspace\\README.md",
     );
+    service.revealPath({ path: "/workspace/src/../README.md" });
+    expect(provider.showItemInFolder).toHaveBeenLastCalledWith(
+      "/workspace/README.md",
+    );
     expect(() => service.revealPath({ path: "README.md" })).toThrow(
       "只允许在文件管理器中显示绝对路径",
     );
