@@ -5,6 +5,7 @@ import { APP_HOST, APP_PROTOCOL } from "../security/app-protocol";
 import { secureAppSession } from "../security/app-session";
 import type { AppWindowRegistry } from "../security/window-registry";
 import { installSmokeProbe } from "./smoke-probe";
+import { installNativeInputProbe } from "./native-input-probe";
 
 let nextWindowGeneration = 1;
 
@@ -68,8 +69,14 @@ export function createMainWindow(
   );
   window.once("close", () => browser.releaseWindow(window, generation));
   window.on("closed", () => registry.unregister(webContentsId));
-  window.once("ready-to-show", () => window.show());
+  const showWindow = () => {
+    if (window.isDestroyed()) return;
+    if (!window.isVisible()) window.show();
+  };
+  window.once("ready-to-show", showWindow);
+  window.webContents.once("did-finish-load", showWindow);
   installSmokeProbe(window);
+  installNativeInputProbe(window);
 
   if (developmentUrl) {
     void window.loadURL(developmentUrl);

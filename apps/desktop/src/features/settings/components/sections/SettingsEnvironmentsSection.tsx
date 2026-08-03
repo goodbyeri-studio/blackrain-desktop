@@ -3,6 +3,7 @@ import { useI18n } from "@/i18n";
 import { SettingsSection } from "@/features/design-system/components/settings/SettingsPrimitives";
 import type { WorkspaceInfo } from "@/types";
 import { pushErrorToast } from "@services/toasts";
+import { pickDirectory } from "../../../../host/desktop";
 
 type SettingsEnvironmentsSectionProps = {
   mainWorkspaces: WorkspaceInfo[];
@@ -77,10 +78,7 @@ export function SettingsEnvironmentsSection({
             className="ghost settings-button-compact"
             onClick={async () => {
               try {
-                const { open } = await import("@tauri-apps/plugin-dialog");
-                const selected = await open({
-                  directory: true,
-                  multiple: false,
+                const selected = await pickDirectory({
                   title: tx("Select global worktrees root"),
                 });
                 if (selected && typeof selected === "string") {
@@ -235,10 +233,7 @@ export function SettingsEnvironmentsSection({
                 className="ghost settings-button-compact"
                 onClick={async () => {
                   try {
-                    const { open } = await import("@tauri-apps/plugin-dialog");
-                    const selected = await open({
-                      directory: true,
-                      multiple: false,
+                    const selected = await pickDirectory({
                       title: tx("Select worktrees folder"),
                     });
                     if (selected && typeof selected === "string") {

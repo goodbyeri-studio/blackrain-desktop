@@ -16,6 +16,11 @@ import {
 } from "./security/app-protocol";
 import { AppWindowRegistry } from "./security/window-registry";
 import { WorkspaceStore } from "./workspaces/workspace-store";
+import { SettingsStore } from "./settings/settings-store";
+import { FileService } from "./files/file-service";
+import { AccountSessionStore } from "./credentials/account-session-store";
+import { DesktopShellService } from "./shell/desktop-shell-service";
+import { DesktopDialogService } from "./dialog/desktop-dialog-service";
 import { installElectronE2eHarness } from "./testing/electron-e2e-harness";
 import {
   bindSystemPowerEvents,
@@ -49,6 +54,15 @@ const browser = new BrowserViewManager(undefined, {
 const workspaces = new WorkspaceStore(
   path.join(blackRainDataPaths.appState, "workspaces.json"),
 );
+const settings = new SettingsStore(
+  path.join(blackRainDataPaths.appState, "settings.json"),
+);
+const files = new FileService(workspaces);
+const accountSessions = new AccountSessionStore(
+  path.join(blackRainDataPaths.appState, "credentials", "sessions.json"),
+);
+const desktopShell = new DesktopShellService();
+const desktopDialog = new DesktopDialogService();
 const browserClientResourceRoot = app.isPackaged
   ? path.join(process.resourcesPath, "browser-client")
   : path.join(app.getAppPath(), "resources", "browser-client");
@@ -99,7 +113,17 @@ app.whenReady().then(() => {
     );
   }
   disposePowerEvents = bindSystemPowerEvents(powerMonitor, powerLifecycle);
-  disposeIpc = registerIpcHandlers(windows, browser, agent, workspaces);
+  disposeIpc = registerIpcHandlers(
+    windows,
+    browser,
+    agent,
+    workspaces,
+    settings,
+    files,
+    accountSessions,
+    desktopShell,
+    desktopDialog,
+  );
   createMainWindow(windows, browser);
 
   app.on("activate", () => {

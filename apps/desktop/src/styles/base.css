@@ -131,7 +131,8 @@ body {
   opacity: var(--material-grain-opacity, 0.28);
 }
 
-.app.is-windows:not(.reduced-transparency) > * {
+.app.is-windows:not(.reduced-transparency) > .sidebar,
+.app.is-windows:not(.reduced-transparency) > .main {
   position: relative;
   z-index: 2;
 }

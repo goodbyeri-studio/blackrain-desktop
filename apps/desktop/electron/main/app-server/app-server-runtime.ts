@@ -25,6 +25,13 @@ import { AppServerProcess } from "./app-server-process";
 import { AgentEventStream } from "./agent-event-stream";
 import type { CodexHomeSelection } from "./codex-home";
 import type { AppServerServerRequest } from "./rpc-types";
+import {
+  AgentAppsListInputSchema,
+  AgentThreadMutationInputSchema,
+  AgentThreadNameInputSchema,
+  AgentThreadReadInputSchema,
+  AgentWorkspaceInputSchema,
+} from "../../shared/desktop";
 
 const identifierSchema = z.string().trim().min(1).max(128);
 const ThreadResponseSchema = z
@@ -256,6 +263,93 @@ export class AppServerRuntime {
     const client = await this.#ensureStarted();
     await client.request("turn/interrupt", request);
     return request;
+  }
+
+  async listModels(): Promise<Record<string, unknown>> {
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("model/list", {
+      cursor: null,
+      limit: 100,
+      includeHidden: false,
+    }));
+  }
+
+  async readConfig(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentWorkspaceInputSchema.extend({ cwd: z.string() }).parse(input);
+    assertAbsolutePath(request.cwd, "config cwd");
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("config/read", {
+      cwd: request.cwd,
+      includeLayers: false,
+    }));
+  }
+
+  async listCollaborationModes(): Promise<Record<string, unknown>> {
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("collaborationMode/list", {}));
+  }
+
+  async listSkills(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentWorkspaceInputSchema.extend({ cwd: z.string() }).parse(input);
+    assertAbsolutePath(request.cwd, "skills cwd");
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("skills/list", {
+      cwds: [request.cwd],
+      forceReload: false,
+    }));
+  }
+
+  async listApps(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentAppsListInputSchema.parse(input);
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("app/list", {
+      cursor: request.cursor ?? null,
+      limit: request.limit ?? 100,
+      ...(request.threadId ? { threadId: request.threadId } : {}),
+    }));
+  }
+
+  async readAccount(): Promise<Record<string, unknown>> {
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("account/read", {
+      refreshToken: false,
+    }));
+  }
+
+  async readAccountRateLimits(): Promise<Record<string, unknown>> {
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("account/rateLimits/read"));
+  }
+
+  async readThread(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentThreadReadInputSchema.parse(input);
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("thread/read", {
+      threadId: request.threadId,
+      includeTurns: request.includeTurns ?? true,
+    }));
+  }
+
+  async archiveThread(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentThreadMutationInputSchema.parse(input);
+    const client = await this.#ensureStarted();
+    const response = requireObject(await client.request("thread/archive", {
+      threadId: request.threadId,
+    }));
+    await this.#browserTools.unregisterThread(request.threadId);
+    this.#threads.delete(request.threadId);
+    this.#threadCwds.delete(request.threadId);
+    this.#threadWorkspaces.delete(request.threadId);
+    return response;
+  }
+
+  async setThreadName(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentThreadNameInputSchema.parse(input);
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("thread/name/set", {
+      threadId: request.threadId,
+      name: request.name,
+    }));
   }
 
   respondToServerRequest(input: unknown): { ok: true } {
@@ -662,4 +756,11 @@ function getNotificationCwd(
 
 function rpcIdKey(id: string | number): string {
   return `${typeof id}:${id}`;
+}
+
+function requireObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("App Server 返回了非对象响应");
+  }
+  return value as Record<string, unknown>;
 }

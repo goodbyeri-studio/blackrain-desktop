@@ -31,11 +31,11 @@ vi.mock("@tauri-apps/api/dpi", () => ({
   },
 }));
 
-const revealItemInDir = vi.hoisted(() => vi.fn());
+const revealPath = vi.hoisted(() => vi.fn());
 
-vi.mock("@tauri-apps/plugin-opener", () => ({
-  openUrl: vi.fn(),
-  revealItemInDir: (...args: unknown[]) => revealItemInDir(...args),
+vi.mock("../../../host/desktop", () => ({
+  openExternal: vi.fn(),
+  revealPath: (...args: unknown[]) => revealPath(...args),
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -161,7 +161,7 @@ describe("GitDiffPanel", () => {
 
     expect(revealItem).toBeDefined();
     await revealItem.action();
-    expect(revealItemInDir).toHaveBeenCalledWith("/tmp/repo/src/sample.ts");
+    expect(revealPath).toHaveBeenCalledWith("/tmp/repo/src/sample.ts");
   });
 
   it("copies file name and path from the context menu", async () => {
@@ -201,7 +201,7 @@ describe("GitDiffPanel", () => {
   });
 
   it("resolves relative git roots against the workspace path", async () => {
-    revealItemInDir.mockClear();
+    revealPath.mockClear();
     menuNew.mockClear();
     const { container } = render(
       <GitDiffPanel
@@ -226,7 +226,7 @@ describe("GitDiffPanel", () => {
 
     expect(revealItem).toBeDefined();
     await revealItem.action();
-    expect(revealItemInDir).toHaveBeenCalledWith("/tmp/repo/apps/src/sample.ts");
+    expect(revealPath).toHaveBeenCalledWith("/tmp/repo/apps/src/sample.ts");
   });
 
   it("copies file path relative to the workspace root", async () => {

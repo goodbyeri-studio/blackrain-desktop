@@ -50,6 +50,10 @@ export class WorkspaceStore {
     return [...this.#workspaces.values()];
   }
 
+  require(id: string): WorkspaceInfo {
+    return this.#require(id);
+  }
+
   add(input: unknown): WorkspaceInfo {
     const request = WorkspacePathInputSchema.parse(input);
     const normalizedPath = requireDirectory(request.path);

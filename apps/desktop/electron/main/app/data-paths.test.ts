@@ -30,7 +30,11 @@ describe("resolveElectronAppDataPath", () => {
   const defaultPath = path.resolve("test-data", "default-app-data");
   const testPath = path.resolve("test-data", "isolated-app-data");
 
-  it.each(["BLACKRAIN_ELECTRON_SMOKE", "BLACKRAIN_ELECTRON_E2E"] as const)(
+  it.each([
+    "BLACKRAIN_ELECTRON_SMOKE",
+    "BLACKRAIN_ELECTRON_E2E",
+    "BLACKRAIN_ELECTRON_NATIVE_INPUT_PROBE",
+  ] as const)(
     "仅在 %s 测试运行中使用隔离目录",
     (testFlag) => {
       expect(

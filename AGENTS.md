@@ -8,13 +8,13 @@
 
 BlackRain 以 OpenAI 开源 `codex-rs` 为唯一 agent 内核，自行补齐完整桌面 Codex 产品需要的宿主能力，并尽可能对齐官方 Codex App 的核心功能与体验。
 
-唯一当前 P0 是交付 in-app browser。Electron 是唯一目标宿主，但当前只推进解除 Browser P0 阻塞所需的宿主能力；其余 Tauri 全量迁移和删除进入 P1。锁定 `codex-cli 0.146.0` 已通过标准 stdio MCP + BlackRain 随包 Node adapter 接入自有 Browser client；code-mode V8 不直接加载 Node 模块。dynamic tools 和 main 自加载 bridge 只保留测试/bootstrap，不得进入发布态第二路由。
+唯一当前 P0 是完成 Tauri 到 Electron 的全量迁移、删除旧宿主并交付 Windows Electron 客户端。Browser P0 的 runtime/功能链路已闭环，后续作为 Electron 发布回归矩阵的一部分；不得用 Browser 已闭环推导 Electron 客户端已可发布。锁定 `codex-cli 0.146.0` 已通过标准 stdio MCP + BlackRain 随包 Node adapter 接入自有 Browser client；code-mode V8 不直接加载 Node 模块。dynamic tools 和 main 自加载 bridge 只保留测试/bootstrap，不得进入发布态第二路由。
 
 工作台、Session Orchestrator、专家市场和 OPC/工作室均已暂停。不得把它们写成当前产品第一主语、当前里程碑或近期交付承诺。`2049 App` / `2049` 只允许出现在必须保留的历史兼容制品名中。
 
 ## 真源
 
-- 当前唯一 spec：`.specs/001-in-app-browser/`
+- 当前唯一 spec：`.specs/002-electron-migration/`
 - 产品形态：`docs/04-产品形态.md`
 - 运行时架构：`docs/09-运行时架构与里程碑.md`
 - 当前完成度：对应 spec 的 `verification.md` 与实际代码
@@ -61,15 +61,15 @@ BlackRain（Electron）
 | `apps/desktop/` | CodexMonitor 衍生的 Tauri 当前实现；Electron 迁移主战场 | 修改前读 `apps/desktop/AGENTS.md`；不随手 subtree pull |
 | `gateway/` | 可选模型协议翻译原型 | 保持独立 sidecar |
 | `codex-upstream/` | gitignored 的 codex 只读参考克隆 | 只锁版本、构建和验证，不改内核 |
-| `plugins/` | 暂停路线留下的适配器，P0 按需复用 | 不扩建插件市场 |
+| `plugins/` | 暂停路线留下的适配器 | 不进入迁移 P0，不扩建插件市场 |
 | `workbenches/` | 暂停的工作台资产 | 冻结，不进入 P0 |
 | `.specs/` | 跨层功能 living specs | 行为、边界或状态变化时同步更新 |
 
 ## Living Spec
 
-同一时刻只保留一个业务 living spec。当前所有 in-app browser 及其直接依赖的 Electron、App Server、Browser client、安全、恢复和 Windows 验收工作统一进入 `001-in-app-browser`。
+同一时刻只保留一个业务 living spec。当前所有 Electron 能力迁移、Tauri/daemon 删除、Browser 回归和 Windows 发布验收统一进入 `002-electron-migration`。
 
-Browser P0 完成前不得预建下一项 spec。优先级切换时，先更新产品真源，再用 `.specs/_template/` 建立新的唯一 spec，并删除已完成 spec；历史通过 Git 保留，不建立 archive spec 目录。
+当前 Electron 迁移 P0 完成前不得预建下一项 spec。优先级切换时，先更新产品真源，再用 `.specs/_template/` 建立新的唯一 spec，并删除已完成 spec；历史通过 Git 保留，不建立 archive spec 目录。
 
 ## 桌面架构纪律
 
@@ -80,7 +80,7 @@ Browser P0 完成前不得预建下一项 spec。优先级切换时，先更新�
 - preload 只暴露类型化 allowlist，不暴露原始 IPC 或 Node.js。
 - 当前 Rust daemon/shared core 只是 Tauri 迁移输入；目标态按 Codex App 分层把 agent 能力交给原装 app-server，把桌面宿主能力放入 Electron main/preload，不保留永久 BlackRain daemon。
 - Browser `WebContentsView` 只由 main 创建和持有；renderer 只上报经过校验的 bounds、visibility、active tab 和 UI 遮挡状态。
-- Browser 页面不得加载 App preload；当前 spec 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用最小 page preload。
+- Browser 页面不得加载 App preload；当前迁移 spec 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用最小 page preload。
 - Browser 工具生产链按 Codex session/turn 绑定到唯一 main backend；发布态只使用进程级注册的标准 stdio MCP + 随包 Node adapter + 自有鉴权 transport，dynamic tools 只作测试/bootstrap。
 - main 必须校验 route、thread、window、view generation 和 profile ownership，并强制页面 WebContents 安全参数。
 - Codex App 的可观察 Browser 行为与控制面是第一实现基线；ClawX、Hermes 等项目只补充通用 Electron 工程经验。
@@ -98,7 +98,7 @@ Desktop/Cloud 是闭源商业项目：
 
 ## 验证与 Git
 
-当前 Tauri 基线命令仍按 `docs/commands.md` 执行。Electron 建立后，必须补 main/preload 单测、App Server stdio 集成测试、Playwright Electron E2E 和 Windows MSIX 安装矩阵。
+Electron 迁移命令按 `docs/commands.md` 执行；涉及尚未删除的 Tauri 基线时才运行对应 Rust/NSIS 回归。必须持续补 main/preload 单测、App Server stdio 集成测试、Playwright Electron E2E 和 Windows MSIX 安装矩阵。
 
 Windows 浏览器登录、权限、下载、崩溃恢复、安装、升级和卸载必须实机验证。CI 或 macOS smoke 不能替代产品验收。
 

@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import type { WorkspaceInfo } from "../../../types";
 import { pushErrorToast } from "../../../services/toasts";
+import { revealPath } from "../../../host/desktop";
 import { fileManagerName } from "../../../utils/platformPaths";
 
 type SidebarMenuHandlers = {
@@ -119,10 +120,7 @@ export function useSidebarMenus({
             text: `Show in ${fileManagerLabel}`,
             action: async () => {
               try {
-                const { revealItemInDir } = await import(
-                  "@tauri-apps/plugin-opener"
-                );
-                await revealItemInDir(workspace.path!);
+                await revealPath(workspace.path!);
               } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 pushErrorToast({
@@ -192,10 +190,7 @@ export function useSidebarMenus({
             return;
           }
           try {
-            const { revealItemInDir } = await import(
-              "@tauri-apps/plugin-opener"
-            );
-            await revealItemInDir(worktree.path);
+            await revealPath(worktree.path);
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             pushErrorToast({
@@ -238,10 +233,7 @@ export function useSidebarMenus({
             return;
           }
           try {
-            const { revealItemInDir } = await import(
-              "@tauri-apps/plugin-opener"
-            );
-            await revealItemInDir(clone.path);
+            await revealPath(clone.path);
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             pushErrorToast({

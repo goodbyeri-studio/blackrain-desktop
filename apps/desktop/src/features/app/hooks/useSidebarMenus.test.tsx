@@ -32,10 +32,10 @@ vi.mock("@tauri-apps/api/dpi", () => ({
   },
 }));
 
-const revealItemInDir = vi.hoisted(() => vi.fn());
+const revealPath = vi.hoisted(() => vi.fn());
 
-vi.mock("@tauri-apps/plugin-opener", () => ({
-  revealItemInDir: (...args: unknown[]) => revealItemInDir(...args),
+vi.mock("../../../host/desktop", () => ({
+  revealPath: (...args: unknown[]) => revealPath(...args),
 }));
 
 vi.mock("../../../services/toasts", () => ({
@@ -97,6 +97,6 @@ describe("useSidebarMenus", () => {
 
     expect(revealItem).toBeDefined();
     await revealItem.action();
-    expect(revealItemInDir).toHaveBeenCalledWith("/tmp/worktree-1");
+    expect(revealPath).toHaveBeenCalledWith("/tmp/worktree-1");
   });
 });

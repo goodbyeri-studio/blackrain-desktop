@@ -23,8 +23,8 @@ vi.mock("../../../services/tauri", () => ({
   openWorkspaceIn: vi.fn(),
 }));
 
-vi.mock("@tauri-apps/plugin-opener", () => ({
-  revealItemInDir: vi.fn(),
+vi.mock("../../../host/desktop", () => ({
+  revealPath: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/menu", () => ({

@@ -4,7 +4,7 @@ import { useI18n } from "@/i18n";
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealPath } from "../../../host/desktop";
 import * as Sentry from "@sentry/react";
 import { openWorkspaceIn } from "../../../services/tauri";
 import { pushErrorToast } from "../../../services/toasts";
@@ -137,7 +137,7 @@ export function useFileLinkOpener(
           return;
         }
         if (target.kind === "finder") {
-          await revealItemInDir(resolvedPath);
+          await revealPath(resolvedPath);
           return;
         }
 
@@ -215,7 +215,7 @@ export function useFileLinkOpener(
                 text: revealInFileManagerLabel(),
                 action: async () => {
                   try {
-                    await revealItemInDir(resolvedPath);
+                    await revealPath(resolvedPath);
                   } catch (error) {
                     reportOpenError(error, {
                       rawPath: rawPathLabel,

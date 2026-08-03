@@ -1,6 +1,6 @@
 # 快捷命令行
 
-> **状态（2026-07-31）**：本文件中的 `tauri:*`、Tauri Windows 和 NSIS 命令描述当前产品基线，不是最终发布路线。迁移中的 Electron 已接入 bundled `codex.exe`，并通过 Browser host、App 重启恢复和显式真实模型共页验证；签名、安装矩阵与完整 Electron 迁移仍未完成，不能作为可发布客户端。
+> **状态（2026-08-03）**：本文件中的 `tauri:*`、Tauri Windows 和 NSIS 命令描述当前产品基线，不是最终发布路线。迁移中的 Electron 已接入 bundled `codex.exe`，并通过 Browser host、App 重启恢复和显式真实模型共页验证；本机开发签名 MSIX 已完成真实安装和 AUMID 首启，但安装态全页面原生点击仍不可用，当前结果为 `PRODUCT_FAIL`，不能作为可发布客户端。
 
 > BlackRain 日常启动、构建、发布和通用验证命令的唯一真源。模块 README/runbook 只保留不重复的局部诊断或协议探针。除特别标注外，路径均以仓库根 `BlackRain/` 为基准。
 > MVP 仅发行 Windows，主流程使用 PowerShell 7 (`pwsh`)；macOS / iOS 只作为 post-MVP 或上游资产。
@@ -155,7 +155,7 @@ npm run tauri:build:win
 Set-Location ..\..
 ```
 
-按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；desktop renderer、Tauri command 或 Electron 迁移改动额外跑 `check:host-boundary`；Rust 改动跑统一的 `check-windows-rust.ps1`。Browser 发布级结论还必须完成 [001 verification](../.specs/001-in-app-browser/verification.md) 中适用的 Windows 实机项；完整 Electron 发布按 [09](09-运行时架构与里程碑.md) 的全量发布判定执行。
+按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；desktop renderer、Tauri command 或 Electron 迁移改动额外跑 `check:host-boundary`；Rust 改动跑统一的 `check-windows-rust.ps1`。Electron 发布级结论必须完成 [002 verification](../.specs/002-electron-migration/verification.md) 中适用的 Windows 实机项，并按 [09](09-运行时架构与里程碑.md) 的全量发布判定执行。
 
 ### Electron 迁移开发验证
 
@@ -188,7 +188,20 @@ Set-Location ..\..
 
 CI 已先执行一次 `electron:package`，所以用 `npm --ignore-scripts run electron:smoke` 和 `npm --ignore-scripts run electron:e2e` 复用该 package，并在 E2E 前显式执行 `electron:install-runtime`。CI 虚拟桌面不保存 renderer `page.screenshot()`；Browser tool 返回的 viewport PNG 仍由 E2E 断言。本地 E2E 会额外写入 `apps/desktop/output/playwright/electron-browser-sidebar.png`。
 
-`electron:make` 生成未签名的 Windows x64 foundation MSIX，只证明 Forge maker 能完成基础制品生成；该命令不要求生成态 runtime。`electron:make:release` 才要求锁定的 Codex package 完整存在，但仍不代表 MSIX 已签名或通过安装、升级、回滚和卸载验收。
+`electron:make` 生成未签名的 Windows x64 foundation MSIX，只证明 Forge maker 能完成基础制品生成；该命令不要求生成态 runtime。`electron:make:release` 才要求锁定的 Codex package 完整存在，但仍不代表 MSIX 已签名或通过安装、升级、回滚和卸载验收。Forge 不覆盖已有 `out/electron/make/msix/x64`；重跑前应把旧目录移动到同级时间戳备份，禁止直接删除未归档制品。
+
+本机开发签名安装只用于产品验收，不得作为发布签名。MSIX 必须先由 subject 与 manifest publisher 完全一致的代码签名证书签名，并通过 `signtool verify /pa`。随后在管理员 PowerShell 7 中运行：
+
+```powershell
+Set-Location apps\desktop
+& 'C:\Program Files\PowerShell\7\pwsh.exe' -NoProfile `
+  -File scripts\msix-local-install-verification.ps1 `
+  -MsixPath out\electron\make\msix\x64\codex-monitor.msix `
+  -CertificatePath out\electron\make\msix\x64\BlackRain-local-verification.cer `
+  -ResultPath output\verification\msix-install-result.json
+```
+
+该脚本只导入公钥证书到本机 `Root`/`TrustedPeople` 并安装固定 identity `cc.goodbyeri.blackrain`；不负责创建或保存私钥，也不代表签名链适合分发。验收结束必须卸载测试包并删除本机与当前用户证书库中的临时证书。本轮 2026-08-03 安装已成功，签名私钥已从 `CurrentUser\My` 删除；测试包和公钥信任条目暂留供后续复现。用户人工确认整个页面仍无法点击，后续矩阵必须先修复该阻塞再重跑。
 
 `npm run test -- --run electron/main/app-server` 覆盖 Electron main 的 stdio/JSONL transport、initialize client 与进程 supervisor，包含真实 Node 子进程 fixture；默认不会启动外部 Codex。`npm run electron:app-server:probe` 是 Windows x64 显式集成探针：它按 tracked lock 校验 bundled `codex.exe`，串行使用隔离 Codex Home 跑 initialize/thread/优雅退出，并通过进程级 `-c` 注册 Browser stdio MCP，验证 MCP ready/tool discovery、`mcpServer/tool/call`、可信 `_meta` 透传和同一 backend 命中。该命令不调用模型，不能替代真实 turn、审批或恢复验收。
 
@@ -269,7 +282,7 @@ npm run electron:make
 Set-Location ..\..
 ```
 
-当前输出为 `apps\desktop\out\electron\make\msix\x64\codex-monitor.msix`。普通 `electron:make` 的 foundation 制品未签名、未安装且不保证带 runtime；携带 runtime 的候选必须改用 `electron:make:release`。两者都不替代 `001-in-app-browser/verification.md` 要求的 Browser runtime 制品检查；完整安装、升级、回滚和卸载属于后续 Electron 发布路线。
+当前输出为 `apps\desktop\out\electron\make\msix\x64\codex-monitor.msix`。普通 `electron:make` 的 foundation 制品未签名、未安装且不保证带 runtime；携带 runtime 的候选必须改用 `electron:make:release`。两者都不替代 `002-electron-migration/verification.md` 要求的制品与产品检查；安装、升级、回滚和卸载是当前 Electron P0 的发布闸口。
 
 签名方案拍板后，OV/EV 签名仍只在受控 Windows 机器或专用签名 runner 上执行。普通 PR runner 不持有长期 `.pfx`、私钥或 USB token。签名并验证 `Get-AuthenticodeSignature` 后记录 SHA-256，再创建 Draft Release 并上传已签名产物；人工确认安装矩阵前不得转为正式 Release。未来自动发布必须单独使用 GitHub Environment 人工审批，不得扩张现有 PR CI。
 

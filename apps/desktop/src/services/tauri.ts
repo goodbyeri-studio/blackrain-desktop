@@ -1,7 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { open, save } from "@tauri-apps/plugin-dialog";
 import { getOptionalHostClient } from "../host/client";
+import {
+  pickDirectories,
+  pickFiles,
+  pickImages,
+  revealPath,
+  saveTextFile,
+} from "../host/desktop";
 import type { Options as NotificationOptions } from "@tauri-apps/plugin-notification";
 import type {
   AppSettings,
@@ -52,79 +57,29 @@ function isMissingTauriInvokeError(error: unknown) {
 }
 
 export async function pickWorkspacePath(): Promise<string | null> {
-  const selection = await open({ directory: true, multiple: false });
-  if (!selection || Array.isArray(selection)) {
-    return null;
-  }
-  return selection;
+  return (await pickDirectories({ multiple: false }))[0] ?? null;
 }
 
 export async function pickWorkspacePaths(): Promise<string[]> {
-  const selection = await open({ directory: true, multiple: true });
-  if (!selection) {
-    return [];
-  }
-  return Array.isArray(selection) ? selection : [selection];
+  return pickDirectories({ multiple: true });
 }
 
 export async function pickImageFiles(): Promise<string[]> {
-  const selection = await open({
-    multiple: true,
-    filters: [
-      {
-        name: "Images",
-        extensions: [
-          "png",
-          "jpg",
-          "jpeg",
-          "gif",
-          "webp",
-          "bmp",
-          "tiff",
-          "tif",
-          "heic",
-          "heif",
-        ],
-      },
-    ],
-  });
-  if (!selection) {
-    return [];
-  }
-  return Array.isArray(selection) ? selection : [selection];
+  return pickImages({ multiple: true });
 }
 
 export async function pickWorkProjectFiles(projectPath: string): Promise<string[]> {
-  const selection = await open({
+  return pickFiles({
     multiple: true,
-    directory: false,
     defaultPath: projectPath,
   });
-  if (!selection) {
-    return [];
-  }
-  return Array.isArray(selection) ? selection : [selection];
 }
 
 export async function exportMarkdownFile(
   content: string,
   defaultFileName = "plan.md",
 ): Promise<string | null> {
-  const selection = await save({
-    title: "Export plan as Markdown",
-    defaultPath: defaultFileName,
-    filters: [
-      {
-        name: "Markdown",
-        extensions: ["md"],
-      },
-    ],
-  });
-  if (!selection) {
-    return null;
-  }
-  await invoke("write_text_file", { path: selection, content });
-  return selection;
+  return saveTextFile(content, defaultFileName);
 }
 
 export async function listWorkspaces(): Promise<WorkspaceInfo[]> {
@@ -221,6 +176,8 @@ async function fileWrite(
 }
 
 export async function readImageAsDataUrl(path: string): Promise<string> {
+  const host = getOptionalHostClient();
+  if (host) return host.files.readImage({ path });
   return invoke<string>("read_image_as_data_url", { path });
 }
 
@@ -274,10 +231,15 @@ export async function writeAgentConfigToml(
 }
 
 export async function getConfigModel(workspaceId: string): Promise<string | null> {
-  const response = await invoke<{ model?: string | null }>("get_config_model", {
-    workspaceId,
-  });
-  const model = response?.model;
+  const host = getOptionalHostClient();
+  const response = host
+    ? await host.agent.readConfig({ workspaceId })
+    : await invoke<{ model?: string | null }>("get_config_model", { workspaceId });
+  const hostConfig = host && "config" in response ? response.config : undefined;
+  const config = hostConfig && typeof hostConfig === "object"
+    ? hostConfig as Record<string, unknown>
+    : response;
+  const model = config?.model;
   if (typeof model !== "string") {
     return null;
   }
@@ -396,7 +358,7 @@ export async function openWorkspaceIn(
 }
 
 export async function revealPathInFileManager(path: string): Promise<void> {
-  await revealItemInDir(path);
+  await revealPath(path);
 }
 
 export async function getOpenAppIcon(appName: string): Promise<string | null> {
@@ -777,6 +739,8 @@ export async function localUsageSnapshot(
 }
 
 export async function getModelList(workspaceId: string) {
+  const host = getOptionalHostClient();
+  if (host) return host.agent.listModels({ workspaceId });
   return invoke<any>("model_list", { workspaceId });
 }
 
@@ -803,14 +767,20 @@ export async function generateRunMetadata(workspaceId: string, prompt: string) {
 }
 
 export async function getCollaborationModes(workspaceId: string) {
+  const host = getOptionalHostClient();
+  if (host) return host.agent.listCollaborationModes({ workspaceId });
   return invoke<any>("collaboration_mode_list", { workspaceId });
 }
 
 export async function getAccountRateLimits(workspaceId: string) {
+  const host = getOptionalHostClient();
+  if (host) return host.agent.readAccountRateLimits({ workspaceId });
   return invoke<any>("account_rate_limits", { workspaceId });
 }
 
 export async function getAccountInfo(workspaceId: string) {
+  const host = getOptionalHostClient();
+  if (host) return host.agent.readAccount({ workspaceId });
   return invoke<any>("account_read", { workspaceId });
 }
 
@@ -828,6 +798,8 @@ export async function cancelCodexLogin(workspaceId: string) {
 }
 
 export async function getSkillsList(workspaceId: string) {
+  const host = getOptionalHostClient();
+  if (host) return host.agent.listSkills({ workspaceId });
   return invoke<any>("skills_list", { workspaceId });
 }
 
@@ -837,6 +809,10 @@ export async function getAppsList(
   limit?: number | null,
   threadId?: string | null,
 ) {
+  const host = getOptionalHostClient();
+  if (host) {
+    return host.agent.listApps({ workspaceId, cursor, limit, threadId });
+  }
   return invoke<any>("apps_list", { workspaceId, cursor, limit, threadId });
 }
 
@@ -908,14 +884,21 @@ export async function movePrompt(
 }
 
 export async function getAppSettings(): Promise<AppSettings> {
+  const host = getOptionalHostClient();
+  if (host) return host.settings.get() as Promise<AppSettings>;
   return invoke<AppSettings>("get_app_settings");
 }
 
 export async function isMobileRuntime(): Promise<boolean> {
+  if (getOptionalHostClient()) return false;
   return invoke<boolean>("is_mobile_runtime");
 }
 
 export async function updateAppSettings(settings: AppSettings): Promise<AppSettings> {
+  const host = getOptionalHostClient();
+  if (host) {
+    return host.settings.update({ settings }) as Promise<AppSettings>;
+  }
   return invoke<AppSettings>("update_app_settings", { settings });
 }
 
@@ -1049,6 +1032,8 @@ export async function runCodexUpdate(
 }
 
 export async function getWorkspaceFiles(workspaceId: string) {
+  const host = getOptionalHostClient();
+  if (host) return host.files.listWorkspace({ workspaceId });
   return invoke<string[]>("list_workspace_files", { workspaceId });
 }
 
@@ -1056,6 +1041,8 @@ export async function readWorkspaceFile(
   workspaceId: string,
   path: string,
 ): Promise<{ content: string; truncated: boolean }> {
+  const host = getOptionalHostClient();
+  if (host) return host.files.readWorkspace({ workspaceId, path });
   return invoke<{ content: string; truncated: boolean }>("read_workspace_file", {
     workspaceId,
     path,
@@ -1287,6 +1274,8 @@ export async function resumeThread(workspaceId: string, threadId: string) {
 }
 
 export async function readThread(workspaceId: string, threadId: string) {
+  const host = getOptionalHostClient();
+  if (host) return host.agent.readThread({ workspaceId, threadId, includeTurns: true });
   return invoke<any>("read_thread", { workspaceId, threadId });
 }
 
@@ -1299,6 +1288,11 @@ export async function threadLiveUnsubscribe(workspaceId: string, threadId: strin
 }
 
 export async function archiveThread(workspaceId: string, threadId: string) {
+  const host = getOptionalHostClient();
+  if (host) {
+    await host.agent.archiveThread({ workspaceId, threadId });
+    return;
+  }
   return invoke<void>("archive_thread", { workspaceId, threadId });
 }
 
@@ -1721,6 +1715,8 @@ export async function setThreadName(
   threadId: string,
   name: string,
 ) {
+  const host = getOptionalHostClient();
+  if (host) return host.agent.setThreadName({ workspaceId, threadId, name });
   return invoke<any>("set_thread_name", { workspaceId, threadId, name });
 }
 
@@ -1834,14 +1830,20 @@ export async function sendNotification(
 // 账号会话 token 钥匙串存取。
 // 供前端 Supabase storage adapter 调用，把 session JSON 持久化进系统凭据库。
 export async function accountSessionGet(key: string): Promise<string | null> {
+  const host = getOptionalHostClient();
+  if (host) return host.accountSession.get({ key });
   return invoke<string | null>("account_session_get", { key });
 }
 
 export async function accountSessionSet(key: string, value: string): Promise<void> {
+  const host = getOptionalHostClient();
+  if (host) return host.accountSession.set({ key, value });
   await invoke("account_session_set", { key, value });
 }
 
 export async function accountSessionClear(key: string): Promise<void> {
+  const host = getOptionalHostClient();
+  if (host) return host.accountSession.clear({ key });
   await invoke("account_session_clear", { key });
 }
 

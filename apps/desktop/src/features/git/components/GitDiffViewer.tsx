@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { confirmDialog } from "../../../host/desktop";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { SelectedLineRange } from "@pierre/diffs";
 import { WorkerPoolContextProvider } from "@pierre/diffs/react";
@@ -321,7 +321,7 @@ export function GitDiffViewer({
       if (!onRevertFile) {
         return;
       }
-      const confirmed = await ask(
+      const confirmed = await confirmDialog(
         tx("Discard changes in:\n\n{path}\n\nThis cannot be undone.", { path }),
         { title: tx("Discard changes"), kind: "warning" },
       );

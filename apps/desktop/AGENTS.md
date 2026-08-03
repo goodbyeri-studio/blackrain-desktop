@@ -1,10 +1,10 @@
 # BlackRain Desktop Agent Guide
 
-> **状态（2026-08-01）**：唯一当前 P0 是内置浏览器，任务与验收只以 `.specs/001-in-app-browser/` 为准；Browser 所需 Electron/App Server/制品支撑也统一写入该 spec。当前完整产品流程仍是 Tauri。锁定 `codex-cli 0.146.0` 已通过标准 stdio MCP、随包 Node 22 adapter、自有 Browser client/transport 接入唯一 main backend，生产 `thread/start` 不再提交 dynamic tools；真实模型已通过 MCP screenshot 操作同一可见 tab 并在 turn 后释放控制，同用户 no/wrong/stale-token 拒绝及基础 role/name locator、wait/actionability/CUA 已有当前测试证据。另一个真实 Windows 用户账户的 ACL 探针、审批/停止/恢复矩阵、注入式增量 ARIA/完整 selector runtime、真实站点和 Windows 产品矩阵仍未完成。
+> **状态（2026-08-03）**：唯一当前 P0 是 Electron 全量迁移，任务与验收只以 `.specs/002-electron-migration/` 为准。Browser runtime/功能链路已闭环并转为发布回归项；当前完整产品流程仍是 Tauri。Electron packaged E2E 的设置点击与 Browser 全链路已通过，签名 MSIX 仍待产品态复验。迁移基线包含 194 个 Tauri command；shell/opener/dialog/file picker 收敛后 renderer 直接 Tauri 依赖为 53 个。
 
 ## 项目快照
 
-BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前完整产品流程仍运行于 React/Vite + Tauri/Rust；`electron/` 已建立 M1 安全空壳、M2 stdio/JSONL transport、锁定 `codex-cli 0.146.0` Windows canonical package 供应链，以及 M3 main-owned `WebContentsView` host/UI/受限 CDP/OOPIF Browser 纵向切片。Electron 已有最小 workspace、产品 thread/turn facade，以及已切换为生产入口的可打包自有 Browser MCP adapter/client/transport；真实模型 Agent 共页 E2E 有历史通过摘要，但缺失的 commit、命令、日志和制品索引必须在 `verification.md` 补齐。尚未完成其余 Tauri 能力迁移、Browser P0 剩余安全与产品闸口和发布验收，不得把 Browser P0 纵向切片写成 Electron 客户端或全量迁移已经完成。
+BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前完整产品流程仍运行于 React/Vite + Tauri/Rust；`electron/` 已建立安全 main/preload/renderer、stdio/JSONL App Server client、锁定 `codex-cli 0.146.0` 供应链、main-owned Browser、最小 workspace/thread/turn facade，以及 settings/files/凭据/shell 等 typed host API。尚未完成其余 Tauri 能力迁移、旧宿主删除和 Windows 发布验收，不得把 Browser runtime 闭环或 package 通过写成 Electron 客户端已经可交付。
 
 目标宿主边界：
 
@@ -41,7 +41,7 @@ Model Gateway       可选协议翻译 sidecar
 3. 前端 IPC：`src/services/tauri.ts`
 4. daemon RPC：`src-tauri/src/bin/blackrain_daemon/rpc.rs` 及 `rpc/*`
 
-新增或修改命令必须同步所有相关层和测试。Browser 功能及其宿主依赖统一登记到 `001-in-app-browser`。Electron 建立后，新的宿主 API 不应继续扩张 `tauri.ts`。
+新增或修改命令必须同步所有相关层和测试。所有迁移任务和 Browser 发布回归统一登记到 `002-electron-migration`。新的宿主 API 不得继续扩张 `tauri.ts`。
 
 ## 前端规则
 

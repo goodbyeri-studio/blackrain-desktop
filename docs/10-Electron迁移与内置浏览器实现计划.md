@@ -1,6 +1,6 @@
 # 10 Electron 迁移与内置浏览器实现计划
 
-> **状态（2026-08-01）**：内置浏览器是唯一当前 P0。标准 stdio MCP + 随包 Node adapter 已通过锁定 `0.146.0` 实制品探针并成为 Electron 生产入口，真实模型 screenshot 同页纵向切片通过；基础 role/name locator、wait/actionability/CUA、同用户 token/generation 拒绝、用户接管、OOPIF、合成站点敏感购买确认、实际下载、file chooser 和 App 恢复也有当前证据。另一个真实 Windows 用户账户的 ACL、审批/停止/恢复矩阵、注入式增量 ARIA/完整 selector runtime、真实站点、安全与产品矩阵尚未完成。本文保留整体 Electron 迁移路线，当前任务与验收只看 [001 内置浏览器](../.specs/001-in-app-browser/)；P1 全量迁移当前不建立第二个 spec。
+> **状态（2026-08-03）**：Electron 全量迁移是唯一当前 P0，任务与验收只看 [002 Electron 全量迁移](../.specs/002-electron-migration/)。Browser runtime/功能链路已闭环并转为发布回归；当前迁移基线为 194 个 Tauri command 和 59 个 renderer 直接依赖，开发签名 MSIX 的全页面点击失败是第一产品阻塞。
 
 ## 结论
 
@@ -294,7 +294,7 @@ user -> agent_requesting -> agent
 
 ## Tauri 到 Electron 的迁移波次
 
-> **当前排序**：M0-M3 是已经建立的代码基础和历史运行摘要；M4 是唯一当前 P0，但其生产 adapter 接缝已被锁定 runtime 实制品探针判定阻塞；M5 属于 Browser P0 完成后的 P1。除解除 M4 阻塞外，不并行扩张 M5。
+> **当前排序**：M0-M4 是已经建立的 Electron/Browser 基础；M5 剩余宿主能力、旧宿主删除和 Windows 发布现为唯一当前 P0。Browser 的真实站点与 Windows 场景作为 M5 发布回归执行。
 
 ### M0：盘点与冻结（基础已建立）
 
@@ -337,7 +337,7 @@ user -> agent_requesting -> agent
 
 退出闸口：用户和 agent 共享同一 `WebContentsView` 页面，不存在独立 headless browser；modal 不被 native view 遮挡。
 
-### M4：Browser 产品化（唯一当前 P0）
+### M4：Browser 产品化（runtime/功能闭环已建立）
 
 - 多 tab、view retention/reparenting、live/suspended/persisted 工作集、恢复、frame/OOPIF、download grant、权限和 popup。
 - 标准 stdio MCP + 随包 Node adapter 已通过锁定 `0.146.0` 实制品探针并完成生产切换；继续禁止私有 `nativePipe`、复制 bundled plugin 或永久 dynamic tools。
@@ -348,9 +348,9 @@ user -> agent_requesting -> agent
 - raw CDP Developer mode、企业禁用和审计记录。
 - 验证 32 live pages/30 分钟保护候选并锁定实际工作集；记录内存、GPU、DPI、多屏、焦点和输入法基线。
 
-退出闸口：`001-in-app-browser` 的 Windows Browser 矩阵通过。
+退出闸口：Browser runtime/功能闭环已作为迁移基础接受；Windows 产品矩阵转入 M5 发布回归。
 
-### M5：剩余宿主能力与发布（P1）
+### M5：剩余宿主能力与发布（唯一当前 P0）
 
 - 迁移文件、Git、终端、设置、凭据、通知、菜单、快捷键、深链和更新。
 - 按 Codex App 分层把终端迁移到 Electron main 的 `node-pty` 能力，并把 Electron 自有状态与 Codex ThreadStore 分库、分目录管理。

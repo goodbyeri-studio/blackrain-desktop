@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternal } from "../../../host/desktop";
 import type { PostUpdateNoticeState, UpdateState } from "../hooks/useUpdater";
 import {
   ToastActions,
@@ -77,7 +77,7 @@ export function UpdateToast({
                           rel="noreferrer"
                           onClick={(event) => {
                             event.preventDefault();
-                            void openUrl(href);
+                            void openExternal(href);
                           }}
                         >
                           {children}
@@ -103,7 +103,7 @@ export function UpdateToast({
               <button
                 className="primary"
                 onClick={() => {
-                  void openUrl(postUpdateNotice.htmlUrl);
+                  void openExternal(postUpdateNotice.htmlUrl);
               }}
             >
                 {tx("View on GitHub")}

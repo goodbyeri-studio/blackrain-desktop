@@ -24,8 +24,10 @@ import {
   COMPOSER_PRESET_LABELS,
   DICTATION_MODELS,
 } from "@settings/components/settingsViewConstants";
+import type { CodexSection } from "@settings/components/settingsTypes";
 
 type UseSettingsViewOrchestrationArgs = {
+  activeSection: CodexSection;
   workspaceGroups: WorkspaceGroup[];
   groupedWorkspaces: GroupedWorkspaces;
   ungroupedLabel: string;
@@ -69,6 +71,7 @@ type UseSettingsViewOrchestrationArgs = {
 };
 
 export function useSettingsViewOrchestration({
+  activeSection,
   workspaceGroups,
   groupedWorkspaces,
   ungroupedLabel,
@@ -187,12 +190,14 @@ export function useSettingsViewOrchestration({
   });
 
   const serverSectionProps = useSettingsServerSection({
+    enabled: activeSection === "server",
     appSettings,
     onUpdateAppSettings,
     onMobileConnectSuccess,
   });
 
   const codexSectionProps = useSettingsCodexSection({
+    enabled: activeSection === "codex",
     appSettings,
     onUpdateAppSettings,
     onRunDoctor,
@@ -206,12 +211,17 @@ export function useSettingsViewOrchestration({
   });
 
   const featuresSectionProps = useSettingsFeaturesSection({
+    enabled: activeSection === "features",
     appSettings,
     featureWorkspaceId,
     onUpdateAppSettings,
   });
 
-  const agentsSectionProps = useSettingsAgentsSection({ appSettings, projects });
+  const agentsSectionProps = useSettingsAgentsSection({
+    enabled: activeSection === "agents",
+    appSettings,
+    projects,
+  });
 
   return {
     aboutSectionProps: {
