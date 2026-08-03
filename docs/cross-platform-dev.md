@@ -60,8 +60,8 @@
 1. 在仓库根核对 codex `HEAD` 是否等于目标锁定版本。
 2. 运行 `pwsh scripts/dev-client.ps1` 启动真实 Windows GUI。
 3. 按改动范围运行前端检查或 `pwsh scripts/check-windows-rust.ps1`。
-4. Browser 及其 Electron 支撑改动按 [commands](commands.md#electron-迁移开发验证) 执行 package/smoke/E2E/unsigned MSIX make，并在 `001-in-app-browser/verification.md` 记录真实链路与缺口。
-5. 涉及 Browser 平台行为时完成 [001 verification](../.specs/001-in-app-browser/verification.md) 对应实机项；其他发布路线按 09/10 的 Windows 闸口执行。
+4. Electron 迁移改动按 [commands](commands.md#electron-迁移开发验证) 执行 package/smoke/E2E/unsigned MSIX make，并在 `002-electron-migration/verification.md` 记录真实链路与缺口。
+5. 涉及 Browser 平台行为时完成 [002 verification](../.specs/002-electron-migration/verification.md) 对应回归项；完整发布按 09/10 的 Windows 闸口执行。
 6. 当前 Tauri 产品发布前运行 `pwsh scripts/release-client-win.ps1`，再手动安装、启动、对话和卸载；Electron 未完成发布矩阵前不替代该入口。
 
 ## 非 Windows 辅助开发流程
@@ -121,7 +121,7 @@ codex 有平台特定依赖和降级路径。锁版本升级后必须重跑 Wind
 ## 参考
 
 - Windows 命令：[commands](commands.md)
-- 当前 Browser 验证矩阵：[001 verification](../.specs/001-in-app-browser/verification.md)
+- 当前 Electron 迁移验证矩阵：[002 verification](../.specs/002-electron-migration/verification.md)
 - Electron 全量迁移与发布路线：[09](09-运行时架构与里程碑.md) / [10](10-Electron迁移与内置浏览器实现计划.md)
 - 运行时真源：[09 运行时架构与里程碑](09-运行时架构与里程碑.md)
 - 壳内部约束：`apps/desktop/AGENTS.md`

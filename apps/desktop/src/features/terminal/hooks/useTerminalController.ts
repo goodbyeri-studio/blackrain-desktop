@@ -66,13 +66,8 @@ export function useTerminalController({
     }
   }, [activeWorkspaceId, ensureTerminal, terminalOpen]);
 
-  const terminalState = useTerminalSession({
-    activeWorkspace,
-    activeTerminalId,
-    isVisible: terminalOpen,
-    focusRequestVersion,
-    onDebug,
-    onSessionExit: (workspaceId, terminalId) => {
+  const handleTerminalSessionExit = useCallback(
+    (workspaceId: string, terminalId: string) => {
       const shouldClosePanel =
         workspaceId === activeWorkspaceId &&
         terminalTabs.length === 1 &&
@@ -82,6 +77,16 @@ export function useTerminalController({
         onCloseTerminalPanel?.();
       }
     },
+    [activeWorkspaceId, closeTerminal, onCloseTerminalPanel, terminalTabs],
+  );
+
+  const terminalState = useTerminalSession({
+    activeWorkspace,
+    activeTerminalId,
+    isVisible: terminalOpen,
+    focusRequestVersion,
+    onDebug,
+    onSessionExit: handleTerminalSessionExit,
   });
 
   useEffect(() => {

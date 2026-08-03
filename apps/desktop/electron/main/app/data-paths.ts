@@ -17,7 +17,8 @@ export function resolveElectronAppDataPath(
 ): string {
   const isTestRun =
     environment.BLACKRAIN_ELECTRON_SMOKE === "1" ||
-    environment.BLACKRAIN_ELECTRON_E2E === "1";
+    environment.BLACKRAIN_ELECTRON_E2E === "1" ||
+    environment.BLACKRAIN_ELECTRON_NATIVE_INPUT_PROBE === "1";
   const testAppDataPath = environment.BLACKRAIN_ELECTRON_TEST_APP_DATA?.trim();
 
   return isTestRun && testAppDataPath ? testAppDataPath : defaultAppDataPath;

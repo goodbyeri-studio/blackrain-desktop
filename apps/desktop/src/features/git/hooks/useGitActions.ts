@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { confirmDialog } from "../../../host/desktop";
 import {
   applyWorktreeChanges as applyWorktreeChangesService,
   createGitHubRepo as createGitHubRepoService,
@@ -137,7 +137,7 @@ export function useGitActions({
     if (!workspaceId) {
       return;
     }
-    const confirmed = await ask(
+    const confirmed = await confirmDialog(
       "Revert all changes in this repo?\n\nThis will discard all staged and unstaged changes, including untracked files.",
       { title: "Revert all changes", kind: "warning" },
     );
@@ -208,7 +208,7 @@ export function useGitActions({
       if (response.status === "needs_confirmation") {
         const entryCount = response.entryCount ?? 0;
         const plural = entryCount === 1 ? "" : "s";
-        const confirmed = await ask(
+        const confirmed = await confirmDialog(
           `Initialize Git in this folder?\n\nThis will create a .git directory, set the initial branch to "${branch}", and create an initial commit.\n\nThis folder contains ${entryCount} existing item${plural}.`,
           {
             title: "Initialize Git",

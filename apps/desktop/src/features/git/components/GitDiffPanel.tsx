@@ -4,8 +4,11 @@ import { useI18n } from "@/i18n";
 import { Menu, MenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ask } from "@tauri-apps/plugin-dialog";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import {
+  confirmDialog,
+  openExternal,
+  revealPath,
+} from "../../../host/desktop";
 import FileText from "lucide-react/dist/esm/icons/file-text";
 import GitBranch from "lucide-react/dist/esm/icons/git-branch";
 import ScrollText from "lucide-react/dist/esm/icons/scroll-text";
@@ -308,7 +311,7 @@ export function GitDiffPanel({
         const openItem = await MenuItem.new({
           text: tx("Open on GitHub"),
           action: async () => {
-            await openUrl(`${githubBaseUrl}/commit/${entry.sha}`);
+            await openExternal(`${githubBaseUrl}/commit/${entry.sha}`);
           },
         });
         items.push(openItem);
@@ -330,7 +333,7 @@ export function GitDiffPanel({
       const openItem = await MenuItem.new({
         text: tx("Open on GitHub"),
         action: async () => {
-          await openUrl(pullRequest.url);
+          await openExternal(pullRequest.url);
         },
       });
 
@@ -363,7 +366,7 @@ export function GitDiffPanel({
             preview,
             more,
           });
-      const confirmed = await ask(message, {
+      const confirmed = await confirmDialog(message, {
         title: tx("Discard changes"),
         kind: "warning",
       });
@@ -473,8 +476,7 @@ export function GitDiffPanel({
                   });
                   return;
                 }
-                const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
-                await revealItemInDir(absolutePath);
+                await revealPath(absolutePath);
               } catch (menuError) {
                 const message = menuError instanceof Error ? menuError.message : String(menuError);
                 pushErrorToast({

@@ -29,7 +29,7 @@
 - [Security](https://www.electronjs.org/docs/latest/tutorial/security)：sandbox、context isolation、navigation、IPC sender 和权限安全清单。
 - [Session](https://www.electronjs.org/docs/latest/api/session)：partition、permission handler、download 和 session 生命周期。
 
-Codex 当前可观察实现使用 renderer `<webview>` + main attach；BlackRain 有意保留 main-owned `WebContentsView` 差异，并实现已验证的 per-session backend、session/turn binding、单一持久 profile、注入式 selector/ARIA、CDP/OOPIF、tab finalization、隐藏 capture 和页面工作集合同。`001-in-app-browser` 要求额外验证 native view 的 bounds、z-order、modal 遮挡、DPI、多屏、焦点、迁移和标准 Electron 恢复降级。
+Codex 当前可观察实现使用 renderer `<webview>` + main attach；BlackRain 有意保留 main-owned `WebContentsView` 差异，并实现已验证的 per-session backend、session/turn binding、单一持久 profile、注入式 selector/ARIA、CDP/OOPIF、tab finalization、隐藏 capture 和页面工作集合同。`002-electron-migration` 将 native view 的 bounds、z-order、modal 遮挡、DPI、多屏、焦点和恢复作为 Electron 发布回归。
 
 ## 规则
 

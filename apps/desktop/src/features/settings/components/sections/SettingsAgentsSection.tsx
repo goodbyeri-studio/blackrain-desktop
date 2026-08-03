@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealPath } from "@/host/desktop";
 import { useI18n } from "@/i18n";
 import type { ModelOption } from "@/types";
 import {
@@ -161,7 +161,7 @@ export function SettingsAgentsSection({
   const handleOpenPath = async (path: string) => {
     setOpenPathError(null);
     try {
-      await revealItemInDir(path);
+      await revealPath(path);
     } catch (openError) {
       setOpenPathError(
         openError instanceof Error ? openError.message : tx("Unable to open path."),

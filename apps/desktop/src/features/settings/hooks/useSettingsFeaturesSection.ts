@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealPath } from "../../../host/desktop";
 import type { AppSettings, CodexFeature, CodexFeatureStage } from "@/types";
 import {
   getCodexConfigPath,
@@ -8,6 +8,7 @@ import {
 } from "@services/tauri";
 
 type UseSettingsFeaturesSectionArgs = {
+  enabled: boolean;
   appSettings: AppSettings;
   featureWorkspaceId: string | null;
   onUpdateAppSettings: (next: AppSettings) => Promise<void>;
@@ -138,6 +139,7 @@ function mapFeatureToAppSettings(
 }
 
 export const useSettingsFeaturesSection = ({
+  enabled,
   appSettings,
   featureWorkspaceId,
   onUpdateAppSettings,
@@ -152,7 +154,7 @@ export const useSettingsFeaturesSection = ({
     setOpenConfigError(null);
     try {
       const configPath = await getCodexConfigPath();
-      await revealItemInDir(configPath);
+      await revealPath(configPath);
     } catch (error) {
       setOpenConfigError(
         error instanceof Error ? error.message : "Unable to open config.",
@@ -162,7 +164,7 @@ export const useSettingsFeaturesSection = ({
 
   useEffect(() => {
     let active = true;
-    if (!featureWorkspaceId) {
+    if (!enabled || !featureWorkspaceId) {
       setFeatures([]);
       setFeatureError(null);
       setFeaturesLoading(false);
@@ -222,7 +224,7 @@ export const useSettingsFeaturesSection = ({
     return () => {
       active = false;
     };
-  }, [featureWorkspaceId]);
+  }, [enabled, featureWorkspaceId]);
 
   const stableFeatures = useMemo(
     () =>

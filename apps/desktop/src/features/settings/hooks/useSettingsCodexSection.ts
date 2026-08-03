@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { pickFile } from "../../../host/desktop";
 import type {
   AppSettings,
   CodexDoctorResult,
@@ -13,6 +13,7 @@ import { buildEditorContentMeta } from "@settings/components/settingsViewHelpers
 import { normalizeCodexArgsInput } from "@/utils/codexArgsInput";
 
 type UseSettingsCodexSectionArgs = {
+  enabled: boolean;
   appSettings: AppSettings;
   onUpdateAppSettings: (next: AppSettings) => Promise<void>;
   onRunDoctor: (
@@ -74,6 +75,7 @@ export type SettingsCodexSectionProps = {
 };
 
 export const useSettingsCodexSection = ({
+  enabled,
   appSettings,
   onUpdateAppSettings,
   onRunDoctor,
@@ -110,7 +112,7 @@ export const useSettingsCodexSection = ({
     setContent: setGlobalAgentsContent,
     refresh: refreshGlobalAgents,
     save: saveGlobalAgents,
-  } = useGlobalAgentsMd();
+  } = useGlobalAgentsMd(enabled);
 
   const {
     content: globalConfigContent,
@@ -123,7 +125,7 @@ export const useSettingsCodexSection = ({
     setContent: setGlobalConfigContent,
     refresh: refreshGlobalConfig,
     save: saveGlobalConfig,
-  } = useGlobalCodexConfigToml();
+  } = useGlobalCodexConfigToml(enabled);
 
   const globalAgentsEditorMeta = buildEditorContentMeta({
     isLoading: globalAgentsLoading,
@@ -156,8 +158,8 @@ export const useSettingsCodexSection = ({
     nextCodexArgs !== (appSettings.codexArgs ?? null);
 
   const handleBrowseCodex = async () => {
-    const selection = await open({ multiple: false, directory: false });
-    if (!selection || Array.isArray(selection)) {
+    const selection = await pickFile();
+    if (!selection) {
       return;
     }
     setCodexPathDraft(selection);

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppSettings, DebugEntry, ModelOption, WorkspaceInfo } from "../../../types";
 import { getConfigModel, getModelList } from "../../../services/tauri";
-import { normalizeEffortValue } from "../utils/modelListResponse";
+import { getOptionalHostClient } from "@/host/client";
+import {
+  normalizeEffortValue,
+  parseModelListResponse,
+} from "../utils/modelListResponse";
 import {
   OWN_MODELS,
   modelGatewayToOptions,
@@ -60,6 +64,7 @@ export function useModels({
 
   const workspaceId = activeWorkspace?.id ?? null;
   const isConnected = Boolean(activeWorkspace?.connected);
+  const usesElectronHost = getOptionalHostClient() !== null;
   const configuredGatewayModels = useMemo(
     () => modelGatewayToOptions(modelGateway),
     [modelGateway],
@@ -210,13 +215,15 @@ export function useModels({
         payload: response,
       });
       setConfigModel(configModelFromConfig);
-      // 2049 魔改：模型选择器只用 BlackRain 网关 registry，不信任内核 model/list。
-      // 内核走自带 OpenAI 目录（models.json: gpt-*），网关根本路由不了，选中即
-      // response.failed。response 仍保留上面的 debug 日志便于排查，但不喂给选择器。
-      void response;
-      const dataFromServer = configuredGatewayModels;
+      const dataFromServer = usesElectronHost
+        ? parseModelListResponse(response)
+        : configuredGatewayModels;
       const fallbackModels: ModelOption[] =
-        dataFromServer.length > 0 ? dataFromServer : OWN_MODELS;
+        dataFromServer.length > 0
+          ? dataFromServer
+          : usesElectronHost
+            ? []
+            : OWN_MODELS;
       const data = (() => {
         if (!configModelFromConfig) {
           return fallbackModels;
@@ -278,6 +285,7 @@ export function useModels({
     selectedModelId,
     resolveEffort,
     workspaceId,
+    usesElectronHost,
   ]);
 
   useEffect(() => {
@@ -298,11 +306,15 @@ export function useModels({
       return;
     }
     const seeded =
-      configuredGatewayModels.length > 0 ? configuredGatewayModels : OWN_MODELS;
+      usesElectronHost
+        ? []
+        : configuredGatewayModels.length > 0
+          ? configuredGatewayModels
+          : OWN_MODELS;
     setModels((prev) =>
       prev.length > 0 ? prev.map(withModelCapabilities) : seeded.map(withModelCapabilities),
     );
-  }, [workspaceId, isConnected, configuredGatewayModels]);
+  }, [workspaceId, isConnected, configuredGatewayModels, usesElectronHost]);
 
   useEffect(() => {
     if (!selectedModel) {

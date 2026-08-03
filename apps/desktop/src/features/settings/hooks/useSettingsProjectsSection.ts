@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { ask, open } from "@tauri-apps/plugin-dialog";
+import { confirmDialog, pickDirectory } from "../../../host/desktop";
 import type { AppSettings, WorkspaceGroup, WorkspaceInfo } from "@/types";
 import type { GroupedWorkspaces } from "./settingsSectionTypes";
 
@@ -132,8 +132,8 @@ export const useSettingsProjectsSection = ({
   };
 
   const handleChooseGroupCopiesFolder = async (group: WorkspaceGroup) => {
-    const selection = await open({ multiple: false, directory: true });
-    if (!selection || Array.isArray(selection)) {
+    const selection = await pickDirectory();
+    if (!selection) {
       return;
     }
     await updateGroupCopiesFolder(group.id, selection);
@@ -153,7 +153,7 @@ export const useSettingsProjectsSection = ({
       groupProjects.length > 0
         ? `\n\nProjects in this group will move to "${ungroupedLabel}".`
         : "";
-    const confirmed = await ask(`Delete "${group.name}"?${detail}`, {
+    const confirmed = await confirmDialog(`Delete "${group.name}"?${detail}`, {
       title: "Delete Group",
       kind: "warning",
       okLabel: "Delete",

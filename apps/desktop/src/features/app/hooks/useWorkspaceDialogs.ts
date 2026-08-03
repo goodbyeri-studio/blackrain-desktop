@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ask, message } from "@tauri-apps/plugin-dialog";
+import {
+  confirmDialog,
+  showMessageDialog,
+} from "../../../host/desktop";
 import type { WorkspaceInfo } from "../../../types";
 import { isMobilePlatform } from "../../../utils/platformPaths";
 import { pickWorkspacePaths } from "../../../services/workspaces";
@@ -256,7 +259,7 @@ export function useWorkspaceDialogs() {
         result.failures.length > 0
           ? "Some workspaces failed to add"
           : "Some workspaces were skipped";
-      await message(lines.join("\n"), {
+      await showMessageDialog(lines.join("\n"), {
         title,
         kind: result.failures.length > 0 ? "error" : "warning",
       });
@@ -278,7 +281,7 @@ export function useWorkspaceDialogs() {
             } on disk.`
           : "";
 
-      return ask(
+      return confirmDialog(
         `Are you sure you want to delete "${workspaceName}"?\n\nThis will remove the workspace from CodexMonitor.${detail}`,
         {
           title: "Delete Workspace",
@@ -295,7 +298,7 @@ export function useWorkspaceDialogs() {
     async (workspaces: WorkspaceInfo[], workspaceId: string) => {
       const workspace = workspaces.find((entry) => entry.id === workspaceId);
       const workspaceName = workspace?.name || "this worktree";
-      return ask(
+      return confirmDialog(
         `Are you sure you want to delete "${workspaceName}"?\n\nThis will close the agent, remove its worktree, and delete it from CodexMonitor.`,
         {
           title: "Delete Worktree",
@@ -310,7 +313,7 @@ export function useWorkspaceDialogs() {
 
   const showWorkspaceRemovalError = useCallback(async (error: unknown) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    await message(errorMessage, {
+    await showMessageDialog(errorMessage, {
       title: "Delete workspace failed",
       kind: "error",
     });
@@ -318,7 +321,7 @@ export function useWorkspaceDialogs() {
 
   const showWorktreeRemovalError = useCallback(async (error: unknown) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    await message(errorMessage, {
+    await showMessageDialog(errorMessage, {
       title: "Delete worktree failed",
       kind: "error",
     });

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type MouseEvent } from "re
 import { useI18n } from "@/i18n";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternal } from "../../../host/desktop";
 import {
   describeFileTarget,
   formatParsedFileLocation,
@@ -307,7 +307,7 @@ function LinkBlock({ urls }: LinkBlockProps) {
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            void openUrl(url);
+            void openExternal(url);
           }}
         >
           {url}
@@ -572,7 +572,7 @@ export function Markdown({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            void openUrl(url);
+            void openExternal(url);
           }}
         >
           {children}

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +12,10 @@ const browserFixtureUrl = "https://blackrain-e2e.test/fixture";
 const browserPartition = "persist:blackrain-browser-app";
 const runRealAgentE2e = process.env.BLACKRAIN_ELECTRON_REAL_AGENT_E2E === "1";
 const resourceReportPath = process.env.BLACKRAIN_BROWSER_RESOURCE_REPORT?.trim();
+const stageLogPath = process.env.BLACKRAIN_ELECTRON_E2E_STAGE_LOG?.trim();
+if (stageLogPath) {
+  writeFileSync(path.resolve(desktopRoot, stageLogPath), "", "utf8");
+}
 const probeStartedAt = performance.now();
 const browserFixtureHtml = `<!doctype html>
   <html>
@@ -83,7 +88,11 @@ let electronApplication;
 let startupMs = 0;
 let resourceBaseline;
 const logStage = (stage) => {
-  console.log(`[electron-e2e] ${new Date().toISOString()} ${stage}`);
+  const line = `[electron-e2e] ${new Date().toISOString()} ${stage}`;
+  console.log(line);
+  if (stageLogPath) {
+    appendFileSync(path.resolve(desktopRoot, stageLogPath), `${line}\n`, "utf8");
+  }
 };
 const withStageTimeout = (promise, stage, timeoutMs = 45_000) => {
   let timeout;
@@ -189,6 +198,20 @@ try {
 
   const window = await electronApplication.firstWindow({ timeout: 30_000 });
   logStage("first window ready");
+  let rendererDiagnosticCount = 0;
+  const logRendererDiagnostic = (kind, message) => {
+    if (rendererDiagnosticCount >= 20) return;
+    rendererDiagnosticCount += 1;
+    logStage(`renderer ${kind}: ${String(message).slice(0, 2_000)}`);
+  };
+  window.on("console", (message) => {
+    if (["error", "warning"].includes(message.type())) {
+      logRendererDiagnostic(`console/${message.type()}`, message.text());
+    }
+  });
+  window.on("pageerror", (error) => {
+    logRendererDiagnostic("pageerror", error.stack ?? error.message);
+  });
   await electronApplication.evaluate(({ BrowserWindow }) => {
     const mainWindow = BrowserWindow.getAllWindows()[0];
     if (!mainWindow) {
@@ -203,6 +226,7 @@ try {
 
   assert.equal(await window.title(), "BlackRain");
   assert.equal(window.url(), "blackrain://app/index.html");
+  logStage("renderer identity passed");
 
   const rendererSecurity = await window.evaluate(() => ({
     hasNodeProcess: typeof globalThis.process !== "undefined",
@@ -214,6 +238,18 @@ try {
       typeof globalThis.blackrain?.workspace.update === "function" &&
       typeof globalThis.blackrain?.workspace.remove === "function" &&
       typeof globalThis.blackrain?.workspace.pick === "function" &&
+      typeof globalThis.blackrain?.dialog.confirm === "function" &&
+      typeof globalThis.blackrain?.dialog.message === "function" &&
+      typeof globalThis.blackrain?.settings.get === "function" &&
+      typeof globalThis.blackrain?.settings.update === "function" &&
+      typeof globalThis.blackrain?.files.pick === "function" &&
+      typeof globalThis.blackrain?.files.saveText === "function" &&
+      typeof globalThis.blackrain?.files.readImage === "function" &&
+      typeof globalThis.blackrain?.files.listWorkspace === "function" &&
+      typeof globalThis.blackrain?.files.readWorkspace === "function" &&
+      typeof globalThis.blackrain?.accountSession.get === "function" &&
+      typeof globalThis.blackrain?.accountSession.set === "function" &&
+      typeof globalThis.blackrain?.accountSession.clear === "function" &&
       typeof globalThis.blackrain?.browser.createTab === "function" &&
       typeof globalThis.blackrain?.agent.getStatus === "function" &&
       typeof globalThis.blackrain?.agent.getEvents === "function" &&
@@ -223,6 +259,16 @@ try {
       typeof globalThis.blackrain?.agent.startTurn === "function" &&
       typeof globalThis.blackrain?.agent.steerTurn === "function" &&
       typeof globalThis.blackrain?.agent.interruptTurn === "function" &&
+      typeof globalThis.blackrain?.agent.listModels === "function" &&
+      typeof globalThis.blackrain?.agent.readConfig === "function" &&
+      typeof globalThis.blackrain?.agent.listCollaborationModes === "function" &&
+      typeof globalThis.blackrain?.agent.listSkills === "function" &&
+      typeof globalThis.blackrain?.agent.listApps === "function" &&
+      typeof globalThis.blackrain?.agent.readAccount === "function" &&
+      typeof globalThis.blackrain?.agent.readAccountRateLimits === "function" &&
+      typeof globalThis.blackrain?.agent.readThread === "function" &&
+      typeof globalThis.blackrain?.agent.archiveThread === "function" &&
+      typeof globalThis.blackrain?.agent.setThreadName === "function" &&
       typeof globalThis.blackrain?.browser.listTabs === "function" &&
       typeof globalThis.blackrain?.browser.navigate === "function" &&
       typeof globalThis.blackrain?.browser.control === "function" &&
@@ -239,6 +285,209 @@ try {
     hasRequire: false,
     hasTypedApi: true,
   });
+  logStage("renderer security passed");
+
+  const persistenceContract = await window.evaluate(async () => {
+    const settings = { theme: "dark", electronE2e: true };
+    const updatedSettings = await globalThis.blackrain.settings.update({ settings });
+    const loadedSettings = await globalThis.blackrain.settings.get();
+    const key = "electron-e2e-account-session";
+    await globalThis.blackrain.accountSession.set({ key, value: "session-value" });
+    const loadedSession = await globalThis.blackrain.accountSession.get({ key });
+    await globalThis.blackrain.accountSession.clear({ key });
+    const clearedSession = await globalThis.blackrain.accountSession.get({ key });
+    return { updatedSettings, loadedSettings, loadedSession, clearedSession };
+  });
+  assert.deepEqual(persistenceContract, {
+    updatedSettings: { theme: "dark", electronE2e: true },
+    loadedSettings: { theme: "dark", electronE2e: true },
+    loadedSession: "session-value",
+    clearedSession: null,
+  });
+  logStage("persistence contract passed");
+
+  const rendererLayout = await window.evaluate(() => {
+    const app = document.querySelector(".app");
+    const sidebar = app?.querySelector(":scope > .sidebar");
+    const main = app?.querySelector(":scope > .main");
+    const dragStrip = app?.querySelector(":scope > .drag-strip");
+    const titlebarControls = app?.querySelector(":scope > .titlebar-controls");
+    const sidebarResizer = app?.querySelector(":scope > .sidebar-resizer");
+    const settings = document.querySelector('[aria-label="打开设置"]');
+    if (
+      !(app instanceof HTMLElement) ||
+      !(sidebar instanceof HTMLElement) ||
+      !(main instanceof HTMLElement) ||
+      !(dragStrip instanceof HTMLElement) ||
+      !(titlebarControls instanceof HTMLElement) ||
+      !(sidebarResizer instanceof HTMLElement) ||
+      !(settings instanceof HTMLElement)
+    ) {
+      throw new Error("Electron renderer 缺少桌面布局节点");
+    }
+    const sidebarRect = sidebar.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
+    const settingsRect = settings.getBoundingClientRect();
+    const settingsHit = document.elementFromPoint(
+      settingsRect.x + settingsRect.width / 2,
+      settingsRect.y + settingsRect.height / 2,
+    );
+    return {
+      app: app.getBoundingClientRect().toJSON(),
+      sidebar: sidebarRect.toJSON(),
+      main: mainRect.toJSON(),
+      positions: {
+        dragStrip: getComputedStyle(dragStrip).position,
+        titlebarControls: getComputedStyle(titlebarControls).position,
+        sidebarResizer: getComputedStyle(sidebarResizer).position,
+      },
+      settingsHit: settingsHit === settings || settings.contains(settingsHit),
+    };
+  });
+  assert.deepEqual(rendererLayout.positions, {
+    dragStrip: "absolute",
+    titlebarControls: "absolute",
+    sidebarResizer: "absolute",
+  });
+  assert.equal(Math.round(rendererLayout.sidebar.x), 0);
+  assert.equal(Math.round(rendererLayout.sidebar.y), 0);
+  assert.equal(
+    Math.round(rendererLayout.sidebar.height),
+    Math.round(rendererLayout.app.height),
+  );
+  assert.equal(
+    Math.round(rendererLayout.main.x),
+    Math.round(rendererLayout.sidebar.width),
+  );
+  assert.equal(Math.round(rendererLayout.main.y), 0);
+  assert.equal(
+    Math.round(rendererLayout.main.width + rendererLayout.sidebar.width),
+    Math.round(rendererLayout.app.width),
+  );
+  assert.equal(
+    Math.round(rendererLayout.main.height),
+    Math.round(rendererLayout.app.height),
+  );
+  assert.equal(rendererLayout.settingsHit, true);
+  logStage("renderer layout passed");
+
+  const settingsButton = window.getByRole("button", { name: "打开设置" });
+  const settingsProfileEnabled =
+    process.env.BLACKRAIN_ELECTRON_E2E_SETTINGS_PROFILE === "1";
+  const settingsProfileSession = settingsProfileEnabled
+    ? await window.context().newCDPSession(window)
+    : null;
+  let resolveSettingsPause;
+  const settingsPaused = settingsProfileSession
+    ? new Promise((resolve) => {
+        resolveSettingsPause = resolve;
+      })
+    : null;
+  if (settingsProfileSession) {
+    settingsProfileSession.once("Debugger.paused", (event) => {
+      resolveSettingsPause?.(event);
+    });
+    await settingsProfileSession.send("Debugger.enable");
+    await settingsProfileSession.send("Profiler.enable");
+    await settingsProfileSession.send("Profiler.start");
+  }
+  await window.evaluate(() => {
+    globalThis.__blackrainSettingsPointerEvents = [];
+    for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+      document.addEventListener(type, (event) => {
+        globalThis.__blackrainSettingsPointerEvents.push({
+          type,
+          target: event.target instanceof Element
+            ? `${event.target.tagName}.${event.target.className}`
+            : String(event.target),
+        });
+      }, { capture: true, once: true });
+    }
+  });
+  try {
+    logStage("settings click starting");
+    await withStageTimeout(
+      settingsButton.click({ timeout: 5_000 }),
+      "settings click",
+      8_000,
+    );
+  } catch (error) {
+    if (settingsProfileSession) {
+      await withStageTimeout(
+        settingsProfileSession.send("Debugger.pause"),
+        "settings debugger pause",
+        5_000,
+      );
+      const paused = await withStageTimeout(
+        settingsPaused,
+        "settings paused event",
+        5_000,
+      );
+      await writeFile(
+        path.join(
+          desktopRoot,
+          "output",
+          "verification",
+          "2026-08-03-settings-click-stack.json",
+        ),
+        `${JSON.stringify(paused, null, 2)}\n`,
+        "utf8",
+      );
+      const profile = await withStageTimeout(
+        settingsProfileSession.send("Profiler.stop"),
+        "settings profiler stop",
+        5_000,
+      );
+      await writeFile(
+        path.join(
+          desktopRoot,
+          "output",
+          "verification",
+          "2026-08-03-settings-click-profile.json",
+        ),
+        `${JSON.stringify(profile, null, 2)}\n`,
+        "utf8",
+      );
+      throw new Error("设置点击触发 renderer 忙循环，调用栈已落盘", {
+        cause: error,
+      });
+    }
+    const diagnostics = await window.evaluate(() => {
+      const button = document.querySelector('[aria-label="打开设置"]');
+      const ancestors = [];
+      let current = button;
+      while (current instanceof HTMLElement) {
+        ancestors.push({
+          tag: current.tagName,
+          className: current.className,
+          region: getComputedStyle(current).getPropertyValue("-webkit-app-region"),
+          pointerEvents: getComputedStyle(current).pointerEvents,
+        });
+        current = current.parentElement;
+      }
+      return {
+        events: globalThis.__blackrainSettingsPointerEvents,
+        ancestors,
+        region: button instanceof HTMLElement
+          ? getComputedStyle(button).getPropertyValue("-webkit-app-region")
+          : null,
+        buttonRect: button instanceof HTMLElement
+          ? button.getBoundingClientRect().toJSON()
+          : null,
+      };
+    });
+    throw new Error(`设置按钮原生点击失败: ${JSON.stringify(diagnostics)}`, {
+      cause: error,
+    });
+  }
+  if (settingsProfileSession) {
+    await settingsProfileSession.send("Profiler.stop");
+  }
+  await window.locator(".settings-overlay").waitFor({ state: "visible" });
+  logStage("settings click passed");
+  assert.equal(await window.locator(".settings-window").isVisible(), true);
+  await window.getByRole("button", { name: "关闭设置" }).click();
+  await window.locator(".settings-overlay").waitFor({ state: "detached" });
 
   await window.waitForTimeout(1_000);
   const browserUiOpened = await window.evaluate(() => {
@@ -1267,6 +1516,20 @@ try {
   assert.equal(workspaceContract.updated.settings.sidebarCollapsed, true);
   assert.equal(workspaceContract.isDirectory, true);
   assert.equal(workspaceContract.listed.length, 1);
+  const workspaceFileContract = await window.evaluate(async (workspaceId) => {
+    const files = await globalThis.blackrain.files.listWorkspace({ workspaceId });
+    const packageJson = await globalThis.blackrain.files.readWorkspace({
+      workspaceId,
+      path: "package.json",
+    });
+    return {
+      includesPackageJson: files.includes("package.json"),
+      packageJson,
+    };
+  }, workspaceContract.added.id);
+  assert.equal(workspaceFileContract.includesPackageJson, true);
+  assert.equal(workspaceFileContract.packageJson.truncated, false);
+  assert.match(workspaceFileContract.packageJson.content, /"codex-monitor"/);
   const pendingDownloadTab = await window.evaluate(
     (scope) => globalThis.blackrain.browser.listTabs(scope).then((tabs) => tabs[0]),
     hostContract.scope,

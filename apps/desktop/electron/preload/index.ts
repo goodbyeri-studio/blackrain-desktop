@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { z } from "zod";
 import {
   AgentEventBatchSchema,
   AgentEventCursorInputSchema,
@@ -40,6 +41,29 @@ import {
   BrowserTabsChangedEventSchema,
 } from "../shared/browser-tabs";
 import type { BlackRainHostApi } from "../shared/host-api";
+import {
+  AccountSessionKeyInputSchema,
+  AccountSessionSetInputSchema,
+  AgentAppsListInputSchema,
+  AgentThreadMutationInputSchema,
+  AgentThreadNameInputSchema,
+  AgentThreadReadInputSchema,
+  AgentWorkspaceInputSchema,
+  DialogConfirmInputSchema,
+  DialogMessageInputSchema,
+  ExternalUrlInputSchema,
+  FilePathInputSchema,
+  FilePathListSchema,
+  FilePickInputSchema,
+  FileReadResponseSchema,
+  FileSaveTextInputSchema,
+  HostJsonObjectSchema,
+  OptionalFilePathSchema,
+  OptionalStringSchema,
+  SettingsUpdateInputSchema,
+  WorkspaceFileInputSchema,
+  WorkspaceFileListSchema,
+} from "../shared/desktop";
 import { BootstrapInfoSchema, IPC_CHANNELS } from "../shared/ipc";
 import {
   WorkspaceAckSchema,
@@ -57,6 +81,101 @@ const api: BlackRainHostApi = {
     async getBootstrap() {
       return BootstrapInfoSchema.parse(
         await ipcRenderer.invoke(IPC_CHANNELS.appBootstrap),
+      );
+    },
+  },
+  shell: {
+    async openExternal(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.shellOpenExternal,
+        ExternalUrlInputSchema.parse(input),
+      );
+    },
+    async revealPath(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.shellRevealPath,
+        FilePathInputSchema.parse(input),
+      );
+    },
+  },
+  dialog: {
+    async confirm(input) {
+      return Boolean(await ipcRenderer.invoke(
+        IPC_CHANNELS.dialogConfirm,
+        DialogConfirmInputSchema.parse(input),
+      ));
+    },
+    async message(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.dialogMessage,
+        DialogMessageInputSchema.parse(input),
+      );
+    },
+  },
+  settings: {
+    async get() {
+      return HostJsonObjectSchema.parse(
+        await ipcRenderer.invoke(IPC_CHANNELS.settingsGet),
+      );
+    },
+    async update(input) {
+      return HostJsonObjectSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.settingsUpdate,
+          SettingsUpdateInputSchema.parse(input),
+        ),
+      );
+    },
+  },
+  files: {
+    async pick(input) {
+      return FilePathListSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.filePick,
+        FilePickInputSchema.parse(input),
+      ));
+    },
+    async saveText(input) {
+      return OptionalFilePathSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.fileSaveText,
+        FileSaveTextInputSchema.parse(input),
+      ));
+    },
+    async readImage(input) {
+      return z.string().startsWith("data:image/").parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.fileReadImage,
+        FilePathInputSchema.parse(input),
+      ));
+    },
+    async listWorkspace(input) {
+      return WorkspaceFileListSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.fileListWorkspace,
+        AgentWorkspaceInputSchema.parse(input),
+      ));
+    },
+    async readWorkspace(input) {
+      return FileReadResponseSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.fileReadWorkspace,
+        WorkspaceFileInputSchema.parse(input),
+      ));
+    },
+  },
+  accountSession: {
+    async get(input) {
+      return OptionalStringSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.accountSessionGet,
+        AccountSessionKeyInputSchema.parse(input),
+      ));
+    },
+    async set(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.accountSessionSet,
+        AccountSessionSetInputSchema.parse(input),
+      );
+    },
+    async clear(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.accountSessionClear,
+        AccountSessionKeyInputSchema.parse(input),
       );
     },
   },
@@ -197,6 +316,66 @@ const api: BlackRainHostApi = {
           AgentServerRequestResponseInputSchema.parse(input),
         ),
       );
+    },
+    async listModels(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentModelList,
+        AgentWorkspaceInputSchema.parse(input),
+      ));
+    },
+    async readConfig(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentConfigRead,
+        AgentWorkspaceInputSchema.parse(input),
+      ));
+    },
+    async listCollaborationModes(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentCollaborationModeList,
+        AgentWorkspaceInputSchema.parse(input),
+      ));
+    },
+    async listSkills(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentSkillsList,
+        AgentWorkspaceInputSchema.parse(input),
+      ));
+    },
+    async listApps(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentAppsList,
+        AgentAppsListInputSchema.parse(input),
+      ));
+    },
+    async readAccount(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentAccountRead,
+        AgentWorkspaceInputSchema.parse(input),
+      ));
+    },
+    async readAccountRateLimits(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentAccountRateLimitsRead,
+        AgentWorkspaceInputSchema.parse(input),
+      ));
+    },
+    async readThread(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentThreadRead,
+        AgentThreadReadInputSchema.parse(input),
+      ));
+    },
+    async archiveThread(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentThreadArchive,
+        AgentThreadMutationInputSchema.parse(input),
+      ));
+    },
+    async setThreadName(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentThreadNameSet,
+        AgentThreadNameInputSchema.parse(input),
+      ));
     },
   },
   browser: {
