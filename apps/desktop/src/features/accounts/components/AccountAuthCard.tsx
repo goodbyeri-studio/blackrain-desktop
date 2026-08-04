@@ -176,7 +176,7 @@ export function AccountAuthCard({
   }, [onResendOtp, email]);
 
   return (
-    <div className="auth-card" data-tauri-drag-region="false">
+    <div className="auth-card" data-electron-drag-region="false">
       {!configured ? (
         <div className="auth-card-banner auth-card-banner--error">
           账号后端未配置：缺 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY。

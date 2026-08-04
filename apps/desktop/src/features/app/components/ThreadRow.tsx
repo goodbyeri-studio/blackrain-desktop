@@ -215,7 +215,7 @@ export function ThreadRow({
               event.stopPropagation();
               onToggleSubagents?.(workspaceId, thread.id);
             }}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
             aria-label={subagentsExpanded ? tx("Hide sub-agents") : tx("Show sub-agents")}
             aria-expanded={subagentsExpanded}
           >

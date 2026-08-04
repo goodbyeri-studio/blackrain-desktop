@@ -3,7 +3,7 @@ import { useI18n } from "@/i18n";
 import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 import { revealPath } from "../../../host/desktop";
 import * as Sentry from "@sentry/react";
-import { openWorkspaceIn } from "../../../services/tauri";
+import { openWorkspaceIn } from "../../../services/desktop";
 import { pushErrorToast } from "../../../services/toasts";
 import type { OpenAppTarget } from "../../../types";
 import {
@@ -195,7 +195,7 @@ export function OpenAppMenu({
           className="ghost main-header-action open-app-action ds-tooltip-trigger"
           onClick={handleOpen}
           disabled={!selectedCanOpen}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           aria-label={tx("Open in {app}", { app: selectedOpenTarget.label })}
           title={openLabel}
           data-tooltip={openLabel}
@@ -231,7 +231,7 @@ export function OpenAppMenu({
           onClick={() => handleSelectOpenTarget(target)}
           disabled={!canOpenTarget(target)}
           role="menuitem"
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           icon={<img className="open-app-icon" src={target.icon} alt="" aria-hidden />}
           active={target.id === resolvedOpenAppId}
         >

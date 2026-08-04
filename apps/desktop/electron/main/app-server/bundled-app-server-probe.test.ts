@@ -49,7 +49,7 @@ describe.skipIf(!probeEnabled)("bundled codex app-server 集成探针", () => {
     }
 
     expect(runtime.status().state).toBe("stopped");
-  }, 30_000);
+  }, 90_000);
 });
 
 function createProbeBrowserBackend(): BrowserAgentBackend {

@@ -1,6 +1,6 @@
 # 10 Electron 迁移与内置浏览器实现计划
 
-> **状态（2026-08-04）**：Electron 原生重建是唯一产品交付 P0，产品任务与验收看 [002 Electron 全量迁移](../.specs/002-electron-migration/)。Browser runtime/功能链路已闭环并转为发布回归；其可移植源码底座另由 [003 可移植 Electron Browser Runtime](../.specs/003-portable-electron-browser-runtime/) 管理，不改变本计划的产品发布闸口。当前有效迁移基线为 194 个 Tauri command 和 53 个 renderer 直接依赖，开发签名 MSIX 的全页面点击失败仍是第一产品阻塞。历史阶段曾为 59 个 direct import，不作为当前基线。最终必须通过 Native Clean Gate，生产源码、用户可见文案、依赖、构建和 release 解包不得留下 Tauri 痕迹；本内部计划文档可保留迁移审计事实，但不能把 Tauri 写成目标入口。
+> **状态（2026-08-05）**：Electron 原生代码迁移与 Native Clean Gate 已达到 `RUN_PASS`；历史 194 个 command/53 个 renderer direct import 当前均为 0。Browser runtime/功能链路继续作为发布回归，源码底座由 `003` 独立验收。当前 P0 只剩正式签名和 Windows 产品矩阵；2026-08-03 的点击失败需在正式候选上复验关闭。
 
 ## 结论
 
@@ -19,7 +19,7 @@ BlackRain 以 Codex App 的可观察行为和 Browser 控制面作为第一实�
   -> Electron API / Chromium CDP
 ```
 
-迁移不是把 Tauri command 逐条改写为 Electron IPC，也不是重新实现 Codex 内核。目标直接采用 Codex App 的 Electron/React/App Server 分层：保留 React 产品界面，Electron main 直接启动并驱动原装 `codex app-server`，当前 Rust daemon/shared core 只作为迁移输入并最终删除。
+迁移没有把历史 command 逐条固化为永久 Electron IPC，也没有重写 Codex 内核。当前代码已采用 Electron/React/App Server 分层：React 保留产品界面，Electron main 直接启动原装 `codex app-server`，历史 Rust daemon/shared core 已删除。
 
 ## 研究基线
 
@@ -155,7 +155,7 @@ resources/codex.exe -c features.code_mode_host=true app-server --analytics-defau
 - pending request、消息大小、并发和事件队列有上限；EOF、畸形 JSON、迟到 response、stderr 洪泛和 child exit 都有确定失败语义。
 - renderer 永远看不到 stdin/stdout、RPC id 表或原始连接。
 
-当前固定 `127.0.0.1:4732` 与 `blackrain_daemon` 只属于 Tauri 迁移起点，目标生产架构不保留该网络入口或中间进程。
+历史固定本地端口与 daemon 已从生产代码删除；当前架构不保留该网络入口或中间进程。
 
 ### Browser 工具与 main backend
 
@@ -294,7 +294,7 @@ user -> agent_requesting -> agent
 
 ## Tauri 到 Electron 的迁移波次
 
-> **当前排序**：M0-M4 是已经建立的 Electron/Browser 基础；M5 剩余宿主能力、旧宿主删除和 Windows 发布现为唯一当前 P0。Browser 的真实站点与 Windows 场景作为 M5 发布回归执行。
+> **当前排序**：M0-M4 与 M5 的代码迁移/旧宿主删除已完成自动化 `RUN_PASS`。唯一当前 P0 是 M5 的正式签名和 Windows 产品发布矩阵；Browser 真实站点与 Windows 场景仍在该矩阵执行。
 
 ### M0：盘点与冻结（基础已建立）
 
@@ -306,7 +306,7 @@ user -> agent_requesting -> agent
 
 退出闸口：迁移矩阵完整，每个兼容层有删除任务，dynamic tools 探针有记录。
 
-### M1：Electron 空壳与安全基线（代码基础存在，历史运行待补证）
+### M1：Electron 空壳与安全基线（`RUN_PASS`）
 
 - 建立 main/preload/renderer 入口，复用现有 Vite renderer。
 - 配置 sandbox、context isolation、CSP、自定义 app protocol、导航和 popup 策略。
@@ -316,7 +316,7 @@ user -> agent_requesting -> agent
 
 退出闸口：Windows 可启动、无 Node renderer、非法 IPC 和导航被拒绝；app-server 未启动/未登录时仍能显示 degraded/retry/diagnostics。
 
-### M2：App Server client 与真实 Codex thread（代码基础存在，历史运行待补证）
+### M2：App Server client（自动化 `RUN_PASS`，真实产品流程待验收）
 
 - Codex auth 的规范副本由原装 app-server/标准 `CODEX_HOME` 管理并与 CLI 共享；BlackRain 自有 provider/Gateway secret 使用 `safeStorage`，Electron 不复制或改写 Codex auth 文件。
 - `app-state` 的 workspace/thread 索引带 `codexHomeId` 与 Browser `profileId`，切换 Home/profile 时禁止跨域恢复。
@@ -330,7 +330,7 @@ user -> agent_requesting -> agent
 
 退出闸口：真实模型 thread 在 Electron 中端到端通过，app-server 崩溃、renderer 崩溃和 App 重启可恢复。
 
-### M3：单 tab Browser 纵向切片（代码基础存在，历史运行待补证）
+### M3：单 tab Browser 纵向切片（`RUN_PASS`）
 
 - 建立 Browser backend、registry、main-owned `WebContentsView` 和 bounds/visibility 同步。
 - 跑通持久 profile、tab 创建、挂载、隐藏、导航、snapshot、click、type、screenshot。
@@ -353,9 +353,9 @@ user -> agent_requesting -> agent
 
 退出闸口：Browser runtime/功能闭环已作为迁移基础接受；Windows 产品矩阵转入 M5 发布回归。
 
-### M5：剩余宿主能力与发布（唯一当前 P0）
+### M5：Windows 产品发布（唯一当前 P0）
 
-- M5 的验收顺序固定为：G1 安装态基础壳（窗口/降级/重试）→ G2 app-server/标准 Home 核心 → G3 宿主能力 → G4 Browser Windows 回归 → G5 删除旧宿主 → Native Clean Gate → G6 签名发布矩阵。
+- G5 旧宿主删除和 Native Clean Gate 已完成 `CODE/RUN_PASS`；产品验收仍按 G1 安装态 → G2 核心 → G3 宿主 → G4 Browser → G6 发布矩阵记录。
 - 迁移文件、Git、终端、设置、凭据、通知、菜单、快捷键、深链和更新。
 - 按 Codex App 分层把终端迁移到 Electron main 的 `node-pty` 能力，并把 Electron 自有状态与 Codex ThreadStore 分库、分目录管理。
 - 使用 Electron Forge + Vite + MSIX maker 完成 Windows 打包验证。
@@ -379,13 +379,15 @@ apps/desktop/
     shared/
     browser-client/
   src/
-    host/
+    services/
     features/browser/
-  src-tauri/
-    ...                # 迁移完成前的当前实现
+  resources/
+    codex/
+    node-runtime/
+    browser-client/
 ```
 
-目录只有在代码建立后才算存在；本文不构成完成度声明。
+以上是当前 native-clean 目录边界；发布完成度仍只看 `002/verification.md`。
 
 ## 发布前不可跳过的验证
 

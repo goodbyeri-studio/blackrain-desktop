@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getAccountRateLimits } from "@services/tauri";
+import { getAccountRateLimits } from "@services/desktop";
 import { normalizeRateLimits } from "@threads/utils/threadNormalize";
 import { useThreadRateLimits } from "./useThreadRateLimits";
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   getAccountRateLimits: vi.fn(),
 }));
 

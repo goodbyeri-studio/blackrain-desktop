@@ -74,6 +74,58 @@ export const AgentTurnInterruptInputSchema = z.object({
   turnId: identifierSchema,
 });
 
+const AgentReviewTargetSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("uncommittedChanges") }),
+  z.object({ type: z.literal("baseBranch"), branch: z.string().trim().min(1).max(1_024) }),
+  z.object({
+    type: z.literal("commit"),
+    sha: z.string().trim().min(1).max(128),
+    title: z.string().max(4_096).nullable(),
+  }),
+  z.object({ type: z.literal("custom"), instructions: z.string().trim().min(1).max(1_000_000) }),
+]);
+
+export const AgentReviewStartInputSchema = z.object({
+  workspaceId: identifierSchema,
+  threadId: identifierSchema,
+  target: AgentReviewTargetSchema,
+  delivery: z.enum(["inline", "detached"]).nullable().optional(),
+});
+
+export const AgentReviewStartResponseSchema = z.object({
+  turn: z.record(z.string(), z.unknown()),
+  reviewThreadId: identifierSchema,
+}).passthrough();
+
+export const AgentExperimentalFeatureListInputSchema = z.object({
+  workspaceId: identifierSchema,
+  cursor: z.string().trim().min(1).max(4_096).nullable().optional(),
+  limit: z.number().int().min(1).max(100).nullable().optional(),
+  threadId: identifierSchema.nullable().optional(),
+});
+
+export const AgentExperimentalFeatureSetInputSchema = z.object({
+  workspaceId: identifierSchema,
+  featureKey: z.string().trim().min(1).max(256),
+  enabled: z.boolean(),
+});
+
+export const AgentThreadOperationInputSchema = z.object({
+  workspaceId: identifierSchema,
+  threadId: identifierSchema,
+});
+
+export const AgentThreadRollbackInputSchema = AgentThreadOperationInputSchema.extend({
+  turnId: identifierSchema,
+});
+
+export const AgentMcpServerStatusInputSchema = z.object({
+  workspaceId: identifierSchema,
+  threadId: identifierSchema.nullable().optional(),
+  cursor: z.string().trim().min(1).max(4_096).nullable().optional(),
+  limit: z.number().int().min(1).max(100).nullable().optional(),
+});
+
 const AgentServerRequestIdSchema = z.union([
   z.number().int().safe(),
   z.string().trim().min(1).max(128),
@@ -95,6 +147,20 @@ export const AgentServerRequestResponseInputSchema = z.object({
 
 export const AgentServerRequestResponseAckSchema = z.object({
   ok: z.literal(true),
+});
+
+export const AgentAccountInputSchema = z.object({
+  workspaceId: identifierSchema,
+});
+
+export const AgentAccountLoginStartResponseSchema = z.object({
+  loginId: identifierSchema,
+  authUrl: z.string().url().max(8_192),
+});
+
+export const AgentAccountLoginCancelResponseSchema = z.object({
+  canceled: z.boolean(),
+  status: z.string().trim().max(128).optional(),
 });
 
 export const AgentThreadAckSchema = z.object({
@@ -144,8 +210,18 @@ export type AgentThreadListResponse = z.infer<typeof AgentThreadListResponseSche
 export type AgentTurnStartInput = z.infer<typeof AgentTurnStartInputSchema>;
 export type AgentTurnSteerInput = z.infer<typeof AgentTurnSteerInputSchema>;
 export type AgentTurnInterruptInput = z.infer<typeof AgentTurnInterruptInputSchema>;
+export type AgentReviewStartInput = z.infer<typeof AgentReviewStartInputSchema>;
+export type AgentReviewStartResponse = z.infer<typeof AgentReviewStartResponseSchema>;
+export type AgentExperimentalFeatureListInput = z.infer<typeof AgentExperimentalFeatureListInputSchema>;
+export type AgentExperimentalFeatureSetInput = z.infer<typeof AgentExperimentalFeatureSetInputSchema>;
+export type AgentThreadOperationInput = z.infer<typeof AgentThreadOperationInputSchema>;
+export type AgentThreadRollbackInput = z.infer<typeof AgentThreadRollbackInputSchema>;
+export type AgentMcpServerStatusInput = z.infer<typeof AgentMcpServerStatusInputSchema>;
 export type AgentServerRequestResponseInput = z.infer<typeof AgentServerRequestResponseInputSchema>;
 export type AgentServerRequestResponseAck = z.infer<typeof AgentServerRequestResponseAckSchema>;
+export type AgentAccountInput = z.infer<typeof AgentAccountInputSchema>;
+export type AgentAccountLoginStartResponse = z.infer<typeof AgentAccountLoginStartResponseSchema>;
+export type AgentAccountLoginCancelResponse = z.infer<typeof AgentAccountLoginCancelResponseSchema>;
 export type AgentThreadAck = z.infer<typeof AgentThreadAckSchema>;
 export type AgentTurnAck = z.infer<typeof AgentTurnAckSchema>;
 export type AgentRuntimeStatus = z.infer<typeof AgentRuntimeStatusSchema>;

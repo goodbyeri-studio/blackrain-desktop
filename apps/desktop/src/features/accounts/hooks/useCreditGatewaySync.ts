@@ -3,24 +3,21 @@
 //  - 登录/有会话 → 写 JWT 文件；若从 dev 切到 credit（base_url 变）则重启网关。
 //  - token 刷新 → 只重写 JWT 文件（网关每请求读文件，无需重启）。
 //  - 登出 → 清 JWT 文件 + 重启网关回 dev 模式。
-// 非 Tauri / 未配置 Supabase 时整体 no-op。
+// 无 typed host 或未配置 Supabase 时整体 no-op。
 
 import { useEffect, useRef } from "react";
 import {
   modelGatewayCreditJwtClear,
   modelGatewayCreditJwtSet,
   modelGatewayDaemonRestart,
-} from "@services/tauri";
+} from "@services/desktop";
 import { getSupabaseClient } from "../supabaseClient";
 import { isSupabaseConfigured } from "../config";
 
 type Mode = "credit" | "dev";
 
-function hasTauri(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    "__TAURI_INTERNALS__" in (window as unknown as Record<string, unknown>)
-  );
+function hasHost(): boolean {
+  return typeof window !== "undefined" && Boolean(window.blackrain);
 }
 
 export function useCreditGatewaySync(): void {
@@ -28,7 +25,7 @@ export function useCreditGatewaySync(): void {
   const lastMode = useRef<Mode | null>(null);
 
   useEffect(() => {
-    if (!isSupabaseConfigured() || !hasTauri()) {
+    if (!isSupabaseConfigured() || !hasHost()) {
       return;
     }
     const client = getSupabaseClient();

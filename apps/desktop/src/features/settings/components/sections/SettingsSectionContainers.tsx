@@ -1,16 +1,9 @@
-import { SettingsCodexSection } from "./SettingsCodexSection";
 import { SettingsComposerSection } from "./SettingsComposerSection";
-import { SettingsDictationSection } from "./SettingsDictationSection";
 import { SettingsDisplaySection } from "./SettingsDisplaySection";
-import { SettingsEnvironmentsSection } from "./SettingsEnvironmentsSection";
 import { SettingsFeaturesSection } from "./SettingsFeaturesSection";
 import { SettingsGitSection } from "./SettingsGitSection";
-import { SettingsModelGatewaySection } from "./SettingsModelGatewaySection";
-import { SettingsOpenAppsSection } from "./SettingsOpenAppsSection";
 import { SettingsProjectsSection } from "./SettingsProjectsSection";
-import { SettingsServerSection } from "./SettingsServerSection";
 import { SettingsShortcutsSection } from "./SettingsShortcutsSection";
-import { SettingsAgentsSection } from "./SettingsAgentsSection";
 import { SettingsAboutSection } from "./SettingsAboutSection";
 import { SettingsAccountSection } from "./SettingsAccountSection";
 import type { CodexSection } from "@settings/components/settingsTypes";
@@ -31,9 +24,6 @@ export function SettingsSectionContainers({
   if (activeSection === "projects") {
     return <SettingsProjectsSection {...orchestration.projectsSectionProps} />;
   }
-  if (activeSection === "environments") {
-    return <SettingsEnvironmentsSection {...orchestration.environmentsSectionProps} />;
-  }
   if (activeSection === "display") {
     return <SettingsDisplaySection {...orchestration.displaySectionProps} />;
   }
@@ -43,36 +33,14 @@ export function SettingsSectionContainers({
   if (activeSection === "composer") {
     return <SettingsComposerSection {...orchestration.composerSectionProps} />;
   }
-  if (activeSection === "dictation") {
-    return <SettingsDictationSection {...orchestration.dictationSectionProps} />;
-  }
   if (activeSection === "shortcuts") {
     return <SettingsShortcutsSection {...orchestration.shortcutsSectionProps} />;
-  }
-  if (activeSection === "open-apps") {
-    return <SettingsOpenAppsSection {...orchestration.openAppsSectionProps} />;
   }
   if (activeSection === "git") {
     return <SettingsGitSection {...orchestration.gitSectionProps} />;
   }
-  if (activeSection === "model-gateway") {
-    return (
-      <SettingsModelGatewaySection
-        {...orchestration.modelGatewaySectionProps}
-      />
-    );
-  }
-  if (activeSection === "server") {
-    return <SettingsServerSection {...orchestration.serverSectionProps} />;
-  }
-  if (activeSection === "agents") {
-    return <SettingsAgentsSection {...orchestration.agentsSectionProps} />;
-  }
-  if (activeSection === "codex") {
-    return <SettingsCodexSection {...orchestration.codexSectionProps} />;
-  }
   if (activeSection === "features") {
     return <SettingsFeaturesSection {...orchestration.featuresSectionProps} />;
   }
-  return null;
+  return <SettingsAboutSection {...orchestration.aboutSectionProps} />;
 }

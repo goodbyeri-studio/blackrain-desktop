@@ -3,7 +3,6 @@ import Search from "lucide-react/dist/esm/icons/search";
 import FolderGit2 from "lucide-react/dist/esm/icons/folder-git-2";
 import Folder from "lucide-react/dist/esm/icons/folder";
 import FolderPlus from "lucide-react/dist/esm/icons/folder-plus";
-import Plus from "lucide-react/dist/esm/icons/plus";
 import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 import { FolderAddIcon } from "@/features/shared/components/FolderAddIcon";
@@ -19,14 +18,12 @@ type HomeProjectMenuProps = {
   workspaces: WorkspaceInfo[];
   onEnterWorkspace: (workspaceId: string) => void;
   onAddWorkspace: () => void;
-  onAddWorkspaceFromUrl: () => void;
 };
 
 export function HomeProjectMenu({
   workspaces,
   onEnterWorkspace,
   onAddWorkspace,
-  onAddWorkspaceFromUrl,
 }: HomeProjectMenuProps) {
   const { tx } = useI18n();
   const menu = useMenuController();
@@ -135,24 +132,6 @@ export function HomeProjectMenu({
 
             {addOpen && (
               <PopoverSurface className="home-submenu-popover" role="menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="home-menu-rich-item"
-                  onClick={() => {
-                    onAddWorkspaceFromUrl();
-                    handleClose();
-                  }}
-                >
-                  <span className="home-menu-rich-icon" aria-hidden>
-                    <Plus size={16} strokeWidth={1.8} />
-                  </span>
-                  <span className="home-menu-rich-body">
-                    <span className="home-menu-rich-label">
-                      {tx("New blank project")}
-                    </span>
-                  </span>
-                </button>
                 <button
                   type="button"
                   role="menuitem"

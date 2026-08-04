@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -10,7 +10,7 @@ const resultPath = path.resolve(
     `output/verification/${probeDate}-electron-native-input-probe.json`,
 );
 const executablePath = path.resolve(
-  "out/electron/codex-monitor-win32-x64/BlackRain.exe",
+  "out/electron/blackrain-win32-x64/BlackRain.exe",
 );
 const appDataPath = await mkdtemp(
   path.join(os.tmpdir(), "blackrain-native-input-probe-"),
@@ -52,14 +52,13 @@ try {
     60_000,
   );
   logStage(`window ready: ${JSON.stringify(ready.mainWindow)}`);
-  logStage(
-    `waiting for Computer Use click at ${ready.screenPoint.x},${ready.screenPoint.y}`,
-  );
+  logStage(`sending native click at ${ready.screenPoint.x},${ready.screenPoint.y}`);
+  sendNativeClick(ready.screenPoint);
 
   const finalResult = await pollResult(
     (result) => ["pass", "fail", "error"].includes(result.status) ? result : null,
     "native click observation",
-    90_000,
+    20_000,
   );
   logStage(`probe completed: ${finalResult.status}`);
   if (finalResult.status !== "pass") {
@@ -134,4 +133,32 @@ function waitForExit(childProcess, timeoutMs) {
 
 function logStage(stage) {
   console.log(`[electron-native-input-probe] ${new Date().toISOString()} ${stage}`);
+}
+
+function sendNativeClick(point) {
+  const x = Math.round(Number(point?.x));
+  const y = Math.round(Number(point?.y));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new Error(`invalid native click point: ${JSON.stringify(point)}`);
+  }
+  const script = `
+Add-Type -TypeDefinition @'
+using System.Runtime.InteropServices;
+public static class BlackRainNativeMouse {
+  [DllImport("user32.dll", SetLastError = true)] public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, System.UIntPtr extraInfo);
+}
+'@
+if (-not [BlackRainNativeMouse]::SetCursorPos(${x}, ${y})) { throw 'SetCursorPos failed' }
+Start-Sleep -Milliseconds 100
+[BlackRainNativeMouse]::mouse_event(0x0002, 0, 0, 0, [System.UIntPtr]::Zero)
+[BlackRainNativeMouse]::mouse_event(0x0004, 0, 0, 0, [System.UIntPtr]::Zero)
+`;
+  execFileSync("C:\\Program Files\\PowerShell\\7\\pwsh.exe", [
+    "-NoLogo",
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    script,
+  ], { windowsHide: true, stdio: "pipe" });
 }

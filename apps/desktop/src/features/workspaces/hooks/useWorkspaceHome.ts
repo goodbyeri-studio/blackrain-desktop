@@ -5,7 +5,7 @@ import type {
   ServiceTier,
   WorkspaceInfo,
 } from "../../../types";
-import { generateRunMetadata } from "../../../services/tauri";
+import { generateRunMetadata } from "../../../services/desktop";
 
 export type WorkspaceRunMode = "local" | "worktree";
 

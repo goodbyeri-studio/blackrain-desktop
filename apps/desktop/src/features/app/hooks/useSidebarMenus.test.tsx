@@ -7,29 +7,12 @@ import type { WorkspaceInfo } from "../../../types";
 import { useSidebarMenus } from "./useSidebarMenus";
 import { fileManagerName } from "../../../utils/platformPaths";
 
-const menuNew = vi.hoisted(() =>
-  vi.fn(async ({ items }) => ({ popup: vi.fn(), items })),
+const showContextMenu = vi.hoisted(() =>
+  vi.fn(async (_event: unknown, _entries: Array<{ label?: string; onSelect?: () => unknown }>) => undefined),
 );
-const menuItemNew = vi.hoisted(() => vi.fn(async (options) => options));
 
-vi.mock("@tauri-apps/api/menu", () => ({
-  Menu: { new: menuNew },
-  MenuItem: { new: menuItemNew },
-}));
-
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({ scaleFactor: () => 1 }),
-}));
-
-vi.mock("@tauri-apps/api/dpi", () => ({
-  LogicalPosition: class LogicalPosition {
-    x: number;
-    y: number;
-    constructor(x: number, y: number) {
-      this.x = x;
-      this.y = y;
-    }
-  },
+vi.mock("../../../host/contextMenu", () => ({
+  showContextMenu,
 }));
 
 const revealPath = vi.hoisted(() => vi.fn());
@@ -90,13 +73,13 @@ describe("useSidebarMenus", () => {
 
     await result.current.showWorktreeMenu(event, worktree);
 
-    const menuArgs = menuNew.mock.calls[0]?.[0];
-    const revealItem = menuArgs.items.find(
-      (item: { text: string }) => item.text === `Show in ${fileManagerName()}`,
+    const entries = showContextMenu.mock.calls[0]?.[1];
+    const revealItem = entries.find(
+      (item: { label?: string }) => item.label === `Show in ${fileManagerName()}`,
     );
 
     expect(revealItem).toBeDefined();
-    await revealItem.action();
+    await revealItem!.onSelect!();
     expect(revealPath).toHaveBeenCalledWith("/tmp/worktree-1");
   });
 });

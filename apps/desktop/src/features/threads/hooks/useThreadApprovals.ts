@@ -5,7 +5,7 @@ import { normalizeCommandTokens } from "@utils/approvalRules";
 import {
   rememberApprovalRule,
   respondToServerRequest,
-} from "@services/tauri";
+} from "@services/desktop";
 import type { ThreadAction } from "./useThreadsReducer";
 
 type UseThreadApprovalsOptions = {

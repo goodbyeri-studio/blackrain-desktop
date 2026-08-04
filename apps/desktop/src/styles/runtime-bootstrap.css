@@ -1,0 +1,99 @@
+.runtime-bootstrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  color: var(--text-primary, #f4f7fb);
+  background: var(--surface-primary, #10151c);
+}
+
+.runtime-bootstrap--overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  min-height: 0;
+  pointer-events: none;
+  background: transparent;
+}
+
+.runtime-bootstrap--overlay .runtime-bootstrap-card {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  pointer-events: auto;
+  width: min(440px, calc(100% - 48px));
+  padding: 22px;
+}
+
+.runtime-bootstrap-card {
+  width: min(520px, 100%);
+  padding: 32px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-secondary, #19212c) 92%, transparent);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 28%);
+}
+
+.runtime-bootstrap-brand {
+  margin-bottom: 24px;
+  color: var(--accent, #9fc7ff);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.runtime-bootstrap-card h1 {
+  margin: 0 0 12px;
+  font-size: 24px;
+}
+
+.runtime-bootstrap-card p {
+  margin: 0;
+  color: var(--text-secondary, #b2bdcc);
+  line-height: 1.6;
+}
+
+.runtime-bootstrap-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.runtime-bootstrap-actions button {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 9px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.runtime-bootstrap-actions button.primary {
+  color: #10151c;
+  background: var(--accent, #9fc7ff);
+}
+
+.runtime-bootstrap-spinner {
+  width: 24px;
+  height: 24px;
+  margin-top: 24px;
+  border: 3px solid rgb(255 255 255 / 18%);
+  border-top-color: var(--accent, #9fc7ff);
+  border-radius: 50%;
+  animation: runtime-bootstrap-spin .8s linear infinite;
+}
+
+.runtime-bootstrap-card small,
+.runtime-bootstrap-exported {
+  display: block;
+  margin-top: 18px !important;
+  color: var(--text-tertiary, #7e8b9e) !important;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+@keyframes runtime-bootstrap-spin {
+  to { transform: rotate(360deg); }
+}

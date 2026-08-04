@@ -7,14 +7,9 @@ import {
   useTraySessionUsage,
 } from "./useTraySessionUsage";
 
-const isTauriMock = vi.hoisted(() => vi.fn(() => true));
 const setTraySessionUsageMock = vi.fn();
 
-vi.mock("@tauri-apps/api/core", () => ({
-  isTauri: isTauriMock,
-}));
-
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   setTraySessionUsage: (...args: unknown[]) => setTraySessionUsageMock(...args),
 }));
 
@@ -38,12 +33,13 @@ describe("useTraySessionUsage", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T10:00:00Z"));
-    isTauriMock.mockReturnValue(true);
+    window.blackrain = {} as never;
     setTraySessionUsageMock.mockReset();
     setTraySessionUsageMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
+    delete window.blackrain;
     vi.useRealTimers();
   });
 

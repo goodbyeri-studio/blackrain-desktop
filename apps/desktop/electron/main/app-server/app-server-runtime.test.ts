@@ -81,6 +81,22 @@ describe("AppServerRuntime", () => {
     const dynamicTools = new Promise<unknown>((resolve) => {
       resolveDynamicTools = resolve;
     });
+    let resolveReviewParams!: (value: unknown) => void;
+    const reviewParams = new Promise<unknown>((resolve) => {
+      resolveReviewParams = resolve;
+    });
+    let resolveFeatureListParams!: (value: unknown) => void;
+    const featureListParams = new Promise<unknown>((resolve) => {
+      resolveFeatureListParams = resolve;
+    });
+    let resolveFeatureSetParams!: (value: unknown) => void;
+    const featureSetParams = new Promise<unknown>((resolve) => {
+      resolveFeatureSetParams = resolve;
+    });
+    let resolveRollbackParams!: (value: unknown) => void;
+    const rollbackParams = new Promise<unknown>((resolve) => {
+      resolveRollbackParams = resolve;
+    });
     const runtime = new AppServerRuntime({
       resolveExecutablePath: () => process.execPath,
       cwd: process.cwd(),
@@ -99,6 +115,10 @@ describe("AppServerRuntime", () => {
         if (method === "test/turn-steer-params") resolveSteerParams(params);
         if (method === "test/thread-list-params") resolveListParams(params);
         if (method === "test/dynamic-tools") resolveDynamicTools(params);
+        if (method === "test/review-start-params") resolveReviewParams(params);
+        if (method === "test/experimental-feature-list-params") resolveFeatureListParams(params);
+        if (method === "test/experimental-feature-set-params") resolveFeatureSetParams(params);
+        if (method === "test/thread-rollback-params") resolveRollbackParams(params);
       },
     });
 
@@ -203,6 +223,64 @@ describe("AppServerRuntime", () => {
       { threadId: "thread-browser-1", routeKey: "browser-sidebar" },
       "turn-browser-1",
     );
+    await expect(runtime.startReview({
+      workspaceId: "workspace-1",
+      threadId: "thread-browser-1",
+      target: { type: "uncommittedChanges" },
+      delivery: "inline",
+    })).resolves.toEqual({
+      turn: { id: "turn-review-1" },
+      reviewThreadId: "thread-browser-1",
+    });
+    await expect(reviewParams).resolves.toEqual({
+      threadId: "thread-browser-1",
+      target: { type: "uncommittedChanges" },
+      delivery: "inline",
+    });
+    await expect(runtime.listExperimentalFeatures({
+      workspaceId: "workspace-1",
+      cursor: "feature-page",
+      limit: 20,
+    })).resolves.toEqual({ data: [], nextCursor: null });
+    await expect(featureListParams).resolves.toEqual({
+      cursor: "feature-page",
+      limit: 20,
+      threadId: null,
+    });
+    await expect(runtime.setExperimentalFeature({
+      workspaceId: "workspace-1",
+      featureKey: "test_feature",
+      enabled: true,
+    })).resolves.toEqual({ enablement: { test_feature: true } });
+    await expect(featureSetParams).resolves.toEqual({
+      enablement: { test_feature: true },
+    });
+    await expect(runtime.forkThread({
+      workspaceId: "workspace-1",
+      threadId: "thread-browser-1",
+    })).resolves.toEqual({
+      threadId: "thread-fork-1",
+      thread: { id: "thread-fork-1" },
+    });
+    await expect(runtime.compactThread({
+      workspaceId: "workspace-1",
+      threadId: "thread-browser-1",
+    })).resolves.toEqual({});
+    await expect(runtime.rollbackThread({
+      workspaceId: "workspace-1",
+      threadId: "thread-browser-1",
+      turnId: "turn-target",
+    })).resolves.toEqual({
+      thread: { id: "thread-browser-1", turns: [{ id: "turn-old" }] },
+    });
+    await expect(rollbackParams).resolves.toEqual({
+      threadId: "thread-browser-1",
+      numTurns: 2,
+    });
+    await expect(runtime.listMcpServerStatus({
+      workspaceId: "workspace-1",
+      threadId: "thread-browser-1",
+    })).resolves.toEqual({ data: [], nextCursor: null });
     const events = runtime.getEvents({ afterSequence: 0 });
     expect(events.events).toEqual(
       expect.arrayContaining([
@@ -361,6 +439,40 @@ describe("AppServerRuntime", () => {
       requestId: "approval-after-turn-start",
       result: { decision: "decline" },
     })).toThrow(/失效/);
+    await runtime.stop();
+  });
+
+  it("通过同一 app-server 管理账户登录、取消和退出", async () => {
+    const fixturePath = fileURLToPath(
+      new URL("./test-fixtures/fake-app-server.mjs", import.meta.url),
+    );
+    let resolveCancelParams!: (value: unknown) => void;
+    const cancelParams = new Promise<unknown>((resolve) => {
+      resolveCancelParams = resolve;
+    });
+    const runtime = new AppServerRuntime({
+      resolveExecutablePath: () => process.execPath,
+      cwd: process.cwd(),
+      clientVersion: "0.7.68",
+      browserBackend: createBrowserBackend(),
+      launchArguments: [fixturePath],
+      onNotification: (method, params) => {
+        if (method === "test/account-login-cancel-params") resolveCancelParams(params);
+      },
+    });
+
+    await expect(runtime.cancelAccountLogin({ workspaceId: "workspace-login" }))
+      .resolves.toEqual({ canceled: false });
+    await expect(runtime.startAccountLogin({ workspaceId: "workspace-login" }))
+      .resolves.toEqual({
+        loginId: "login-test-1",
+        authUrl: "https://auth.example.test/login",
+      });
+    await expect(runtime.cancelAccountLogin({ workspaceId: "workspace-login" }))
+      .resolves.toEqual({ canceled: true, status: "canceled" });
+    await expect(cancelParams).resolves.toEqual({ loginId: "login-test-1" });
+    await expect(runtime.logoutAccount({ workspaceId: "workspace-login" }))
+      .resolves.toEqual({ ok: true });
     await runtime.stop();
   });
 

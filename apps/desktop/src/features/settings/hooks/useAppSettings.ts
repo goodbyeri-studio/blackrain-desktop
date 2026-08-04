@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AppSettings } from "@/types";
-import { getAppSettings, runCodexDoctor, updateAppSettings } from "@services/tauri";
+import { getAppSettings, runCodexDoctor, updateAppSettings } from "@services/desktop";
 import { clampUiScale, UI_SCALE_DEFAULT } from "@utils/uiScale";
 import { CHAT_SCROLLBACK_DEFAULT, normalizeChatHistoryScrollbackItems } from "@utils/chatScrollback";
 import {
@@ -24,7 +24,7 @@ const allowedThemes = new Set(["system", "light", "dark", "dim"]);
 const allowedAppLanguages = new Set(["system", "en", "zh-CN"]);
 const allowedPersonality = new Set(["friendly", "pragmatic"]);
 const allowedFollowUpMessageBehavior = new Set(["queue", "steer"]);
-const DEFAULT_REMOTE_BACKEND_HOST = "127.0.0.1:4732";
+const DEFAULT_REMOTE_BACKEND_HOST = "";
 const DEFAULT_REMOTE_BACKEND_ID = "remote-default";
 const DEFAULT_REMOTE_BACKEND_NAME = "Primary remote";
 const DEFAULT_REMOTE_PROVIDER: AppSettings["remoteBackendProvider"] = "tcp";

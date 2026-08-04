@@ -10,7 +10,7 @@ export function LoginScreen() {
   return (
     <div className="account-login-screen">
       {/* 仅顶部一条拖动条生效（对齐 macOS Overlay 标题栏），其余区域不可拖 */}
-      <div className="account-login-dragbar" data-tauri-drag-region />
+      <div className="account-login-dragbar" data-electron-drag-region />
       <RainBackground />
       <div className="account-login-glow" aria-hidden="true" />
       <div className="account-login-inner">

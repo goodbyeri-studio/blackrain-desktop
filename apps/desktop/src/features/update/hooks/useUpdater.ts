@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isTauri } from "@tauri-apps/api/core";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
-import type { DownloadEvent, Update } from "@tauri-apps/plugin-updater";
 import type { DebugEntry } from "../../../types";
+import { getOptionalHostClient } from "../../../host/client";
 import {
   buildReleaseTagUrl,
   clearPendingPostUpdateVersion,
@@ -26,6 +23,12 @@ type UpdateStage =
 type UpdateProgress = {
   totalBytes?: number;
   downloadedBytes: number;
+};
+
+type UpdateInfo = {
+  version: string;
+  downloadUrl: string;
+  sha256: string;
 };
 
 export type UpdateState = {
@@ -70,7 +73,7 @@ export function useUpdater({
   const [postUpdateNotice, setPostUpdateNotice] = useState<PostUpdateNoticeState>(
     null,
   );
-  const updateRef = useRef<Update | null>(null);
+  const updateRef = useRef<UpdateInfo | null>(null);
   const hasAttemptedAutoCheckRef = useRef(false);
   const postUpdateFetchGenerationRef = useRef(0);
   const latestTimeoutRef = useRef<number | null>(null);
@@ -85,22 +88,20 @@ export function useUpdater({
 
   const resetToIdle = useCallback(async () => {
     clearLatestTimeout();
-    const update = updateRef.current;
     updateRef.current = null;
     setState({ stage: "idle" });
-    await update?.close();
   }, [clearLatestTimeout]);
 
   const checkForUpdates = useCallback(async (options?: { announceNoUpdate?: boolean }) => {
     if (!enabled) {
       return;
     }
-    let update: Awaited<ReturnType<typeof check>> | null = null;
+    let update: UpdateInfo | null = null;
     try {
       clearLatestTimeout();
       setState({ stage: "checking" });
-      update = await check();
-      if (!update) {
+      const result = await getOptionalHostClient()?.updates.check();
+      if (!result?.available || !result.version || !result.downloadUrl || !result.sha256) {
         if (options?.announceNoUpdate) {
           setState({ stage: "latest" });
           latestTimeoutRef.current = window.setTimeout(() => {
@@ -113,6 +114,11 @@ export function useUpdater({
         return;
       }
 
+      update = {
+        version: result.version,
+        downloadUrl: result.downloadUrl,
+        sha256: result.sha256,
+      };
       updateRef.current = update;
       setState({
         stage: "available",
@@ -129,10 +135,6 @@ export function useUpdater({
         payload: message,
       });
       setState({ stage: "error", error: message });
-    } finally {
-      if (!updateRef.current) {
-        await update?.close();
-      }
     }
   }, [clearLatestTimeout, enabled, onDebug]);
 
@@ -154,44 +156,21 @@ export function useUpdater({
     }));
 
     try {
-      await update.downloadAndInstall((event: DownloadEvent) => {
-        if (event.event === "Started") {
-          setState((prev) => ({
-            ...prev,
-            progress: {
-              totalBytes: event.data.contentLength,
-              downloadedBytes: 0,
-            },
-          }));
-          return;
-        }
-
-        if (event.event === "Progress") {
-          setState((prev) => ({
-            ...prev,
-            progress: {
-              totalBytes: prev.progress?.totalBytes,
-              downloadedBytes:
-                (prev.progress?.downloadedBytes ?? 0) + event.data.chunkLength,
-            },
-          }));
-          return;
-        }
-
-        if (event.event === "Finished") {
-          setState((prev) => ({
-            ...prev,
-            stage: "installing",
-          }));
-        }
-      });
+      setState((prev) => ({
+        ...prev,
+        progress: { totalBytes: undefined, downloadedBytes: 0 },
+      }));
+      const staged = await getOptionalHostClient()?.updates.download(update);
+      if (!staged) throw new Error("Electron 更新 API 不可用");
+      setState((prev) => ({ ...prev, stage: "installing" }));
+      await getOptionalHostClient()?.updates.install({ stagedPath: staged.stagedPath });
 
       setState((prev) => ({
         ...prev,
         stage: "restarting",
       }));
       savePendingPostUpdateVersion(update.version);
-      await relaunch();
+      setState((prev) => ({ ...prev, stage: "restarting" }));
     } catch (error) {
       const message =
         error instanceof Error ? error.message : JSON.stringify(error);
@@ -211,7 +190,7 @@ export function useUpdater({
   }, [checkForUpdates, enabled, onDebug]);
 
   useEffect(() => {
-    if (!enabled || !autoCheckOnMount || import.meta.env.DEV || !isTauri()) {
+    if (!enabled || !autoCheckOnMount || import.meta.env.DEV || !window.blackrain) {
       return;
     }
     if (hasAttemptedAutoCheckRef.current) {
@@ -222,7 +201,7 @@ export function useUpdater({
   }, [autoCheckOnMount, checkForUpdates, enabled]);
 
   useEffect(() => {
-    if (!enabled || !isTauri()) {
+    if (!enabled || !window.blackrain) {
       return;
     }
     const pendingVersion = loadPendingPostUpdateVersion();

@@ -3,14 +3,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BlackRainHostApi } from "../../electron/shared/host-api";
 import {
-  interruptTurn as interruptTurnTauri,
-  listThreads as listThreadsTauri,
-  resumeThread as resumeThreadTauri,
-  sendUserMessage as sendUserMessageTauri,
-  startThread as startThreadTauri,
-  steerTurn as steerTurnTauri,
-} from "./tauri";
-import {
   interruptTurn,
   listThreads,
   resumeThread,
@@ -18,15 +10,6 @@ import {
   startThread,
   steerTurn,
 } from "./agent";
-
-vi.mock("./tauri", () => ({
-  interruptTurn: vi.fn(),
-  listThreads: vi.fn(),
-  resumeThread: vi.fn(),
-  sendUserMessage: vi.fn(),
-  startThread: vi.fn(),
-  steerTurn: vi.fn(),
-}));
 
 function installHost() {
   const agent = {
@@ -141,37 +124,4 @@ describe("Agent host service", () => {
     });
   });
 
-  it("在 Tauri 下保持原调用并移除 Electron-only cwd", async () => {
-    vi.mocked(startThreadTauri).mockResolvedValue({ thread: { id: "thread-t" } });
-    vi.mocked(resumeThreadTauri).mockResolvedValue({ thread: { id: "thread-t" } });
-    vi.mocked(sendUserMessageTauri).mockResolvedValue({ turn: { id: "turn-t" } });
-    vi.mocked(steerTurnTauri).mockResolvedValue({ turnId: "turn-t" });
-    vi.mocked(interruptTurnTauri).mockResolvedValue({});
-    vi.mocked(listThreadsTauri).mockResolvedValue({ data: [] });
-
-    await listThreads("workspace-1", null, 100, "created_at");
-    await startThread("workspace-1", "C:\\repo");
-    await resumeThread("workspace-1", "thread-t", "C:\\repo");
-    await sendUserMessage("workspace-1", "thread-t", "hello", {
-      cwd: "C:\\repo",
-      model: "gpt-test",
-    });
-    await steerTurn("workspace-1", "thread-t", "turn-t", "继续");
-    await interruptTurn("workspace-1", "thread-t", "turn-t");
-
-    expect(startThreadTauri).toHaveBeenCalledWith("workspace-1");
-    expect(listThreadsTauri).toHaveBeenCalledWith(
-      "workspace-1",
-      null,
-      100,
-      "created_at",
-    );
-    expect(resumeThreadTauri).toHaveBeenCalledWith("workspace-1", "thread-t");
-    expect(sendUserMessageTauri).toHaveBeenCalledWith(
-      "workspace-1",
-      "thread-t",
-      "hello",
-      { model: "gpt-test" },
-    );
-  });
 });

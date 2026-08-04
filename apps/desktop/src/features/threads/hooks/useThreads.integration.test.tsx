@@ -15,7 +15,7 @@ import {
   startThread,
   startReview,
   steerTurn,
-} from "@services/tauri";
+} from "@services/desktop";
 import { STORAGE_KEY_DETACHED_REVIEW_LINKS } from "@threads/utils/threadStorage";
 import { useQueuedSend } from "./useQueuedSend";
 import { useThreads } from "./useThreads";
@@ -30,7 +30,7 @@ vi.mock("@app/hooks/useAppServerEvents", () => ({
   },
 }));
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   respondToServerRequest: vi.fn(),
   respondToUserInputRequest: vi.fn(),
   rememberApprovalRule: vi.fn(),

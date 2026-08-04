@@ -5,7 +5,7 @@ import {
   downloadDictationModel,
   getDictationModelStatus,
   removeDictationModel,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 import { subscribeDictationDownload } from "../../../services/events";
 
 type UseDictationModelResult = {

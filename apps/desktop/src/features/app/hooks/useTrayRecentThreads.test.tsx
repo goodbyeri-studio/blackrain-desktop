@@ -7,14 +7,9 @@ import {
   useTrayRecentThreads,
 } from "./useTrayRecentThreads";
 
-const isTauriMock = vi.hoisted(() => vi.fn(() => true));
 const setTrayRecentThreadsMock = vi.fn();
 
-vi.mock("@tauri-apps/api/core", () => ({
-  isTauri: isTauriMock,
-}));
-
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   setTrayRecentThreads: (...args: unknown[]) => setTrayRecentThreadsMock(...args),
 }));
 
@@ -41,12 +36,13 @@ function makeThread(overrides: Partial<ThreadSummary> = {}): ThreadSummary {
 describe("useTrayRecentThreads", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    isTauriMock.mockReturnValue(true);
+    window.blackrain = {} as never;
     setTrayRecentThreadsMock.mockReset();
     setTrayRecentThreadsMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
+    delete window.blackrain;
     vi.useRealTimers();
   });
 
@@ -296,8 +292,8 @@ describe("useTrayRecentThreads", () => {
     expect(setTrayRecentThreadsMock).toHaveBeenCalledTimes(1);
   });
 
-  it("skips tray syncing outside the Tauri runtime", async () => {
-    isTauriMock.mockReturnValue(false);
+  it("skips tray syncing when typed host is unavailable", async () => {
+    delete window.blackrain;
 
     renderHook(() =>
       useTrayRecentThreads({

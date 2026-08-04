@@ -25,7 +25,7 @@ export function SidebarSearchBar({
           onChange={(event) => onSearchQueryChange(event.target.value)}
           placeholder={tx("Search conversations")}
           aria-label={tx("Search conversations")}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           autoFocus
         />
       )}
@@ -35,7 +35,7 @@ export function SidebarSearchBar({
           className="sidebar-search-clear"
           onClick={onClearSearch}
           aria-label={tx("Clear search")}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
         >
           <X size={12} aria-hidden />
         </button>

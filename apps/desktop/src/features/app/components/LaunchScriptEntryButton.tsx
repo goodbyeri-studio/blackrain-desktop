@@ -60,7 +60,7 @@ export function LaunchScriptEntryButton({
             event.preventDefault();
             onOpenEditor();
           }}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           aria-label={entry.label?.trim() || iconLabel}
           title={entry.label?.trim() || iconLabel}
           data-tooltip={entry.label?.trim() || iconLabel}
@@ -81,7 +81,7 @@ export function LaunchScriptEntryButton({
             placeholder={tx("Optional label")}
             value={draftLabel}
             onChange={(event) => onDraftLabelChange(event.target.value)}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
           />
           <textarea
             className="launch-script-textarea"
@@ -89,7 +89,7 @@ export function LaunchScriptEntryButton({
             value={draftScript}
             onChange={(event) => onDraftChange(event.target.value)}
             rows={6}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
           />
           {error && <div className="launch-script-error">{error}</div>}
           <div className="launch-script-actions">
@@ -97,7 +97,7 @@ export function LaunchScriptEntryButton({
               type="button"
               className="ghost"
               onClick={onCloseEditor}
-              data-tauri-drag-region="false"
+              data-electron-drag-region="false"
             >
               {tx("Cancel")}
             </button>
@@ -105,7 +105,7 @@ export function LaunchScriptEntryButton({
               type="button"
               className="ghost launch-script-delete"
               onClick={onDelete}
-              data-tauri-drag-region="false"
+              data-electron-drag-region="false"
             >
               {tx("Delete")}
             </button>
@@ -114,7 +114,7 @@ export function LaunchScriptEntryButton({
               className="primary"
               onClick={onSave}
               disabled={isSaving}
-              data-tauri-drag-region="false"
+              data-electron-drag-region="false"
             >
               {isSaving ? tx("Saving...") : tx("Save")}
             </button>

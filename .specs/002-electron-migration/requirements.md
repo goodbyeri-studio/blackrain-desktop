@@ -4,14 +4,13 @@
 
 ## 1. 背景与问题
 
-BlackRain 当前主流程仍由 React/Vite + Tauri/Rust 驱动，Electron 已有 main/preload、原装 `codex.exe app-server`、Browser host、标准 stdio MCP adapter 和基础 Windows package。当前真实迁移基线为：
+BlackRain 的生产代码已切换为 React/Vite + Electron main/preload，并由 main 直接监管原装 `codex.exe app-server`。迁移输入与当前水位为：
 
-- 194 个 Tauri command 已被模块级分类；
-- 53 个 renderer 直接 Tauri 依赖仍在迁移；
-- `npm.cmd run check:host-boundary` 与 `npm.cmd run electron:typecheck` 当前通过；
-- packaged Electron 设置点击与自动化 E2E 已有通过证据；
+- 历史 194 个 command 与 53 个 renderer direct import 已逐项登记，当前生产边界为 0/0；
+- Native Clean Gate、typecheck、全量测试、lint、runtime provenance、App Server/MCP probe 当前通过；
+- production package、原生点击、smoke、Electron E2E 和 unsigned MSIX maker 已有 `RUN_PASS` 证据；
 - 开发签名 MSIX 曾安装成功，但真实安装态全页面点击仍为 `PRODUCT_FAIL`；
-- 标准 Codex Home、首次登录、真实审批/停止/恢复、Git、终端、更新及正式签名安装矩阵尚未完成。
+- 首次登录、真实审批/停止/恢复、双用户 ACL、真实站点及正式签名安装/升级/回滚/卸载矩阵尚未完成。
 
 本阶段唯一目标是交付一份“从一开始就由 Electron 实现”的 Windows Electron MVP：旧 Tauri 只作为行为盘点和迁移输入，不能进入最终应用的运行时、源代码、依赖、构建、用户界面或发布制品。Browser 作为 Electron 发布回归的一部分保留，不再单独形成第二路线。
 
@@ -119,5 +118,4 @@ BlackRain 当前主流程仍由 React/Vite + Tauri/Rust 驱动，Electron 已有
 
 - [ ] 关闭签名 MSIX 全页面不可点击的最终 Windows 环境结论，并完成 G1 重验。
 - [ ] 关闭生产更新通道、代码签名证书/runner、回滚策略和发布审批责任人；MVP 不允许应用内覆盖正在运行的二进制。
-- [ ] 确定 `node-pty` Windows helper、ConPTY、原生模块签名和 MSIX 资源清单。
 - [ ] 确定 MVP 支持的最低 Windows 版本、DPI/多屏设备矩阵和性能阈值。

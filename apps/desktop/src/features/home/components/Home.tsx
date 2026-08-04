@@ -64,7 +64,6 @@ export function Home({
   onSelectEffort,
   reasoningSupported,
   onAddWorkspace,
-  onAddWorkspaceFromUrl,
 }: HomeProps) {
   const { tx } = useI18n();
   const [draft, setDraft] = useState("");
@@ -189,7 +188,6 @@ export function Home({
               workspaces={workspaces}
               onEnterWorkspace={handleEnterWorkspace}
               onAddWorkspace={onAddWorkspace}
-              onAddWorkspaceFromUrl={onAddWorkspaceFromUrl}
             />
           </div>
         </div>

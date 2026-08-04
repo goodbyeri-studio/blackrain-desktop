@@ -28,7 +28,7 @@ import {
   archiveThread as archiveThreadService,
   readThread as readThreadService,
   setThreadName as setThreadNameService,
-} from "@services/tauri";
+} from "@services/desktop";
 import {
   makeCustomNameKey,
   saveCustomName,

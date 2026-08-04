@@ -3,12 +3,12 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppServerEvent, AccountSnapshot } from "../../../types";
-import { cancelCodexLogin, runCodexLogin } from "../../../services/tauri";
+import { cancelCodexLogin, runCodexLogin } from "../../../services/desktop";
 import { subscribeAppServerEvents } from "../../../services/events";
 import { openExternal } from "../../../host/desktop";
 import { useAccountSwitching } from "./useAccountSwitching";
 
-vi.mock("../../../services/tauri", () => ({
+vi.mock("../../../services/desktop", () => ({
   runCodexLogin: vi.fn(),
   cancelCodexLogin: vi.fn(),
 }));

@@ -39,7 +39,7 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: #151515;
+  background: var(--home-canvas);
 }
 
 /* 覆盖 .home > * 的 720px 拉伸,首页内容自行控宽 */
@@ -65,7 +65,7 @@
   font-size: 32px;
   font-weight: 400;
   letter-spacing: 0;
-  color: rgba(235, 235, 235, 0.9);
+  color: var(--text-primary);
   text-align: center;
 }
 
@@ -98,10 +98,10 @@
   gap: 18px;
   min-height: 82px;
   padding: 13px 14px 11px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  border: 1px solid var(--home-border);
   border-bottom: none;
   border-radius: 20px 20px 0 0;
-  background: #262626;
+  background: var(--home-prompt-surface);
 }
 
 .home-prompt-input-row {
@@ -115,7 +115,7 @@
   resize: none;
   border: none;
   background: transparent;
-  color: inherit;
+  color: var(--text-primary);
   padding: 2px 2px 0;
   font-size: 15px;
   line-height: 1.5;
@@ -127,7 +127,7 @@
 }
 
 .home-prompt-textarea::placeholder {
-  color: rgba(235, 235, 235, 0.28);
+  color: var(--text-subtle);
 }
 
 .home-prompt-bar {
@@ -250,7 +250,7 @@
 
 /* 模型药丸文字 */
 .home-model-label {
-  color: rgba(245, 245, 245, 0.86);
+  color: var(--text-emphasis);
   font-size: 14px;
   font-weight: 400;
   max-width: 190px;
@@ -265,8 +265,8 @@
   height: 30px;
   border-radius: 999px;
   border: none;
-  background: rgba(255, 255, 255, 0.54);
-  color: rgba(14, 14, 14, 0.9);
+  background: var(--home-send-surface);
+  color: var(--home-send-foreground);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -282,13 +282,13 @@
 }
 
 .home-prompt-send:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--home-send-surface-hover);
 }
 
 .home-prompt-send:disabled {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.5);
-  color: rgba(14, 14, 14, 0.82);
+  background: var(--home-send-surface);
+  color: var(--home-send-foreground);
   cursor: default;
 }
 
@@ -299,7 +299,7 @@
   min-height: 36px;
   padding: 6px 18px 9px;
   border-radius: 0 0 20px 20px;
-  background: rgba(24, 24, 24, 0.9);
+  background: var(--home-project-surface);
 }
 
 .home-project-trigger {
@@ -309,11 +309,11 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: rgba(245, 245, 245, 0.86);
+  color: var(--text-emphasis);
 }
 
 .home-project-trigger:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--home-hover);
 }
 
 .home-project-trigger[aria-expanded="true"] {
@@ -335,10 +335,10 @@
   z-index: 60;
   min-width: 240px;
   padding: 10px;
-  background: #252525;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--home-popover-surface);
+  border: 1px solid var(--home-border);
   border-radius: 16px;
-  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 16px 30px var(--home-shadow);
 }
 
 /* 权限菜单:Codex 首页从 trigger 下方弹出 */
@@ -400,11 +400,11 @@
 }
 
 .home-menu-model-row.is-active {
-  background: rgba(255, 255, 255, 0.055);
+  background: var(--home-hover);
 }
 
 .home-menu-model-row-chevron {
-  color: rgba(245, 245, 245, 0.48);
+  color: var(--text-faint);
   flex-shrink: 0;
 }
 
@@ -416,7 +416,7 @@
   min-height: 31px;
   padding: 4px 8px;
   margin-inline: -6px;
-  color: rgba(245, 245, 245, 0.84);
+  color: var(--text-quiet);
   font-size: 15px;
   font-weight: 400;
   line-height: 1.25;
@@ -446,8 +446,8 @@
 .home-menu-popover--left .home-menu-rich-item.is-active,
 .home-menu-popover--model .home-menu-rich-item.is-active,
 .home-menu-popover--right .home-menu-rich-item.is-active {
-  background: rgba(255, 255, 255, 0.055);
-  color: rgba(245, 245, 245, 0.9);
+  background: var(--home-hover);
+  color: var(--text-emphasis);
 }
 
 /* 项目菜单:Codex 首页从 trigger 上方弹出 */
@@ -470,7 +470,7 @@
 
 .home-menu-popover--project .home-menu-rich-label,
 .home-submenu-popover .home-menu-rich-label {
-  color: rgba(238, 238, 238, 0.84);
+  color: var(--text-quiet);
   font-size: 15px;
   font-weight: 400;
 }
@@ -478,7 +478,7 @@
 .home-menu-popover--project .home-menu-rich-item:hover,
 .home-submenu-popover .home-menu-rich-item:hover,
 .home-submenu-anchor:has([aria-expanded="true"]) > .home-menu-rich-item {
-  background: rgba(255, 255, 255, 0.055);
+  background: var(--home-hover);
 }
 
 .home-menu-popover--project .home-menu-rich-icon,
@@ -502,7 +502,7 @@
 
 .home-menu-title {
   font-size: 15px;
-  color: rgba(245, 245, 245, 0.42);
+  color: var(--text-subtle);
   font-weight: 600;
 }
 
@@ -530,13 +530,13 @@
 }
 
 .home-menu-rich-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--home-hover);
 }
 
 .home-menu-rich-item:focus-visible,
 .home-menu-rich-item.is-active {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(245, 245, 245, 0.92);
+  background: var(--home-hover);
+  color: var(--text-strong);
   outline: none;
 }
 
@@ -580,7 +580,7 @@
 .home-menu-rich-check {
   width: 20px;
   flex-shrink: 0;
-  color: rgba(245, 245, 245, 0.78);
+  color: var(--text-quiet);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -627,7 +627,7 @@
 .home-menu-divider {
   height: 1px;
   margin: 7px 0 7px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--home-border);
 }
 
 /* 子菜单(添加新项目 → 右侧展开) */
@@ -642,10 +642,10 @@
   z-index: 70;
   min-width: 190px;
   padding: 12px 14px;
-  background: #252525;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--home-popover-surface);
+  border: 1px solid var(--home-border);
   border-radius: 16px;
-  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 16px 30px var(--home-shadow);
 }
 
 .app.layout-desktop .home {

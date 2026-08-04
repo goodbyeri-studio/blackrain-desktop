@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkspaceInfo } from "../../../types";
-import { getGitRemote } from "../../../services/tauri";
+import { getGitRemote } from "../../../services/desktop";
 
 type GitRemoteState = {
   remote: string | null;

@@ -3,142 +3,113 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const desktopRoot = fileURLToPath(new URL("..", import.meta.url));
-const baselinePath = path.join(
-  desktopRoot,
+const repositoryRoot = path.resolve(desktopRoot, "../..");
+const roots = [
+  "src",
+  "electron",
+  "public",
+  "resources",
   "scripts",
-  "host-boundary-baseline.json",
+  ".github",
+].map((entry) => path.join(desktopRoot, entry));
+roots.push(path.join(repositoryRoot, ".github", "workflows"));
+roots.push(path.join(repositoryRoot, "scripts"));
+
+const topLevelFiles = [
+  "package.json",
+  "package-lock.json",
+  "forge.config.ts",
+  "vite.config.ts",
+  "vite.main.config.ts",
+  "vite.preload.config.ts",
+  "README.md",
+  "README.zh-CN.md",
+].map((entry) => path.join(desktopRoot, entry));
+
+const forbidden = [
+  { label: "旧宿主名称", pattern: /\btauri\b/iu },
+  { label: "旧宿主 package", pattern: /@tauri-apps/iu },
+  { label: "旧宿主源码目录", pattern: /src-tauri/iu },
+  { label: "旧 daemon", pattern: /blackrain_daemon/iu },
+  { label: "旧固定端口", pattern: /127\.0\.0\.1:4732/u },
+  { label: "旧 callback bridge", pattern: /transformCallback/u },
+  { label: "旧安装器", pattern: /nsis/iu },
+  { label: "裸 legacy invoke", pattern: /(?<![.\w])invoke\s*\(/u },
+  { label: "裸 legacy listen", pattern: /(?<![.\w])listen\s*\(/u },
+];
+const migrationLedgerPath = path.join(
+  repositoryRoot,
+  ".specs",
+  "002-electron-migration",
+  "migration-ledger.json",
 );
-const commandOwners = new Map([
-  ["codex", "codex-app-server-review"],
-  ["settings", "electron-main-preload"],
-  ["files", "electron-main-preload"],
-  ["menu", "electron-main-preload"],
-  ["tray", "electron-main-preload"],
-  ["workspaces", "electron-main-preload"],
-  ["git", "electron-main-preload"],
-  ["model_gateway", "gateway-sidecar-supervision"],
-  ["prompts", "electron-main-preload"],
-  ["terminal", "electron-main-node-pty"],
-  ["dictation", "electron-main-preload"],
-  ["local_usage", "electron-main-preload"],
-  ["notifications", "electron-main-preload"],
-  ["account_session", "electron-main-credential-store"],
-  ["office", "deferred-delete-review"],
-  ["workbench", "deferred-delete-review"],
-  ["tailscale", "deferred-delete-review"],
-  ["root", "deferred-delete-review"],
+const migrationLedger = JSON.parse(await readFile(migrationLedgerPath, "utf8"));
+for (const entry of migrationLedger.entries ?? []) {
+  if (entry.kind !== "command" || typeof entry.source !== "string") continue;
+  const commandName = entry.source.split("::").at(-1);
+  if (!commandName) continue;
+  forbidden.push({
+    label: `旧 command ${commandName}`,
+    pattern: new RegExp(`(?<![A-Za-z0-9_])${commandName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![A-Za-z0-9_])`, "u"),
+  });
+}
+const ignoredDirectories = new Set(["node_modules", "out", "output", "dist", ".vite"]);
+const textExtensions = new Set([
+  ".cjs", ".css", ".html", ".js", ".json", ".jsx", ".mjs", ".md",
+  ".ps1", ".sh", ".ts", ".tsx", ".yaml", ".yml",
 ]);
-const tauriSpecifierPattern =
-  /(?:from\s+|import\s*\(\s*)["'](@tauri-apps\/[^"']+|tauri-plugin-liquid-glass-api)["']/g;
 
-async function walkSource(directory) {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const absolutePath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await walkSource(absolutePath)));
-    } else if (/\.(?:ts|tsx)$/.test(entry.name)) {
-      files.push(absolutePath);
+async function collectFiles(candidate) {
+  try {
+    const entries = await readdir(candidate, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue;
+      const absolute = path.join(candidate, entry.name);
+      if (entry.isDirectory()) files.push(...await collectFiles(absolute));
+      else if (textExtensions.has(path.extname(entry.name).toLowerCase())) files.push(absolute);
+    }
+    return files;
+  } catch (error) {
+    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") return [];
+    throw error;
+  }
+}
+
+const files = [...new Set([
+  ...(await Promise.all(roots.map(collectFiles))).flat(),
+  ...topLevelFiles,
+])];
+const scannerPaths = new Set([
+  fileURLToPath(import.meta.url),
+  path.join(desktopRoot, "scripts", "audit-electron-package.mjs"),
+].map((entry) => path.resolve(entry)));
+const violations = [];
+for (const file of files) {
+  if (scannerPaths.has(path.resolve(file))) continue;
+  let contents;
+  try {
+    contents = await readFile(file, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") continue;
+    throw error;
+  }
+  const lines = contents.split(/\r?\n/u);
+  for (let index = 0; index < lines.length; index += 1) {
+    for (const rule of forbidden) {
+      if (rule.pattern.test(lines[index])) {
+        violations.push({ file, line: index + 1, label: rule.label, text: lines[index].trim() });
+      }
     }
   }
-  return files;
 }
 
-async function collectDirectTauriImports() {
-  const sourceRoot = path.join(desktopRoot, "src");
-  const files = await walkSource(sourceRoot);
-  const imports = [];
-  for (const file of files) {
-    const contents = await readFile(file, "utf8");
-    for (const match of contents.matchAll(tauriSpecifierPattern)) {
-      imports.push({
-        file: path.relative(desktopRoot, file).replaceAll(path.sep, "/"),
-        specifier: match[1],
-      });
-    }
+if (violations.length > 0) {
+  console.error("Native Clean Gate 失败：");
+  for (const violation of violations) {
+    console.error(`- ${path.relative(repositoryRoot, violation.file)}:${violation.line} [${violation.label}] ${violation.text}`);
   }
-  const uniqueImports = new Map(imports.map((entry) => [keyOf(entry), entry]));
-  return [...uniqueImports.values()].sort((left, right) =>
-    `${left.file}:${left.specifier}`.localeCompare(
-      `${right.file}:${right.specifier}`,
-    ),
-  );
-}
-
-async function collectCommandInventory() {
-  const libPath = path.join(desktopRoot, "src-tauri", "src", "lib.rs");
-  const contents = await readFile(libPath, "utf8");
-  const handler = contents.match(
-    /\.invoke_handler\(tauri::generate_handler!\[([\s\S]*?)\]\)\s*\.build/,
-  );
-  if (!handler) {
-    throw new Error("无法定位 src-tauri/src/lib.rs 的 generate_handler 清单");
-  }
-
-  return handler[1]
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .map((command) => {
-      const separator = command.indexOf("::");
-      const moduleName = separator === -1 ? "root" : command.slice(0, separator);
-      return {
-        command,
-        module: moduleName,
-        owner: commandOwners.get(moduleName) ?? null,
-      };
-    });
-}
-
-function keyOf(entry) {
-  return `${entry.file}\u0000${entry.specifier}`;
-}
-
-const directImports = await collectDirectTauriImports();
-const commands = await collectCommandInventory();
-
-if (process.argv.includes("--print-baseline")) {
-  process.stdout.write(
-    `${JSON.stringify({ schemaVersion: 1, directImports }, null, 2)}\n`,
-  );
-  process.exit(0);
-}
-
-const baseline = JSON.parse(await readFile(baselinePath, "utf8"));
-if (baseline.schemaVersion !== 1 || !Array.isArray(baseline.directImports)) {
-  throw new Error("host-boundary-baseline.json 格式无效");
-}
-
-const allowedImports = new Set(baseline.directImports.map(keyOf));
-const addedImports = directImports.filter((entry) => !allowedImports.has(keyOf(entry)));
-const unownedCommands = commands.filter((entry) => entry.owner === null);
-
-if (addedImports.length > 0) {
-  console.error("检测到新增 renderer -> Tauri 直接依赖：");
-  for (const entry of addedImports) {
-    console.error(`- ${entry.file}: ${entry.specifier}`);
-  }
-}
-if (unownedCommands.length > 0) {
-  console.error("检测到未分类的 Tauri command：");
-  for (const entry of unownedCommands) {
-    console.error(`- ${entry.command}`);
-  }
-}
-if (addedImports.length > 0 || unownedCommands.length > 0) {
   process.exit(1);
 }
 
-const ownerCounts = new Map();
-for (const command of commands) {
-  ownerCounts.set(command.owner, (ownerCounts.get(command.owner) ?? 0) + 1);
-}
-
-console.log(
-  `宿主边界检查通过：${commands.length} 个 Tauri command 已分类，` +
-    `${directImports.length} 个 renderer 直接依赖仍在迁移基线内。`,
-);
-for (const [owner, count] of [...ownerCounts].sort()) {
-  console.log(`- ${owner}: ${count}`);
-}
+console.log(`Native Clean Gate 通过：扫描 ${files.length} 个生产边界文件，旧宿主残留为 0。`);

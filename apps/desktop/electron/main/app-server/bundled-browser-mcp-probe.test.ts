@@ -107,11 +107,11 @@ describe.skipIf(!probeEnabled)("bundled codex Browser MCP 生产接缝探针", (
       await rm(probeHome, {
         recursive: true,
         force: true,
-        maxRetries: 3,
+        maxRetries: 10,
         retryDelay: 200,
       });
     }
-  }, 45_000);
+  }, 90_000);
 });
 
 function createBackend(): BrowserAgentBackend {

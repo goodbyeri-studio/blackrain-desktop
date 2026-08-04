@@ -1,12 +1,9 @@
 import { useCallback } from "react";
 import type { MouseEvent } from "react";
 import { useI18n } from "@/i18n";
-import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
-import { LogicalPosition } from "@tauri-apps/api/dpi";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealPath } from "../../../host/desktop";
+import { showContextMenu, type ContextMenuEntry } from "../../../host/contextMenu";
 import * as Sentry from "@sentry/react";
-import { openWorkspaceIn } from "../../../services/tauri";
 import { pushErrorToast } from "../../../services/toasts";
 import type { OpenAppTarget } from "../../../types";
 import {
@@ -20,48 +17,6 @@ import {
   revealInFileManagerLabel,
 } from "../../../utils/platformPaths";
 import { resolveMountedWorkspacePath } from "../utils/mountedWorkspacePaths";
-
-type OpenTarget = {
-  id: string;
-  label: string;
-  appName?: string | null;
-  kind: OpenAppTarget["kind"];
-  command?: string | null;
-  args: string[];
-};
-
-const DEFAULT_OPEN_TARGET: OpenTarget = {
-  id: "vscode",
-  label: "VS Code",
-  appName: "Visual Studio Code",
-  kind: "app",
-  command: null,
-  args: [],
-};
-
-const resolveAppName = (target: OpenTarget) => (target.appName ?? "").trim();
-const resolveCommand = (target: OpenTarget) => (target.command ?? "").trim();
-
-const canOpenTarget = (target: OpenTarget) => {
-  if (target.kind === "finder") {
-    return true;
-  }
-  if (target.kind === "command") {
-    return Boolean(resolveCommand(target));
-  }
-  return Boolean(resolveAppName(target));
-};
-
-function resolveOpenTarget(
-  openTargets: OpenAppTarget[],
-  selectedOpenAppId: string,
-): OpenTarget {
-  return {
-    ...DEFAULT_OPEN_TARGET,
-    ...(openTargets.find((entry) => entry.id === selectedOpenAppId) ??
-      openTargets[0]),
-  };
-}
 
 function resolveFilePath(path: string, workspacePath?: string | null) {
   const trimmed = path.trim();
@@ -95,8 +50,8 @@ function resolveFileLinkContext(
 
 export function useFileLinkOpener(
   workspacePath: string | null,
-  openTargets: OpenAppTarget[],
-  selectedOpenAppId: string,
+  _openTargets: OpenAppTarget[],
+  _selectedOpenAppId: string,
 ) {
   const { tx } = useI18n();
   const reportOpenError = useCallback(
@@ -122,121 +77,54 @@ export function useFileLinkOpener(
 
   const openFileLink = useCallback(
     async (targetLocation: ParsedFileLocation) => {
-      const target = resolveOpenTarget(openTargets, selectedOpenAppId);
-      const { fileLocation, rawPathLabel, resolvedPath } = resolveFileLinkContext(
+      const { rawPathLabel, resolvedPath } = resolveFileLinkContext(
         targetLocation,
         workspacePath,
       );
-      const openLocation = {
-        ...(fileLocation.line !== null ? { line: fileLocation.line } : {}),
-        ...(fileLocation.column !== null ? { column: fileLocation.column } : {}),
-      };
-
       try {
-        if (!canOpenTarget(target)) {
-          return;
-        }
-        if (target.kind === "finder") {
-          await revealPath(resolvedPath);
-          return;
-        }
-
-        if (target.kind === "command") {
-          const command = resolveCommand(target);
-          if (!command) {
-            return;
-          }
-          await openWorkspaceIn(resolvedPath, {
-            command,
-            args: target.args,
-            ...openLocation,
-          });
-          return;
-        }
-
-        const appName = resolveAppName(target);
-        if (!appName) {
-          return;
-        }
-        await openWorkspaceIn(resolvedPath, {
-          appName,
-          args: target.args,
-          ...openLocation,
-        });
+        await revealPath(resolvedPath);
       } catch (error) {
         reportOpenError(error, {
           rawPath: rawPathLabel,
           resolvedPath,
           workspacePath,
-          targetId: target.id,
-          targetKind: target.kind,
-          targetAppName: target.appName ?? null,
-          targetCommand: target.command ?? null,
+          targetId: "file-manager",
+          targetKind: "finder",
+          targetAppName: null,
+          targetCommand: null,
         });
       }
     },
-    [openTargets, reportOpenError, selectedOpenAppId, workspacePath],
+    [reportOpenError, workspacePath],
   );
 
   const showFileLinkMenu = useCallback(
     async (event: MouseEvent, targetLocation: ParsedFileLocation) => {
       event.preventDefault();
       event.stopPropagation();
-      const target = resolveOpenTarget(openTargets, selectedOpenAppId);
-      const { fileLocation, rawPathLabel, resolvedPath } = resolveFileLinkContext(
+      const { fileLocation, resolvedPath } = resolveFileLinkContext(
         targetLocation,
         workspacePath,
       );
-      const appName = resolveAppName(target);
-      const command = resolveCommand(target);
-      const canOpen = canOpenTarget(target);
-      const openLabel =
-        target.kind === "finder"
-          ? revealInFileManagerLabel()
-          : target.kind === "command"
-            ? command
-              ? tx("Open in {app}", { app: target.label })
-              : tx("Set command in Settings")
-            : appName
-              ? tx("Open in {app}", { app: appName })
-              : tx("Set app name in Settings");
-      const items = [
-        await MenuItem.new({
-          text: openLabel,
-          enabled: canOpen,
-          action: async () => {
+      const items: ContextMenuEntry[] = [
+        {
+          id: "open",
+          label: revealInFileManagerLabel(),
+          enabled: true,
+          onSelect: async () => {
             await openFileLink(fileLocation);
           },
-        }),
-        ...(target.kind === "finder"
-          ? []
-          : [
-              await MenuItem.new({
-                text: revealInFileManagerLabel(),
-                action: async () => {
-                  try {
-                    await revealPath(resolvedPath);
-                  } catch (error) {
-                    reportOpenError(error, {
-                      rawPath: rawPathLabel,
-                      resolvedPath,
-                      workspacePath,
-                      targetId: target.id,
-                      targetKind: "finder",
-                      targetAppName: null,
-                      targetCommand: null,
-                    });
-                  }
-                },
-              }),
-            ]),
-        await MenuItem.new({
-          text: tx("Download Linked File"),
+        },
+        {
+          id: "download",
+          label: tx("Download Linked File"),
           enabled: false,
-        }),
-        await MenuItem.new({
-          text: tx("Copy Link"),
-          action: async () => {
+          onSelect: () => undefined,
+        },
+        {
+          id: "copy-link",
+          label: tx("Copy Link"),
+          onSelect: async () => {
             const link = toFileUrl(resolvedPath, fileLocation.line, fileLocation.column);
             try {
               await navigator.clipboard.writeText(link);
@@ -244,17 +132,11 @@ export function useFileLinkOpener(
               // Clipboard failures are non-fatal here.
             }
           },
-        }),
-        await PredefinedMenuItem.new({ item: "Separator" }),
-        await PredefinedMenuItem.new({ item: "Services" }),
+        },
       ];
-
-      const menu = await Menu.new({ items });
-      const window = getCurrentWindow();
-      const position = new LogicalPosition(event.clientX, event.clientY);
-      await menu.popup(position, window);
+      await showContextMenu(event, items);
     },
-    [openFileLink, openTargets, reportOpenError, selectedOpenAppId, workspacePath, tx],
+    [openFileLink, workspacePath, tx],
   );
 
   return { openFileLink, showFileLinkMenu };

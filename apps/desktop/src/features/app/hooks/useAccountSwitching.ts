@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cancelCodexLogin, runCodexLogin } from "../../../services/tauri";
+import { cancelCodexLogin, runCodexLogin } from "../../../services/desktop";
 import { subscribeAppServerEvents } from "../../../services/events";
 import type { AccountSnapshot } from "../../../types";
 import { getAppServerParams, getAppServerRawMethod } from "../../../utils/appServerEvents";

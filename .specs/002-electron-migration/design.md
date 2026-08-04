@@ -91,7 +91,7 @@ id / 原始 command 或 import / 所属模块
 3. `src/services/tauri.ts`、`src/services/events.ts`、drag/drop、update、terminal 等兼容入口；
 4. Tauri plugin、capability、resource、NSIS、CI、daemon、固定端口和环境变量。
 
-`check:host-boundary` 只负责迁移期阻止新增依赖和未分类 command，不能代替功能验证或删除证明。当前脚本输出的模块标签（如 `codex-app-server-review`、`electron-main-node-pty`）只是 `source_module` 展示值；生成账本时必须映射为本合同的 canonical owner，并将 node-pty/credential-store/deferred-delete 写入 capability。Native Clean Gate 关闭时，这个检查必须从“允许旧基线”改为按分层范围执行 zero-tolerance：生产源码、依赖、脚本、CI、用户可见文案和制品出现 Tauri 即失败，内部真源文档按允许列表审计。
+`check:host-boundary` 已切换为 final-mode zero-tolerance：生产源码、依赖、仓库/Desktop 脚本、CI、README 和历史 command 名出现旧宿主残留即失败。它证明静态删除边界，不能代替功能测试、正式签名或产品验收；逐项历史归属仍由账本保存。
 
 ## 4. 进程与数据边界
 

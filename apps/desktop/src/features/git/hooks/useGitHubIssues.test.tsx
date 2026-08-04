@@ -2,10 +2,10 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceInfo } from "../../../types";
-import { getGitHubIssues } from "../../../services/tauri";
+import { getGitHubIssues } from "../../../services/desktop";
 import { useGitHubIssues } from "./useGitHubIssues";
 
-vi.mock("../../../services/tauri", () => ({
+vi.mock("../../../services/desktop", () => ({
   getGitHubIssues: vi.fn(),
 }));
 

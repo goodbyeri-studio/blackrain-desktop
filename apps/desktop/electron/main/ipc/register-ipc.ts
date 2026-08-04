@@ -8,7 +8,13 @@ import type { FileService } from "../files/file-service";
 import type { AccountSessionStore } from "../credentials/account-session-store";
 import type { DesktopShellService } from "../shell/desktop-shell-service";
 import type { DesktopDialogService } from "../dialog/desktop-dialog-service";
+import type { RuntimeBootstrapCoordinator } from "../app/runtime-bootstrap";
+import type { GitService } from "../git/git-service";
+import type { TerminalService } from "../terminal/terminal-service";
+import type { SystemUiService } from "../app/system-ui-service";
+import type { UpdateService } from "../updates/update-service";
 import { IPC_CHANNELS } from "../../shared/ipc";
+import { AgentAccountInputSchema } from "../../shared/agent";
 import {
   AgentAppsListInputSchema,
   AgentThreadMutationInputSchema,
@@ -16,6 +22,14 @@ import {
   AgentThreadReadInputSchema,
   AgentWorkspaceInputSchema,
 } from "../../shared/desktop";
+import {
+  AgentExperimentalFeatureListInputSchema,
+  AgentExperimentalFeatureSetInputSchema,
+  AgentMcpServerStatusInputSchema,
+  AgentReviewStartInputSchema,
+  AgentThreadOperationInputSchema,
+  AgentThreadRollbackInputSchema,
+} from "../../shared/agent";
 
 function assertMainFrame(event: IpcMainInvokeEvent): void {
   if (event.senderFrame !== event.sender.mainFrame) {
@@ -33,6 +47,11 @@ export function registerIpcHandlers(
   accountSessions: AccountSessionStore,
   desktopShell: DesktopShellService,
   desktopDialog: DesktopDialogService,
+  runtimeBootstrap: RuntimeBootstrapCoordinator,
+  git: GitService,
+  terminal: TerminalService,
+  systemUi: SystemUiService,
+  updates: UpdateService,
 ): () => void {
 
   const unsubscribeAgentEvents = agent.subscribeEvents((event) => {
@@ -54,7 +73,48 @@ export function registerIpcHandlers(
       version: app.getVersion(),
       platform: process.platform,
       windowGeneration: sender.generation,
+      runtime: runtimeBootstrap.status(),
     };
+  });
+  const unsubscribeTerminalEvents = terminal.subscribe((terminalEvent) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (window.isDestroyed() || window.webContents.isDestroyed()) continue;
+      try {
+        registry.require(window.webContents.id, "main");
+      } catch {
+        continue;
+      }
+      window.webContents.send(IPC_CHANNELS.terminalEvent, terminalEvent);
+    }
+  });
+  const unsubscribeSystemUiEvents = systemUi.subscribe((systemEvent) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (window.isDestroyed() || window.webContents.isDestroyed()) continue;
+      try {
+        registry.require(window.webContents.id, "main");
+      } catch {
+        continue;
+      }
+      window.webContents.send(IPC_CHANNELS.systemUiEvent, systemEvent);
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.appInitialize, (event) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return runtimeBootstrap.initialize();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.appRetry, (event) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return runtimeBootstrap.initialize(true);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.appExportDiagnostics, (event) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return files.saveText(requireOwnerWindow(event), runtimeBootstrap.exportDiagnostics());
   });
 
   ipcMain.handle(IPC_CHANNELS.shellOpenExternal, (event, input: unknown) => {
@@ -79,6 +139,49 @@ export function registerIpcHandlers(
     assertMainFrame(event);
     registry.require(event.sender.id, "main");
     return desktopDialog.message(requireOwnerWindow(event), input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.menuPopup, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return systemUi.popupContextMenu(requireOwnerWindow(event), input);
+  });
+  ipcMain.handle(IPC_CHANNELS.menuSetAccelerators, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    systemUi.setAccelerators(input);
+  });
+  ipcMain.handle(IPC_CHANNELS.traySetRecentThreads, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    systemUi.setRecentThreads(input);
+  });
+  ipcMain.handle(IPC_CHANNELS.traySetSessionUsage, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    systemUi.setSessionUsage(input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.notificationShow, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    systemUi.showNotification(input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.updateCheck, (event) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return updates.check();
+  });
+  ipcMain.handle(IPC_CHANNELS.updateDownload, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return updates.download(input);
+  });
+  ipcMain.handle(IPC_CHANNELS.updateInstall, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return updates.install(input);
   });
 
   ipcMain.handle(IPC_CHANNELS.settingsGet, (event) => {
@@ -121,6 +224,12 @@ export function registerIpcHandlers(
     assertMainFrame(event);
     registry.require(event.sender.id, "main");
     return files.readWorkspace(input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.fileWriteWorkspace, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    files.writeWorkspace(input);
   });
 
   ipcMain.handle(IPC_CHANNELS.accountSessionGet, (event, input: unknown) => {
@@ -189,6 +298,63 @@ export function registerIpcHandlers(
     return workspaces.pick(requireOwnerWindow(event), input);
   });
 
+  const gitHandlers: Array<[string, (input: unknown) => unknown]> = [
+    [IPC_CHANNELS.gitStatus, (input) => git.status(input)],
+    [IPC_CHANNELS.gitInit, (input) => git.init(input)],
+    [IPC_CHANNELS.gitCreateRepository, (input) => git.createGitHubRepository(input)],
+    [IPC_CHANNELS.gitRoots, (input) => git.roots(input)],
+    [IPC_CHANNELS.gitDiffs, (input) => git.diffs(input)],
+    [IPC_CHANNELS.gitLog, (input) => git.log(input)],
+    [IPC_CHANNELS.gitCommitDiff, (input) => git.commitDiff(input)],
+    [IPC_CHANNELS.gitRemote, (input) => git.remote(input)],
+    [IPC_CHANNELS.gitStageFile, (input) => git.stageFile(input)],
+    [IPC_CHANNELS.gitStageAll, (input) => git.stageAll(input)],
+    [IPC_CHANNELS.gitUnstageFile, (input) => git.unstageFile(input)],
+    [IPC_CHANNELS.gitRevertFile, (input) => git.revertFile(input)],
+    [IPC_CHANNELS.gitRevertAll, (input) => git.revertAll(input)],
+    [IPC_CHANNELS.gitCommit, (input) => git.commit(input)],
+    [IPC_CHANNELS.gitPush, (input) => git.push(input)],
+    [IPC_CHANNELS.gitPull, (input) => git.pull(input)],
+    [IPC_CHANNELS.gitFetch, (input) => git.fetch(input)],
+    [IPC_CHANNELS.gitSync, (input) => git.sync(input)],
+    [IPC_CHANNELS.gitBranches, (input) => git.branches(input)],
+    [IPC_CHANNELS.gitCheckoutBranch, (input) => git.checkoutBranch(input)],
+    [IPC_CHANNELS.gitCreateBranch, (input) => git.createBranch(input)],
+    [IPC_CHANNELS.gitIssues, (input) => git.issues(input)],
+    [IPC_CHANNELS.gitPullRequests, (input) => git.pullRequests(input)],
+    [IPC_CHANNELS.gitPullRequestDiff, (input) => git.pullRequestDiff(input)],
+    [IPC_CHANNELS.gitPullRequestComments, (input) => git.pullRequestComments(input)],
+    [IPC_CHANNELS.gitCheckoutPullRequest, (input) => git.checkoutPullRequest(input)],
+  ];
+  for (const [channel, handler] of gitHandlers) {
+    ipcMain.handle(channel, (event, input: unknown) => {
+      assertMainFrame(event);
+      registry.require(event.sender.id, "main");
+      return handler(input);
+    });
+  }
+
+  ipcMain.handle(IPC_CHANNELS.terminalOpen, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return terminal.open(input);
+  });
+  ipcMain.handle(IPC_CHANNELS.terminalWrite, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return terminal.write(input);
+  });
+  ipcMain.handle(IPC_CHANNELS.terminalResize, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return terminal.resize(input);
+  });
+  ipcMain.handle(IPC_CHANNELS.terminalClose, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    return terminal.close(input);
+  });
+
   ipcMain.handle(IPC_CHANNELS.agentGetEvents, (event, input: unknown) => {
     assertMainFrame(event);
     registry.require(event.sender.id, "main");
@@ -229,6 +395,62 @@ export function registerIpcHandlers(
     assertMainFrame(event);
     registry.require(event.sender.id, "main");
     return agent.interruptTurn(input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentReviewStart, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentReviewStartInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.startReview(request);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentExperimentalFeatureList, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentExperimentalFeatureListInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.listExperimentalFeatures(request);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentExperimentalFeatureSet, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentExperimentalFeatureSetInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.setExperimentalFeature(request);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentThreadFork, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentThreadOperationInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.forkThread(request);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentThreadCompact, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentThreadOperationInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.compactThread(request);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentThreadRollback, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentThreadRollbackInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.rollbackThread(request);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentMcpServerStatusList, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentMcpServerStatusInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.listMcpServerStatus(request);
   });
 
   ipcMain.handle(IPC_CHANNELS.agentRespondServerRequest, (event, input: unknown) => {
@@ -291,6 +513,30 @@ export function registerIpcHandlers(
     const request = AgentWorkspaceInputSchema.parse(input);
     workspaces.require(request.workspaceId);
     return agent.readAccountRateLimits();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentAccountLoginStart, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentAccountInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.startAccountLogin(request);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentAccountLoginCancel, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentAccountInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.cancelAccountLogin(request);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.agentAccountLogout, (event, input: unknown) => {
+    assertMainFrame(event);
+    registry.require(event.sender.id, "main");
+    const request = AgentAccountInputSchema.parse(input);
+    workspaces.require(request.workspaceId);
+    return agent.logoutAccount(request);
   });
 
   ipcMain.handle(IPC_CHANNELS.agentThreadRead, (event, input: unknown) => {
@@ -424,9 +670,24 @@ export function registerIpcHandlers(
 
   return () => {
     unsubscribeAgentEvents();
+    unsubscribeTerminalEvents();
+    unsubscribeSystemUiEvents();
     ipcMain.removeHandler(IPC_CHANNELS.appBootstrap);
+    ipcMain.removeHandler(IPC_CHANNELS.appInitialize);
+    ipcMain.removeHandler(IPC_CHANNELS.appRetry);
+    ipcMain.removeHandler(IPC_CHANNELS.appExportDiagnostics);
     ipcMain.removeHandler(IPC_CHANNELS.shellOpenExternal);
     ipcMain.removeHandler(IPC_CHANNELS.shellRevealPath);
+    ipcMain.removeHandler(IPC_CHANNELS.dialogConfirm);
+    ipcMain.removeHandler(IPC_CHANNELS.dialogMessage);
+    ipcMain.removeHandler(IPC_CHANNELS.menuPopup);
+    ipcMain.removeHandler(IPC_CHANNELS.menuSetAccelerators);
+    ipcMain.removeHandler(IPC_CHANNELS.traySetRecentThreads);
+    ipcMain.removeHandler(IPC_CHANNELS.traySetSessionUsage);
+    ipcMain.removeHandler(IPC_CHANNELS.notificationShow);
+    ipcMain.removeHandler(IPC_CHANNELS.updateCheck);
+    ipcMain.removeHandler(IPC_CHANNELS.updateDownload);
+    ipcMain.removeHandler(IPC_CHANNELS.updateInstall);
     ipcMain.removeHandler(IPC_CHANNELS.settingsGet);
     ipcMain.removeHandler(IPC_CHANNELS.settingsUpdate);
     ipcMain.removeHandler(IPC_CHANNELS.filePick);
@@ -434,6 +695,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(IPC_CHANNELS.fileReadImage);
     ipcMain.removeHandler(IPC_CHANNELS.fileListWorkspace);
     ipcMain.removeHandler(IPC_CHANNELS.fileReadWorkspace);
+    ipcMain.removeHandler(IPC_CHANNELS.fileWriteWorkspace);
     ipcMain.removeHandler(IPC_CHANNELS.accountSessionGet);
     ipcMain.removeHandler(IPC_CHANNELS.accountSessionSet);
     ipcMain.removeHandler(IPC_CHANNELS.accountSessionClear);
@@ -444,6 +706,11 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(IPC_CHANNELS.workspaceConnect);
     ipcMain.removeHandler(IPC_CHANNELS.workspaceIsDirectory);
     ipcMain.removeHandler(IPC_CHANNELS.workspacePick);
+    for (const [channel] of gitHandlers) ipcMain.removeHandler(channel);
+    ipcMain.removeHandler(IPC_CHANNELS.terminalOpen);
+    ipcMain.removeHandler(IPC_CHANNELS.terminalWrite);
+    ipcMain.removeHandler(IPC_CHANNELS.terminalResize);
+    ipcMain.removeHandler(IPC_CHANNELS.terminalClose);
     ipcMain.removeHandler(IPC_CHANNELS.agentGetStatus);
     ipcMain.removeHandler(IPC_CHANNELS.agentGetEvents);
     ipcMain.removeHandler(IPC_CHANNELS.agentListThreads);
@@ -461,6 +728,9 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(IPC_CHANNELS.agentAppsList);
     ipcMain.removeHandler(IPC_CHANNELS.agentAccountRead);
     ipcMain.removeHandler(IPC_CHANNELS.agentAccountRateLimitsRead);
+    ipcMain.removeHandler(IPC_CHANNELS.agentAccountLoginStart);
+    ipcMain.removeHandler(IPC_CHANNELS.agentAccountLoginCancel);
+    ipcMain.removeHandler(IPC_CHANNELS.agentAccountLogout);
     ipcMain.removeHandler(IPC_CHANNELS.agentThreadRead);
     ipcMain.removeHandler(IPC_CHANNELS.agentThreadArchive);
     ipcMain.removeHandler(IPC_CHANNELS.agentThreadNameSet);

@@ -81,16 +81,21 @@
 
 ### 2026-08-04：内部架构文档与用户文档分层扫描
 
-- `.specs/**`、`docs/04-产品形态.md`、`docs/09-运行时架构与里程碑.md`、`docs/10-Electron迁移与内置浏览器实现计划.md`、`docs/commands.md` 属于内部真源/迁移审计文档，可保留当前 Tauri 历史和迁移状态，但必须明确当前态与目标态。
+- `.specs/**`、`docs/04-产品形态.md`、`docs/09-运行时架构与里程碑.md`、`docs/10-Electron迁移与内置浏览器实现计划.md`、`docs/commands.md` 属于内部真源/迁移审计文档，可保留旧宿主历史，但必须明确当前 Electron 代码态与产品验收态。
 - README、设置/帮助/关于/更新/卸载等用户可见文案和 release package 仍执行 zero-tolerance，不得出现 Tauri/Rust daemon/兼容模式术语。
 - Native Clean Gate 的扫描器必须按上述边界实现，不能用“全仓库零字符串”替代分层规则。
 
 ## 待决策（必须在对应闸口前关闭）
 
-- [ ] `D-01 / G1`：签名 MSIX 全页面不可点击的最终根因、修复方案和 Windows 实机复验责任人。
+- [ ] `D-01 / G1`：2026-08-03 全页面不可点击的代码根因已修复且 native-input/package E2E 已通过；仍需指定正式签名 MSIX 实机复验责任人并关闭历史 `PRODUCT_FAIL`。
 - [ ] `D-02 / G4-G6`：补齐签名证书/runner、发布审批、升级失败回滚演练和制品保留周期；更新拓扑已冻结为签名 MSIX/App Installer 包链。
-- [ ] `D-03 / G4-G6`：`node-pty` Windows helper、ConPTY、原生模块签名、MSIX 资源清单和进程树清理方案。
 - [ ] `D-04 / G6`：MVP 最低 Windows 版本、DPI/多屏/输入法支持矩阵和可接受性能阈值。
+
+### 2026-08-05：原生代码迁移完成不等于产品发布完成
+
+- 决策：生产源码、依赖、脚本、CI、README 和 unsigned MSIX 已进入 Electron native-clean 代码态，自动化结论为 `RUN_PASS`。
+- unsigned `electron:make` 只作为 maker/资源/manifest 证据；正式发布必须使用 `electron:make:release` 的签名 fail-closed 路径。
+- 2026-08-03 的安装态 `PRODUCT_FAIL` 只有在正式签名候选上完成真实输入复验后才能关闭；不能用开发 package 的 native-input probe 覆盖。
 
 ## 兼容层删除合同
 

@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 
 export const APP_PROTOCOL = "blackrain";
 export const APP_HOST = "app";
+export const FILE_PROTOCOL = "blackrain-file";
 
 export function registerAppScheme(): void {
   protocol.registerSchemesAsPrivileged([
@@ -15,7 +16,37 @@ export function registerAppScheme(): void {
         supportFetchAPI: true,
       },
     },
+    {
+      scheme: FILE_PROTOCOL,
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+      },
+    },
   ]);
+}
+
+export function installWorkspaceFileProtocol(
+  workspaces: { list(): Array<{ path: string }> },
+): void {
+  protocol.handle(FILE_PROTOCOL, (request) => {
+    try {
+      const url = new URL(request.url);
+      const requestedPath = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+      const filePath = path.resolve(requestedPath);
+      const allowed = workspaces.list().some((workspace) => {
+        const root = path.resolve(workspace.path);
+        const left = process.platform === "win32" ? filePath.toLowerCase() : filePath;
+        const right = process.platform === "win32" ? root.toLowerCase() : root;
+        return left === right || left.startsWith(`${right}${path.sep}`);
+      });
+      if (!allowed) return new Response("Forbidden", { status: 403 });
+      return net.fetch(pathToFileURL(filePath).toString());
+    } catch {
+      return new Response("Bad request", { status: 400 });
+    }
+  });
 }
 
 export function installAppProtocol(rendererRoot: string): void {

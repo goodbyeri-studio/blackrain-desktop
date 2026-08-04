@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RateLimitSnapshot, TurnPlan } from "@/types";
-import { interruptTurn } from "@services/tauri";
+import { interruptTurn } from "@services/desktop";
 import {
   normalizePlanUpdate,
   normalizeRateLimits,
@@ -10,7 +10,7 @@ import {
 } from "@threads/utils/threadNormalize";
 import { useThreadTurnEvents } from "./useThreadTurnEvents";
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   interruptTurn: vi.fn(),
 }));
 

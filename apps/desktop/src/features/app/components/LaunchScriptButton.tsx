@@ -77,7 +77,7 @@ export function LaunchScriptButton({
             event.preventDefault();
             onOpenEditor();
           }}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           aria-label={hasLaunchScript ? tx("Run launch script") : tx("Set launch script")}
           title={hasLaunchScript ? tx("Run launch script") : tx("Set launch script")}
           data-tooltip={hasLaunchScript ? tx("Run launch script") : tx("Set launch script")}
@@ -95,7 +95,7 @@ export function LaunchScriptButton({
             value={draftScript}
             onChange={(event) => onDraftChange(event.target.value)}
             rows={6}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
           />
           {error && <div className="launch-script-error">{error}</div>}
           <div className="launch-script-actions">
@@ -106,7 +106,7 @@ export function LaunchScriptButton({
                 onCloseEditor();
                 onCloseNew?.();
               }}
-              data-tauri-drag-region="false"
+              data-electron-drag-region="false"
             >
               {tx("Cancel")}
             </button>
@@ -115,7 +115,7 @@ export function LaunchScriptButton({
                 type="button"
                 className="ghost"
                 onClick={onOpenNew}
-                data-tauri-drag-region="false"
+                data-electron-drag-region="false"
               >
                 {tx("New")}
               </button>
@@ -125,7 +125,7 @@ export function LaunchScriptButton({
               className="primary"
               onClick={onSave}
               disabled={isSaving}
-              data-tauri-drag-region="false"
+              data-electron-drag-region="false"
             >
               {isSaving ? tx("Saving...") : tx("Save")}
             </button>
@@ -143,7 +143,7 @@ export function LaunchScriptButton({
                 placeholder={tx("Optional label")}
                 value={newDraftLabel}
                 onChange={(event) => onNewDraftLabelChange?.(event.target.value)}
-                data-tauri-drag-region="false"
+                data-electron-drag-region="false"
               />
               <textarea
                 className="launch-script-textarea"
@@ -151,7 +151,7 @@ export function LaunchScriptButton({
                 value={newDraftScript}
                 onChange={(event) => onNewDraftChange(event.target.value)}
                 rows={5}
-                data-tauri-drag-region="false"
+                data-electron-drag-region="false"
               />
               {newError && <div className="launch-script-error">{newError}</div>}
               <div className="launch-script-actions">
@@ -159,7 +159,7 @@ export function LaunchScriptButton({
                   type="button"
                   className="ghost"
                   onClick={onCloseNew}
-                  data-tauri-drag-region="false"
+                  data-electron-drag-region="false"
               >
                   {tx("Cancel")}
                 </button>
@@ -168,7 +168,7 @@ export function LaunchScriptButton({
                   className="primary"
                   onClick={onCreateNew}
                   disabled={isSaving}
-                  data-tauri-drag-region="false"
+                  data-electron-drag-region="false"
               >
                   {isSaving ? tx("Saving...") : tx("Create")}
                 </button>

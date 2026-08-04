@@ -22,18 +22,13 @@ import {
   listWorkspaces,
   modelGatewayDaemonStatus,
   modelGatewayProviderSecretStatus,
-} from "@services/tauri";
+} from "@services/desktop";
 import { DEFAULT_COMMIT_MESSAGE_PROMPT } from "@utils/commitMessagePrompt";
 import { SettingsView } from "./SettingsView";
 
-vi.mock("@tauri-apps/plugin-dialog", () => ({
-  ask: vi.fn(),
-  open: vi.fn(),
-}));
-
-vi.mock("@services/tauri", async () => {
-  const actual = await vi.importActual<typeof import("@services/tauri")>(
-    "@services/tauri",
+vi.mock("@services/desktop", async () => {
+  const actual = await vi.importActual<typeof import("@services/desktop")>(
+    "@services/desktop",
   );
   return {
     ...actual,
@@ -121,14 +116,14 @@ const baseSettings: AppSettings = {
   },
   backendMode: "local",
   remoteBackendProvider: "tcp",
-  remoteBackendHost: "127.0.0.1:4732",
+  remoteBackendHost: "remote.example:443",
   remoteBackendToken: null,
   remoteBackends: [
     {
       id: "remote-default",
       name: "Primary remote",
       provider: "tcp",
-      host: "127.0.0.1:4732",
+      host: "remote.example:443",
       token: null,
     },
   ],
@@ -601,6 +596,22 @@ const renderEnvironmentsSection = (
 };
 
 describe("SettingsView Display", () => {
+  it("hides deferred Electron MVP settings routes", () => {
+    renderDisplaySection();
+
+    for (const label of [
+      "Environments",
+      "Dictation",
+      "Open in",
+      "Model Gateway",
+      "Server",
+      "Agents",
+      "BlackRain",
+    ]) {
+      expect(screen.queryByRole("button", { name: label })).toBeNull();
+    }
+  });
+
   it("updates the theme selection", async () => {
     const onUpdateAppSettings = vi.fn().mockResolvedValue(undefined);
     renderDisplaySection({ onUpdateAppSettings });
@@ -866,7 +877,7 @@ describe("SettingsView About", () => {
   });
 });
 
-describe("SettingsView Environments", () => {
+describe.skip("SettingsView Environments", () => {
   it("shows the global worktrees root input", () => {
     renderEnvironmentsSection({
       appSettings: { globalWorktreesFolder: "I:/existing-worktrees" },
@@ -1171,7 +1182,7 @@ describe("SettingsView Environments", () => {
   });
 });
 
-describe("SettingsView Model Gateway", () => {
+describe.skip("SettingsView Model Gateway", () => {
   it("blocks gateway start when an enabled provider has no API key", async () => {
     modelGatewayProviderSecretStatusMock.mockResolvedValueOnce({
       providerId: "deepseek",
@@ -1229,7 +1240,7 @@ describe("SettingsView Model Gateway", () => {
   });
 });
 
-describe("SettingsView Codex section", () => {
+describe.skip("SettingsView Codex section", () => {
   it("updates review mode in codex section", async () => {
     cleanup();
     const onUpdateAppSettings = vi.fn().mockResolvedValue(undefined);
@@ -1277,7 +1288,7 @@ describe("SettingsView Codex section", () => {
     });
   });
 
-  it("renders mobile daemon controls in local backend mode for TCP provider", async () => {
+  it.skip("renders mobile daemon controls in local backend mode for TCP provider", async () => {
     cleanup();
     render(
       <SettingsView
@@ -1324,7 +1335,7 @@ describe("SettingsView Codex section", () => {
     });
   });
 
-  it("shows mobile-only server controls on iOS runtime", async () => {
+  it.skip("shows mobile-only server controls on iOS runtime", async () => {
     cleanup();
     const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(
       window.navigator,
@@ -1426,7 +1437,7 @@ describe("SettingsView Codex section", () => {
     }
   });
 
-  it("supports multiple saved remotes on iOS runtime", async () => {
+  it.skip("supports multiple saved remotes on iOS runtime", async () => {
     cleanup();
     const onUpdateAppSettings = vi.fn().mockResolvedValue(undefined);
     const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(
@@ -1475,14 +1486,14 @@ describe("SettingsView Codex section", () => {
           appSettings={{
             ...baseSettings,
             remoteBackendProvider: "tcp",
-            remoteBackendHost: "127.0.0.1:4732",
+            remoteBackendHost: "remote.example:443",
             remoteBackendToken: "token-a",
             remoteBackends: [
               {
                 id: "remote-a",
                 name: "Home Mac",
                 provider: "tcp",
-                host: "127.0.0.1:4732",
+                host: "remote.example:443",
                 token: "token-a",
               },
               {
@@ -1633,7 +1644,7 @@ describe("SettingsView Codex section", () => {
 
 });
 
-describe("SettingsView Codex defaults", () => {
+describe.skip("SettingsView Codex defaults", () => {
   it("defaults to the gateway default model (no Default option)", async () => {
     cleanup();
     const onUpdateAppSettings = vi.fn().mockResolvedValue(undefined);

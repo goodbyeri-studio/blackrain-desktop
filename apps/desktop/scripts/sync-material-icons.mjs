@@ -13,6 +13,28 @@ const sourceDir = join(
   "icons",
 );
 const targetDir = join(projectRoot, "public", "assets", "material-icons");
+const requiredIcons = new Set([
+  "css.svg",
+  "console.svg",
+  "database.svg",
+  "file.svg",
+  "git.svg",
+  "go.svg",
+  "html.svg",
+  "image.svg",
+  "javascript.svg",
+  "json.svg",
+  "markdown.svg",
+  "powershell.svg",
+  "python.svg",
+  "react.svg",
+  "react_ts.svg",
+  "rust.svg",
+  "settings.svg",
+  "svg.svg",
+  "typescript.svg",
+  "yaml.svg",
+]);
 
 if (!existsSync(sourceDir)) {
   console.warn("[sync:material-icons] source icons directory not found:", sourceDir);
@@ -33,7 +55,9 @@ async function copyDirectory(source, target) {
     if (entry.isDirectory()) {
       await copyDirectory(sourcePath, targetPath);
     } else if (entry.isFile()) {
-      await copyFile(sourcePath, targetPath);
+      if (requiredIcons.has(entry.name)) {
+        await copyFile(sourcePath, targetPath);
+      }
     } else {
       throw new Error(`Unsupported material icon entry: ${sourcePath}`);
     }

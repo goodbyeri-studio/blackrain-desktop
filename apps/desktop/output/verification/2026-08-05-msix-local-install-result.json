@@ -1,0 +1,39 @@
+{
+  "capturedAt": "2026-08-05T03:49:15.8537509+08:00",
+  "result": "LOCAL_DEVELOPER_INSTALL_PASS",
+  "releaseStatus": "NOT_EVALUATED",
+  "build": {
+    "version": "0.7.68.0",
+    "signedPackage": "W:\\DESKbook\\我的项目\\BlackRain\\apps\\desktop\\out\\electron\\make\\msix\\x64\\blackrain.msix",
+    "signedSha256": "E15A9E337DE11B9E7784F1606AD86C7205A94CD88A859C111363A86910779068",
+    "signedSignatureStatus": "UnknownError",
+    "signer": "CN=goodbyeri-studio",
+    "certificateThumbprint": "981CA576174EEDB90F13F51CBA3266D47D66C53F",
+    "certificateNotAfter": "2026-09-04T03:26:25.0000000+08:00",
+    "certificateTrustedPeople": true,
+    "certificateTrustedRoot": false
+  },
+  "installation": {
+    "method": "Add-AppxPackage -Register (Windows developer mode loose package)",
+    "packageFullName": "cc.goodbyeri.blackrain_0.7.68.0_x64__vmtgsdmmdbb5t",
+    "packageFamilyName": "cc.goodbyeri.blackrain_vmtgsdmmdbb5t",
+    "publisher": "CN=Unsigned",
+    "signatureKind": "Developer",
+    "status": "Ok",
+    "installLocation": "W:\\DESKbook\\我的项目\\BlackRain\\apps\\desktop\\out\\electron\\make\\msix\\local-signing\\unpacked-20260805-0340",
+    "localUnsignedPackage": "W:\\DESKbook\\我的项目\\BlackRain\\apps\\desktop\\out\\electron\\make\\msix\\local-signing\\blackrain-local-unsigned.msix",
+    "localUnsignedSha256": "142C948FEC9DE6066735EE0D99F332CA3FAC2737737C8CF5B52ABF7A15D0DDFF"
+  },
+  "launch": {
+    "aumid": "cc.goodbyeri.blackrain_vmtgsdmmdbb5t!App",
+    "mainWindowProcessId": 26544,
+    "mainWindowTitle": "BlackRain",
+    "responding": true,
+    "accessibilityTreeDetected": true
+  },
+  "limitations": [
+    "The packaged MSIX is signed with a temporary local development certificate, not a production release certificate.",
+    "The temporary certificate is not trusted as a root certificate, so direct signed-MSIX deployment fails with 0x800B0109.",
+    "The installed package is a developer-mode loose registration with CN=Unsigned and does not satisfy PRODUCT_PASS or release-signing acceptance."
+  ]
+}

@@ -86,25 +86,13 @@ export function SettingsShortcutsSection({
     () => [
       {
         title: "File",
-        subtitle: "Create agents and worktrees from the keyboard.",
+        subtitle: "Create and manage agents from the keyboard.",
         items: [
           {
             label: "New Agent",
             draftKey: "newAgent",
             settingKey: "newAgentShortcut",
             help: tx("Default: {shortcut}", { shortcut: formatShortcut("cmd+n") }),
-          },
-          {
-            label: "New Worktree Agent",
-            draftKey: "newWorktreeAgent",
-            settingKey: "newWorktreeAgentShortcut",
-            help: tx("Default: {shortcut}", { shortcut: formatShortcut("cmd+shift+n") }),
-          },
-          {
-            label: "New Clone Agent",
-            draftKey: "newCloneAgent",
-            settingKey: "newCloneAgentShortcut",
-            help: tx("Default: {shortcut}", { shortcut: formatShortcut("cmd+alt+n") }),
           },
           {
             label: "Archive active thread",

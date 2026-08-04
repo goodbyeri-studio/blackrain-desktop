@@ -5,7 +5,7 @@ import {
   getCodexConfigPath,
   getExperimentalFeatureList,
   setCodexFeatureFlag,
-} from "@services/tauri";
+} from "@services/desktop";
 
 type UseSettingsFeaturesSectionArgs = {
   enabled: boolean;
@@ -261,7 +261,10 @@ export const useSettingsFeaturesSection = ({
           if (nextSettings) {
             await onUpdateAppSettings(nextSettings);
           } else {
-            await setCodexFeatureFlag(feature.name, nextEnabled);
+            if (!featureWorkspaceId) {
+              throw new Error("No workspace is available for Codex feature updates.");
+            }
+            await setCodexFeatureFlag(featureWorkspaceId, feature.name, nextEnabled);
           }
           setFeatures((current) =>
             current.map((item) =>
@@ -281,7 +284,7 @@ export const useSettingsFeaturesSection = ({
         }
       })();
     },
-    [appSettings, onUpdateAppSettings],
+    [appSettings, featureWorkspaceId, onUpdateAppSettings],
   );
 
   return {

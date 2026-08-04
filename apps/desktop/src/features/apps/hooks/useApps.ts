@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppOption, DebugEntry, WorkspaceInfo } from "../../../types";
-import { getAppsList } from "../../../services/tauri";
+import { getAppsList } from "../../../services/desktop";
 import { subscribeAppServerEvents } from "../../../services/events";
 import { getAppServerParams, isAppListUpdatedEvent } from "../../../utils/appServerEvents";
 

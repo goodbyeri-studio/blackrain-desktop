@@ -26,7 +26,7 @@ export function LaunchScriptIconPicker({ value, onChange }: LaunchScriptIconPick
             onClick={() => onChange(option.id)}
             aria-label={tx(option.label)}
             aria-pressed={selected}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
           >
             <Icon size={14} aria-hidden />
           </button>

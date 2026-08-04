@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { AccessMode } from "../../../types";
-import { useTauriEvent } from "../../app/hooks/useTauriEvent";
+import { useHostEvent } from "../../app/hooks/useHostEvent";
 import {
   subscribeMenuCycleAccessMode,
   subscribeMenuCycleCollaborationMode,
@@ -115,19 +115,19 @@ export function useComposerMenuActions({
     ],
   );
 
-  useTauriEvent(subscribeMenuCycleModel, () => {
+  useHostEvent(subscribeMenuCycleModel, () => {
     handlers.cycleModel();
   });
 
-  useTauriEvent(subscribeMenuCycleAccessMode, () => {
+  useHostEvent(subscribeMenuCycleAccessMode, () => {
     handlers.cycleAccessMode();
   });
 
-  useTauriEvent(subscribeMenuCycleCollaborationMode, () => {
+  useHostEvent(subscribeMenuCycleCollaborationMode, () => {
     handlers.cycleCollaborationMode();
   });
 
-  useTauriEvent(subscribeMenuCycleReasoning, () => {
+  useHostEvent(subscribeMenuCycleReasoning, () => {
     handlers.cycleReasoning();
   });
 

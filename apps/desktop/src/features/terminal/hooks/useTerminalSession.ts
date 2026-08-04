@@ -15,7 +15,7 @@ import {
   openTerminalSession,
   resizeTerminalSession,
   writeTerminalSession,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 
 const MAX_BUFFER_CHARS = 200_000;
 

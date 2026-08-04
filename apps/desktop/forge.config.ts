@@ -4,12 +4,18 @@ import MakerMSIX from "@electron-forge/maker-msix";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 
+const releaseSigning = process.env.BLACKRAIN_RELEASE_SIGNING === "1";
+const publisher = process.env.BLACKRAIN_RELEASE_PUBLISHER ?? "CN=goodbyeri-studio";
+
 const config: ForgeConfig = {
   outDir: "out/electron",
   packagerConfig: {
     asar: true,
     executableName: "BlackRain",
+    icon: "icon.png",
+    protocols: [{ name: "BlackRain Thread Link", schemes: ["blackrain"] }],
     extraResource: [
+      "icon.png",
       "resources/codex",
       "resources/browser-client",
       "resources/node-runtime",
@@ -17,10 +23,19 @@ const config: ForgeConfig = {
   },
   makers: [
     new MakerMSIX({
-      sign: false,
+      sign: releaseSigning,
+      ...(releaseSigning
+        ? {
+            windowsSignOptions: {
+              certificateFile: process.env.WINDOWS_CERTIFICATE_FILE,
+              certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD,
+              description: "BlackRain",
+            },
+          }
+        : {}),
       manifestVariables: {
         packageIdentity: "cc.goodbyeri.blackrain",
-        publisher: "CN=goodbyeri-studio",
+        publisher,
         packageDisplayName: "BlackRain",
         appDisplayName: "BlackRain",
         appExecutable: "BlackRain.exe",

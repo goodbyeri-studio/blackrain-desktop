@@ -1,6 +1,5 @@
-import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef } from "react";
-import { setTrayRecentThreads } from "@services/tauri";
+import { setTrayRecentThreads } from "@services/desktop";
 import type { ThreadSummary, TrayRecentThreadEntry, WorkspaceInfo } from "../../../types";
 
 const SYNC_DEBOUNCE_MS = 150;
@@ -79,7 +78,7 @@ export function useTrayRecentThreads({
   isSubagentThread,
 }: UseTrayRecentThreadsParams) {
   const entries = useMemo(
-    // Tauri derives the top-3 recents and workspace submenus from the full visible tray thread set.
+    // main 负责系统托盘；浏览器/测试环境无需同步。
     () => buildTrayRecentThreadEntries(workspaces, threadsByWorkspace, isSubagentThread),
     [isSubagentThread, threadsByWorkspace, workspaces],
   );
@@ -88,7 +87,7 @@ export function useTrayRecentThreads({
   const lastSyncedEntriesRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isTauri()) {
+    if (!window.blackrain) {
       return;
     }
 

@@ -6,7 +6,7 @@ import type {
   ReviewTarget,
   WorkspaceInfo,
 } from "@/types";
-import { getGitLog, listGitBranches } from "@services/tauri";
+import { getGitLog, listGitBranches } from "@services/desktop";
 
 export type ReviewPromptStep = "preset" | "baseBranch" | "commit" | "custom";
 

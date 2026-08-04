@@ -38,7 +38,7 @@ export function useMainAppDisplayNodes({
           type="button"
           className="ghost main-header-action ds-tooltip-trigger"
           onClick={handleMobileThreadRefresh}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           aria-label={refreshLabel}
           title={refreshLabel}
           data-tooltip={refreshLabel}

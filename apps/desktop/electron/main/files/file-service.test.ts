@@ -1,6 +1,7 @@
 import {
   mkdtempSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -42,7 +43,11 @@ describe("FileService", () => {
     expect(service.readWorkspace({
       workspaceId: workspace.id,
       path: "src/main.ts",
-    })).toEqual({ content: "export {};", truncated: false });
+    })).toEqual({ exists: true, content: "export {};", truncated: false });
+    expect(service.readWorkspace({
+      workspaceId: workspace.id,
+      path: "missing.txt",
+    })).toEqual({ exists: false, content: "", truncated: false });
   });
 
   it("拒绝目录穿越和不支持的图片扩展", () => {
@@ -89,5 +94,55 @@ describe("FileService", () => {
       workspaceId: workspace.id,
       path: "outside-link.txt",
     })).toThrow("不读取符号链接文件");
+  });
+
+  it("只写入归属工作区内的普通文件", () => {
+    const { project, service, workspace } = createFixture();
+
+    service.writeWorkspace({
+      workspaceId: workspace.id,
+      path: "AGENTS.md",
+      content: "# Workspace rules\n",
+    });
+
+    expect(readFileSync(path.join(project, "AGENTS.md"), "utf8")).toBe(
+      "# Workspace rules\n",
+    );
+    expect(() => service.writeWorkspace({
+      workspaceId: workspace.id,
+      path: "../outside.txt",
+      content: "blocked",
+    })).toThrow("文件路径超出工作区");
+  });
+
+  it("拒绝通过符号链接写入工作区外部", () => {
+    const { root, project, service, workspace } = createFixture();
+    const outside = path.join(root, "outside.txt");
+    const link = path.join(project, "outside-link.txt");
+    writeFileSync(outside, "secret", "utf8");
+
+    try {
+      symlinkSync(outside, link, "file");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EPERM") return;
+      throw error;
+    }
+
+    expect(() => service.writeWorkspace({
+      workspaceId: workspace.id,
+      path: "outside-link.txt",
+      content: "blocked",
+    })).toThrow("不写入符号链接文件");
+    expect(readFileSync(outside, "utf8")).toBe("secret");
+  });
+
+  it("按 UTF-8 字节数拒绝超过 8 MiB 的写入", () => {
+    const { service, workspace } = createFixture();
+
+    expect(() => service.writeWorkspace({
+      workspaceId: workspace.id,
+      path: "large.txt",
+      content: "中".repeat(3 * 1024 * 1024),
+    })).toThrow("文件内容超过 8 MiB");
   });
 });

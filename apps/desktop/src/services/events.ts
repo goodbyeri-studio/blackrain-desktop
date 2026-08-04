@@ -1,4 +1,3 @@
-import { listen } from "@tauri-apps/api/event";
 import type {
   AppServerEvent,
   DictationEvent,
@@ -6,6 +5,7 @@ import type {
   TrayOpenThreadPayload,
 } from "../types";
 import type { AgentEvent } from "../../electron/shared/agent";
+import type { TerminalEvent } from "../../electron/shared/terminal";
 import { getOptionalHostClient } from "../host/client";
 
 export type Unsubscribe = () => void;
@@ -26,79 +26,34 @@ type SubscriptionOptions = {
 };
 
 type Listener<T> = (payload: T) => void;
+let ensureSystemUiEvents = () => undefined;
 
 function createEventHub<T>(eventName: string) {
   const listeners = new Set<Listener<T>>();
-  let unlisten: Unsubscribe | null = null;
-  let listenPromise: Promise<Unsubscribe> | null = null;
-
-  const start = (options?: SubscriptionOptions) => {
-    if (unlisten || listenPromise) {
-      return;
-    }
-    try {
-      listenPromise = listen<T>(eventName, (event) => {
-        for (const listener of listeners) {
-          try {
-            listener(event.payload);
-          } catch (error) {
-            console.error(`[events] ${eventName} listener failed`, error);
-          }
-        }
-      });
-    } catch (error) {
-      options?.onError?.(error);
-      return;
-    }
-    listenPromise
-      .then((handler) => {
-        listenPromise = null;
-        if (listeners.size === 0) {
-          handler();
-          return;
-        }
-        unlisten = handler;
-      })
-      .catch((error) => {
-        listenPromise = null;
-        options?.onError?.(error);
-      });
-  };
-
-  const stop = () => {
-    if (unlisten) {
-      try {
-        unlisten();
-      } catch {
-        // Ignore double-unlisten when tearing down.
-      }
-      unlisten = null;
-    }
-  };
+  void eventName;
 
   const subscribe = (
     onEvent: Listener<T>,
     options?: SubscriptionOptions,
   ): Unsubscribe => {
+    ensureSystemUiEvents();
     listeners.add(onEvent);
-    start(options);
+    void options;
     return () => {
       listeners.delete(onEvent);
-      if (listeners.size === 0) {
-        stop();
-      }
     };
   };
 
-  return { subscribe };
+  const emit = (payload: T) => {
+    for (const listener of listeners) listener(payload);
+  };
+  return { emit, subscribe };
 }
 
-const tauriAppServerHub = createEventHub<AppServerEvent>("app-server-event");
 const electronAppServerHub = createElectronAppServerEventHub();
 const dictationDownloadHub = createEventHub<DictationModelStatus>("dictation-download");
 const dictationEventHub = createEventHub<DictationEvent>("dictation-event");
-const terminalOutputHub = createEventHub<TerminalOutputEvent>("terminal-output");
-const terminalExitHub = createEventHub<TerminalExitEvent>("terminal-exit");
+const electronTerminalHub = createElectronTerminalEventHub();
 const updaterCheckHub = createEventHub<void>("updater-check");
 const trayOpenThreadHub = createEventHub<TrayOpenThreadPayload>("tray-open-thread");
 const menuNewAgentHub = createEventHub<void>("menu-new-agent");
@@ -126,13 +81,44 @@ const menuComposerCycleCollaborationHub = createEventHub<void>(
   "menu-composer-cycle-collaboration",
 );
 
+let stopSystemUiEvents: Unsubscribe | null = null;
+ensureSystemUiEvents = () => {
+  const host = getOptionalHostClient();
+  if (!host?.menu.onEvent || stopSystemUiEvents) return;
+  stopSystemUiEvents = host.menu.onEvent((event) => {
+    if (event.kind === "tray-open-thread") {
+      trayOpenThreadHub.emit({
+        workspaceId: event.workspaceId,
+        threadId: event.threadId,
+      });
+      return;
+    }
+    const hubs = new Map<string, { emit(payload: void): void }>([
+      ["file_new_agent", menuNewAgentHub],
+      ["file_new_worktree_agent", menuNewWorktreeAgentHub],
+      ["file_new_clone_agent", menuNewCloneAgentHub],
+      ["view_toggle_projects_sidebar", menuToggleProjectsSidebarHub],
+      ["view_toggle_git_sidebar", menuToggleGitSidebarHub],
+      ["view_toggle_debug_panel", menuToggleDebugPanelHub],
+      ["view_toggle_terminal", menuToggleTerminalHub],
+      ["view_next_agent", menuNextAgentHub],
+      ["view_prev_agent", menuPrevAgentHub],
+      ["view_next_workspace", menuNextWorkspaceHub],
+      ["view_prev_workspace", menuPrevWorkspaceHub],
+      ["composer_cycle_model", menuCycleModelHub],
+      ["composer_cycle_access", menuCycleAccessHub],
+      ["composer_cycle_reasoning", menuCycleReasoningHub],
+      ["composer_cycle_collaboration", menuCycleCollaborationHub],
+    ]);
+    hubs.get(event.id)?.emit();
+  });
+};
+
 export function subscribeAppServerEvents(
   onEvent: (event: AppServerEvent) => void,
   options?: SubscriptionOptions,
 ): Unsubscribe {
-  return getOptionalHostClient()
-    ? electronAppServerHub.subscribe(onEvent, options)
-    : tauriAppServerHub.subscribe(onEvent, options);
+  return electronAppServerHub.subscribe(onEvent, options);
 }
 
 function createElectronAppServerEventHub() {
@@ -235,14 +221,60 @@ export function subscribeTerminalOutput(
   onEvent: (event: TerminalOutputEvent) => void,
   options?: SubscriptionOptions,
 ): Unsubscribe {
-  return terminalOutputHub.subscribe(onEvent, options);
+  return electronTerminalHub.subscribeOutput(onEvent, options);
 }
 
 export function subscribeTerminalExit(
   onEvent: (event: TerminalExitEvent) => void,
   options?: SubscriptionOptions,
 ): Unsubscribe {
-  return terminalExitHub.subscribe(onEvent, options);
+  return electronTerminalHub.subscribeExit(onEvent, options);
+}
+
+function createElectronTerminalEventHub() {
+  const outputListeners = new Set<Listener<TerminalOutputEvent>>();
+  const exitListeners = new Set<Listener<TerminalExitEvent>>();
+  let stopHost: Unsubscribe | null = null;
+
+  const start = (options?: SubscriptionOptions) => {
+    const host = getOptionalHostClient();
+    if (!host || stopHost) return;
+    try {
+      stopHost = host.terminal.onEvent(dispatch);
+    } catch (error) {
+      options?.onError?.(error);
+    }
+  };
+  const dispatch = (event: TerminalEvent) => {
+    const listeners = event.kind === "data" ? outputListeners : exitListeners;
+    const payload = event.kind === "data"
+      ? event
+      : { workspaceId: event.workspaceId, terminalId: event.terminalId };
+    for (const listener of listeners) listener(payload as never);
+  };
+  const stopIfUnused = () => {
+    if (outputListeners.size > 0 || exitListeners.size > 0) return;
+    stopHost?.();
+    stopHost = null;
+  };
+  return {
+    subscribeOutput(listener: Listener<TerminalOutputEvent>, options?: SubscriptionOptions) {
+      outputListeners.add(listener);
+      start(options);
+      return () => {
+        outputListeners.delete(listener);
+        stopIfUnused();
+      };
+    },
+    subscribeExit(listener: Listener<TerminalExitEvent>, options?: SubscriptionOptions) {
+      exitListeners.add(listener);
+      start(options);
+      return () => {
+        exitListeners.delete(listener);
+        stopIfUnused();
+      };
+    },
+  };
 }
 
 export function subscribeUpdaterCheck(

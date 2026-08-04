@@ -1,13 +1,13 @@
 import type { AccessMode, AppMention, ServiceTier } from "@/types";
 import { getOptionalHostClient } from "@/host/client";
 import {
-  interruptTurn as interruptTurnTauri,
-  listThreads as listThreadsTauri,
-  resumeThread as resumeThreadTauri,
-  sendUserMessage as sendUserMessageTauri,
-  startThread as startThreadTauri,
-  steerTurn as steerTurnTauri,
-} from "./tauri";
+  interruptTurn as interruptTurnDesktop,
+  listThreads as listThreadsDesktop,
+  resumeThread as resumeThreadDesktop,
+  sendUserMessage as sendUserMessageDesktop,
+  startThread as startThreadDesktop,
+  steerTurn as steerTurnDesktop,
+} from "./desktop";
 
 export async function listThreads(
   workspaceId: string,
@@ -18,7 +18,7 @@ export async function listThreads(
   const host = getOptionalHostClient();
   return host
     ? host.agent.listThreads({ workspaceId, cursor, limit, sortKey })
-    : listThreadsTauri(workspaceId, cursor, limit, sortKey);
+    : listThreadsDesktop(workspaceId, cursor, limit, sortKey);
 }
 
 export type AgentTurnOptions = {
@@ -34,7 +34,7 @@ export type AgentTurnOptions = {
 
 export async function startThread(workspaceId: string, cwd?: string) {
   const host = getOptionalHostClient();
-  if (!host) return startThreadTauri(workspaceId);
+  if (!host) return startThreadDesktop(workspaceId);
   if (!cwd) throw new Error("Electron thread/start 缺少 workspace path");
   const response = await host.agent.startThread({ workspaceId, cwd });
   return { thread: response.thread ?? { id: response.threadId } };
@@ -46,7 +46,7 @@ export async function resumeThread(
   cwd?: string,
 ) {
   const host = getOptionalHostClient();
-  if (!host) return resumeThreadTauri(workspaceId, threadId);
+  if (!host) return resumeThreadDesktop(workspaceId, threadId);
   const response = await host.agent.resumeThread({ workspaceId, threadId, cwd });
   return { thread: response.thread ?? { id: response.threadId } };
 }
@@ -59,8 +59,8 @@ export async function sendUserMessage(
 ) {
   const host = getOptionalHostClient();
   if (!host) {
-    const { cwd: _cwd, ...tauriOptions } = options ?? {};
-    return sendUserMessageTauri(workspaceId, threadId, text, tauriOptions);
+    const { cwd: _cwd, ...desktopOptions } = options ?? {};
+    return sendUserMessageDesktop(workspaceId, threadId, text, desktopOptions);
   }
   const response = await host.agent.startTurn({
     threadId,
@@ -87,15 +87,8 @@ export async function steerTurn(
   const host = getOptionalHostClient();
   if (!host) {
     return appMentions && appMentions.length > 0
-      ? steerTurnTauri(
-        workspaceId,
-        threadId,
-        turnId,
-        text,
-        images,
-        appMentions,
-      )
-      : steerTurnTauri(workspaceId, threadId, turnId, text, images);
+      ? steerTurnDesktop(workspaceId, threadId, turnId, text, images, appMentions)
+      : steerTurnDesktop(workspaceId, threadId, turnId, text, images);
   }
   const response = await host.agent.steerTurn({
     threadId,
@@ -113,6 +106,6 @@ export async function interruptTurn(
   turnId: string,
 ) {
   const host = getOptionalHostClient();
-  if (!host) return interruptTurnTauri(workspaceId, threadId, turnId);
+  if (!host) return interruptTurnDesktop(workspaceId, threadId, turnId);
   return host.agent.interruptTurn({ threadId, turnId });
 }

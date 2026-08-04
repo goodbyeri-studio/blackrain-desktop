@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LocalUsageSnapshot } from "../../../types";
-import { localUsageSnapshot } from "../../../services/tauri";
+import { localUsageSnapshot } from "../../../services/desktop";
 
 type LocalUsageState = {
   snapshot: LocalUsageSnapshot | null;

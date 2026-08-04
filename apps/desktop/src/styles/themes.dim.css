@@ -23,6 +23,13 @@
   --surface-bubble-user: rgba(77, 153, 255, 0.5);
   --surface-context-core: rgba(32, 35, 42, 0.92);
   --surface-popover: rgba(32, 35, 42, 0.98);
+  --home-canvas: #20232a;
+  --home-prompt-surface: #2b2f37;
+  --home-project-surface: #252931;
+  --home-popover-surface: #2c3038;
+  --home-border: rgba(255, 255, 255, 0.13);
+  --home-hover: rgba(255, 255, 255, 0.075);
+  --home-shadow: rgba(0, 0, 0, 0.2);
 }
 
 :root[data-theme="dim"] .app.reduced-transparency {

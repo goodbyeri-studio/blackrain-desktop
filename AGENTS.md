@@ -8,7 +8,7 @@
 
 BlackRain 以 OpenAI 开源 `codex-rs` 为唯一 agent 内核，自行补齐完整桌面 Codex 产品需要的宿主能力，并尽可能对齐官方 Codex App 的核心功能与体验。
 
-唯一当前 P0 是完成 Tauri 到 Electron 的全量迁移、删除旧宿主并交付 Windows Electron 客户端。Browser P0 的 runtime/功能链路已闭环，后续作为 Electron 发布回归矩阵的一部分；不得用 Browser 已闭环推导 Electron 客户端已可发布。锁定 `codex-cli 0.146.0` 已通过标准 stdio MCP + BlackRain 随包 Node adapter 接入自有 Browser client；code-mode V8 不直接加载 Node 模块。dynamic tools 和 main 自加载 bridge 只保留测试/bootstrap，不得进入发布态第二路由。
+唯一当前 P0 是完成 BlackRain Windows Electron 客户端的正式签名与产品发布矩阵。Tauri 到 Electron 的代码迁移、旧宿主删除和 unsigned 自动化已在 2026-08-05 达到 `RUN_PASS`，但不得据此推导客户端已可发布。Browser P0 的 runtime/功能链路已闭环，后续作为 Electron 发布回归矩阵的一部分；锁定 `codex-cli 0.146.0` 已通过标准 stdio MCP + BlackRain 随包 Node adapter 接入自有 Browser client。code-mode V8 不直接加载 Node 模块，dynamic tools 和 main 自加载 bridge 只保留测试/bootstrap。
 
 工作台、Session Orchestrator、专家市场和 OPC/工作室均已暂停。不得把它们写成当前产品第一主语、当前里程碑或近期交付承诺。`2049 App` / `2049` 只允许出现在必须保留的历史兼容制品名中。
 
@@ -43,7 +43,7 @@ BlackRain（Electron）
   └─ 可选 Model Gateway sidecar
 ```
 
-当前代码仍是 Tauri。文档和 PR 必须明确区分“当前 Tauri 实现”“迁移中的 Electron 代码”和“Electron 目标态”。
+当前生产代码只保留 Electron 路径。文档和 PR 必须明确区分“Electron native-clean 代码态 `RUN_PASS`”与“正式签名 Windows 产品态 `PRODUCT_PASS`”；内部迁移真源可保留旧宿主历史事实，但不得写成当前入口。
 
 运行时规则：
 
@@ -59,7 +59,7 @@ BlackRain（Electron）
 
 | 目录 | 当前含义 | 纪律 |
 |---|---|---|
-| `apps/desktop/` | CodexMonitor 衍生的 Tauri 当前实现；Electron 迁移主战场 | 修改前读 `apps/desktop/AGENTS.md`；不随手 subtree pull |
+| `apps/desktop/` | CodexMonitor 衍生的 Electron Desktop 实现 | 修改前读 `apps/desktop/AGENTS.md`；不随手 subtree pull |
 | `gateway/` | 可选模型协议翻译原型 | 保持独立 sidecar |
 | `codex-upstream/` | gitignored 的 codex 只读参考克隆 | 只锁版本、构建和验证，不改内核 |
 | `plugins/` | 暂停路线留下的适配器 | 不进入迁移 P0，不扩建插件市场 |
@@ -82,7 +82,7 @@ BlackRain（Electron）
 - React renderer 只负责展示和前端状态。
 - Electron main 负责窗口、权限、Browser、更新和原装 app-server 生命周期，并直接实现 stdio JSONL App Server client。
 - preload 只暴露类型化 allowlist，不暴露原始 IPC 或 Node.js。
-- 当前 Rust daemon/shared core 只是 Tauri 迁移输入；目标态按 Codex App 分层把 agent 能力交给原装 app-server，把桌面宿主能力放入 Electron main/preload，不保留永久 BlackRain daemon。
+- 历史 Rust daemon/shared core 已删除；按 Codex App 分层把 agent 能力交给原装 app-server，把桌面宿主能力放入 Electron main/preload，不得恢复 BlackRain daemon。
 - Browser `WebContentsView` 只由 main 创建和持有；renderer 只上报经过校验的 bounds、visibility、active tab 和 UI 遮挡状态。
 - 可移植 Browser Runtime 核心不得依赖 BlackRain `AppServerRuntime`、总 `BlackRainHostApi`、BlackRain IPC channel 或 React UI；这些依赖只能位于 BlackRain/Codex adapter。
 - 通用源码底座使用中性的 owner/activity/surface 标识；BlackRain adapter 负责映射 thread/turn/route，不在核心中固化 Codex 生命周期。
@@ -104,7 +104,7 @@ Desktop/Cloud 是闭源商业项目：
 
 ## 验证与 Git
 
-Electron 迁移命令按 `docs/commands.md` 执行；涉及尚未删除的 Tauri 基线时才运行对应 Rust/NSIS 回归。必须持续补 main/preload 单测、App Server stdio 集成测试、Playwright Electron E2E 和 Windows MSIX 安装矩阵。
+Electron 日常与发布命令按 `docs/commands.md` 执行。必须持续补 main/preload 单测、App Server stdio 集成测试、Playwright Electron E2E 和 Windows MSIX 安装矩阵。
 
 Windows 浏览器登录、权限、下载、崩溃恢复、安装、升级和卸载必须实机验证。CI 或 macOS smoke 不能替代产品验收。
 

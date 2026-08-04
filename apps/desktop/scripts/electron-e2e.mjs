@@ -157,6 +157,7 @@ try {
       "--disable-background-timer-throttling",
       "--disable-backgrounding-occluded-windows",
       "--disable-renderer-backgrounding",
+      "--blackrain-e2e",
       appEntryPath,
     ],
     cwd: desktopRoot,
@@ -370,6 +371,76 @@ try {
   );
   assert.equal(rendererLayout.settingsHit, true);
   logStage("renderer layout passed");
+
+  const themeContrast = await window.evaluate(() => {
+    const parseRgb = (value) => {
+      const channels = value.match(/[\d.]+/g)?.map(Number);
+      if (!channels || channels.length < 3) {
+        throw new Error(`无法解析颜色: ${value}`);
+      }
+      return {
+        channels: channels.slice(0, 3),
+        alpha: channels[3] ?? 1,
+      };
+    };
+    const luminance = (channels) => {
+      const linear = channels.map((channel) => {
+        const normalized = channel / 255;
+        return normalized <= 0.04045
+          ? normalized / 12.92
+          : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+    };
+    const contrast = (foreground, background) => {
+      const foregroundColor = parseRgb(foreground);
+      const backgroundColor = parseRgb(background);
+      const paintedForeground = foregroundColor.channels.map(
+        (channel, index) =>
+          channel * foregroundColor.alpha +
+          backgroundColor.channels[index] * (1 - foregroundColor.alpha),
+      );
+      const foregroundLuminance = luminance(paintedForeground);
+      const backgroundLuminance = luminance(backgroundColor.channels);
+      const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+      const darker = Math.min(foregroundLuminance, backgroundLuminance);
+      return (lighter + 0.05) / (darker + 0.05);
+    };
+    const requireElement = (selector) => {
+      const element = document.querySelector(selector);
+      if (!(element instanceof HTMLElement)) {
+        throw new Error(`缺少主题对比度节点: ${selector}`);
+      }
+      return element;
+    };
+    const app = requireElement(".app");
+    const home = requireElement(".home-codex");
+    const greeting = requireElement(".home-codex-greeting");
+    const prompt = requireElement(".home-prompt-main");
+    const model = requireElement(".home-model-label");
+    const sidebarAction = requireElement(".sidebar-action");
+    const sidebarEmpty = requireElement(".workspace-list .empty");
+    const settingsTitle = requireElement(".sidebar-settings-account-title");
+    const appBackground = getComputedStyle(app, "::before").backgroundColor;
+    const homeBackground = getComputedStyle(home, "::before").backgroundColor;
+    const promptBackground = getComputedStyle(prompt).backgroundColor;
+    return {
+      appBackground,
+      homeBackground,
+      promptBackground,
+      greeting: contrast(getComputedStyle(greeting).color, homeBackground),
+      model: contrast(getComputedStyle(model).color, promptBackground),
+      sidebarAction: contrast(getComputedStyle(sidebarAction).color, appBackground),
+      sidebarEmpty: contrast(getComputedStyle(sidebarEmpty).color, appBackground),
+      settingsTitle: contrast(getComputedStyle(settingsTitle).color, appBackground),
+    };
+  });
+  assert.ok(themeContrast.greeting >= 4.5, JSON.stringify(themeContrast));
+  assert.ok(themeContrast.model >= 4.5, JSON.stringify(themeContrast));
+  assert.ok(themeContrast.sidebarAction >= 4.5, JSON.stringify(themeContrast));
+  assert.ok(themeContrast.sidebarEmpty >= 4.5, JSON.stringify(themeContrast));
+  assert.ok(themeContrast.settingsTitle >= 4.5, JSON.stringify(themeContrast));
+  logStage("renderer theme contrast passed");
 
   const settingsButton = window.getByRole("button", { name: "打开设置" });
   const settingsProfileEnabled =
@@ -1529,7 +1600,7 @@ try {
   }, workspaceContract.added.id);
   assert.equal(workspaceFileContract.includesPackageJson, true);
   assert.equal(workspaceFileContract.packageJson.truncated, false);
-  assert.match(workspaceFileContract.packageJson.content, /"codex-monitor"/);
+  assert.match(workspaceFileContract.packageJson.content, /"blackrain"/);
   const pendingDownloadTab = await window.evaluate(
     (scope) => globalThis.blackrain.browser.listTabs(scope).then((tabs) => tabs[0]),
     hostContract.scope,
@@ -1976,6 +2047,7 @@ try {
       "--disable-background-timer-throttling",
       "--disable-backgrounding-occluded-windows",
       "--disable-renderer-backgrounding",
+      "--blackrain-e2e",
       appEntryPath,
     ],
     cwd: desktopRoot,

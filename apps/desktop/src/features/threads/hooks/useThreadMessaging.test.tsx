@@ -11,7 +11,7 @@ import {
   listMcpServerStatus as listMcpServerStatusService,
   compactThread as compactThreadService,
   rollbackThread as rollbackThreadService,
-} from "@services/tauri";
+} from "@services/desktop";
 import type { ConversationItem, WorkspaceInfo } from "@/types";
 import { useThreadMessaging } from "./useThreadMessaging";
 
@@ -21,7 +21,7 @@ vi.mock("@sentry/react", () => ({
   },
 }));
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   sendUserMessage: vi.fn(),
   steerTurn: vi.fn(),
   startReview: vi.fn(),

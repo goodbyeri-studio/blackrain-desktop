@@ -4,7 +4,7 @@ import type {
   DebugEntry,
   RequestUserInputRequest,
 } from "../../../types";
-import { sendNotification } from "../../../services/tauri";
+import { sendNotification } from "../../../services/desktop";
 import { getApprovalCommandInfo } from "../../../utils/approvalRules";
 import { useAppServerEvents } from "../../app/hooks/useAppServerEvents";
 

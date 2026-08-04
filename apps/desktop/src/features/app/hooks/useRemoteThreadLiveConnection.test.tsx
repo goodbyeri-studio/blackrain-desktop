@@ -20,7 +20,7 @@ vi.mock("@services/events", () => ({
     subscribeAppServerEventsMock(listener),
 }));
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   threadLiveSubscribe: (...args: any[]) => threadLiveSubscribeMock(...args),
   threadLiveUnsubscribe: (...args: any[]) => threadLiveUnsubscribeMock(...args),
 }));
@@ -32,12 +32,6 @@ vi.mock("@services/toasts", () => ({
 vi.mock("@utils/appServerEvents", () => ({
   getAppServerRawMethod: (event: any) => event.method ?? null,
   getAppServerParams: (event: any) => event.params ?? {},
-}));
-
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({
-    listen: vi.fn().mockResolvedValue(() => {}),
-  }),
 }));
 
 describe("useRemoteThreadLiveConnection", () => {

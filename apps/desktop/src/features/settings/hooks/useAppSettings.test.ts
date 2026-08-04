@@ -7,10 +7,10 @@ import {
   getAppSettings,
   runCodexDoctor,
   updateAppSettings,
-} from "@services/tauri";
+} from "@services/desktop";
 import { UI_SCALE_DEFAULT, UI_SCALE_MAX } from "@utils/uiScale";
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   getAppSettings: vi.fn(),
   updateAppSettings: vi.fn(),
   runCodexDoctor: vi.fn(),

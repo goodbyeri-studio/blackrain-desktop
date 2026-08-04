@@ -8,7 +8,7 @@ import {
   pushGit,
   stageGitAll,
   syncGit,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 import { shouldApplyCommitMessage } from "../../../utils/commitMessage";
 import { useGitStatus } from "../../git/hooks/useGitStatus";
 

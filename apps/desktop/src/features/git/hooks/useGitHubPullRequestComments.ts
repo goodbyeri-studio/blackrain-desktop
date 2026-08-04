@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GitHubPullRequestComment, WorkspaceInfo } from "../../../types";
-import { getGitHubPullRequestComments } from "../../../services/tauri";
+import { getGitHubPullRequestComments } from "../../../services/desktop";
 
 type PullRequestCommentsState = {
   comments: GitHubPullRequestComment[];

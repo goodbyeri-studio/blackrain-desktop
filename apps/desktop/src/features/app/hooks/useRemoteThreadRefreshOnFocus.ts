@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { WorkspaceInfo } from "../../../types";
 
 export const REMOTE_THREAD_POLL_INTERVAL_MS = 12000;
@@ -47,11 +46,8 @@ export function useRemoteThreadRefreshOnFocus({
     let pollTimer: ReturnType<typeof setInterval> | null = null;
     let refreshInFlight = false;
     let reconnectInFlight = false;
-    let didCleanup = false;
     let windowFocused =
       typeof document === "undefined" ? true : document.visibilityState === "visible";
-    let unlistenWindowFocus: (() => void) | null = null;
-    let unlistenWindowBlur: (() => void) | null = null;
 
     const canRefresh = () =>
       backendMode === "remote" &&
@@ -156,44 +152,8 @@ export function useRemoteThreadRefreshOnFocus({
     window.addEventListener("focus", handleFocus);
     window.addEventListener("blur", handleBlur);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    try {
-      const windowHandle = getCurrentWindow();
-      windowHandle
-        .listen("tauri://focus", handleFocus)
-        .then((unlisten) => {
-          if (didCleanup) {
-            unlisten();
-            return;
-          }
-          unlistenWindowFocus = unlisten;
-        })
-        .catch(() => {
-          // Ignore: DOM listeners still handle focus changes when available.
-        });
-      windowHandle
-        .listen("tauri://blur", handleBlur)
-        .then((unlisten) => {
-          if (didCleanup) {
-            unlisten();
-            return;
-          }
-          unlistenWindowBlur = unlisten;
-        })
-        .catch(() => {
-          // Ignore: DOM listeners still handle visibility changes when available.
-        });
-    } catch {
-      // In non-Tauri environments, getCurrentWindow can throw.
-    }
     updatePolling();
     return () => {
-      didCleanup = true;
-      if (unlistenWindowFocus) {
-        unlistenWindowFocus();
-      }
-      if (unlistenWindowBlur) {
-        unlistenWindowBlur();
-      }
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("blur", handleBlur);
       document.removeEventListener("visibilitychange", handleVisibilityChange);

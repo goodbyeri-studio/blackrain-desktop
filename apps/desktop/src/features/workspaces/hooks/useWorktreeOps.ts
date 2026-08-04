@@ -8,7 +8,7 @@ import {
   removeWorktree as removeWorktreeService,
   renameWorktree as renameWorktreeService,
   renameWorktreeUpstream as renameWorktreeUpstreamService,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 
 type UseWorktreeOpsOptions = {
   onDebug?: (entry: DebugEntry) => void;

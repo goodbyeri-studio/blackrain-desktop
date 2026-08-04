@@ -364,7 +364,7 @@ export function SettingsServerSection({
             <input
               className="settings-input settings-input--compact"
               value={remoteHostDraft}
-              placeholder="127.0.0.1:4732"
+              placeholder="host.example:443"
               onChange={(event) => onSetRemoteHostDraft(event.target.value)}
               onBlur={() => {
                 void onCommitRemoteHost();

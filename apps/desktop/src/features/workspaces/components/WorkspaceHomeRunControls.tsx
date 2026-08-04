@@ -103,7 +103,7 @@ export function WorkspaceHomeRunControls({
               className="ghost open-app-action"
               onClick={toggleRunModeMenu}
               aria-label={tx("Select run mode")}
-              data-tauri-drag-region="false"
+              data-electron-drag-region="false"
             >
               <span className="open-app-label">
                 <RunModeIcon className="workspace-home-mode-icon" aria-hidden />
@@ -156,7 +156,7 @@ export function WorkspaceHomeRunControls({
             className="ghost open-app-action"
             onClick={toggleModelsMenu}
             aria-label={tx("Select models")}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
           >
             <span className="open-app-label">
               {runMode === "local" ? selectedModelLabel : modelSummary}

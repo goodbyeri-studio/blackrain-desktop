@@ -113,11 +113,11 @@ body {
 .app.is-windows:not(.reduced-transparency)::before {
   z-index: 0;
   background:
-    radial-gradient(circle at 18% 12%, rgba(116, 145, 170, 0.08), transparent 30%),
-    radial-gradient(circle at 82% 26%, rgba(180, 190, 205, 0.05), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.3)),
-    #0a0e14;
+    radial-gradient(circle at 18% 12%, var(--material-wallpaper-accent-primary), transparent 30%),
+    radial-gradient(circle at 82% 26%, var(--material-wallpaper-accent-secondary), transparent 32%),
+    linear-gradient(135deg, var(--material-wallpaper-highlight), transparent 34%),
+    linear-gradient(180deg, var(--material-wallpaper-top), var(--material-wallpaper-bottom)),
+    var(--surface-app, #0a0e14);
   opacity: var(--material-wallpaper-opacity, 1);
   animation: material-wallpaper-drift 18s ease-in-out infinite alternate;
 }
@@ -125,9 +125,9 @@ body {
 .app.is-windows:not(.reduced-transparency)::after {
   z-index: 1;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035), transparent 22%, transparent 72%, rgba(255, 255, 255, 0.02)),
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 6px);
-  mix-blend-mode: screen;
+    linear-gradient(90deg, var(--material-overlay-edge), transparent 22%, transparent 72%, var(--material-overlay-edge)),
+    repeating-linear-gradient(135deg, var(--material-overlay-line) 0 1px, transparent 1px 6px);
+  mix-blend-mode: var(--material-overlay-blend, screen);
   opacity: var(--material-grain-opacity, 0.28);
 }
 
@@ -161,7 +161,7 @@ body {
   pointer-events: var(--window-drag-strip-pointer-events, auto);
 }
 
-.app.is-windows [data-tauri-drag-region],
+.app.is-windows [data-electron-drag-region],
 .app.is-windows .titlebar,
 .app.is-windows .main-topbar {
   -webkit-app-region: no-drag !important;

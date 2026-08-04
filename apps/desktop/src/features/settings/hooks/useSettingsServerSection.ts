@@ -13,7 +13,7 @@ import {
   tailscaleDaemonStatus,
   tailscaleDaemonStop,
   tailscaleStatus as fetchTailscaleStatus,
-} from "@services/tauri";
+} from "@services/desktop";
 import { isMobilePlatform } from "@utils/platformPaths";
 import { DEFAULT_REMOTE_HOST } from "@settings/components/settingsViewConstants";
 

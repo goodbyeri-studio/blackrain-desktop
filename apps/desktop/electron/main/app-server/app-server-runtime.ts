@@ -1,6 +1,16 @@
 import path from "node:path";
 import { z } from "zod";
 import {
+  AgentAccountInputSchema,
+  AgentAccountLoginCancelResponseSchema,
+  AgentAccountLoginStartResponseSchema,
+  AgentExperimentalFeatureListInputSchema,
+  AgentExperimentalFeatureSetInputSchema,
+  AgentMcpServerStatusInputSchema,
+  AgentReviewStartInputSchema,
+  AgentReviewStartResponseSchema,
+  AgentThreadOperationInputSchema,
+  AgentThreadRollbackInputSchema,
   AgentThreadListInputSchema,
   AgentThreadListResponseSchema,
   AgentThreadResumeInputSchema,
@@ -110,6 +120,7 @@ export class AppServerRuntime {
   readonly #threadCwds = new Map<string, string>();
   readonly #workspaceCwds = new Map<string, string>();
   readonly #pendingServerRequests = new Map<string, PendingServerRequest>();
+  readonly #accountLoginIds = new Map<string, string>();
   #process?: AppServerProcess;
   #startPromise?: Promise<void>;
   #restartAfterSystemResume = false;
@@ -165,6 +176,12 @@ export class AppServerRuntime {
 
   status(): AgentRuntimeStatus {
     return { state: this.#process?.state ?? "idle" };
+  }
+
+  /** 启动唯一的 app-server；不会启动旧 daemon 或其它 agent runtime。 */
+  async start(): Promise<AgentRuntimeStatus> {
+    await this.#ensureStarted();
+    return this.status();
   }
 
   async listThreads(input: unknown) {
@@ -265,6 +282,94 @@ export class AppServerRuntime {
     return request;
   }
 
+  async startReview(input: unknown) {
+    const request = AgentReviewStartInputSchema.parse(input);
+    this.#requireThread(request.threadId);
+    const client = await this.#ensureStarted();
+    return AgentReviewStartResponseSchema.parse(await client.request("review/start", {
+      threadId: request.threadId,
+      target: request.target,
+      ...(request.delivery ? { delivery: request.delivery } : {}),
+    }));
+  }
+
+  async listExperimentalFeatures(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentExperimentalFeatureListInputSchema.parse(input);
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("experimentalFeature/list", {
+      cursor: request.cursor ?? null,
+      limit: request.limit ?? null,
+      threadId: request.threadId ?? null,
+    }));
+  }
+
+  async setExperimentalFeature(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentExperimentalFeatureSetInputSchema.parse(input);
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("experimentalFeature/enablement/set", {
+      enablement: { [request.featureKey]: request.enabled },
+    }));
+  }
+
+  async forkThread(input: unknown): Promise<AgentThreadAck> {
+    const request = AgentThreadOperationInputSchema.parse(input);
+    this.#requireThread(request.threadId);
+    const client = await this.#ensureStarted();
+    const cwd = this.#threadCwds.get(request.threadId);
+    const response = ThreadResponseSchema.parse(await client.request("thread/fork", {
+      threadId: request.threadId,
+      ...(cwd ? { cwd } : {}),
+    }));
+    this.#threads.add(response.thread.id);
+    if (cwd) this.#threadCwds.set(response.thread.id, cwd);
+    this.#threadWorkspaces.set(response.thread.id, request.workspaceId);
+    this.#browserTools.registerThread(response.thread.id);
+    return { threadId: response.thread.id, thread: response.thread };
+  }
+
+  async compactThread(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentThreadOperationInputSchema.parse(input);
+    this.#requireThread(request.threadId);
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("thread/compact/start", {
+      threadId: request.threadId,
+    }));
+  }
+
+  async rollbackThread(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentThreadRollbackInputSchema.parse(input);
+    this.#requireThread(request.threadId);
+    const client = await this.#ensureStarted();
+    const threadResponse = requireObject(await client.request("thread/read", {
+      threadId: request.threadId,
+      includeTurns: true,
+    }));
+    const thread = requireObject(threadResponse.thread);
+    const turns = Array.isArray(thread.turns) ? thread.turns : [];
+    const targetIndex = turns.findIndex((turn) =>
+      Boolean(turn) && typeof turn === "object" && !Array.isArray(turn) &&
+      (turn as Record<string, unknown>).id === request.turnId,
+    );
+    if (targetIndex < 0) throw new Error("Rollback 目标 turn 不属于当前 thread");
+    const numTurns = turns.length - targetIndex;
+    if (numTurns < 1) throw new Error("Rollback 至少需要移除一个 turn");
+    return requireObject(await client.request("thread/rollback", {
+      threadId: request.threadId,
+      numTurns,
+    }));
+  }
+
+  async listMcpServerStatus(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentMcpServerStatusInputSchema.parse(input);
+    const client = await this.#ensureStarted();
+    return requireObject(await client.request("mcpServerStatus/list", {
+      cursor: request.cursor ?? null,
+      limit: request.limit ?? null,
+      detail: "full",
+      threadId: request.threadId ?? null,
+    }));
+  }
+
   async listModels(): Promise<Record<string, unknown>> {
     const client = await this.#ensureStarted();
     return requireObject(await client.request("model/list", {
@@ -319,6 +424,39 @@ export class AppServerRuntime {
   async readAccountRateLimits(): Promise<Record<string, unknown>> {
     const client = await this.#ensureStarted();
     return requireObject(await client.request("account/rateLimits/read"));
+  }
+
+  async startAccountLogin(input: unknown) {
+    const request = AgentAccountInputSchema.parse(input);
+    const client = await this.#ensureStarted();
+    const response = AgentAccountLoginStartResponseSchema.parse(
+      await client.request("account/login/start", { type: "chatgpt" }),
+    );
+    this.#accountLoginIds.set(request.workspaceId, response.loginId);
+    return response;
+  }
+
+  async cancelAccountLogin(input: unknown) {
+    const request = AgentAccountInputSchema.parse(input);
+    const loginId = this.#accountLoginIds.get(request.workspaceId);
+    if (!loginId) return { canceled: false } as const;
+    const client = await this.#ensureStarted();
+    const response = requireObject(await client.request("account/login/cancel", { loginId }));
+    this.#accountLoginIds.delete(request.workspaceId);
+    return AgentAccountLoginCancelResponseSchema.parse({
+      canceled: String(response.status ?? "").toLowerCase() === "canceled",
+      status: typeof response.status === "string" ? response.status : undefined,
+    });
+  }
+
+  async logoutAccount(input: unknown): Promise<Record<string, unknown>> {
+    const request = AgentAccountInputSchema.parse(input);
+    this.#accountLoginIds.delete(request.workspaceId);
+    const client = await this.#ensureStarted();
+    const response = await client.request("account/logout", null);
+    return response && typeof response === "object" && !Array.isArray(response)
+      ? response as Record<string, unknown>
+      : {};
   }
 
   async readThread(input: unknown): Promise<Record<string, unknown>> {
@@ -528,6 +666,7 @@ export class AppServerRuntime {
     this.#threadWorkspaces.clear();
     this.#threadCwds.clear();
     this.#workspaceCwds.clear();
+    this.#accountLoginIds.clear();
   }
 
   #snapshotRuntimeOwnership(): SuspendedRuntimeOwnership {

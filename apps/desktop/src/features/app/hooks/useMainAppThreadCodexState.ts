@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { setWorkspaceRuntimeCodexArgs } from "@services/tauri";
+import { setWorkspaceRuntimeCodexArgs } from "@services/desktop";
 import { buildCodexArgsOptions } from "@threads/utils/codexArgsProfiles";
 import {
   resolveWorkspaceRuntimeCodexArgsBadgeLabel,

@@ -2,11 +2,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { useApps } from "./useApps";
-import { getAppsList } from "../../../services/tauri";
+import { getAppsList } from "../../../services/desktop";
 import { subscribeAppServerEvents } from "../../../services/events";
 import type { AppServerEvent, WorkspaceInfo } from "../../../types";
 
-vi.mock("../../../services/tauri", () => ({
+vi.mock("../../../services/desktop", () => ({
   getAppsList: vi.fn(),
 }));
 

@@ -9,7 +9,7 @@ import {
   stageGitAll as stageGitAllService,
   stageGitFile as stageGitFileService,
   unstageGitFile as unstageGitFileService,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 import type { WorkspaceInfo } from "../../../types";
 
 type UseGitActionsOptions = {

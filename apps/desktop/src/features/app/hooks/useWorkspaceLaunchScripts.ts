@@ -6,7 +6,7 @@ import type {
   WorkspaceSettings,
 } from "../../../types";
 import type { TerminalSessionState } from "../../terminal/hooks/useTerminalSession";
-import { writeTerminalSession } from "../../../services/tauri";
+import { writeTerminalSession } from "../../../services/desktop";
 import { pushErrorToast } from "../../../services/toasts";
 import {
   DEFAULT_LAUNCH_SCRIPT_ICON,

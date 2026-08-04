@@ -7,7 +7,7 @@ import {
   type RefObject,
 } from "react";
 import { useI18n } from "@/i18n";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc } from "../../../host/media";
 import type {
   AppOption,
   CustomPromptOption,
@@ -78,7 +78,7 @@ type WorkspaceHomeProps = {
   dictationLevel: number;
   onToggleDictation: () => void;
   onCancelDictation?: () => void;
-  onOpenDictationSettings: () => void;
+  onOpenDictationSettings?: () => void;
   dictationError: string | null;
   onDismissDictationError: () => void;
   dictationHint: string | null;

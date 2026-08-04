@@ -14,7 +14,6 @@ import {
   MenuTrigger,
   PopoverSurface,
 } from "../../design-system/components/popover/PopoverPrimitives";
-import { OpenAppMenu } from "./OpenAppMenu";
 import { LaunchScriptButton } from "./LaunchScriptButton";
 import { LaunchScriptEntryButton } from "./LaunchScriptEntryButton";
 import type { WorkspaceLaunchScriptsState } from "../hooks/useWorkspaceLaunchScripts";
@@ -80,10 +79,10 @@ export function MainHeader({
   disableBranchMenu = false,
   parentPath = null,
   worktreePath = null,
-  openTargets,
-  openAppIconById,
-  selectedOpenAppId,
-  onSelectOpenAppId,
+  openTargets: _openTargets,
+  openAppIconById: _openAppIconById,
+  selectedOpenAppId: _selectedOpenAppId,
+  onSelectOpenAppId: _onSelectOpenAppId,
   branchName,
   branches,
   onCheckoutBranch,
@@ -190,7 +189,7 @@ export function MainHeader({
   };
 
   return (
-    <header className="main-header" data-tauri-drag-region>
+    <header className="main-header" data-electron-drag-region>
       <div className="workspace-header">
         <div className="workspace-title-line">
           <span className="workspace-title">
@@ -206,7 +205,7 @@ export function MainHeader({
                 popupRole="dialog"
                 className="workspace-branch-static-button"
                 onClick={infoMenu.toggle}
-                data-tauri-drag-region="false"
+                data-electron-drag-region="false"
                 title={tx("Worktree info")}
               >
                 {worktreeLabel || branchName}
@@ -251,7 +250,7 @@ export function MainHeader({
                               worktreeRename.onCommit();
                             }
                           }}
-                          data-tauri-drag-region="false"
+                          data-electron-drag-region="false"
                           disabled={worktreeRename.isSubmitting}
                         />
                         <button
@@ -314,7 +313,7 @@ export function MainHeader({
                         onClick={async () => {
                           await navigator.clipboard.writeText(cdCommand);
                         }}
-                        data-tauri-drag-region="false"
+                        data-electron-drag-region="false"
                         aria-label={tx("Copy command")}
                         title={tx("Copy command")}
                       >
@@ -333,7 +332,7 @@ export function MainHeader({
                       onClick={async () => {
                         await revealPath(resolvedWorktreePath);
                       }}
-                      data-tauri-drag-region="false"
+                      data-electron-drag-region="false"
                     >
                       {revealInFileManagerLabel()}
                     </button>
@@ -347,7 +346,7 @@ export function MainHeader({
                 isOpen={menuOpen}
                 className="workspace-branch-button"
                 onClick={branchMenu.toggle}
-                data-tauri-drag-region="false"
+                data-electron-drag-region="false"
               >
                 <span className="workspace-branch">{branchName}</span>
                 <span className="workspace-branch-caret" aria-hidden>
@@ -358,7 +357,7 @@ export function MainHeader({
                 <PopoverSurface
                   className="workspace-branch-dropdown"
                   role="menu"
-                  data-tauri-drag-region="false"
+                  data-electron-drag-region="false"
                 >
                   <div className="branch-actions">
                     <div className="branch-search">
@@ -409,7 +408,7 @@ export function MainHeader({
                         autoCapitalize="none"
                         spellCheck={false}
                         autoFocus
-                        data-tauri-drag-region="false"
+                        data-electron-drag-region="false"
                         aria-label={tx("Search branches")}
                       />
                       <button
@@ -435,7 +434,7 @@ export function MainHeader({
                             );
                           }
                         }}
-                        data-tauri-drag-region="false"
+                        data-electron-drag-region="false"
                       >
                         {tx("Create")}
                       </button>
@@ -457,7 +456,7 @@ export function MainHeader({
                     itemClassName="branch-item"
                     currentItemClassName="is-active"
                     itemRole="menuitem"
-                    itemDataTauriDragRegion="false"
+                    itemDataElectronDragRegion="false"
                     emptyClassName="branch-empty"
                     emptyText={tx("No branches found")}
                     onSelect={async (branch) => {
@@ -535,21 +534,12 @@ export function MainHeader({
               ))}
             </div>
           )}
-        {showWorkspaceTools ? (
-          <OpenAppMenu
-            path={resolvedWorktreePath}
-            openTargets={openTargets}
-            selectedOpenAppId={selectedOpenAppId}
-            onSelectOpenAppId={onSelectOpenAppId}
-            iconById={openAppIconById}
-          />
-        ) : null}
         {showTerminalButton && (
           <button
             type="button"
             className={`ghost main-header-action ds-tooltip-trigger${isTerminalOpen ? " is-active" : ""}`}
             onClick={onToggleTerminal}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
             aria-label={tx("Toggle terminal panel")}
             title={tx("Terminal")}
             data-tooltip={tx("Terminal")}
@@ -563,7 +553,7 @@ export function MainHeader({
           className={`ghost main-header-action ds-tooltip-trigger${copyFeedback ? " is-copied" : ""}`}
           onClick={handleCopyClick}
           disabled={!canCopyThread || !onCopyThread}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           aria-label={tx("Copy thread")}
           title={tx("Copy thread")}
           data-tooltip={tx("Copy thread")}

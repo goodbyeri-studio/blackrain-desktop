@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getOpenAppIcon } from "../../../services/tauri";
+import { getOpenAppIcon } from "../../../services/desktop";
 import type { OpenAppTarget } from "../../../types";
 import { getKnownOpenAppIcon } from "../utils/openAppIcons";
 import { isMacPlatform } from "../../../utils/platformPaths";

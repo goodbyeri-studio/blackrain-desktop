@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { listWorkspaces } from "../../../services/tauri";
+import { listWorkspaces } from "../../../services/desktop";
 import type { AppSettings } from "../../../types";
 import { isMobilePlatform } from "../../../utils/platformPaths";
 import type { MobileServerSetupWizardProps } from "../components/MobileServerSetupWizard";

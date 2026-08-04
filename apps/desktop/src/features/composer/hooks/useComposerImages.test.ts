@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import { useComposerImages } from "./useComposerImages";
 
-vi.mock("../../../services/tauri", () => ({
+vi.mock("../../../services/desktop", () => ({
   pickImageFiles: vi.fn().mockResolvedValue([]),
 }));
 

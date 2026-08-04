@@ -77,7 +77,7 @@ export function WorktreeCard({
                   event.stopPropagation();
                   onToggleWorkspaceCollapse(worktree.id, !worktreeCollapsed);
                 }}
-                data-tauri-drag-region="false"
+                data-electron-drag-region="false"
                 aria-label={worktreeCollapsed ? tx("Show agents") : tx("Hide agents")}
                 aria-expanded={!worktreeCollapsed}
               >

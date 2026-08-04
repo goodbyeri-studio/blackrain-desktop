@@ -13,7 +13,7 @@ export function SidebarActions({ onNewConversation }: SidebarActionsProps) {
         type="button"
         className="sidebar-action"
         onClick={onNewConversation}
-        data-tauri-drag-region="false"
+        data-electron-drag-region="false"
       >
         <span className="sidebar-action-icon" aria-hidden>
           <SquarePen size={17} strokeWidth={1.8} />

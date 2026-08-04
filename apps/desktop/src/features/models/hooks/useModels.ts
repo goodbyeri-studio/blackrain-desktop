@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppSettings, DebugEntry, ModelOption, WorkspaceInfo } from "../../../types";
-import { getConfigModel, getModelList } from "../../../services/tauri";
+import { getConfigModel, getModelList } from "../../../services/desktop";
 import { getOptionalHostClient } from "@/host/client";
 import {
   normalizeEffortValue,
