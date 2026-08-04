@@ -251,8 +251,12 @@ export class GitService {
   }
 
   #cwd(workspaceId: string): string { return this.#workspaces.require(workspaceId).path; }
-  #git(cwd: string, args: string[]): Promise<string> { return this.#run("git.exe", cwd, args); }
-  #gh(cwd: string, args: string[]): Promise<string> { return this.#run("gh.exe", cwd, args); }
+  #git(cwd: string, args: string[]): Promise<string> {
+    return this.#run(process.platform === "win32" ? "git.exe" : "git", cwd, args);
+  }
+  #gh(cwd: string, args: string[]): Promise<string> {
+    return this.#run(process.platform === "win32" ? "gh.exe" : "gh", cwd, args);
+  }
 
   async #run(executable: string, cwd: string, args: string[]): Promise<string> {
     try {

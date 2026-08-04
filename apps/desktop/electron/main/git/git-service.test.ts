@@ -7,6 +7,7 @@ import { WorkspaceStore } from "../workspaces/workspace-store";
 import { GitService } from "./git-service";
 
 const temporaryRoots: string[] = [];
+const gitExecutable = process.platform === "win32" ? "git.exe" : "git";
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
@@ -25,8 +26,8 @@ describe("GitService", () => {
     const git = new GitService(workspaces);
 
     await git.init({ workspaceId: workspace.id, branch: "main", force: true });
-    execFileSync("git.exe", ["config", "user.email", "test@blackrain.local"], { cwd: workspaceRoot });
-    execFileSync("git.exe", ["config", "user.name", "BlackRain Test"], { cwd: workspaceRoot });
+    execFileSync(gitExecutable, ["config", "user.email", "test@blackrain.local"], { cwd: workspaceRoot });
+    execFileSync(gitExecutable, ["config", "user.name", "BlackRain Test"], { cwd: workspaceRoot });
     writeFileSync(path.join(workspaceRoot, "note.txt"), "first\n", "utf8");
     await git.stageAll({ workspaceId: workspace.id });
     await git.commit({ workspaceId: workspace.id, message: "initial" });
