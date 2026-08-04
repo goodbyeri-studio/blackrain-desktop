@@ -1,0 +1,51 @@
+{
+  "status": "fail",
+  "pid": 18636,
+  "mainWindow": {
+    "enabled": true,
+    "focusable": true,
+    "focused": false,
+    "visible": false,
+    "webContentsFocused": false,
+    "bounds": {
+      "x": 253,
+      "y": 106,
+      "width": 1201,
+      "height": 700
+    },
+    "childViews": []
+  },
+  "contentBounds": {
+    "x": -21333,
+    "y": -21333,
+    "width": 0,
+    "height": 0
+  },
+  "screenPoint": {
+    "x": -21223,
+    "y": -20744
+  },
+  "dipConvertedScreenPoint": {
+    "x": -31835,
+    "y": -31116
+  },
+  "cursorScreenPoint": {
+    "x": 1469,
+    "y": 656
+  },
+  "renderer": {
+    "buttonBounds": {
+      "x": 16,
+      "y": 564.6666870117188,
+      "width": 188,
+      "height": 48
+    },
+    "events": [],
+    "settingsOpen": false,
+    "focused": false,
+    "activeElement": "BODY.",
+    "hitTarget": "BUTTON.ghost sidebar-settings-account-button",
+    "buttonContainsHitTarget": true
+  },
+  "reason": "native click observation timed out after 90000ms; last={\"status\":\"ready\",\"pid\":18636,\"mainWindow\":{\"enabled\":true,\"focusable\":true,\"focused\":false,\"visible\":false,\"webContentsFocused\":false,\"bounds\":{\"x\":253,\"y\":106,\"width\":1201,\"height\":700},\"childViews\":[]},\"contentBounds\":{\"x\":-21333,\"y\":-21333,\"width\":0,\"height\":0},\"screenPoint\":{\"x\":-21223,\"y\":-20744},\"dipConvertedScreenPoint\":{\"x\":-31835,\"y\":-31116},\"cursorScreenPoint\":{\"x\":1467,\"y\":661},\"renderer\":{\"buttonBounds\":{\"x\":16,\"y\":564.6666870117188,\"width\":188,\"height\":48},\"events\":[],\"settingsOpen\":false,\"focused\":false,\"activeElement\":\"BODY.\",\"hitTarget\":\"BUTTON.ghost sidebar-settings-account-button\",\"buttonContainsHitTarget\":true}}"
+}

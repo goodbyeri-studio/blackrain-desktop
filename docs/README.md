@@ -10,9 +10,10 @@
 | 用户看到的产品形态与优先级 | `docs/04-产品形态.md` |
 | 目标运行时、当前迁移状态与里程碑 | `docs/09-运行时架构与里程碑.md` |
 | Electron 与内置 Browser 的实施波次 | `docs/10-Electron迁移与内置浏览器实现计划.md` |
-| 当前 P0 需求、设计、任务、决策和验证 | `.specs/002-electron-migration/` |
-| 整体 Electron 迁移路线 | `docs/09` 里程碑 + `docs/10` 迁移波次；当前无第二个 spec |
-| 当前功能完成了什么 | `002-electron-migration/verification.md` + 实际代码/配置 |
+| BlackRain 产品 P0 需求、设计、任务、决策和验证 | `.specs/002-electron-migration/` |
+| 可移植 Browser Runtime 源码底座 | `.specs/003-portable-electron-browser-runtime/` |
+| 整体 Electron 迁移路线 | `docs/09` 里程碑 + `docs/10` 迁移波次 |
+| 当前功能完成了什么 | 对应 spec 的 `verification.md` + 实际代码/配置 |
 
 `tasks.md` 勾选、目标拓扑和旧测试不能替代当前证据。发生冲突时，产品优先级看 04，运行时边界看 09，具体实现看对应 spec。
 
@@ -39,7 +40,8 @@
 | [08 仓库与上游](08-仓库结构与上游策略.md) | codex 只读上游、Tauri 迁移起点和 Electron 归属 |
 | [09 运行时与里程碑](09-运行时架构与里程碑.md) | **唯一运行时真源** |
 | [10 Electron 与 Browser 实施计划](10-Electron迁移与内置浏览器实现计划.md) | Codex 式 Electron/Browser 分层、协议、迁移波次和闸口 |
-| [002 Electron 全量迁移](../.specs/002-electron-migration/) | **唯一当前 spec/P0**：能力迁移、旧宿主删除和 Windows 发布 |
+| [002 Electron 全量迁移](../.specs/002-electron-migration/) | **产品交付 P0**：能力迁移、旧宿主删除和 Windows 发布 |
+| [003 可移植 Electron Browser Runtime](../.specs/003-portable-electron-browser-runtime/) | **并行源码底座**：核心去耦、宿主/Agent adapter、reference host 和可移植性 |
 
 ## 状态标签
 
@@ -59,5 +61,5 @@
 - Codex App 的公开行为和合法可观察 Browser 控制面是第一实现基线；其他 Electron 项目只提供次级工程参考。
 - 工作台、市场、Office 参考包和 OPC 必须标记为暂停，不写成近期路线图。
 - Windows 是当前发布验收平台；其他平台 smoke 不能替代 Windows 证据。
-- 同一时刻只保留一个业务 spec；当前 P0 完成后再按新优先级替换。命令只有真实存在后才写入 `commands.md`。
+- 允许多个边界清晰的业务 spec 并行，但必须声明交付物、代码所有权、依赖和验证边界；一个 spec 的通过不能替代另一个。命令只有真实存在后才写入 `commands.md`。
 - 文档和代码同 PR 更新，不保留悬空的“以后补文档”。

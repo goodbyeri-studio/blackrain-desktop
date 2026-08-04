@@ -1,9 +1,9 @@
 # 快捷命令行
 
-> **状态（2026-08-03）**：本文件中的 `tauri:*`、Tauri Windows 和 NSIS 命令描述当前产品基线，不是最终发布路线。迁移中的 Electron 已接入 bundled `codex.exe`，并通过 Browser host、App 重启恢复和显式真实模型共页验证；本机开发签名 MSIX 已完成真实安装和 AUMID 首启，但安装态全页面原生点击仍不可用，当前结果为 `PRODUCT_FAIL`，不能作为可发布客户端。
+> **状态（2026-08-04）**：本文件中的 `tauri:*`、Tauri Windows 和 NSIS 命令仅保留为迁移期输入，不是最终发布路线。Electron 原生重建完成后，日常命令、发布命令和用户文档必须只保留 Electron；最终 release package、生产源码和脚本不得含 Tauri 残留。当前 Electron 安装态全页面原生点击仍为 `PRODUCT_FAIL`，不能作为可发布客户端。
 
 > BlackRain 日常启动、构建、发布和通用验证命令的唯一真源。模块 README/runbook 只保留不重复的局部诊断或协议探针。除特别标注外，路径均以仓库根 `BlackRain/` 为基准。
-> MVP 仅发行 Windows，主流程使用 PowerShell 7 (`pwsh`)；macOS / iOS 只作为 post-MVP 或上游资产。
+> MVP 仅发行 Windows，主流程使用 `C:\Program Files\PowerShell\7\pwsh.exe`；macOS / iOS 只作为 post-MVP 或上游资产。
 
 ## 目录
 
@@ -30,7 +30,7 @@ Copy-Item .env.example .env
 # 编辑 .env，填写 DEEPSEEK_API_KEY；不要提交该文件
 
 Set-Location apps\desktop
-npm install
+npm.cmd install
 Set-Location ..\..
 ```
 
@@ -43,11 +43,11 @@ winget install Kitware.CMake LLVM.LLVM
 # 或：choco install cmake llvm
 
 Set-Location apps\desktop
-npm run doctor:win
+npm.cmd run doctor:win
 Set-Location ..\..
 ```
 
-`npm run doctor:win` 只检查 CMake/LLVM，不检查 MSVC linker，也不代表 GUI、Office 或 NSIS 已验证。活跃 GitHub Actions 不再执行 Windows Rust 检查；需要验证时必须在装有完整工具链的 Windows 本机运行统一脚本：
+`npm.cmd run doctor:win` 只检查 CMake/LLVM，不检查 MSVC linker，也不代表 GUI、Office 或 NSIS 已验证。活跃 GitHub Actions 不再执行 Windows Rust 检查；需要验证时必须在装有完整工具链的 Windows 本机运行统一脚本：
 
 ```powershell
 & 'C:\Program Files\PowerShell\7\pwsh.exe' -NoLogo -NoProfile -File scripts\check-windows-rust.ps1
@@ -125,7 +125,7 @@ $env:DEV_MODEL = "deepseek-v4-pro"
 pwsh scripts/dev-client.ps1
 ```
 
-脚本会加载 `.env`、检查 `codex.exe` / Python / cmake / `node_modules`、生成 `.scratch\dev-codex-home\config.toml`、启动带本地 bearer 的 Gateway，再执行 `npm run tauri:dev:win`。Ctrl-C 退出时会停止脚本启动的 Gateway。
+脚本会加载 `.env`、检查 `codex.exe` / Python / cmake / `node_modules`、生成 `.scratch\dev-codex-home\config.toml`、启动带本地 bearer 的 Gateway，再执行 `npm.cmd run tauri:dev:win`。Ctrl-C 退出时会停止脚本启动的 Gateway。
 
 该命令会打开 GUI，必须在有显示器的 Windows 本机运行，不能用 SSH/无头结果代替实机验证。
 
@@ -134,12 +134,12 @@ pwsh scripts/dev-client.ps1
 ```powershell
 Set-Location apps\desktop
 
-npm run typecheck
-npm run test
-npm run lint
-npm run lint:ds
-npm run check:host-boundary
-npm run codemod:ds:dry
+npm.cmd run typecheck
+npm.cmd run test
+npm.cmd run lint
+npm.cmd run lint:ds
+npm.cmd run check:host-boundary
+npm.cmd run codemod:ds:dry
 
 Set-Location ..\..
 
@@ -148,47 +148,49 @@ pwsh scripts/check-windows-rust.ps1
 
 # Windows 专用入口
 Set-Location apps\desktop
-npm run doctor:win
-npm run tauri:dev:win
-npm run tauri:build:win
+npm.cmd run doctor:win
+npm.cmd run tauri:dev:win
+npm.cmd run tauri:build:win
 
 Set-Location ..\..
 ```
 
 按改动范围选择命令：前端行为跑 typecheck/test/lint；共享 chrome/弹层额外跑 `lint:ds` 和 `codemod:ds:dry`；desktop renderer、Tauri command 或 Electron 迁移改动额外跑 `check:host-boundary`；Rust 改动跑统一的 `check-windows-rust.ps1`。Electron 发布级结论必须完成 [002 verification](../.specs/002-electron-migration/verification.md) 中适用的 Windows 实机项，并按 [09](09-运行时架构与里程碑.md) 的全量发布判定执行。
 
+Windows 文档命令统一在 PowerShell 7 中执行；为避免 `npm.ps1` 执行策略差异，下面的 npm 命令应写成 `npm.cmd`。涉及 PowerShell 脚本时使用仓库规定的 `C:\Program Files\PowerShell\7\pwsh.exe -NoProfile`。
+
 ### Electron 迁移开发验证
 
 ```powershell
 Set-Location apps\desktop
 
-npm run electron:typecheck
-npm run test -- --run electron
-npm run electron:browser-client:verify
-npm run electron:browser-runtime-seam:probe
-npm run electron:browser-runtime-seam:gate
-npm run electron:runtime:check-lock
-npm run electron:node-runtime:check-lock
-npm run electron:node-runtime:verify
-npm run electron:app-server:probe
-npm run electron:package
-npm run electron:smoke
-npm run electron:e2e
-npm run electron:make
-npm run test -- --run electron/main/app-server
+npm.cmd run electron:typecheck
+npm.cmd run test -- --run electron
+npm.cmd run electron:browser-client:verify
+npm.cmd run electron:browser-runtime-seam:probe
+npm.cmd run electron:browser-runtime-seam:gate
+npm.cmd run electron:runtime:check-lock
+npm.cmd run electron:node-runtime:check-lock
+npm.cmd run electron:node-runtime:verify
+npm.cmd run electron:app-server:probe
+npm.cmd run electron:package
+npm.cmd run electron:smoke
+npm.cmd run electron:e2e
+npm.cmd run electron:make
+npm.cmd run test -- --run electron/main/app-server
 
 Set-Location ..\..
 ```
 
 `electron:smoke` 的 prehook 会先重新生成 `out/electron/codex-monitor-win32-x64` production package，再运行带 production fuses 的真实制品。`electron:e2e` 的 prehook 会重建同一 package 并安装 Electron runtime，再由 Playwright 驱动开发 Electron 加载 production bundles，验证自定义协议、renderer Node 隔离、typed preload、IPC 布局 revision、外部导航、popup 拒绝，以及通过仅开发态 main harness 对同一可见 Browser page 执行顶层与跨站 OOPIF snapshot/type/click/screenshot、敏感购买单次确认/拒绝、实际下载、用户 file chooser、接管和 App restart recovery。该 harness 不进入 renderer 且 packaged 强制禁用；E2E 仍不等于真实站点、签名或安装验收。当前 `electron:start` dev runner 仍需在锁定 Node 22 环境复核。
 
-`electron:browser-client:verify` 校验自有 Browser MCP adapter/client 的固定版本、protocol、License 和 SHA-256；`electron:node-runtime:verify` 校验随包 Node.js 22 Windows x64 的版本、archive/逐文件摘要与 MIT License。`electron:package` 会先执行 Codex、Node 和 Browser 三组 gate。当前标准 stdio MCP 生产接缝、唯一 adapter 切换、同用户无/错/旧 token/generation 拒绝和真实模型 MCP screenshot turn 已通过；仍缺另一个真实 Windows 用户账户的 named pipe ACL 拒绝探针。威胁模型不声称抵御能够读取同用户进程内存或环境的恶意代码。
+`electron:browser-client:verify` 校验自有 Browser MCP adapter/client 的固定版本、protocol、License 和 SHA-256；`electron:node-runtime:verify` 校验随包 Node.js 22 Windows x64 的版本、archive/逐文件摘要与 MIT License。`electron:package` 会先执行 Codex、Node 和 Browser 三组 gate。当前标准 stdio MCP 生产接缝、唯一 adapter 切换、同用户无/错/旧 token/generation 拒绝和真实模型 MCP screenshot turn 已通过；仍缺另一个真实 Windows 用户账户的 named pipe ACL 拒绝探针。该探针必须使用两个不同本地用户 SID，记录 pipe owner、拒绝错误、token/generation 摘要和 teardown 结果。威胁模型不声称抵御能够读取同用户进程内存或环境的恶意代码。
 
 `electron:browser-runtime-seam:probe` 直接驱动锁定 Windows `codex-code-mode-host.exe` 的 protocol v1，保留“V8 不能加载 Node/文件模块”的负向证据。`supported=false` 只否定 V8 直载方案，不再是 release gate；生产接缝由 `electron:app-server:probe` 的标准 stdio MCP 实制品测试判定。`electron:browser-runtime-seam:gate` 仅供防止误把 V8 当 Node loader 的架构回归，当前按设计 exit 2。
 
 CI 已先执行一次 `electron:package`，所以用 `npm --ignore-scripts run electron:smoke` 和 `npm --ignore-scripts run electron:e2e` 复用该 package，并在 E2E 前显式执行 `electron:install-runtime`。CI 虚拟桌面不保存 renderer `page.screenshot()`；Browser tool 返回的 viewport PNG 仍由 E2E 断言。本地 E2E 会额外写入 `apps/desktop/output/playwright/electron-browser-sidebar.png`。
 
-`electron:make` 生成未签名的 Windows x64 foundation MSIX，只证明 Forge maker 能完成基础制品生成；该命令不要求生成态 runtime。`electron:make:release` 才要求锁定的 Codex package 完整存在，但仍不代表 MSIX 已签名或通过安装、升级、回滚和卸载验收。Forge 不覆盖已有 `out/electron/make/msix/x64`；重跑前应把旧目录移动到同级时间戳备份，禁止直接删除未归档制品。
+`electron:make` 生成未签名的 Windows x64 foundation MSIX，只证明 Forge maker 能完成基础制品生成；该命令不要求生成态 runtime。`electron:make:release` 才要求锁定的 Codex package 完整存在，但仍不代表 MSIX 已签名或通过安装、升级、回滚和卸载验收。Forge 不覆盖已有 `out/electron/make/msix/x64`；重跑前应把旧目录移动到同级时间戳备份，禁止直接删除未归档制品。MVP 更新采用签名 MSIX/App Installer 包链，UpdateManager 只下载 staging 包、校验 manifest/publisher/hash 并交给 Windows 安装器，不覆盖运行中文件；失败时保留当前版本可启动，并用上一版签名包重新安装回滚。
 
 本机开发签名安装只用于产品验收，不得作为发布签名。MSIX 必须先由 subject 与 manifest publisher 完全一致的代码签名证书签名，并通过 `signtool verify /pa`。随后在管理员 PowerShell 7 中运行：
 
@@ -203,7 +205,7 @@ Set-Location apps\desktop
 
 该脚本只导入公钥证书到本机 `Root`/`TrustedPeople` 并安装固定 identity `cc.goodbyeri.blackrain`；不负责创建或保存私钥，也不代表签名链适合分发。验收结束必须卸载测试包并删除本机与当前用户证书库中的临时证书。本轮 2026-08-03 安装已成功，签名私钥已从 `CurrentUser\My` 删除；测试包和公钥信任条目暂留供后续复现。用户人工确认整个页面仍无法点击，后续矩阵必须先修复该阻塞再重跑。
 
-`npm run test -- --run electron/main/app-server` 覆盖 Electron main 的 stdio/JSONL transport、initialize client 与进程 supervisor，包含真实 Node 子进程 fixture；默认不会启动外部 Codex。`npm run electron:app-server:probe` 是 Windows x64 显式集成探针：它按 tracked lock 校验 bundled `codex.exe`，串行使用隔离 Codex Home 跑 initialize/thread/优雅退出，并通过进程级 `-c` 注册 Browser stdio MCP，验证 MCP ready/tool discovery、`mcpServer/tool/call`、可信 `_meta` 透传和同一 backend 命中。该命令不调用模型，不能替代真实 turn、审批或恢复验收。
+`npm.cmd run test -- --run electron/main/app-server` 覆盖 Electron main 的 stdio/JSONL transport、initialize client 与进程 supervisor，包含真实 Node 子进程 fixture；默认不会启动外部 Codex。`npm.cmd run electron:app-server:probe` 是 Windows x64 显式集成探针：它按 tracked lock 校验 bundled `codex.exe`，串行使用隔离 Codex Home 跑 initialize/thread/优雅退出，并通过进程级 `-c` 注册 Browser stdio MCP，验证 MCP ready/tool discovery、`mcpServer/tool/call`、可信 `_meta` 透传和同一 backend 命中。该命令不调用模型，不能替代真实 turn、审批或恢复验收。
 
 本机标准 Codex Home 已登录时，可显式运行真实模型 Browser 共页 E2E：
 
@@ -220,14 +222,14 @@ Remove-Item Env:BLACKRAIN_ELECTRON_REAL_AGENT_E2E
 源码与 Windows release package 锁见 `docs/REFERENCES.md` 和 `apps/desktop/resources/codex/runtime-lock.json`。生成的二进制不进入 Git；在仓库根使用 PowerShell 7 下载并校验官方 canonical package：
 
 ```powershell
-pwsh -NoProfile -File scripts/vendor-electron-codex-runtime.ps1
-pwsh -NoProfile -File scripts/vendor-electron-node-runtime.ps1
+& 'C:\Program Files\PowerShell\7\pwsh.exe' -NoProfile -File scripts/vendor-electron-codex-runtime.ps1
+& 'C:\Program Files\PowerShell\7\pwsh.exe' -NoProfile -File scripts/vendor-electron-node-runtime.ps1
 
 Set-Location apps\desktop
-npm run electron:runtime:verify
-npm run electron:node-runtime:verify
-npm run electron:app-server:probe
-npm run electron:make:release
+npm.cmd run electron:runtime:verify
+npm.cmd run electron:node-runtime:verify
+npm.cmd run electron:app-server:probe
+npm.cmd run electron:make:release
 Set-Location ..\..
 ```
 
@@ -278,7 +280,7 @@ Electron unsigned MSIX 的本机验证命令为：
 
 ```powershell
 Set-Location apps\desktop
-npm run electron:make
+npm.cmd run electron:make
 Set-Location ..\..
 ```
 

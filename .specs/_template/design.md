@@ -11,7 +11,7 @@
 - 属于 `apps/desktop` 的逻辑：
 - 属于 `gateway` 的逻辑：
 - 属于 `plugins` / `workbenches` 的内容：
-- 若涉及暂停路线：产品优先级变更和唯一 spec 替换关系：
+- 若涉及并行或暂停路线：与其他 spec 的交付物、代码所有权、依赖和验证边界：
 - 明确不改 `codex-upstream` 的部分：
 
 ## 数据流

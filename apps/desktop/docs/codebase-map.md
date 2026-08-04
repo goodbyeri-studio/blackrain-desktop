@@ -1,6 +1,6 @@
 # BlackRain Desktop Codebase Map (Task-Oriented)
 
-> **Migration note (2026-07-31):** this maps the current Tauri codebase. Electron is the only target host; the active `001-in-app-browser` spec covers only Browser P0 and its direct host dependencies. The Rust daemon/shared core below is migration input, not a target runtime boundary.
+> **Migration note (2026-07-31):** this maps the current Tauri codebase. Electron is the only target host; product migration is tracked by `002-electron-migration`, while portable Browser Runtime source-base work is tracked by `003-portable-electron-browser-runtime`. The Rust daemon/shared core below is migration input, not a target runtime boundary.
 
 Canonical navigation guide for the BlackRain desktop shell. The codebase is derived from CodexMonitor, but current file names and release scope follow BlackRain.
 
@@ -8,7 +8,8 @@ Related docs:
 
 - Repository status: `../../../README.md`
 - Setup/build/release: `../../../docs/commands.md`
-- Current Browser P0 contract: `../../../.specs/001-in-app-browser/`
+- Current product migration contract: `../../../.specs/002-electron-migration/`
+- Portable Browser Runtime source-base contract: `../../../.specs/003-portable-electron-browser-runtime/`
 - Localization/i18n: `docs/i18n.md`
 - iOS remote over Tailscale (TCP): `docs/mobile-ios-tailscale-blueprint.md`
 

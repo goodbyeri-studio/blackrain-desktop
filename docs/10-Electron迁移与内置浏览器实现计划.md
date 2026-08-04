@@ -1,6 +1,6 @@
 # 10 Electron 迁移与内置浏览器实现计划
 
-> **状态（2026-08-03）**：Electron 全量迁移是唯一当前 P0，任务与验收只看 [002 Electron 全量迁移](../.specs/002-electron-migration/)。Browser runtime/功能链路已闭环并转为发布回归；当前迁移基线为 194 个 Tauri command 和 59 个 renderer 直接依赖，开发签名 MSIX 的全页面点击失败是第一产品阻塞。
+> **状态（2026-08-04）**：Electron 原生重建是唯一产品交付 P0，产品任务与验收看 [002 Electron 全量迁移](../.specs/002-electron-migration/)。Browser runtime/功能链路已闭环并转为发布回归；其可移植源码底座另由 [003 可移植 Electron Browser Runtime](../.specs/003-portable-electron-browser-runtime/) 管理，不改变本计划的产品发布闸口。当前有效迁移基线为 194 个 Tauri command 和 53 个 renderer 直接依赖，开发签名 MSIX 的全页面点击失败仍是第一产品阻塞。历史阶段曾为 59 个 direct import，不作为当前基线。最终必须通过 Native Clean Gate，生产源码、用户可见文案、依赖、构建和 release 解包不得留下 Tauri 痕迹；本内部计划文档可保留迁移审计事实，但不能把 Tauri 写成目标入口。
 
 ## 结论
 
@@ -299,7 +299,7 @@ user -> agent_requesting -> agent
 ### M0：盘点与冻结（基础已建立）
 
 - 盘点 Tauri commands、events、plugins、windows、resources、capabilities、NSIS 和 CI。
-- 为每项能力标记 `renderer-only`、`Electron main/preload`、`codex app-server` 或 `delete`。
+- 为每项能力标记唯一 owner：`renderer-only`、`electron-main/preload`、`app-server`、`gateway` 或 `delete`；node-pty、credential-store、deferred-delete 只能写入 capability 子域。
 - 建立宿主无关 TypeScript client，禁止新增直接 Tauri 调用。
 - 锁定 Codex、Electron、Node、Rust 与 Windows 构建版本。
 - 将 codex 上游锁升级到或超过调研基线 `d06c7ac055920c7cb140c25ebda3f3db20197b45`，并以实际采用的 release/tag/SHA 重跑协议、构建和 Windows 探针。
@@ -314,9 +314,12 @@ user -> agent_requesting -> agent
 - 为高频流式 notification 和大消息建立有上限的队列、分块/确认或 artifact 合同。
 - 建立 main/preload 单测及最小 Playwright Electron smoke。
 
-退出闸口：Windows 可启动、无 Node renderer、非法 IPC 和导航被拒绝。
+退出闸口：Windows 可启动、无 Node renderer、非法 IPC 和导航被拒绝；app-server 未启动/未登录时仍能显示 degraded/retry/diagnostics。
 
 ### M2：App Server client 与真实 Codex thread（代码基础存在，历史运行待补证）
+
+- Codex auth 的规范副本由原装 app-server/标准 `CODEX_HOME` 管理并与 CLI 共享；BlackRain 自有 provider/Gateway secret 使用 `safeStorage`，Electron 不复制或改写 Codex auth 文件。
+- `app-state` 的 workspace/thread 索引带 `codexHomeId` 与 Browser `profileId`，切换 Home/profile 时禁止跨域恢复。
 
 - main 直接监管 bundled `codex.exe app-server`，实现 StdioConnection 与 JSONL dispatcher。
 - 建立双向 request/response/notification、初始化、取消、deadline、订阅、退出和重启状态机。
@@ -352,11 +355,12 @@ user -> agent_requesting -> agent
 
 ### M5：剩余宿主能力与发布（唯一当前 P0）
 
+- M5 的验收顺序固定为：G1 安装态基础壳（窗口/降级/重试）→ G2 app-server/标准 Home 核心 → G3 宿主能力 → G4 Browser Windows 回归 → G5 删除旧宿主 → Native Clean Gate → G6 签名发布矩阵。
 - 迁移文件、Git、终端、设置、凭据、通知、菜单、快捷键、深链和更新。
 - 按 Codex App 分层把终端迁移到 Electron main 的 `node-pty` 能力，并把 Electron 自有状态与 Codex ThreadStore 分库、分目录管理。
 - 使用 Electron Forge + Vite + MSIX maker 完成 Windows 打包验证。
 - `codex.exe`、锁定版本要求的 code-mode/sandbox helper、自有 Browser client、可选 Gateway 和许可证文件作为签名运行资源进入 MSIX；main/App preload/可选 page preload/renderer 进入 ASAR，page preload 额外固定 hash，并启用 Electron fuses 和制品校验。
-- 完成安装、首启、升级、回滚、卸载和 Windows 子进程清理。
+- 完成安装、首启、升级、回滚、卸载和 Windows 子进程清理；UpdateManager 只校验签名 MSIX/App Installer manifest 并交给 Windows 安装器，不覆盖运行中文件，失败时重新安装上一版签名包回滚。
 
 退出闸口：Electron 成为唯一发布入口，Tauri runtime、adapter、打包和 CI 被删除。
 

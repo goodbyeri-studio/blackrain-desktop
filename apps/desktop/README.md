@@ -1,6 +1,6 @@
 # CodexMonitor
 
-> **BlackRain 说明（2026-07-31）**：本文是 CodexMonitor subtree 的上游快照，描述其原始 Tauri 项目，不是 BlackRain 当前产品真源。当前目标是以原装 `codex-rs` 为唯一内核，在 Electron 中优先交付内置浏览器；请以仓库根 `README.md`、`docs/04-产品形态.md`、`docs/09-运行时架构与里程碑.md` 和 `.specs/001-in-app-browser/` 为准。
+> **BlackRain 说明（2026-07-31）**：本文是 CodexMonitor subtree 的上游快照，描述其原始 Tauri 项目，不是 BlackRain 当前产品真源。当前目标是以原装 `codex-rs` 为唯一内核，在 Electron 中交付产品并整理可移植 Browser Runtime；请以仓库根 `README.md`、`docs/04-产品形态.md`、`docs/09-运行时架构与里程碑.md`、`.specs/002-electron-migration/` 和 `.specs/003-portable-electron-browser-runtime/` 为准。
 
 Language: English | [简体中文](README.zh-CN.md)
 
