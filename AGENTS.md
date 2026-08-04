@@ -14,7 +14,8 @@ BlackRain 以 OpenAI 开源 `codex-rs` 为唯一 agent 内核，自行补齐完�
 
 ## 真源
 
-- 当前唯一 spec：`.specs/002-electron-migration/`
+- Electron 产品迁移与发布 spec：`.specs/002-electron-migration/`
+- 可移植 Browser Runtime 源码底座 spec：`.specs/003-portable-electron-browser-runtime/`
 - 产品形态：`docs/04-产品形态.md`
 - 运行时架构：`docs/09-运行时架构与里程碑.md`
 - 当前完成度：对应 spec 的 `verification.md` 与实际代码
@@ -67,9 +68,12 @@ BlackRain（Electron）
 
 ## Living Spec
 
-同一时刻只保留一个业务 living spec。当前所有 Electron 能力迁移、Tauri/daemon 删除、Browser 回归和 Windows 发布验收统一进入 `002-electron-migration`。
+允许同时维护多个边界互斥的业务 living spec，但每个 spec 必须声明自己的交付物、代码所有权、依赖关系和验证边界，不得用一个 spec 的完成状态替代另一个 spec 的验收。
 
-当前 Electron 迁移 P0 完成前不得预建下一项 spec。优先级切换时，先更新产品真源，再用 `.specs/_template/` 建立新的唯一 spec，并删除已完成 spec；历史通过 Git 保留，不建立 archive spec 目录。
+- `002-electron-migration` 仍是 BlackRain Windows Electron 产品交付 P0，覆盖 Tauri/daemon 删除、产品 Browser 回归和发布验收。
+- `003-portable-electron-browser-runtime` 是独立源码底座开发线，覆盖 Browser 核心去 BlackRain/Codex 耦合、宿主/Agent 适配合同、最小参考宿主和二次开发验证。
+- 同时影响 BlackRain 产品行为和源码底座公共合同的改动必须同步两个 spec；仅有通用 fixture 通过不得写成 BlackRain 产品发布通过，BlackRain E2E 通过也不得写成源码底座已可移植。
+- 新 spec 使用 `.specs/_template/` 建立；完成或取消后的目录治理由对应决策记录，不用删除正在进行的其他 spec。
 
 ## 桌面架构纪律
 
@@ -80,6 +84,8 @@ BlackRain（Electron）
 - preload 只暴露类型化 allowlist，不暴露原始 IPC 或 Node.js。
 - 当前 Rust daemon/shared core 只是 Tauri 迁移输入；目标态按 Codex App 分层把 agent 能力交给原装 app-server，把桌面宿主能力放入 Electron main/preload，不保留永久 BlackRain daemon。
 - Browser `WebContentsView` 只由 main 创建和持有；renderer 只上报经过校验的 bounds、visibility、active tab 和 UI 遮挡状态。
+- 可移植 Browser Runtime 核心不得依赖 BlackRain `AppServerRuntime`、总 `BlackRainHostApi`、BlackRain IPC channel 或 React UI；这些依赖只能位于 BlackRain/Codex adapter。
+- 通用源码底座使用中性的 owner/activity/surface 标识；BlackRain adapter 负责映射 thread/turn/route，不在核心中固化 Codex 生命周期。
 - Browser 页面不得加载 App preload；当前迁移 spec 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用最小 page preload。
 - Browser 工具生产链按 Codex session/turn 绑定到唯一 main backend；发布态只使用进程级注册的标准 stdio MCP + 随包 Node adapter + 自有鉴权 transport，dynamic tools 只作测试/bootstrap。
 - main 必须校验 route、thread、window、view generation 和 profile ownership，并强制页面 WebContents 安全参数。

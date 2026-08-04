@@ -4,9 +4,9 @@ BlackRain 是一款以 OpenAI 开源 `codex-rs` 为唯一 agent 内核的桌面 
 
 ## 当前目标
 
-唯一当前 P0 是 **in-app browser**：在 Electron 中交付持久登录态、页面控制、用户接管、locator/CUA、CDP、截图、下载、权限、安全隔离和恢复，并让真实 Codex turn 操作用户看到的同一个页面。
+唯一产品交付 P0 是完成 Tauri 到 Electron 的全量迁移、删除旧宿主并交付 Windows Electron 客户端。Browser runtime/功能链路已闭环，后续作为 Electron 发布回归矩阵的一部分。
 
-Electron 仍是唯一目标宿主，但当前只推进解除 Browser P0 阻塞所需的 main/preload/App Server/制品工作。项目、Git、终端、设置等 Tauri 能力的全量迁移和 Tauri 删除排在 Browser P0 之后。
+仓库同时启动独立的 **可移植 Electron Browser Runtime 源码底座**开发线：把现有 in-app browser 整理为适合其他 Electron 编程工具和桌面 Agent 二次开发的低耦合源码模块。它不改变 BlackRain 的产品 P0，不引入第二 Agent runtime，也不承诺安装即用插件或通用 UI。
 
 工作台、Session Orchestrator、专家市场和 OPC/工作室全部暂停，不进入当前 P0/P1 路线。已有代码与 specs 作为冻结资产保留，但不能再被描述为当前产品第一主语或近期交付目标。
 
@@ -27,7 +27,7 @@ BlackRain Electron（目标态）
 
 当前完整产品主流程仍是 CodexMonitor 衍生的 Tauri + React + Rust。仓库同时已经建立 Electron 42/Forge/Vite 安全空壳、main-owned `WebContentsView` Browser host/UI、App Server stdio client、锁定的 bundled `codex-cli 0.146.0` runtime、受限 CDP/OOPIF 和自有 Browser client/transport foundation。
 
-真实模型 Agent 共页、用户接管、权限/下载拦截和 page/App restart 恢复已有 Windows 证据；生产 Browser client 的当前用户 ACL/公开 runtime 接缝/唯一 adapter、完整 locator/CUA、真实站点和 Windows 发布矩阵仍未完成。目标架构、代码存在、验证通过和发布可用必须分开陈述。
+真实模型 Agent 共页、用户接管、权限/下载拦截和 page/App restart 恢复已有 Windows 证据；packaged Electron Browser E2E 已有自动化通过记录，但正式签名 MSIX、真实站点和完整 Windows 发布矩阵仍未完成。Browser 源码底座目前也仍与 BlackRain/Codex/IPC/UI 接线耦合，尚未通过独立 consumer 的可移植性验收。目标架构、代码存在、验证通过、可移植和发布可用必须分开陈述。
 
 ## 仓库
 
@@ -43,7 +43,8 @@ docs/              产品、架构与运行手册
 
 ## 真源
 
-- 当前唯一 spec：[.specs/001-in-app-browser/](.specs/001-in-app-browser/)
+- Electron 产品迁移与发布：[.specs/002-electron-migration/](.specs/002-electron-migration/)
+- 可移植 Browser Runtime 源码底座：[.specs/003-portable-electron-browser-runtime/](.specs/003-portable-electron-browser-runtime/)
 - 产品形态：[docs/04-产品形态.md](docs/04-产品形态.md)
 - 运行时与里程碑：[docs/09-运行时架构与里程碑.md](docs/09-运行时架构与里程碑.md)
 - Electron 与 Browser 实施计划：[docs/10-Electron迁移与内置浏览器实现计划.md](docs/10-Electron迁移与内置浏览器实现计划.md)

@@ -1,6 +1,6 @@
 # App-Server Events Reference（当前上游锁：Codex rust-v0.144.5 / `87db9bc18ba5bc82c1cb4e4381b44f693ee35623`）
 
-> **状态说明（2026-07-18，锁升级到 0.144.5）**：本次 0.144.1→0.144.5 是同 patch 线跟进，已 diff 确认 `codex-rs/app-server-protocol/src` **无任何变化**，因此下方方法集合审计结论直接延续，无需重跑。历史依据（2026-07-12，在 `44918ea` 上做）：相对旧锁 `da4c8ca`，ClientRequest、ServerRequest、ServerNotification 方法名集合均无增删；BlackRain 现有 65 个 outgoing ClientRequest 没有出现上游删除。payload schema 有扩展，且下方逐项 supported/missing 清单仍含历史说明，因此当前只能声称“方法集合未漂移 + 上游 app-server macOS `cargo check`（在 0.144.1 上）通过”，不能声称 42 项 capability、GUI 或 Windows 已重验。当前 Browser 依赖的协议验证写入仓库根 `.specs/001-in-app-browser/verification.md`；其余内容只作为本文件的历史审计。
+> **状态说明（2026-07-18，锁升级到 0.144.5）**：本次 0.144.1→0.144.5 是同 patch 线跟进，已 diff 确认 `codex-rs/app-server-protocol/src` **无任何变化**，因此下方方法集合审计结论直接延续，无需重跑。历史依据（2026-07-12，在 `44918ea` 上做）：相对旧锁 `da4c8ca`，ClientRequest、ServerRequest、ServerNotification 方法名集合均无增删；BlackRain 现有 65 个 outgoing ClientRequest 没有出现上游删除。payload schema 有扩展，且下方逐项 supported/missing 清单仍含历史说明，因此当前只能声称“方法集合未漂移 + 上游 app-server macOS `cargo check`（在 0.144.1 上）通过”，不能声称 42 项 capability、GUI 或 Windows 已重验。当前 Browser 依赖的协议验证写入产品 spec `.specs/002-electron-migration/verification.md`；源码底座去耦与可移植性另见 `.specs/003-portable-electron-browser-runtime/`；其余内容只作为本文件的历史审计。
 
 This document helps agents quickly answer:
 - Which app-server events the BlackRain shell routed at the recorded baseline.

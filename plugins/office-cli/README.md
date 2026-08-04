@@ -16,7 +16,7 @@ Office 文档能力插件资源。它是暂停的 Office 参考工作台的一�
 - 准备成功后，`codex` 子进程继承 `OfficeCLI` 所在目录到 `PATH`
 - 只有资源实际进入安装包且运行时准备成功后，agent 才能直接调用 `officecli ...`
 
-当前代码包含受控安装、版本检查与 smoke 接缝，但 Session Orchestrator 和工作台 surface 尚未接入，因此不要把本插件已内置表述为“Office 工作台任务已可运行”。旧工作台 spec 已删除；恢复该路线前必须先更新产品优先级并建立新的唯一 spec。
+当前代码包含受控安装、版本检查与 smoke 接缝，但 Session Orchestrator 和工作台 surface 尚未接入，因此不要把本插件已内置表述为“Office 工作台任务已可运行”。旧工作台 spec 已删除；恢复该路线前必须先更新产品优先级并建立新的边界清晰 spec。
 
 ## 版本策略
 

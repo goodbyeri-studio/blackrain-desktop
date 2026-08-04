@@ -1,6 +1,6 @@
 # apps/desktop —— BlackRain 桌面壳迁移边界
 
-> 文件名因兼容已有引用暂保留；`2049` 不是当前产品名。当前实现是 CodexMonitor 衍生的 Tauri + React + Rust，目标宿主是 Electron，当前唯一 P0 是内置浏览器。交付合同见仓库根 `.specs/001-in-app-browser/`，完整迁移路线见 `docs/09` 和 `docs/10`。
+> 文件名因兼容已有引用暂保留；`2049` 不是当前产品名。当前实现是 CodexMonitor 衍生的 Tauri + React + Rust，目标宿主是 Electron。产品交付合同见仓库根 `.specs/002-electron-migration/`，可移植 Browser Runtime 源码底座见 `.specs/003-portable-electron-browser-runtime/`，完整迁移路线见 `docs/09` 和 `docs/10`。
 
 ## 当前与目标
 

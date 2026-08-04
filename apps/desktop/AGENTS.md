@@ -1,6 +1,6 @@
 # BlackRain Desktop Agent Guide
 
-> **状态（2026-08-03）**：唯一当前 P0 是 Electron 全量迁移，任务与验收只以 `.specs/002-electron-migration/` 为准。Browser runtime/功能链路已闭环并转为发布回归项；当前完整产品流程仍是 Tauri。Electron packaged E2E 的设置点击与 Browser 全链路已通过，签名 MSIX 仍待产品态复验。迁移基线包含 194 个 Tauri command；shell/opener/dialog/file picker 收敛后 renderer 直接 Tauri 依赖为 53 个。
+> **状态（2026-08-04）**：BlackRain Electron 全量迁移与发布仍由 `.specs/002-electron-migration/` 作为产品 P0；可移植 Browser Runtime 源码底座由 `.specs/003-portable-electron-browser-runtime/` 独立管理。Browser runtime/功能链路已闭环并转为产品发布回归项，但源码底座的去耦、参考宿主和二次开发验证尚未完成。当前完整产品流程仍是 Tauri；Electron packaged E2E 的设置点击与 Browser 全链路已通过，签名 MSIX 仍待产品态复验。
 
 ## 项目快照
 
@@ -31,6 +31,8 @@ Model Gateway       可选协议翻译 sidecar
 11. Tauri -> Electron 迁移期兼容层必须带删除任务，不建立永久双宿主。
 12. Browser 采用 main-owned `WebContentsView`、统一 registry、view retention/reparenting 和持久 profile；React 只控制侧边栏布局，不得另起 Playwright/headless agent browser。
 13. Browser 工具按 Codex session/turn 绑定到唯一 main backend；发布态使用标准 stdio MCP + 随包 Node adapter + 鉴权有界 transport，dynamic tools 只作测试/bootstrap。
+14. 可移植 Browser Runtime 核心只拥有 Electron Browser 能力和中性合同，不 import `app-server`、BlackRain 总 host API/IPC 或 React；Codex/BlackRain 绑定进入 `integrations/blackrain`、`integrations/codex` 或等价 adapter。
+15. 抽取源码底座不得复制第二个 Browser backend。BlackRain 产品和最小参考宿主必须消费同一个核心；临时兼容入口要有删除任务。
 
 ## 当前 Tauri 代码路由
 
@@ -41,7 +43,7 @@ Model Gateway       可选协议翻译 sidecar
 3. 前端 IPC：`src/services/tauri.ts`
 4. daemon RPC：`src-tauri/src/bin/blackrain_daemon/rpc.rs` 及 `rpc/*`
 
-新增或修改命令必须同步所有相关层和测试。所有迁移任务和 Browser 发布回归统一登记到 `002-electron-migration`。新的宿主 API 不得继续扩张 `tauri.ts`。
+新增或修改命令必须同步所有相关层和测试。BlackRain 迁移任务和产品 Browser 发布回归登记到 `002-electron-migration`；源码底座边界、适配合同和参考宿主登记到 `003-portable-electron-browser-runtime`。同时改变两类合同的改动必须同步两个 spec。新的宿主 API 不得继续扩张 `tauri.ts`。
 
 ## 前端规则
 
