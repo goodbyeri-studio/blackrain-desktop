@@ -1,154 +1,45 @@
-# BlackRain Desktop Codebase Map (Task-Oriented)
+# BlackRain Desktop 代码地图
 
-> **Migration note (2026-07-31):** this maps the current Tauri codebase. Electron is the only target host; product migration is tracked by `002-electron-migration`, while portable Browser Runtime source-base work is tracked by `003-portable-electron-browser-runtime`. The Rust daemon/shared core below is migration input, not a target runtime boundary.
+> 2026-08-05 起，Desktop 只有 Electron 生产路径。历史宿主文件已删除，迁移审计见 `.specs/002-electron-migration/migration-ledger.json`。
 
-Canonical navigation guide for the BlackRain desktop shell. The codebase is derived from CodexMonitor, but current file names and release scope follow BlackRain.
+## 入口
 
-Related docs:
+- Main：`electron/main/index.ts`
+- Preload：`electron/preload/index.ts`
+- Shared schema/API：`electron/shared/`
+- Renderer：`src/main.tsx`、`src/App.tsx`
+- Forge/Vite：`forge.config.ts`、`vite.main.config.ts`、`vite.preload.config.ts`、`vite.config.ts`
 
-- Repository status: `../../../README.md`
-- Setup/build/release: `../../../docs/commands.md`
-- Current product migration contract: `../../../.specs/002-electron-migration/`
-- Portable Browser Runtime source-base contract: `../../../.specs/003-portable-electron-browser-runtime/`
-- Localization/i18n: `docs/i18n.md`
-- iOS remote over Tailscale (TCP): `docs/mobile-ios-tailscale-blueprint.md`
+## Main 领域
 
-## Start Here: How Changes Flow
+- App Server：`electron/main/app-server/`
+- Browser：`electron/main/browser/`
+- IPC 注册：`electron/main/ipc/register-ipc.ts`
+- Workspace：`electron/main/workspaces/`
+- 文件：`electron/main/files/`
+- Git：`electron/main/git/`
+- Terminal：`electron/main/terminal/`
+- Settings/credentials/update/system：`electron/main/` 下对应领域目录
 
-For backend behavior, follow this path in order:
+Main 拥有进程、文件、窗口、权限、Browser、系统集成和生命周期；agent 状态仍由原装 app-server 拥有。
 
-1. Frontend callsite: `src/features/**` hooks/components
-2. Frontend IPC API: `src/services/tauri.ts`
-3. Tauri command registration: `src-tauri/src/lib.rs` (`invoke_handler`)
-4. App adapter: `src-tauri/src/{codex,workspaces,git,files,settings,prompts}/*`
-5. Shared core source of truth: `src-tauri/src/shared/*`
-6. Daemon RPC method parity: `src-tauri/src/bin/blackrain_daemon/rpc.rs`
-7. Daemon state/wiring implementation: `src-tauri/src/bin/blackrain_daemon.rs`
-8. Standalone daemon lifecycle CLI: `src-tauri/src/bin/blackrain_daemonctl.rs`
+## Renderer
 
-If a behavior must work in both app and daemon, implement it in `src-tauri/src/shared/*` first.
+- 业务按 `src/features/<domain>/` 组织。
+- `src/App.tsx` 只装配；复杂状态进入 hooks/bootstrap/orchestration。
+- renderer 只调用 `src/services/desktop.ts` 暴露的宿主无关 typed client，不访问 Node、原始 IPC 或文件系统。
+- App Server 与 Browser 事件经 main 标准化后由 `src/services/events.ts` 扇出。
 
-## If You Need X, Edit Y
+## 修改合同
 
-| Need | Primary files to edit |
-| --- | --- |
-| App-level UI composition/layout wiring | `src/App.tsx`, `src/features/app/components/AppLayout.tsx`, `src/features/app/bootstrap/*`, `src/features/app/orchestration/*`, `src/features/app/hooks/*` |
-| Add/change Tauri IPC methods used by frontend | `src/services/tauri.ts`, `src-tauri/src/lib.rs`, matching backend adapter module |
-| Add/change app-server event handling in UI | `src/services/events.ts`, `src/features/app/hooks/useAppServerEvents.ts`, `src/utils/appServerEvents.ts`, `src/features/threads/utils/threadNormalize.ts` |
-| Change thread state transitions | `src/features/threads/hooks/useThreadsReducer.ts`, `src/features/threads/hooks/threadReducer/*`, `src/features/threads/hooks/useThreads.ts`, focused thread hooks under `src/features/threads/hooks/*` |
-| Change workspace lifecycle/worktree behavior | `src/features/workspaces/hooks/useWorkspaces.ts`, `src-tauri/src/workspaces/commands.rs`, `src-tauri/src/shared/workspaces_core.rs`, `src-tauri/src/shared/workspaces_core/*`, `src-tauri/src/shared/worktree_core.rs` |
-| Add workbench inspect/install/activate/verify/uninstall | Paused and not part of the current product route. Do not add an implementation path until product priority is explicitly changed and a new sole spec replaces the Browser spec. |
-| Change settings model/load/update | `src/features/settings/components/SettingsView.tsx`, `src/features/settings/hooks/useAppSettings.ts`, `src/services/tauri.ts`, `src-tauri/src/settings/mod.rs`, `src-tauri/src/shared/settings_core.rs`, `src-tauri/src/types.rs`, `src/types.ts` |
-| Change Git/GitHub backend behavior | `src/features/git/hooks/*`, `src/services/tauri.ts`, `src-tauri/src/git/mod.rs`, `src-tauri/src/shared/git_ui_core.rs`, `src-tauri/src/shared/git_ui_core/*`, `src-tauri/src/shared/git_core.rs`, `src-tauri/src/bin/blackrain_daemon/rpc.rs`, `src-tauri/src/bin/blackrain_daemon/rpc/git.rs` |
-| Change prompts CRUD/listing behavior | `src/features/prompts/hooks/useCustomPrompts.ts`, `src/features/prompts/components/PromptPanel.tsx`, `src/services/tauri.ts`, `src-tauri/src/prompts.rs`, `src-tauri/src/shared/prompts_core.rs`, `src-tauri/src/bin/blackrain_daemon/rpc.rs` |
-| Change file read/write for Agents/config | `src/services/tauri.ts`, `src-tauri/src/files/mod.rs`, `src-tauri/src/shared/files_core.rs`, `src-tauri/src/bin/blackrain_daemon/rpc.rs` |
-| Add/change daemon JSON-RPC surface | `src-tauri/src/bin/blackrain_daemon/rpc.rs`, `src-tauri/src/bin/blackrain_daemon/rpc/*`, `src-tauri/src/bin/blackrain_daemon.rs`, matching shared core |
+| 改动 | 必须同步 |
+|---|---|
+| 新增宿主 API | shared schema/host API、preload allowlist、main handler、renderer service、sender/ownership 测试 |
+| App Server 方法/事件 | runtime transport、shared agent 类型、renderer 投影、fixture/协议测试 |
+| Browser 能力 | main backend/registry、BlackRain/Codex adapter、IPC ownership、E2E；公共合同变化同时更新 `003` |
+| 文件/Git/terminal | workspace path ownership、schema、错误映射、Windows 测试 |
+| 发布资源 | runtime lock、License/NOTICE、Forge extraResource、package audit、verification |
 
-## Frontend Navigation
+## 验证
 
-- Composition root: `src/App.tsx`
-- App bootstrap orchestration: `src/features/app/bootstrap/*`
-- App layout/thread/workspace orchestration: `src/features/app/orchestration/*`
-- Tauri IPC wrapper: `src/services/tauri.ts`
-- Tauri event hub (single-listener fanout): `src/services/events.ts`
-- Event subscription hook: `src/features/app/hooks/useTauriEvent.ts`
-- App-server event router: `src/features/app/hooks/useAppServerEvents.ts`
-- Shared frontend types: `src/types.ts`
-
-### Import Aliases
-
-Use TS/Vite aliases for refactor-safe imports:
-
-- `@/*` -> `src/*`
-- `@app/*` -> `src/features/app/*`
-- `@settings/*` -> `src/features/settings/*`
-- `@threads/*` -> `src/features/threads/*`
-- `@services/*` -> `src/services/*`
-- `@utils/*` -> `src/utils/*`
-
-### Threads
-
-- Orchestrator: `src/features/threads/hooks/useThreads.ts`
-- Reducer composition entrypoint: `src/features/threads/hooks/useThreadsReducer.ts`
-- Reducer slices: `src/features/threads/hooks/threadReducer/*`
-- Event-focused handlers: `src/features/threads/hooks/useThreadEventHandlers.ts`, `src/features/threads/hooks/useThreadTurnEvents.ts`, `src/features/threads/hooks/useThreadItemEvents.ts`, `src/features/threads/hooks/useThreadApprovalEvents.ts`, `src/features/threads/hooks/useThreadUserInputEvents.ts`
-- Message send/steer/interrupt: `src/features/threads/hooks/useThreadMessaging.ts`
-- Persistence/local thread metadata: `src/features/threads/hooks/useThreadStorage.ts`, `src/features/threads/utils/threadStorage.ts`
-
-### Workspaces
-
-- Workspace state and lifecycle: `src/features/workspaces/hooks/useWorkspaces.ts`
-- Workspace home behavior: `src/features/workspaces/hooks/useWorkspaceHome.ts`
-- Workspace file list and reads in app layer: `src/features/app/hooks/useWorkspaceFileListing.ts`, `src/features/workspaces/hooks/useWorkspaceFiles.ts`
-
-### Settings
-
-- Main settings surface: `src/features/settings/components/SettingsView.tsx`
-- Settings state + persistence flow: `src/features/settings/hooks/useAppSettings.ts`, `src/features/app/hooks/useAppSettingsController.ts`
-- Typed settings contracts: `src/types.ts`
-
-### Git
-
-- Git UI hooks: `src/features/git/hooks/*`
-- Git panel components: `src/features/git/components/*`
-- Branch workflows: `src/features/git/hooks/useGitBranches.ts`, `src/features/git/hooks/useBranchSwitcher.ts`
-
-### Prompts
-
-- Prompt UI and workflow: `src/features/prompts/components/PromptPanel.tsx`, `src/features/prompts/hooks/useCustomPrompts.ts`
-
-## Backend App (Tauri) Navigation
-
-- Command registry (what frontend can invoke): `src-tauri/src/lib.rs`
-- Codex adapters: `src-tauri/src/codex/mod.rs`
-- Workspace/worktree adapters: `src-tauri/src/workspaces/commands.rs`
-- Git adapters: `src-tauri/src/git/mod.rs`
-- Settings adapters: `src-tauri/src/settings/mod.rs`
-- Prompts adapters: `src-tauri/src/prompts.rs`
-- File adapters: `src-tauri/src/files/mod.rs`
-- Event emission implementation: `src-tauri/src/event_sink.rs`
-- Event payload definitions: `src-tauri/src/backend/events.rs`
-
-## Daemon Navigation
-
-- Daemon entrypoint and state/wiring: `src-tauri/src/bin/blackrain_daemon.rs`
-- Daemon lifecycle CLI (headless start/stop/status): `src-tauri/src/bin/blackrain_daemonctl.rs`
-- Daemon JSON-RPC dispatcher/router: `src-tauri/src/bin/blackrain_daemon/rpc.rs`
-- Daemon domain handlers: `src-tauri/src/bin/blackrain_daemon/rpc/*`
-- Daemon transport: `src-tauri/src/bin/blackrain_daemon/transport.rs`
-
-When adding a new method, keep method names and payload shape aligned with `src/services/tauri.ts` and app commands in `src-tauri/src/lib.rs`.
-
-## Shared Cores (Source of Truth)
-
-All cross-runtime domain behavior belongs in `src-tauri/src/shared/*`:
-
-- Codex threads/approvals/account/skills/config: `src-tauri/src/shared/codex_core.rs`
-- Codex helper commands: `src-tauri/src/shared/codex_aux_core.rs`
-- Codex update/version helpers: `src-tauri/src/shared/codex_update_core.rs`
-- Workspaces/worktrees: `src-tauri/src/shared/workspaces_core.rs`, `src-tauri/src/shared/workspaces_core/*`, `src-tauri/src/shared/worktree_core.rs`
-- Settings model/update: `src-tauri/src/shared/settings_core.rs`
-- Files read/write: `src-tauri/src/shared/files_core.rs`
-- Git and GitHub logic: `src-tauri/src/shared/git_core.rs`, `src-tauri/src/shared/git_ui_core.rs`, `src-tauri/src/shared/git_ui_core/*`
-- Prompts CRUD/listing: `src-tauri/src/shared/prompts_core.rs`
-- Usage snapshot and aggregation: `src-tauri/src/shared/local_usage_core.rs`
-- Process helpers: `src-tauri/src/shared/process_core.rs`
-
-## Events Map (Backend -> Frontend)
-
-- Backend emits through sink: `src-tauri/src/event_sink.rs`
-- App-server event name: `app-server-event`
-- Terminal event names: `terminal-output`, `terminal-exit`
-- Frontend fanout hubs: `src/services/events.ts`
-- Frontend routing into thread state: `src/features/app/hooks/useAppServerEvents.ts` -> thread hooks/reducer under `src/features/threads/hooks/*`
-
-If event payload format changes, update parser/guards first in `src/utils/appServerEvents.ts`.
-
-## Type Contract Files
-
-Keep Rust and TypeScript contracts in sync:
-
-- Rust backend types: `src-tauri/src/types.rs`
-- Frontend types: `src/types.ts`
-
-This is required for settings, workspace metadata, app-server payload handling, and RPC response decoding.
+以 `docs/commands.md` 为唯一命令真源。所有生产改动至少运行 typecheck、目标测试、lint 和 `check:host-boundary`；跨 main/preload、App Server、Browser 或发布边界时扩大到对应 probe/package/smoke/E2E。

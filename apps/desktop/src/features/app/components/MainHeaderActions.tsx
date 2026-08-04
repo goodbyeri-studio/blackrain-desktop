@@ -43,7 +43,7 @@ export const MainHeaderActions = memo(function MainHeaderActions({
             title={splitLabel}
             data-tooltip={splitLabel}
             data-tooltip-placement="bottom"
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
           >
             <Columns2 size={14} aria-hidden />
           </button>
@@ -57,7 +57,7 @@ export const MainHeaderActions = memo(function MainHeaderActions({
             title={unifiedLabel}
             data-tooltip={unifiedLabel}
             data-tooltip-placement="bottom"
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
           >
             <AlignLeft size={14} aria-hidden />
           </button>

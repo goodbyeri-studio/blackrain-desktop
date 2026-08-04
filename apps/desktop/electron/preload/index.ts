@@ -1,8 +1,18 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { z } from "zod";
 import {
+  AgentAccountInputSchema,
+  AgentAccountLoginCancelResponseSchema,
+  AgentAccountLoginStartResponseSchema,
   AgentEventBatchSchema,
   AgentEventCursorInputSchema,
+  AgentExperimentalFeatureListInputSchema,
+  AgentExperimentalFeatureSetInputSchema,
+  AgentMcpServerStatusInputSchema,
+  AgentReviewStartInputSchema,
+  AgentReviewStartResponseSchema,
+  AgentThreadOperationInputSchema,
+  AgentThreadRollbackInputSchema,
   AgentEventSchema,
   AgentRuntimeStatusSchema,
   AgentServerRequestResponseAckSchema,
@@ -62,9 +72,14 @@ import {
   OptionalStringSchema,
   SettingsUpdateInputSchema,
   WorkspaceFileInputSchema,
+  WorkspaceFileWriteInputSchema,
   WorkspaceFileListSchema,
 } from "../shared/desktop";
-import { BootstrapInfoSchema, IPC_CHANNELS } from "../shared/ipc";
+import {
+  BootstrapInfoSchema,
+  IPC_CHANNELS,
+  RuntimeBootstrapStatusSchema,
+} from "../shared/ipc";
 import {
   WorkspaceAckSchema,
   WorkspaceIdInputSchema,
@@ -75,12 +90,64 @@ import {
   WorkspacePickInputSchema,
   WorkspaceUpdateInputSchema,
 } from "../shared/workspaces";
+import {
+  GitAckSchema,
+  GitBranchInputSchema,
+  GitCommitInputSchema,
+  GitCreateRepositoryInputSchema,
+  GitFileInputSchema,
+  GitInitInputSchema,
+  GitJsonSchema,
+  GitLimitInputSchema,
+  GitPullRequestInputSchema,
+  GitRootsInputSchema,
+  GitShaInputSchema,
+  GitWorkspaceInputSchema,
+} from "../shared/git";
+import {
+  TerminalAckSchema,
+  TerminalCloseInputSchema,
+  TerminalEventSchema,
+  TerminalOpenInputSchema,
+  TerminalResizeInputSchema,
+  TerminalWriteInputSchema,
+} from "../shared/terminal";
+import {
+  ContextMenuInputSchema,
+  ContextMenuResultSchema,
+  MenuAcceleratorInputSchema,
+  NotificationInputSchema,
+  SystemUiEventSchema,
+  TrayRecentThreadsInputSchema,
+  TraySessionUsageSchema,
+} from "../shared/system";
+import {
+  UpdateCheckSchema,
+  UpdateDownloadInputSchema,
+  UpdateDownloadSchema,
+  UpdateInstallInputSchema,
+} from "../shared/updates";
 
 const api: BlackRainHostApi = {
   app: {
     async getBootstrap() {
       return BootstrapInfoSchema.parse(
         await ipcRenderer.invoke(IPC_CHANNELS.appBootstrap),
+      );
+    },
+    async initialize() {
+      return RuntimeBootstrapStatusSchema.parse(
+        await ipcRenderer.invoke(IPC_CHANNELS.appInitialize),
+      );
+    },
+    async retry() {
+      return RuntimeBootstrapStatusSchema.parse(
+        await ipcRenderer.invoke(IPC_CHANNELS.appRetry),
+      );
+    },
+    async exportDiagnostics() {
+      return OptionalFilePathSchema.parse(
+        await ipcRenderer.invoke(IPC_CHANNELS.appExportDiagnostics),
       );
     },
   },
@@ -128,6 +195,9 @@ const api: BlackRainHostApi = {
     },
   },
   files: {
+    pathForFile(file) {
+      return webUtils.getPathForFile(file as File);
+    },
     async pick(input) {
       return FilePathListSchema.parse(await ipcRenderer.invoke(
         IPC_CHANNELS.filePick,
@@ -157,6 +227,12 @@ const api: BlackRainHostApi = {
         IPC_CHANNELS.fileReadWorkspace,
         WorkspaceFileInputSchema.parse(input),
       ));
+    },
+    async writeWorkspace(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.fileWriteWorkspace,
+        WorkspaceFileWriteInputSchema.parse(input),
+      );
     },
   },
   accountSession: {
@@ -230,6 +306,105 @@ const api: BlackRainHostApi = {
           WorkspacePickInputSchema.parse(input),
         ),
       );
+    },
+  },
+  menu: {
+    async popup(input) {
+      return ContextMenuResultSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.menuPopup,
+        ContextMenuInputSchema.parse(input),
+      ));
+    },
+    async setAccelerators(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.menuSetAccelerators,
+        MenuAcceleratorInputSchema.parse(input),
+      );
+    },
+    onEvent(listener) {
+      const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+        listener(SystemUiEventSchema.parse(payload));
+      };
+      ipcRenderer.on(IPC_CHANNELS.systemUiEvent, handler);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.systemUiEvent, handler);
+    },
+  },
+  tray: {
+    async setRecentThreads(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.traySetRecentThreads,
+        TrayRecentThreadsInputSchema.parse(input),
+      );
+    },
+    async setSessionUsage(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.traySetSessionUsage,
+        TraySessionUsageSchema.parse(input),
+      );
+    },
+  },
+  notifications: {
+    async show(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.notificationShow,
+        NotificationInputSchema.parse(input),
+      );
+    },
+  },
+  updates: {
+    async check() {
+      return UpdateCheckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.updateCheck));
+    },
+    async download(input) {
+      return UpdateDownloadSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.updateDownload,
+        UpdateDownloadInputSchema.parse(input),
+      ));
+    },
+    async install(input) {
+      await ipcRenderer.invoke(
+        IPC_CHANNELS.updateInstall,
+        UpdateInstallInputSchema.parse(input),
+      );
+    },
+  },
+  git: {
+    async status(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitStatus, GitWorkspaceInputSchema.parse(input))); },
+    async init(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitInit, GitInitInputSchema.parse(input))); },
+    async createRepository(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitCreateRepository, GitCreateRepositoryInputSchema.parse(input))); },
+    async roots(input) { return z.array(z.string().max(32_768)).parse(await ipcRenderer.invoke(IPC_CHANNELS.gitRoots, GitRootsInputSchema.parse(input))); },
+    async diffs(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitDiffs, GitWorkspaceInputSchema.parse(input))); },
+    async log(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitLog, GitLimitInputSchema.parse(input))); },
+    async commitDiff(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitCommitDiff, GitShaInputSchema.parse(input))); },
+    async remote(input) { return OptionalStringSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitRemote, GitWorkspaceInputSchema.parse(input))); },
+    async stageFile(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitStageFile, GitFileInputSchema.parse(input))); },
+    async stageAll(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitStageAll, GitWorkspaceInputSchema.parse(input))); },
+    async unstageFile(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitUnstageFile, GitFileInputSchema.parse(input))); },
+    async revertFile(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitRevertFile, GitFileInputSchema.parse(input))); },
+    async revertAll(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitRevertAll, GitWorkspaceInputSchema.parse(input))); },
+    async commit(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitCommit, GitCommitInputSchema.parse(input))); },
+    async push(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitPush, GitWorkspaceInputSchema.parse(input))); },
+    async pull(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitPull, GitWorkspaceInputSchema.parse(input))); },
+    async fetch(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitFetch, GitWorkspaceInputSchema.parse(input))); },
+    async sync(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitSync, GitWorkspaceInputSchema.parse(input))); },
+    async branches(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitBranches, GitWorkspaceInputSchema.parse(input))); },
+    async checkoutBranch(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitCheckoutBranch, GitBranchInputSchema.parse(input))); },
+    async createBranch(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitCreateBranch, GitBranchInputSchema.parse(input))); },
+    async issues(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitIssues, GitWorkspaceInputSchema.parse(input))); },
+    async pullRequests(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitPullRequests, GitWorkspaceInputSchema.parse(input))); },
+    async pullRequestDiff(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitPullRequestDiff, GitPullRequestInputSchema.parse(input))); },
+    async pullRequestComments(input) { return GitJsonSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitPullRequestComments, GitPullRequestInputSchema.parse(input))); },
+    async checkoutPullRequest(input) { GitAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.gitCheckoutPullRequest, GitPullRequestInputSchema.parse(input))); },
+  },
+  terminal: {
+    async open(input) { TerminalAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.terminalOpen, TerminalOpenInputSchema.parse(input))); },
+    async write(input) { TerminalAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.terminalWrite, TerminalWriteInputSchema.parse(input))); },
+    async resize(input) { TerminalAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.terminalResize, TerminalResizeInputSchema.parse(input))); },
+    async close(input) { TerminalAckSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.terminalClose, TerminalCloseInputSchema.parse(input))); },
+    onEvent(listener) {
+      const handler = (_event: Electron.IpcRendererEvent, input: unknown) => listener(TerminalEventSchema.parse(input));
+      ipcRenderer.on(IPC_CHANNELS.terminalEvent, handler);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.terminalEvent, handler);
     },
   },
   agent: {
@@ -309,6 +484,50 @@ const api: BlackRainHostApi = {
         ),
       );
     },
+    async startReview(input) {
+      return AgentReviewStartResponseSchema.parse(
+        await ipcRenderer.invoke(
+          IPC_CHANNELS.agentReviewStart,
+          AgentReviewStartInputSchema.parse(input),
+        ),
+      );
+    },
+    async listExperimentalFeatures(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentExperimentalFeatureList,
+        AgentExperimentalFeatureListInputSchema.parse(input),
+      ));
+    },
+    async setExperimentalFeature(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentExperimentalFeatureSet,
+        AgentExperimentalFeatureSetInputSchema.parse(input),
+      ));
+    },
+    async forkThread(input) {
+      return AgentThreadAckSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentThreadFork,
+        AgentThreadOperationInputSchema.parse(input),
+      ));
+    },
+    async compactThread(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentThreadCompact,
+        AgentThreadOperationInputSchema.parse(input),
+      ));
+    },
+    async rollbackThread(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentThreadRollback,
+        AgentThreadRollbackInputSchema.parse(input),
+      ));
+    },
+    async listMcpServerStatus(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentMcpServerStatusList,
+        AgentMcpServerStatusInputSchema.parse(input),
+      ));
+    },
     async respondToServerRequest(input) {
       return AgentServerRequestResponseAckSchema.parse(
         await ipcRenderer.invoke(
@@ -357,6 +576,24 @@ const api: BlackRainHostApi = {
       return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
         IPC_CHANNELS.agentAccountRateLimitsRead,
         AgentWorkspaceInputSchema.parse(input),
+      ));
+    },
+    async startAccountLogin(input) {
+      return AgentAccountLoginStartResponseSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentAccountLoginStart,
+        AgentAccountInputSchema.parse(input),
+      ));
+    },
+    async cancelAccountLogin(input) {
+      return AgentAccountLoginCancelResponseSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentAccountLoginCancel,
+        AgentAccountInputSchema.parse(input),
+      ));
+    },
+    async logoutAccount(input) {
+      return HostJsonObjectSchema.parse(await ipcRenderer.invoke(
+        IPC_CHANNELS.agentAccountLogout,
+        AgentAccountInputSchema.parse(input),
       ));
     },
     async readThread(input) {

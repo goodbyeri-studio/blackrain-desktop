@@ -17,7 +17,7 @@ import TriangleAlert from "lucide-react/dist/esm/icons/triangle-alert";
 import Users from "lucide-react/dist/esm/icons/users";
 import Wrench from "lucide-react/dist/esm/icons/wrench";
 import X from "lucide-react/dist/esm/icons/x";
-import { exportMarkdownFile } from "@services/tauri";
+import { exportMarkdownFile } from "@services/desktop";
 import { pushErrorToast } from "@services/toasts";
 import type { ConversationItem } from "../../../types";
 import type { ParsedFileLocation } from "../../../utils/fileLinks";

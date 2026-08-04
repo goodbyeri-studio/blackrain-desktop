@@ -137,8 +137,6 @@ type SidebarProps = {
   onSelectWorkspace: (id: string) => void;
   onConnectWorkspace: (workspace: WorkspaceInfo) => void;
   onAddAgent: (workspace: WorkspaceInfo) => void;
-  onAddWorktreeAgent: (workspace: WorkspaceInfo) => void;
-  onAddCloneAgent: (workspace: WorkspaceInfo) => void;
   onToggleWorkspaceCollapse: (workspaceId: string, collapsed: boolean) => void;
   onSelectThread: (workspaceId: string, threadId: string) => void;
   onDeleteThread: (workspaceId: string, threadId: string) => void;
@@ -200,8 +198,6 @@ export const Sidebar = memo(function Sidebar({
   onSelectWorkspace,
   onConnectWorkspace,
   onAddAgent,
-  onAddWorktreeAgent,
-  onAddCloneAgent,
   onToggleWorkspaceCollapse,
   onSelectThread,
   onDeleteThread,
@@ -264,7 +260,6 @@ export const Sidebar = memo(function Sidebar({
       onDeleteWorkspace,
       onDeleteWorktree,
       onRenameWorkspace,
-      onAddWorktreeAgentForMenu: onAddWorktreeAgent,
     });
   const {
     sessionPercent,
@@ -1036,8 +1031,6 @@ export const Sidebar = memo(function Sidebar({
                     onSelectWorkspace={onSelectWorkspace}
                     onConnectWorkspace={onConnectWorkspace}
                     onAddAgent={onAddAgent}
-                    onAddWorktreeAgent={onAddWorktreeAgent}
-                    onAddCloneAgent={onAddCloneAgent}
                     onToggleWorkspaceCollapse={onToggleWorkspaceCollapse}
                     onSelectThread={onSelectThread}
                     onShowThreadMenu={showThreadMenu}

@@ -1,12 +1,10 @@
 import { useCallback, type MouseEvent } from "react";
-import { Menu, MenuItem } from "@tauri-apps/api/menu";
-import { LogicalPosition } from "@tauri-apps/api/dpi";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import type { WorkspaceInfo } from "../../../types";
 import { pushErrorToast } from "../../../services/toasts";
 import { revealPath } from "../../../host/desktop";
 import { fileManagerName } from "../../../utils/platformPaths";
+import { showContextMenu, type ContextMenuEntry } from "../../../host/contextMenu";
 
 type SidebarMenuHandlers = {
   onDeleteThread: (workspaceId: string, threadId: string) => void;
@@ -19,7 +17,6 @@ type SidebarMenuHandlers = {
   onDeleteWorkspace: (workspaceId: string) => void;
   onDeleteWorktree: (workspaceId: string) => void;
   onRenameWorkspace?: (workspaceId: string) => void;
-  onAddWorktreeAgentForMenu?: (workspace: WorkspaceInfo) => void;
 };
 
 export function useSidebarMenus({
@@ -33,7 +30,6 @@ export function useSidebarMenus({
   onDeleteWorkspace,
   onDeleteWorktree,
   onRenameWorkspace,
-  onAddWorktreeAgentForMenu,
 }: SidebarMenuHandlers) {
   const showThreadMenu = useCallback(
     async (
@@ -42,51 +38,36 @@ export function useSidebarMenus({
       threadId: string,
       canPin: boolean,
     ) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const renameItem = await MenuItem.new({
-        text: "Rename",
-        action: () => onRenameThread(workspaceId, threadId),
-      });
-      const syncItem = await MenuItem.new({
-        text: "Sync from server",
-        action: () => onSyncThread(workspaceId, threadId),
-      });
-      const archiveItem = await MenuItem.new({
-        text: "Archive",
-        action: () => onDeleteThread(workspaceId, threadId),
-      });
-      const copyItem = await MenuItem.new({
-        text: "Copy ID",
-        action: async () => {
+      const items: ContextMenuEntry[] = [
+        { id: "rename", label: "Rename", onSelect: () => onRenameThread(workspaceId, threadId) },
+        { id: "sync", label: "Sync from server", onSelect: () => onSyncThread(workspaceId, threadId) },
+      ];
+      if (canPin) {
+        const isPinned = isThreadPinned(workspaceId, threadId);
+        items.push({
+          id: "pin",
+          label: isPinned ? "Unpin" : "Pin",
+          onSelect: () => isPinned
+            ? onUnpinThread(workspaceId, threadId)
+            : onPinThread(workspaceId, threadId),
+        });
+      }
+      items.push({
+        id: "copy",
+        label: "Copy ID",
+        onSelect: async () => {
           try {
             await navigator.clipboard.writeText(threadId);
           } catch {
             // Clipboard failures are non-fatal here.
           }
         },
+      }, {
+        id: "archive",
+        label: "Archive",
+        onSelect: () => onDeleteThread(workspaceId, threadId),
       });
-      const items = [renameItem, syncItem];
-      if (canPin) {
-        const isPinned = isThreadPinned(workspaceId, threadId);
-        items.push(
-          await MenuItem.new({
-            text: isPinned ? "Unpin" : "Pin",
-            action: () => {
-              if (isPinned) {
-                onUnpinThread(workspaceId, threadId);
-              } else {
-                onPinThread(workspaceId, threadId);
-              }
-            },
-          }),
-        );
-      }
-      items.push(copyItem, archiveItem);
-      const menu = await Menu.new({ items });
-      const window = getCurrentWindow();
-      const position = new LogicalPosition(event.clientX, event.clientY);
-      await menu.popup(position, window);
+      await showContextMenu(event, items);
     },
     [
       isThreadPinned,
@@ -100,25 +81,18 @@ export function useSidebarMenus({
 
   const showWorkspaceMenu = useCallback(
     async (event: MouseEvent, workspace: WorkspaceInfo) => {
-      event.preventDefault();
-      event.stopPropagation();
       const fileManagerLabel = fileManagerName();
-      const items = [];
+      const items: ContextMenuEntry[] = [];
 
       if (onRenameWorkspace) {
-        items.push(
-          await MenuItem.new({
-            text: "Rename",
-            action: () => onRenameWorkspace(workspace.id),
-          }),
-        );
+        items.push({ id: "rename", label: "Rename", onSelect: () => onRenameWorkspace(workspace.id) });
       }
 
       if (workspace.path) {
-        items.push(
-          await MenuItem.new({
-            text: `Show in ${fileManagerLabel}`,
-            action: async () => {
+        items.push({
+          id: "reveal",
+          label: `Show in ${fileManagerLabel}`,
+          onSelect: async () => {
               try {
                 await revealPath(workspace.path!);
               } catch (error) {
@@ -133,59 +107,34 @@ export function useSidebarMenus({
                   path: workspace.path,
                 });
               }
-            },
-          }),
-        );
-      }
-
-      if (onAddWorktreeAgentForMenu) {
-        items.push(
-          await MenuItem.new({
-            text: "Create permanent worktree",
-            action: () => onAddWorktreeAgentForMenu(workspace),
-          }),
-        );
+          },
+        });
       }
 
       items.push(
-        await MenuItem.new({
-          text: "Reload threads",
-          action: () => onReloadWorkspaceThreads(workspace.id),
-        }),
+        { id: "reload", label: "Reload threads", onSelect: () => onReloadWorkspaceThreads(workspace.id) },
+        { id: "remove", label: "Remove", onSelect: () => onDeleteWorkspace(workspace.id) },
       );
-
-      items.push(
-        await MenuItem.new({
-          text: "Remove",
-          action: () => onDeleteWorkspace(workspace.id),
-        }),
-      );
-
-      const menu = await Menu.new({ items });
-      const window = getCurrentWindow();
-      const position = new LogicalPosition(event.clientX, event.clientY);
-      await menu.popup(position, window);
+      await showContextMenu(event, items);
     },
     [
       onReloadWorkspaceThreads,
       onDeleteWorkspace,
       onRenameWorkspace,
-      onAddWorktreeAgentForMenu,
     ],
   );
 
   const showWorktreeMenu = useCallback(
     async (event: MouseEvent, worktree: WorkspaceInfo) => {
-      event.preventDefault();
-      event.stopPropagation();
       const fileManagerLabel = fileManagerName();
-      const reloadItem = await MenuItem.new({
-        text: "Reload threads",
-        action: () => onReloadWorkspaceThreads(worktree.id),
-      });
-      const revealItem = await MenuItem.new({
-        text: `Show in ${fileManagerLabel}`,
-        action: async () => {
+      await showContextMenu(event, [{
+        id: "reload",
+        label: "Reload threads",
+        onSelect: () => onReloadWorkspaceThreads(worktree.id),
+      }, {
+        id: "reveal",
+        label: `Show in ${fileManagerLabel}`,
+        onSelect: async () => {
           if (!worktree.path) {
             return;
           }
@@ -204,31 +153,26 @@ export function useSidebarMenus({
             });
           }
         },
-      });
-      const deleteItem = await MenuItem.new({
-        text: "Delete worktree",
-        action: () => onDeleteWorktree(worktree.id),
-      });
-      const menu = await Menu.new({ items: [reloadItem, revealItem, deleteItem] });
-      const window = getCurrentWindow();
-      const position = new LogicalPosition(event.clientX, event.clientY);
-      await menu.popup(position, window);
+      }, {
+        id: "delete",
+        label: "Delete worktree",
+        onSelect: () => onDeleteWorktree(worktree.id),
+      }]);
     },
     [onReloadWorkspaceThreads, onDeleteWorktree],
   );
 
   const showCloneMenu = useCallback(
     async (event: MouseEvent, clone: WorkspaceInfo) => {
-      event.preventDefault();
-      event.stopPropagation();
       const fileManagerLabel = fileManagerName();
-      const reloadItem = await MenuItem.new({
-        text: "Reload threads",
-        action: () => onReloadWorkspaceThreads(clone.id),
-      });
-      const revealItem = await MenuItem.new({
-        text: `Show in ${fileManagerLabel}`,
-        action: async () => {
+      await showContextMenu(event, [{
+        id: "reload",
+        label: "Reload threads",
+        onSelect: () => onReloadWorkspaceThreads(clone.id),
+      }, {
+        id: "reveal",
+        label: `Show in ${fileManagerLabel}`,
+        onSelect: async () => {
           if (!clone.path) {
             return;
           }
@@ -247,15 +191,11 @@ export function useSidebarMenus({
             });
           }
         },
-      });
-      const deleteItem = await MenuItem.new({
-        text: "Delete clone",
-        action: () => onDeleteWorkspace(clone.id),
-      });
-      const menu = await Menu.new({ items: [reloadItem, revealItem, deleteItem] });
-      const window = getCurrentWindow();
-      const position = new LogicalPosition(event.clientX, event.clientY);
-      await menu.popup(position, window);
+      }, {
+        id: "delete",
+        label: "Delete clone",
+        onSelect: () => onDeleteWorkspace(clone.id),
+      }]);
     },
     [onReloadWorkspaceThreads, onDeleteWorkspace],
   );

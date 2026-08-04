@@ -26,9 +26,9 @@ vi.mock("../hooks/useFileLinkOpener", () => ({
   ) => useFileLinkOpenerMock(workspacePath, openTargets, selectedOpenAppId),
 }));
 
-vi.mock("@services/tauri", async () => {
-  const actual = await vi.importActual<typeof import("@services/tauri")>(
-    "@services/tauri",
+vi.mock("@services/desktop", async () => {
+  const actual = await vi.importActual<typeof import("@services/desktop")>(
+    "@services/desktop",
   );
   return {
     ...actual,

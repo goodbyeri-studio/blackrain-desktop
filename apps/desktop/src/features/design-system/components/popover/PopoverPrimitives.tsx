@@ -55,7 +55,7 @@ type MenuTriggerProps = Omit<
   isOpen: boolean;
   popupRole?: "menu" | "dialog";
   activeClassName?: string;
-  "data-tauri-drag-region"?: string;
+  "data-electron-drag-region"?: string;
 };
 
 export function MenuTrigger({
@@ -63,7 +63,7 @@ export function MenuTrigger({
   popupRole = "menu",
   className,
   activeClassName,
-  "data-tauri-drag-region": dragRegion,
+  "data-electron-drag-region": dragRegion,
   ...props
 }: MenuTriggerProps) {
   return (
@@ -72,7 +72,7 @@ export function MenuTrigger({
       aria-haspopup={popupRole}
       aria-expanded={isOpen}
       className={joinClassNames(className, isOpen && activeClassName)}
-      data-tauri-drag-region={dragRegion ?? "false"}
+      data-electron-drag-region={dragRegion ?? "false"}
       {...props}
     />
   );

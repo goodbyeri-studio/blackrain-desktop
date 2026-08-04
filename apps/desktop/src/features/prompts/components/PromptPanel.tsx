@@ -14,9 +14,7 @@ import {
   PanelMeta,
   PanelSearchField,
 } from "../../design-system/components/panel/PanelPrimitives";
-import { Menu, MenuItem } from "@tauri-apps/api/menu";
-import { LogicalPosition } from "@tauri-apps/api/dpi";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { showContextMenu } from "../../../host/contextMenu";
 import MoreHorizontal from "lucide-react/dist/esm/icons/more-horizontal";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import ScrollText from "lucide-react/dist/esm/icons/scroll-text";
@@ -293,33 +291,21 @@ export function PromptPanel({
     event: ReactMouseEvent<HTMLButtonElement>,
     prompt: CustomPromptOption,
   ) => {
-    event.preventDefault();
-    event.stopPropagation();
     const scope = isWorkspacePrompt(prompt) ? "workspace" : "global";
     const nextScope = scope === "workspace" ? "global" : "workspace";
-    const menu = await Menu.new({
-      items: [
-        await MenuItem.new({
-          text: tx("Edit"),
-          action: () => startEdit(prompt),
-        }),
-        await MenuItem.new({
-          text: tx(
+    await showContextMenu(event, [
+      { id: "edit", label: tx("Edit"), onSelect: () => startEdit(prompt) },
+      {
+        id: "move",
+        label: tx(
             nextScope === "workspace"
               ? "Move to workspace"
               : "Move to general",
-          ),
-          action: () => void handleMove(prompt, nextScope),
-        }),
-        await MenuItem.new({
-          text: tx("Delete"),
-          action: () => handleDeleteRequest(prompt),
-        }),
-      ],
-    });
-    const position = new LogicalPosition(event.clientX, event.clientY);
-    const window = getCurrentWindow();
-    await menu.popup(position, window);
+        ),
+        onSelect: () => handleMove(prompt, nextScope),
+      },
+      { id: "delete", label: tx("Delete"), onSelect: () => handleDeleteRequest(prompt) },
+    ]);
   };
 
   const renderPromptRow = (prompt: CustomPromptOption) => {

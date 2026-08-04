@@ -85,6 +85,9 @@ export const FileSaveTextInputSchema = z.object({
 export const WorkspaceFileInputSchema = AgentWorkspaceInputSchema.extend({
   path: z.string().trim().min(1).max(32_768),
 });
+export const WorkspaceFileWriteInputSchema = WorkspaceFileInputSchema.extend({
+  content: z.string().max(8 * 1024 * 1024),
+});
 
 export const AccountSessionKeyInputSchema = z.object({
   key: z.string().trim().min(1).max(512),
@@ -97,6 +100,7 @@ export const AccountSessionSetInputSchema = AccountSessionKeyInputSchema.extend(
 export const FilePathListSchema = z.array(z.string().max(32_768)).max(512);
 export const WorkspaceFileListSchema = z.array(z.string().max(32_768)).max(20_000);
 export const FileReadResponseSchema = z.object({
+  exists: z.boolean(),
   content: z.string(),
   truncated: z.boolean(),
 });
@@ -117,6 +121,7 @@ export type FilePathInput = z.infer<typeof FilePathInputSchema>;
 export type ExternalUrlInput = z.infer<typeof ExternalUrlInputSchema>;
 export type FileSaveTextInput = z.infer<typeof FileSaveTextInputSchema>;
 export type WorkspaceFileInput = z.infer<typeof WorkspaceFileInputSchema>;
+export type WorkspaceFileWriteInput = z.infer<typeof WorkspaceFileWriteInputSchema>;
 export type FileReadResponse = z.infer<typeof FileReadResponseSchema>;
 export type AccountSessionKeyInput = z.infer<typeof AccountSessionKeyInputSchema>;
 export type AccountSessionSetInput = z.infer<typeof AccountSessionSetInputSchema>;

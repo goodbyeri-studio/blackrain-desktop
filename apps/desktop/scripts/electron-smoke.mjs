@@ -10,7 +10,7 @@ const executablePath = path.join(
   desktopRoot,
   "out",
   "electron",
-  "codex-monitor-win32-x64",
+  "blackrain-win32-x64",
   "BlackRain.exe",
 );
 const resultPath = path.join(

@@ -65,7 +65,7 @@ export function SidebarThreadsOnlySection({
         <button
           className="ghost all-threads-add"
           onClick={onToggleAddMenu}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           aria-label={tx("New thread in project")}
           title={tx("New thread in project")}
           aria-expanded={addMenuOpen}

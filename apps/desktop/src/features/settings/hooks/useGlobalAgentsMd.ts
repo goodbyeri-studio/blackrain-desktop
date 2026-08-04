@@ -1,4 +1,4 @@
-import { readGlobalAgentsMd, writeGlobalAgentsMd } from "@services/tauri";
+import { readGlobalAgentsMd, writeGlobalAgentsMd } from "@services/desktop";
 import { useFileEditor } from "@/features/shared/hooks/useFileEditor";
 
 export function useGlobalAgentsMd(enabled = true) {

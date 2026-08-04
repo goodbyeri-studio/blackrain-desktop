@@ -175,7 +175,7 @@ describe("useComposerImageDrop", () => {
     restoreFileReader();
   });
 
-  it("filters tauri drag-drop paths and respects drop target", async () => {
+  it("filters Electron drag-drop paths and respects drop target", async () => {
     const onAttachImages = vi.fn();
     const hook = renderImageDropHook({ disabled: false, onAttachImages });
 
@@ -224,7 +224,7 @@ describe("useComposerImageDrop", () => {
     hook.unmount();
   });
 
-  it("accepts heic paths from tauri drag-drop", async () => {
+  it("accepts heic paths from Electron drag-drop", async () => {
     const onAttachImages = vi.fn();
     const hook = renderImageDropHook({ disabled: false, onAttachImages });
 

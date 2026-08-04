@@ -17,7 +17,6 @@ import { useRenameWorktreePrompt } from "@/features/workspaces/hooks/useRenameWo
 import { useLayoutController } from "@app/hooks/useLayoutController";
 import { useUpdaterController } from "@app/hooks/useUpdaterController";
 import { useResponseRequiredNotificationsController } from "@app/hooks/useResponseRequiredNotificationsController";
-import { useCreditGatewaySync } from "@/features/accounts/hooks/useCreditGatewaySync";
 import { useErrorToasts } from "@/features/notifications/hooks/useErrorToasts";
 import { useComposerShortcuts } from "@/features/composer/hooks/useComposerShortcuts";
 import { useComposerMenuActions } from "@/features/composer/hooks/useComposerMenuActions";
@@ -66,7 +65,7 @@ import { useThreadListActions } from "@app/hooks/useThreadListActions";
 import { useRemoteThreadLiveConnection } from "@app/hooks/useRemoteThreadLiveConnection";
 import { useTrayRecentThreads } from "@app/hooks/useTrayRecentThreads";
 import { useTraySessionUsage } from "@app/hooks/useTraySessionUsage";
-import { useTauriEvent } from "@app/hooks/useTauriEvent";
+import { useHostEvent } from "@app/hooks/useHostEvent";
 import { useMessageEdit } from "@/features/messages/hooks/useMessageEdit";
 import { useAppBootstrapOrchestration } from "@app/bootstrap/useAppBootstrapOrchestration";
 import {
@@ -92,8 +91,6 @@ const SettingsView = lazy(() =>
 );
 
 export default function MainApp() {
-  // 账号会话 → 网关 credit 模式同步（登录写 JWT/切代理，登出回 dev）。全局一次。
-  useCreditGatewaySync();
   const {
     appSettings,
     setAppSettings,
@@ -497,7 +494,6 @@ export default function MainApp() {
     updateCustomInstructions,
     confirmCustom,
     handleApprovalDecision,
-    handleApprovalRemember,
     handleUserInputSubmit,
     refreshAccountInfo,
     refreshAccountRateLimits,
@@ -1265,8 +1261,6 @@ export default function MainApp() {
     handleRenameWorktreeCancel,
     handleRenameWorktreeConfirm,
   });
-  const { baseWorkspaceRef } = worktreeState;
-
   useMainAppWorkspaceLifecycle({
     activeTab,
     isTablet,
@@ -1288,8 +1282,6 @@ export default function MainApp() {
     handleAddWorkspace,
     handleAddWorkspaceFromGitUrl,
     handleAddAgent,
-    handleAddWorktreeAgent,
-    handleAddCloneAgent,
     dropTargetRef: workspaceDropTargetRef,
     isDragOver: isWorkspaceDropActive,
     handleDragOver: handleWorkspaceDragOver,
@@ -1407,7 +1399,7 @@ export default function MainApp() {
       openThreadLink: handleOpenThreadLinkFromExternal,
     });
 
-  useTauriEvent(
+  useHostEvent(
     subscribeTrayOpenThread,
     ({ workspaceId, threadId }: { workspaceId: string; threadId: string }) => {
       openThreadLinkOrQueue(workspaceId, threadId);
@@ -1502,12 +1494,8 @@ export default function MainApp() {
     },
     appMenu: {
       activeWorkspaceRef,
-      baseWorkspaceRef,
       onAddWorkspace: handleAddWorkspace,
-      onAddWorkspaceFromUrl: openWorkspaceFromUrlPrompt,
       onAddAgent: handleAddAgent,
-      onAddWorktreeAgent: handleAddWorktreeAgent,
-      onAddCloneAgent: handleAddCloneAgent,
       onToggleDebug: handleDebugClick,
       onToggleTerminal: handleToggleTerminalWithFocus,
       sidebarCollapsed,
@@ -1588,12 +1576,12 @@ export default function MainApp() {
           prompts,
           files,
           onFileAutocompleteActiveChange: setFileAutocompleteActive,
-          dictationEnabled: appSettings.dictationEnabled && dictationReady,
+          dictationEnabled: false,
           dictationState,
           dictationLevel,
           onToggleDictation: handleToggleDictation,
           onCancelDictation: cancelDictation,
-          onOpenDictationSettings: () => modalActions.openSettings("dictation"),
+          onOpenDictationSettings: undefined,
           dictationError,
           onDismissDictationError: clearDictationError,
           dictationHint,
@@ -1630,7 +1618,7 @@ export default function MainApp() {
       experimentalAppsEnabled: appSettings.experimentalAppsEnabled,
       followUpMessageBehavior: appSettings.followUpMessageBehavior,
       composerFollowUpHintEnabled: appSettings.composerFollowUpHintEnabled,
-      dictationEnabled: appSettings.dictationEnabled,
+      dictationEnabled: false,
       splitChatDiffView: appSettings.splitChatDiffView,
       gitDiffIgnoreWhitespaceChanges:
         appSettings.gitDiffIgnoreWhitespaceChanges,
@@ -1668,7 +1656,7 @@ export default function MainApp() {
     onSwitchAccount: handleSwitchAccount,
     onCancelSwitchAccount: handleCancelSwitchAccount,
     onDecision: handleApprovalDecision,
-    onRemember: handleApprovalRemember,
+    onRemember: undefined,
     onUserInputSubmit: handleUserInputSubmit,
     onPlanAccept: handlePlanAccept,
     onPlanSubmitChanges: handlePlanSubmitChanges,
@@ -1724,7 +1712,7 @@ export default function MainApp() {
       handleSelectPullRequest,
     },
     dictationUi: {
-      onOpenDictationSettings: () => modalActions.openSettings('dictation'),
+      onOpenDictationSettings: undefined,
       dictationTranscript,
       dictationError,
       dictationHint,
@@ -1735,8 +1723,6 @@ export default function MainApp() {
     handleAddWorkspace,
     openWorkspaceFromUrlPrompt,
     handleAddAgent,
-    handleAddWorktreeAgent,
-    handleAddCloneAgent,
     handleOpenThreadLink,
     handleSelectOpenAppId,
     handleCopyThread,

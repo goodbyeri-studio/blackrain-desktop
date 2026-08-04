@@ -1,44 +1,20 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { openWorkspaceIn } from "../../../services/tauri";
+import { revealPath } from "../../../host/desktop";
 import { fileTarget } from "../test/fileLinkAssertions";
 import { useFileLinkOpener } from "./useFileLinkOpener";
 
-const {
-  menuNewMock,
-  menuItemNewMock,
-  predefinedMenuItemNewMock,
-  logicalPositionMock,
-  getCurrentWindowMock,
-} = vi.hoisted(() => ({
-  menuNewMock: vi.fn(),
-  menuItemNewMock: vi.fn(),
-  predefinedMenuItemNewMock: vi.fn(),
-  logicalPositionMock: vi.fn(),
-  getCurrentWindowMock: vi.fn(),
-}));
-
-vi.mock("../../../services/tauri", () => ({
-  openWorkspaceIn: vi.fn(),
-}));
+const showContextMenuMock = vi.hoisted(() =>
+  vi.fn(async (_event: unknown, _entries: Array<{ label?: string; onSelect?: () => Promise<void> }>) => undefined),
+);
 
 vi.mock("../../../host/desktop", () => ({
   revealPath: vi.fn(),
 }));
 
-vi.mock("@tauri-apps/api/menu", () => ({
-  Menu: { new: menuNewMock },
-  MenuItem: { new: menuItemNewMock },
-  PredefinedMenuItem: { new: predefinedMenuItemNewMock },
-}));
-
-vi.mock("@tauri-apps/api/dpi", () => ({
-  LogicalPosition: logicalPositionMock,
-}));
-
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: getCurrentWindowMock,
+vi.mock("../../../host/contextMenu", () => ({
+  showContextMenu: showContextMenuMock,
 }));
 
 vi.mock("@sentry/react", () => ({
@@ -60,13 +36,6 @@ describe("useFileLinkOpener", () => {
       value: { writeText: clipboardWriteTextMock },
       configurable: true,
     });
-    menuItemNewMock.mockImplementation(async (options) => options);
-    predefinedMenuItemNewMock.mockImplementation(async (options) => options);
-    menuNewMock.mockImplementation(async ({ items }) => ({
-      items,
-      popup: vi.fn(),
-    }));
-
     const { result } = renderHook(() => useFileLinkOpener(null, [], ""));
 
     await act(async () => {
@@ -81,12 +50,12 @@ describe("useFileLinkOpener", () => {
       );
     });
 
-    const items = menuNewMock.mock.calls[0]?.[0]?.items ?? [];
+    const items = showContextMenuMock.mock.calls[0]?.[1] ?? [];
     const copyLinkItem = items.find(
-      (item: { text?: string; action?: () => Promise<void> }) => item.text === "Copy Link",
+      (item: { label?: string; onSelect?: () => Promise<void> }) => item.label === "Copy Link",
     );
 
-    await copyLinkItem?.action?.();
+    await copyLinkItem?.onSelect?.();
     return clipboardWriteTextMock.mock.calls[0]?.[0];
   }
 
@@ -110,7 +79,7 @@ describe("useFileLinkOpener", () => {
 
   it("maps /workspace root-relative paths to the active workspace path", async () => {
     const workspacePath = "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor";
-    const openWorkspaceInMock = vi.mocked(openWorkspaceIn);
+    const revealPathMock = vi.mocked(revealPath);
     const { result } = renderHook(() => useFileLinkOpener(workspacePath, [], ""));
 
     await act(async () => {
@@ -119,60 +88,56 @@ describe("useFileLinkOpener", () => {
       );
     });
 
-    expect(openWorkspaceInMock).toHaveBeenCalledWith(
+    expect(revealPathMock).toHaveBeenCalledWith(
       "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor/src/features/messages/components/Markdown.tsx",
-      expect.objectContaining({ appName: "Visual Studio Code", args: [] }),
     );
   });
 
   it("maps /workspace/<workspace-name>/... paths to the active workspace path", async () => {
     const workspacePath = "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor";
-    const openWorkspaceInMock = vi.mocked(openWorkspaceIn);
+    const revealPathMock = vi.mocked(revealPath);
     const { result } = renderHook(() => useFileLinkOpener(workspacePath, [], ""));
 
     await act(async () => {
       await result.current.openFileLink(fileTarget("/workspace/CodexMonitor/LICENSE"));
     });
 
-    expect(openWorkspaceInMock).toHaveBeenCalledWith(
+    expect(revealPathMock).toHaveBeenCalledWith(
       "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor/LICENSE",
-      expect.objectContaining({ appName: "Visual Studio Code", args: [] }),
     );
   });
 
   it("maps extensionless files under /workspace/settings to the active workspace path", async () => {
     const workspacePath = "/Users/sotiriskaniras/Documents/Development/Forks/settings";
-    const openWorkspaceInMock = vi.mocked(openWorkspaceIn);
+    const revealPathMock = vi.mocked(revealPath);
     const { result } = renderHook(() => useFileLinkOpener(workspacePath, [], ""));
 
     await act(async () => {
       await result.current.openFileLink(fileTarget("/workspace/settings/LICENSE"));
     });
 
-    expect(openWorkspaceInMock).toHaveBeenCalledWith(
+    expect(revealPathMock).toHaveBeenCalledWith(
       "/Users/sotiriskaniras/Documents/Development/Forks/settings/LICENSE",
-      expect.objectContaining({ appName: "Visual Studio Code", args: [] }),
     );
   });
 
   it("maps nested /workspaces/.../<workspace-name>/... paths to the active workspace path", async () => {
     const workspacePath = "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor";
-    const openWorkspaceInMock = vi.mocked(openWorkspaceIn);
+    const revealPathMock = vi.mocked(revealPath);
     const { result } = renderHook(() => useFileLinkOpener(workspacePath, [], ""));
 
     await act(async () => {
       await result.current.openFileLink(fileTarget("/workspaces/team/CodexMonitor/src"));
     });
 
-    expect(openWorkspaceInMock).toHaveBeenCalledWith(
+    expect(revealPathMock).toHaveBeenCalledWith(
       "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor/src",
-      expect.objectContaining({ appName: "Visual Studio Code", args: [] }),
     );
   });
 
   it("preserves file link line and column metadata for editor opens", async () => {
     const workspacePath = "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor";
-    const openWorkspaceInMock = vi.mocked(openWorkspaceIn);
+    const revealPathMock = vi.mocked(revealPath);
     const { result } = renderHook(() => useFileLinkOpener(workspacePath, [], ""));
 
     await act(async () => {
@@ -181,38 +146,27 @@ describe("useFileLinkOpener", () => {
       );
     });
 
-    expect(openWorkspaceInMock).toHaveBeenCalledWith(
+    expect(revealPathMock).toHaveBeenCalledWith(
       "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor/src/features/messages/components/Markdown.tsx",
-      expect.objectContaining({
-        appName: "Visual Studio Code",
-        args: [],
-        line: 33,
-        column: 7,
-      }),
     );
   });
 
   it("parses #L line anchors before opening the editor", async () => {
     const workspacePath = "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor";
-    const openWorkspaceInMock = vi.mocked(openWorkspaceIn);
+    const revealPathMock = vi.mocked(revealPath);
     const { result } = renderHook(() => useFileLinkOpener(workspacePath, [], ""));
 
     await act(async () => {
       await result.current.openFileLink(fileTarget("/workspace/src/App.tsx#L33"));
     });
 
-    expect(openWorkspaceInMock).toHaveBeenCalledWith(
+    expect(revealPathMock).toHaveBeenCalledWith(
       "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor/src/App.tsx",
-      expect.objectContaining({
-        appName: "Visual Studio Code",
-        args: [],
-        line: 33,
-      }),
     );
   });
 
   it("opens structured file targets without re-parsing #L-like filename endings", async () => {
-    const openWorkspaceInMock = vi.mocked(openWorkspaceIn);
+    const revealPathMock = vi.mocked(revealPath);
     const { result } = renderHook(() => useFileLinkOpener(null, [], ""));
 
     await act(async () => {
@@ -223,15 +177,14 @@ describe("useFileLinkOpener", () => {
       });
     });
 
-    expect(openWorkspaceInMock).toHaveBeenCalledWith(
+    expect(revealPathMock).toHaveBeenCalledWith(
       "/tmp/#L12",
-      expect.objectContaining({ appName: "Visual Studio Code", args: [] }),
     );
   });
 
   it("normalizes line ranges to the starting line before opening the editor", async () => {
     const workspacePath = "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor";
-    const openWorkspaceInMock = vi.mocked(openWorkspaceIn);
+    const revealPathMock = vi.mocked(revealPath);
     const { result } = renderHook(() => useFileLinkOpener(workspacePath, [], ""));
 
     await act(async () => {
@@ -240,13 +193,8 @@ describe("useFileLinkOpener", () => {
       );
     });
 
-    expect(openWorkspaceInMock).toHaveBeenCalledWith(
+    expect(revealPathMock).toHaveBeenCalledWith(
       "/Users/sotiriskaniras/Documents/Development/Forks/CodexMonitor/src/features/messages/components/Markdown.tsx",
-      expect.objectContaining({
-        appName: "Visual Studio Code",
-        args: [],
-        line: 366,
-      }),
     );
   });
 });

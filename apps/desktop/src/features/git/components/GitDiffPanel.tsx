@@ -1,9 +1,7 @@
 import type { GitHubIssue, GitHubPullRequest, GitLogEntry } from "../../../types";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useI18n } from "@/i18n";
-import { Menu, MenuItem } from "@tauri-apps/api/menu";
-import { LogicalPosition } from "@tauri-apps/api/dpi";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { showContextMenu, type ContextMenuEntry } from "../../../host/contextMenu";
 import {
   confirmDialog,
   openExternal,
@@ -296,51 +294,36 @@ export function GitDiffPanel({
 
   const showLogMenu = useCallback(
     async (event: ReactMouseEvent<HTMLDivElement>, entry: GitLogEntry) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const copyItem = await MenuItem.new({
-        text: tx("Copy SHA"),
-        action: async () => {
+      const items: ContextMenuEntry[] = [{
+        id: "copy-sha",
+        label: tx("Copy SHA"),
+        onSelect: async () => {
           await navigator.clipboard.writeText(entry.sha);
         },
-      });
-
-      const items = [copyItem];
+      }];
       if (githubBaseUrl) {
-        const openItem = await MenuItem.new({
-          text: tx("Open on GitHub"),
-          action: async () => {
+        items.push({
+          id: "open-github",
+          label: tx("Open on GitHub"),
+          onSelect: async () => {
             await openExternal(`${githubBaseUrl}/commit/${entry.sha}`);
           },
         });
-        items.push(openItem);
       }
-
-      const menu = await Menu.new({ items });
-      const window = getCurrentWindow();
-      const position = new LogicalPosition(event.clientX, event.clientY);
-      await menu.popup(position, window);
+      await showContextMenu(event, items);
     },
     [githubBaseUrl, tx],
   );
 
   const showPullRequestMenu = useCallback(
     async (event: ReactMouseEvent<HTMLDivElement>, pullRequest: GitHubPullRequest) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const openItem = await MenuItem.new({
-        text: tx("Open on GitHub"),
-        action: async () => {
+      await showContextMenu(event, [{
+        id: "open-github",
+        label: tx("Open on GitHub"),
+        onSelect: async () => {
           await openExternal(pullRequest.url);
         },
-      });
-
-      const menu = await Menu.new({ items: [openItem] });
-      const window = getCurrentWindow();
-      const position = new LogicalPosition(event.clientX, event.clientY);
-      await menu.popup(position, window);
+      }]);
     },
     [tx],
   );
@@ -420,38 +403,36 @@ export function GitDiffPanel({
         unstagedFiles.some((file) => file.path === targetPath),
       );
 
-      const items: MenuItem[] = [];
+      const items: ContextMenuEntry[] = [];
 
       if (stagedPaths.length > 0 && onUnstageFile) {
-        items.push(
-          await MenuItem.new({
-            text:
+        items.push({
+            id: "unstage",
+            label:
               stagedPaths.length > 1
                 ? tx("Unstage files ({count})", { count: stagedPaths.length })
                 : tx("Unstage file"),
-            action: async () => {
+            onSelect: async () => {
               for (const stagedPath of stagedPaths) {
                 await onUnstageFile(stagedPath);
               }
             },
-          }),
-        );
+          });
       }
 
       if (unstagedPaths.length > 0 && onStageFile) {
-        items.push(
-          await MenuItem.new({
-            text:
+        items.push({
+            id: "stage",
+            label:
               unstagedPaths.length > 1
                 ? tx("Stage files ({count})", { count: unstagedPaths.length })
                 : tx("Stage file"),
-            action: async () => {
+            onSelect: async () => {
               for (const unstagedPath of unstagedPaths) {
                 await onStageFile(unstagedPath);
               }
             },
-          }),
-        );
+          });
       }
 
       if (targetPaths.length === 1) {
@@ -464,10 +445,10 @@ export function GitDiffPanel({
           relativeRoot !== null ? joinRootAndPath(relativeRoot, rawPath) : rawPath;
         const fileName = getFileName(rawPath);
 
-        items.push(
-          await MenuItem.new({
-            text: tx("Show in {app}", { app: fileManagerLabel }),
-            action: async () => {
+        items.push({
+            id: "reveal",
+            label: tx("Show in {app}", { app: fileManagerLabel }),
+            onSelect: async () => {
               try {
                 if (!resolvedRoot && !isAbsolutePathForPlatform(absolutePath)) {
                   pushErrorToast({
@@ -489,47 +470,44 @@ export function GitDiffPanel({
                 });
               }
             },
-          }),
-        );
+          });
 
         items.push(
-          await MenuItem.new({
-            text: tx("Copy file name"),
-            action: async () => {
+          {
+            id: "copy-name",
+            label: tx("Copy file name"),
+            onSelect: async () => {
               await navigator.clipboard.writeText(fileName);
             },
-          }),
-          await MenuItem.new({
-            text: tx("Copy file path"),
-            action: async () => {
+          },
+          {
+            id: "copy-path",
+            label: tx("Copy file path"),
+            onSelect: async () => {
               await navigator.clipboard.writeText(projectRelativePath);
             },
-          }),
+          },
         );
       }
 
       if (onRevertFile) {
-        items.push(
-          await MenuItem.new({
-            text:
+        items.push({
+            id: "discard",
+            label:
               fileCount > 1
                 ? tx("Discard changes ({count})", { count: fileCount })
                 : tx("Discard change"),
-            action: async () => {
+            onSelect: async () => {
               await discardFiles(targetPaths);
             },
-          }),
-        );
+          });
       }
 
       if (!items.length) {
         return;
       }
 
-      const menu = await Menu.new({ items });
-      const window = getCurrentWindow();
-      const position = new LogicalPosition(event.clientX, event.clientY);
-      await menu.popup(position, window);
+      await showContextMenu(event, items);
     },
     [
       selectedFiles,

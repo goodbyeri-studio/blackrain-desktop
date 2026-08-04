@@ -297,8 +297,8 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
-  background: rgba(36, 36, 36, 0.98);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--surface-popover);
+  border-color: var(--border-subtle);
   box-shadow: 0 18px 38px rgba(0, 0, 0, 0.35);
 }
 
@@ -312,7 +312,7 @@
 .sidebar-sort-divider {
   height: 1px;
   margin: 8px 3px 8px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--border-subtle);
 }
 
 .sidebar-sort-option {
@@ -368,13 +368,13 @@
 .sidebar-sort-option:focus-visible,
 .sidebar-sort-option.is-active {
   color: var(--text-strong);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
   transform: none;
   box-shadow: none;
 }
 
 .sidebar-sort-option.is-disabled {
-  color: rgba(235, 235, 235, 0.34);
+  color: var(--text-faint);
   cursor: default;
 }
 
@@ -387,7 +387,7 @@
   width: 14px;
   height: 14px;
   margin-left: auto;
-  color: rgba(235, 235, 235, 0.64);
+  color: var(--text-subtle);
   flex-shrink: 0;
 }
 
@@ -404,8 +404,8 @@
   flex-direction: column;
   gap: 2px;
   z-index: 10000;
-  background: rgba(36, 36, 36, 0.98);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--surface-popover);
+  border-color: var(--border-subtle);
   box-shadow: 0 18px 38px rgba(0, 0, 0, 0.35);
 }
 
@@ -671,6 +671,7 @@
 /* empty 提示(添加工作区以开始 / 暂无聊天)对齐 28px 图标左轨 */
 .workspace-list .empty {
   padding: 0 8px;
+  color: var(--text-subtle);
 }
 
 .sidebar-section-header {
@@ -835,7 +836,7 @@
 .workspace-group-label {
   font-size: 15px;
   font-weight: 500;
-  color: rgba(235, 235, 235, 0.38);
+  color: var(--text-subtle);
   letter-spacing: 0.01em;
 }
 
@@ -1127,7 +1128,7 @@
 }
 
 .workspace-folder-icon {
-  color: rgba(235, 235, 235, 0.68);
+  color: var(--text-muted);
 }
 
 .workspace-copy {
@@ -1153,17 +1154,17 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: rgba(235, 235, 235, 0.62);
+  color: var(--text-muted);
   opacity: 1;
 }
 
 .workspace-add:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-hover);
 }
 
 .workspace-empty-thread {
   padding: 7px 8px 9px 44px;
-  color: rgba(235, 235, 235, 0.24);
+  color: var(--text-subtle);
   font-size: 15px;
   font-weight: 500;
   line-height: 1.2;
@@ -1415,7 +1416,7 @@
   padding: 4px 8px 4px calc(44px + var(--thread-indent, 0px));
   border-radius: 9px;
   font-size: 14px;
-  color: rgba(235, 235, 235, 0.72);
+  color: var(--text-quiet);
 }
 
 .thread-row.is-nested {
@@ -1425,7 +1426,7 @@
 }
 
 .thread-row.active {
-  background: rgba(255, 255, 255, 0.075);
+  background: var(--surface-hover);
 }
 
 .thread-status.ready {
@@ -1450,7 +1451,7 @@
 
 .thread-time {
   font-size: 13px;
-  color: rgba(235, 235, 235, 0.34);
+  color: var(--text-faint);
 }
 
 .thread-meta {
@@ -2243,7 +2244,7 @@
 .sidebar-bottom-rail {
   margin: auto calc(-1 * var(--sidebar-padding)) 0;
   padding: 10px var(--sidebar-padding) 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.055);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .sidebar-bottom-actions,
@@ -2288,7 +2289,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: rgba(235, 235, 235, 0.88);
+  color: var(--text-emphasis);
   display: inline-flex;
   align-items: center;
   gap: 11px;
@@ -2298,7 +2299,7 @@
 
 .sidebar-settings-account-button:hover,
 .sidebar-settings-account-button:focus-visible {
-  background: rgba(255, 255, 255, 0.055);
+  background: var(--surface-hover);
   outline: none;
 }
 
@@ -2311,13 +2312,13 @@
 }
 
 .sidebar-settings-account-title {
-  color: rgba(245, 245, 245, 0.9);
+  color: var(--text-strong);
   font-size: 15px;
   font-weight: 600;
 }
 
 .sidebar-settings-account-subtitle {
-  color: rgba(235, 235, 235, 0.42);
+  color: var(--text-subtle);
   font-size: 13px;
   font-weight: 500;
   overflow: hidden;

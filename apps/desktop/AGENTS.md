@@ -1,68 +1,44 @@
 # BlackRain Desktop Agent Guide
 
-> **状态（2026-08-04）**：BlackRain Electron 全量迁移与发布仍由 `.specs/002-electron-migration/` 作为产品 P0；可移植 Browser Runtime 源码底座由 `.specs/003-portable-electron-browser-runtime/` 独立管理。Browser runtime/功能链路已闭环并转为产品发布回归项，但源码底座的去耦、参考宿主和二次开发验证尚未完成。当前完整产品流程仍是 Tauri；Electron packaged E2E 的设置点击与 Browser 全链路已通过，签名 MSIX 仍待产品态复验。
+> **状态（2026-08-05）**：生产代码已完成 Electron native-clean 迁移，Tauri/Rust daemon/固定端口/旧安装器和 renderer 兼容入口已删除。unsigned package、原生输入、App Server/Browser MCP、smoke、E2E 和 MSIX maker 为 `RUN_PASS`；正式签名与 Windows 产品矩阵尚未完成，因此不能宣称客户端可发布。
 
 ## 项目快照
 
-BlackRain Desktop 只使用原装 `codex-rs` / `codex app-server` 作为 agent 内核。当前完整产品流程仍运行于 React/Vite + Tauri/Rust；`electron/` 已建立安全 main/preload/renderer、stdio/JSONL App Server client、锁定 `codex-cli 0.146.0` 供应链、main-owned Browser、最小 workspace/thread/turn facade，以及 settings/files/凭据/shell 等 typed host API。尚未完成其余 Tauri 能力迁移、旧宿主删除和 Windows 发布验收，不得把 Browser runtime 闭环或 package 通过写成 Electron 客户端已经可交付。
-
-目标宿主边界：
+BlackRain Desktop 只使用原装 `codex-rs` / `codex.exe app-server` 作为 agent 内核。当前唯一产品宿主是 Electron：
 
 ```text
-Electron main       App Server client、窗口、Browser、权限、更新
+Electron main       App Server stdio client、窗口、Browser、权限、更新、系统能力
 Electron preload    类型化最小 IPC
 React renderer      产品 UI 和前端状态
-codex app-server    main 直接监管的机器入口；下接唯一 codex-core agent loop、工具、策略和 ThreadStore
-Model Gateway       可选协议翻译 sidecar
+codex app-server    thread/turn/tool/approval/ThreadStore 的唯一真源
+Model Gateway       可选独立协议翻译 sidecar
 ```
+
+Browser 产品回归登记到 `.specs/002-electron-migration/`；可移植 Browser Runtime 的公共合同登记到 `.specs/003-portable-electron-browser-runtime/`。二者不能互相替代验收。
 
 ## 不可违反的架构规则
 
-1. 不修改、分叉或重写 `codex-rs` agent loop。
-2. 不引入任何第二 agent runtime。
-3. `src-tauri/src/shared/*` 与 daemon 是当前 Tauri 迁移输入；新增目标态能力按所有权进入 Electron main/preload/renderer 或原装 app-server，不再扩建永久 daemon。
-4. 当前 Tauri App/daemon adapter 只作迁移输入；目标 Electron main 不重复实现 app-server 的 agent、工具、审批或持久化逻辑。
-5. renderer 不接触 Node.js、原始 IPC、secret、App Server transport 或任意文件系统。
-6. Browser 网页不加载 App preload；当前 spec 证明需要时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用 page preload。所有导航、权限、下载、弹窗和 CDP 由宿主集中控制。
-7. 目标 Electron App 沿用 Codex 标准 Home 解析并与 CLI 共享配置、能力和可恢复 thread；不得自动派生 BlackRain 专属 `CODEX_HOME`。
-8. bundled `codex.exe` 路径与 Codex Home 是两个独立配置域；切换二进制不得切换或复制 Home。
-9. Gateway 只做模型协议翻译，不持有 thread、Browser 或 UI 状态；BlackRain 专属 provider/model 只用进程级 `-c` override，不写共享 `config.toml`。
-10. provider secret/credit token 的规范副本进入系统凭据库；Gateway 运行时凭据桥放 BlackRain app-data 的专用目录，不进入 Codex Home。
-11. Tauri -> Electron 迁移期兼容层必须带删除任务，不建立永久双宿主。
-12. Browser 采用 main-owned `WebContentsView`、统一 registry、view retention/reparenting 和持久 profile；React 只控制侧边栏布局，不得另起 Playwright/headless agent browser。
-13. Browser 工具按 Codex session/turn 绑定到唯一 main backend；发布态使用标准 stdio MCP + 随包 Node adapter + 鉴权有界 transport，dynamic tools 只作测试/bootstrap。
-14. 可移植 Browser Runtime 核心只拥有 Electron Browser 能力和中性合同，不 import `app-server`、BlackRain 总 host API/IPC 或 React；Codex/BlackRain 绑定进入 `integrations/blackrain`、`integrations/codex` 或等价 adapter。
-15. 抽取源码底座不得复制第二个 Browser backend。BlackRain 产品和最小参考宿主必须消费同一个核心；临时兼容入口要有删除任务。
+1. 不修改、分叉或重写 `codex-rs` agent loop，不引入第二 agent runtime。
+2. main 直接监管 bundled `codex.exe app-server`，只实现 stdio JSONL client、生命周期、权限边界和 UI 投影。
+3. 使用标准 Codex Home，与 CLI 共享 config/auth/sessions/rollout/SQLite；不得创建隐藏的 BlackRain 专属 Home。
+4. renderer 不接触 Node.js、原始 IPC、secret、App Server transport 或任意文件系统；只使用 typed preload。
+5. 所有 IPC 校验 schema、sender、window、workspace/thread、route 和 generation ownership。
+6. Browser 页面不加载 App preload；`WebContentsView`、session、权限、下载、CDP 和生命周期只由 main 持有。
+7. Browser 发布态只使用标准 stdio MCP + 随包 Node adapter + 自有鉴权 transport；dynamic tools/main self-load 只作测试/bootstrap。
+8. Gateway 只做模型协议翻译，不持有 thread、Browser 或 UI 状态。
+9. 不恢复旧宿主兼容层、固定 localhost、旧 command 名或 fallback。`check:host-boundary` 是 final-mode 零容忍闸口。
+10. 暂停的工作台、Session Orchestrator、专家市场和 OPC/工作室不得进入导航、当前里程碑或新增产品依赖。
 
-## 当前 Tauri 代码路由
+## 目录与职责
 
-迁移完成前，现有 Tauri 后端改动遵循：
+- `electron/main/`：main 领域模块、App Server client、Browser backend 与 typed IPC handler。
+- `electron/preload/`：最小 allowlist bridge。
+- `electron/shared/`：main/preload/renderer 共享 schema 和类型。
+- `src/`：React renderer；`src/App.tsx` 只做装配，编排进入 feature hooks/orchestration。
+- `resources/`：锁定 Codex、Node、Browser client/adapter 的 manifest、license 和生成态资源。
+- `scripts/`：Electron package、审计、probe、smoke 与 E2E；不得加入旧宿主入口。
 
-1. shared core：`src-tauri/src/shared/*`
-2. App command：`src-tauri/src/lib.rs` 及 adapter
-3. 前端 IPC：`src/services/tauri.ts`
-4. daemon RPC：`src-tauri/src/bin/blackrain_daemon/rpc.rs` 及 `rpc/*`
-
-新增或修改命令必须同步所有相关层和测试。BlackRain 迁移任务和产品 Browser 发布回归登记到 `002-electron-migration`；源码底座边界、适配合同和参考宿主登记到 `003-portable-electron-browser-runtime`。同时改变两类合同的改动必须同步两个 spec。新的宿主 API 不得继续扩张 `tauri.ts`。
-
-## 前端规则
-
-- `src/App.tsx` 只做装配。
-- 状态编排放 `src/features/app/hooks/*`、`bootstrap/*`、`orchestration/*`。
-- 当前 Tauri 调用集中在 `src/services/tauri.ts`；迁移目标是宿主无关 typed client。
-- 事件扇出集中在 `src/services/events.ts`，Browser 事件也必须标准化后进入 UI。
-- 复用 design-system 原语和 token，不复制 Codex App 闭源资源。
-
-## 关键文件
-
-- `src/App.tsx`：前端组合根
-- `src/services/tauri.ts`：当前 Tauri IPC 包装
-- `src/services/events.ts`：事件中心
-- `src-tauri/src/lib.rs`：当前 App 命令注册
-- `src-tauri/src/bin/blackrain_daemon.rs`：daemon 入口
-- `src-tauri/src/bin/blackrain_daemon/rpc.rs`：daemon RPC 路由
-- `src-tauri/src/shared/*`：跨宿主领域逻辑
-- `src/features/threads/hooks/useThreadsReducer.ts`：thread 状态入口
+事件扇出集中在 host event service；App Server 和 Browser 事件由 main 标准化后进入 renderer。文件、Git、终端、设置、凭据、通知、窗口、菜单、托盘、深链和更新属于 main 域。
 
 ## 线程不变量
 
@@ -72,14 +48,28 @@ Model Gateway       可选协议翻译 sidecar
 
 ## 验证
 
-- 前端：`npm run typecheck`、按改动范围运行 `npm run test`、`npm run lint`、`npm run lint:ds`；renderer 宿主依赖、Tauri command 或 Electron 迁移改动额外运行 `npm run check:host-boundary`。
-- 当前 Rust：在 `src-tauri` 运行 `cargo check` 和目标测试。
-- Electron：当前运行 `npm run electron:typecheck`、目标单测、`npm run electron:smoke`、`npm run electron:e2e` 和 `npm run electron:make`；App Server 改动额外运行 `npm run test -- --run electron/main/app-server`，并继续补 bundled codex 集成与 Windows MSIX 签名/安装/升级/卸载/恢复矩阵。
-- Browser、真实对话、权限和 Windows 制品必须实机验收；macOS smoke 不能替代。
+```powershell
+npm.cmd run typecheck
+npm.cmd run test
+npm.cmd run lint
+npm.cmd run check:host-boundary
+npm.cmd run electron:runtime:verify
+npm.cmd run electron:node-runtime:verify
+npm.cmd run electron:browser-client:verify
+npm.cmd run electron:app-server:probe
+npm.cmd run electron:package
+npm.cmd run electron:package:audit
+npm.cmd run electron:native-input:probe
+npm.cmd run electron:smoke
+npm.cmd run electron:e2e
+npm.cmd run electron:make
+```
+
+正式候选使用 `electron:make:release`，缺少签名/更新配置时必须 fail closed。Browser 真实站点、登录/MFA、审批、双用户 ACL、安装/升级/回滚/卸载和 Windows 输入/显示/恢复矩阵必须实机验收；unsigned 自动化不替代。
 
 ## 安全与 Git
 
 - 保留无关用户改动，不 reset/revert/清理未授权文件。
-- 修改前先看 `git status`、`git diff` 和对应 spec。
-- 任何目标态文档必须标明未验证状态。
-- 分支、PR、License 和主线纪律服从仓库根 `AGENTS.md`。
+- 修改前检查工作树和对应 living spec；行为、边界或状态变化必须同步 spec。
+- `main` 禁止直接 push；使用短命分支、Conventional Commit、CI 绿、Squash 合并。
+- 不得伪造 commit、签名、安装态或人工验收证据。

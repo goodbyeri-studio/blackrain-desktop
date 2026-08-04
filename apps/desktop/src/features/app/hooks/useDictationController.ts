@@ -3,7 +3,7 @@ import { useDictation } from "../../dictation/hooks/useDictation";
 import { useDictationModel } from "../../dictation/hooks/useDictationModel";
 import { useHoldToDictate } from "../../dictation/hooks/useHoldToDictate";
 import type { AppSettings } from "../../../types";
-import { requestDictationPermission } from "../../../services/tauri";
+import { requestDictationPermission } from "../../../services/desktop";
 
 type DictationController = {
   dictationModel: ReturnType<typeof useDictationModel>;
@@ -89,7 +89,7 @@ export function useDictationController(appSettings: AppSettings): DictationContr
   }, []);
 
   useHoldToDictate({
-    enabled: appSettings.dictationEnabled,
+    enabled: false,
     ready: dictationReady,
     state: dictationState,
     preferredLanguage: appSettings.dictationPreferredLanguage,

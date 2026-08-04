@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { getVersion } from "@tauri-apps/api/app";
 import type { AppLanguagePreference } from "@/types";
-import { getAppSettings } from "@services/tauri";
+import { getAppSettings } from "@services/desktop";
 import { I18nProvider, useI18n } from "@/i18n";
+import { getOptionalHostClient } from "@/host/client";
 
 export function AboutView() {
   const [language, setLanguage] = useState<AppLanguagePreference>("system");
@@ -36,7 +36,7 @@ function AboutViewContent() {
     let active = true;
     const fetchVersion = async () => {
       try {
-        const value = await getVersion();
+        const value = (await getOptionalHostClient()?.app.getBootstrap())?.version ?? __APP_VERSION__;
         if (active) {
           setVersion(value);
         }

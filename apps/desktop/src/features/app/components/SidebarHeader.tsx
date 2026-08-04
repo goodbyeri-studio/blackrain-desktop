@@ -178,7 +178,7 @@ export function SidebarHeader({
           <button
             className="subtitle subtitle-button sidebar-title-button"
             onClick={onSelectHome}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
             aria-label={tx("Open home")}
           >
             {tx("Projects")}
@@ -192,7 +192,7 @@ export function SidebarHeader({
             activeClassName="is-active"
             className="ghost sidebar-sort-toggle ds-tooltip-trigger"
             onClick={sortMenu.toggle}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
             aria-label={tx("Project actions")}
             title={tx("Project actions")}
             data-tooltip={tx("Project actions")}
@@ -264,7 +264,7 @@ export function SidebarHeader({
                       role="menuitemradio"
                       aria-checked={threadListOrganizeMode === "by_project"}
                       onClick={() => handleSelectOrganize("by_project")}
-                      data-tauri-drag-region="false"
+                      data-electron-drag-region="false"
                       icon={<FolderTree aria-hidden />}
                     >
                       {tx("By project")}
@@ -277,7 +277,7 @@ export function SidebarHeader({
                       role="menuitemradio"
                       aria-checked={threadListOrganizeMode === "by_project_activity"}
                       onClick={() => handleSelectOrganize("by_project_activity")}
-                      data-tauri-drag-region="false"
+                      data-electron-drag-region="false"
                       icon={<BetweenHorizontalStart aria-hidden />}
                     >
                       {tx("Recent projects")}
@@ -290,7 +290,7 @@ export function SidebarHeader({
                       role="menuitemradio"
                       aria-checked={threadListOrganizeMode === "threads_only"}
                       onClick={() => handleSelectOrganize("threads_only")}
-                      data-tauri-drag-region="false"
+                      data-electron-drag-region="false"
                       icon={<ListTree aria-hidden />}
                     >
                       {tx("Chronological")}
@@ -306,7 +306,7 @@ export function SidebarHeader({
                       role="menuitemradio"
                       aria-checked={threadListSortKey === "created_at"}
                       onClick={() => handleSelectSort("created_at")}
-                      data-tauri-drag-region="false"
+                      data-electron-drag-region="false"
                       icon={<Calendar aria-hidden />}
                     >
                       {tx("Created time")}
@@ -319,7 +319,7 @@ export function SidebarHeader({
                       role="menuitemradio"
                       aria-checked={threadListSortKey === "updated_at"}
                       onClick={() => handleSelectSort("updated_at")}
-                      data-tauri-drag-region="false"
+                      data-electron-drag-region="false"
                       icon={<ArrowDownUp aria-hidden />}
                     >
                       {tx("Recently updated")}
@@ -336,7 +336,7 @@ export function SidebarHeader({
         <button
           className="sidebar-title-add ds-tooltip-trigger"
           onClick={onAddWorkspace}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           aria-label={tx("Add workspaces")}
           data-tooltip={tx("Add workspaces")}
           data-tooltip-align="end"

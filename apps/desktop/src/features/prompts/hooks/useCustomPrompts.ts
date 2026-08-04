@@ -8,7 +8,7 @@ import {
   getWorkspacePromptsDir as getWorkspacePromptsDirService,
   movePrompt as movePromptService,
   updatePrompt as updatePromptService,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 
 type UseCustomPromptsOptions = {
   activeWorkspace: WorkspaceInfo | null;

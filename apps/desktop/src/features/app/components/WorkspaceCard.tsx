@@ -73,7 +73,7 @@ export function WorkspaceCard({
                   event.stopPropagation();
                   onToggleWorkspaceCollapse(workspace.id, !isCollapsed);
                 }}
-                data-tauri-drag-region="false"
+                data-electron-drag-region="false"
                 aria-label={isCollapsed ? tx("Show agents") : tx("Hide agents")}
                 aria-expanded={!isCollapsed}
               >
@@ -87,7 +87,7 @@ export function WorkspaceCard({
           <div className="workspace-card-hover-actions">
             <button
               className="workspace-card-action-btn"
-              data-tauri-drag-region="false"
+              data-electron-drag-region="false"
               aria-label={tx("More options")}
               onClick={(event) => {
                 event.stopPropagation();
@@ -118,7 +118,7 @@ export function WorkspaceCard({
                     },
               );
             }}
-            data-tauri-drag-region="false"
+            data-electron-drag-region="false"
             aria-label={tx("New thread in project")}
             aria-expanded={addMenuOpen}
           >

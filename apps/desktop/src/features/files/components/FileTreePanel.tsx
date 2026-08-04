@@ -2,11 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { Menu, MenuItem } from "@tauri-apps/api/menu";
-import { LogicalPosition } from "@tauri-apps/api/dpi";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { convertFileSrc } from "../../../host/media";
 import { revealPath } from "../../../host/desktop";
+import { showContextMenu } from "../../../host/contextMenu";
 import { useI18n } from "@/i18n";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import ChevronsUpDown from "lucide-react/dist/esm/icons/chevrons-up-down";
@@ -20,7 +18,7 @@ import {
   PanelMeta,
   PanelSearchField,
 } from "../../design-system/components/panel/PanelPrimitives";
-import { readWorkspaceFile } from "../../../services/tauri";
+import { readWorkspaceFile } from "../../../services/desktop";
 import type { OpenAppTarget } from "../../../types";
 import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 import { languageFromPath } from "../../../utils/syntax";
@@ -553,31 +551,24 @@ export function FileTreePanel({
 
   const showMenu = useCallback(
     async (event: MouseEvent<HTMLButtonElement>, relativePath: string) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const menu = await Menu.new({
-        items: [
-          await MenuItem.new({
-            text: tx("Add to chat"),
-            enabled: canInsertText,
-            action: async () => {
+      await showContextMenu(event, [
+        {
+          id: "add-to-chat",
+          label: tx("Add to chat"),
+          enabled: canInsertText,
+          onSelect: async () => {
               if (!canInsertText) {
                 return;
               }
               onInsertText?.(relativePath);
-            },
-          }),
-          await MenuItem.new({
-            text: revealInFileManagerLabel(),
-            action: async () => {
-              await revealPath(resolvePath(relativePath));
-            },
-          }),
-        ],
-      });
-      const window = getCurrentWindow();
-      const position = new LogicalPosition(event.clientX, event.clientY);
-      await menu.popup(position, window);
+          },
+        },
+        {
+          id: "reveal",
+          label: revealInFileManagerLabel(),
+          onSelect: () => revealPath(resolvePath(relativePath)),
+        },
+      ]);
     },
     [canInsertText, onInsertText, resolvePath, tx],
   );

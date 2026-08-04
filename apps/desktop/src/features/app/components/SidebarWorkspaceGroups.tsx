@@ -2,7 +2,6 @@ import { createPortal } from "react-dom";
 import type { MouseEvent, MutableRefObject, ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import Copy from "lucide-react/dist/esm/icons/copy";
-import GitBranch from "lucide-react/dist/esm/icons/git-branch";
 import Plus from "lucide-react/dist/esm/icons/plus";
 
 import type { ThreadSummary, WorkspaceInfo } from "../../../types";
@@ -67,8 +66,6 @@ type SidebarWorkspaceGroupsProps = {
   onSelectWorkspace: (workspaceId: string) => void;
   onConnectWorkspace: (workspace: WorkspaceInfo) => void;
   onAddAgent: (workspace: WorkspaceInfo) => void;
-  onAddWorktreeAgent: (workspace: WorkspaceInfo) => void;
-  onAddCloneAgent: (workspace: WorkspaceInfo) => void;
   onToggleWorkspaceCollapse: (workspaceId: string, collapsed: boolean) => void;
   onSelectThread: (workspaceId: string, threadId: string) => void;
   onShowThreadMenu: (
@@ -130,8 +127,6 @@ function SidebarWorkspaceEntry({
   onSelectWorkspace,
   onConnectWorkspace,
   onAddAgent,
-  onAddWorktreeAgent,
-  onAddCloneAgent,
   onToggleWorkspaceCollapse,
   onSelectThread,
   onShowThreadMenu,
@@ -251,28 +246,6 @@ function SidebarWorkspaceEntry({
               icon={<Plus aria-hidden />}
             >
               {tx("New agent")}
-            </PopoverMenuItem>
-            <PopoverMenuItem
-              className="workspace-add-option"
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleAddMenu(null);
-                onAddWorktreeAgent(workspace);
-              }}
-              icon={<GitBranch aria-hidden />}
-            >
-              {tx("New worktree agent")}
-            </PopoverMenuItem>
-            <PopoverMenuItem
-              className="workspace-add-option"
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleAddMenu(null);
-                onAddCloneAgent(workspace);
-              }}
-              icon={<Copy aria-hidden />}
-            >
-              {tx("New clone agent")}
             </PopoverMenuItem>
           </PopoverSurface>,
           document.body,

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { setMenuAccelerators } from "../../../services/tauri";
+import { setMenuAccelerators } from "../../../services/desktop";
 import { toMenuAccelerator } from "../../../utils/shortcuts";
 
 type MenuAccelerator = {

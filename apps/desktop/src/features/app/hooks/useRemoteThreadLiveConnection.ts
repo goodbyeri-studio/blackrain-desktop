@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { subscribeAppServerEvents } from "@services/events";
-import { threadLiveSubscribe, threadLiveUnsubscribe } from "@services/tauri";
+import { threadLiveSubscribe, threadLiveUnsubscribe } from "@services/desktop";
 import {
   getAppServerParams,
   getAppServerRawMethod,
@@ -414,9 +413,6 @@ export function useRemoteThreadLiveConnection({
   }, [reconnectLive, reconcileDisconnectedState, setState]);
 
   useEffect(() => {
-    let unlistenWindowFocus: (() => void) | null = null;
-    let unlistenWindowBlur: (() => void) | null = null;
-    let didCleanup = false;
     const ignoreDetachedEventsUntil = ignoreDetachedEventsUntilRef.current;
 
     const reconnectActiveThread = () => {
@@ -462,44 +458,7 @@ export function useRemoteThreadLiveConnection({
     window.addEventListener("blur", handleBlur);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    try {
-      const windowHandle = getCurrentWindow();
-      windowHandle
-        .listen("tauri://focus", handleFocus)
-        .then((unlisten) => {
-          if (didCleanup) {
-            unlisten();
-            return;
-          }
-          unlistenWindowFocus = unlisten;
-        })
-        .catch(() => {
-          // Ignore non-Tauri environments.
-        });
-      windowHandle
-        .listen("tauri://blur", handleBlur)
-        .then((unlisten) => {
-          if (didCleanup) {
-            unlisten();
-            return;
-          }
-          unlistenWindowBlur = unlisten;
-        })
-        .catch(() => {
-          // Ignore non-Tauri environments.
-        });
-    } catch {
-      // Ignore non-Tauri environments.
-    }
-
     return () => {
-      didCleanup = true;
-      if (unlistenWindowFocus) {
-        unlistenWindowFocus();
-      }
-      if (unlistenWindowBlur) {
-        unlistenWindowBlur();
-      }
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("blur", handleBlur);
       document.removeEventListener("visibilitychange", handleVisibilityChange);

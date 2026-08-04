@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AgentsSettings, GeneratedAgentConfiguration } from "@services/tauri";
+import type { AgentsSettings, GeneratedAgentConfiguration } from "@services/desktop";
 import type { AppSettings, ModelOption, WorkspaceInfo } from "@/types";
 import {
   connectWorkspace,
@@ -11,7 +11,7 @@ import {
   setAgentsCoreSettings,
   updateAgent,
   writeAgentConfigToml,
-} from "@services/tauri";
+} from "@services/desktop";
 import { useSettingsDefaultModels } from "./useSettingsDefaultModels";
 
 type UseSettingsAgentsSectionArgs = {

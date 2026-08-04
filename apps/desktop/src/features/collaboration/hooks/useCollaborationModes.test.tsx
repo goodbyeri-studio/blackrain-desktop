@@ -2,10 +2,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceInfo } from "../../../types";
-import { getCollaborationModes } from "../../../services/tauri";
+import { getCollaborationModes } from "../../../services/desktop";
 import { useCollaborationModes } from "./useCollaborationModes";
 
-vi.mock("../../../services/tauri", () => ({
+vi.mock("../../../services/desktop", () => ({
   getCollaborationModes: vi.fn(),
 }));
 

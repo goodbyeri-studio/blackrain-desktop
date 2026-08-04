@@ -1,6 +1,5 @@
-import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef } from "react";
-import { setTraySessionUsage } from "@services/tauri";
+import { setTraySessionUsage } from "@services/desktop";
 import type { RateLimitSnapshot, TraySessionUsage } from "../../../types";
 import { getUsageLabels } from "../utils/usageLabels";
 
@@ -63,7 +62,7 @@ export function useTraySessionUsage({
   const lastSyncedUsageRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isTauri()) {
+    if (!window.blackrain) {
       return;
     }
 

@@ -24,7 +24,7 @@ import {
   modelGatewayProviderSecretStatus,
   refreshModelGatewayProviderModels,
   testModelGatewayProvider,
-} from "@/services/tauri";
+} from "@/services/desktop";
 import {
   SettingsSection,
   SettingsToggleRow,

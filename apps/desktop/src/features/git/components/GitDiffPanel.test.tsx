@@ -5,30 +5,13 @@ import type { GitLogEntry } from "../../../types";
 import { GitDiffPanel } from "./GitDiffPanel";
 import { fileManagerName } from "../../../utils/platformPaths";
 
-const menuNew = vi.hoisted(() =>
-  vi.fn(async ({ items }) => ({ popup: vi.fn(), items })),
+const showContextMenu = vi.hoisted(() =>
+  vi.fn(async (_event: unknown, _entries: Array<{ label?: string; onSelect?: () => unknown }>) => undefined),
 );
-const menuItemNew = vi.hoisted(() => vi.fn(async (options) => options));
 const clipboardWriteText = vi.hoisted(() => vi.fn());
 
-vi.mock("@tauri-apps/api/menu", () => ({
-  Menu: { new: menuNew },
-  MenuItem: { new: menuItemNew },
-}));
-
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({ scaleFactor: () => 1 }),
-}));
-
-vi.mock("@tauri-apps/api/dpi", () => ({
-  LogicalPosition: class LogicalPosition {
-    x: number;
-    y: number;
-    constructor(x: number, y: number) {
-      this.x = x;
-      this.y = y;
-    }
-  },
+vi.mock("../../../host/contextMenu", () => ({
+  showContextMenu,
 }));
 
 const revealPath = vi.hoisted(() => vi.fn());
@@ -36,10 +19,6 @@ const revealPath = vi.hoisted(() => vi.fn());
 vi.mock("../../../host/desktop", () => ({
   openExternal: vi.fn(),
   revealPath: (...args: unknown[]) => revealPath(...args),
-}));
-
-vi.mock("@tauri-apps/plugin-dialog", () => ({
-  ask: vi.fn(async () => true),
 }));
 
 vi.mock("../../../services/toasts", () => ({
@@ -153,14 +132,14 @@ describe("GitDiffPanel", () => {
     expect(row).not.toBeNull();
     fireEvent.contextMenu(row as Element);
 
-    await waitFor(() => expect(menuNew).toHaveBeenCalled());
-    const menuArgs = menuNew.mock.calls[0]?.[0];
-    const revealItem = menuArgs.items.find(
-      (item: { text: string }) => item.text === `Show in ${fileManagerName()}`,
+    await waitFor(() => expect(showContextMenu).toHaveBeenCalled());
+    const entries = showContextMenu.mock.calls[0]?.[1];
+    const revealItem = entries.find(
+      (item: { label?: string }) => item.label === `Show in ${fileManagerName()}`,
     );
 
     expect(revealItem).toBeDefined();
-    await revealItem.action();
+    await revealItem!.onSelect!();
     expect(revealPath).toHaveBeenCalledWith("/tmp/repo/src/sample.ts");
   });
 
@@ -181,20 +160,20 @@ describe("GitDiffPanel", () => {
     expect(row).not.toBeNull();
     fireEvent.contextMenu(row as Element);
 
-    await waitFor(() => expect(menuNew).toHaveBeenCalled());
-    const menuArgs = menuNew.mock.calls[menuNew.mock.calls.length - 1]?.[0];
-    const copyNameItem = menuArgs.items.find(
-      (item: { text: string }) => item.text === "Copy file name",
+    await waitFor(() => expect(showContextMenu).toHaveBeenCalled());
+    const entries = showContextMenu.mock.calls[showContextMenu.mock.calls.length - 1]?.[1];
+    const copyNameItem = entries.find(
+      (item: { label?: string }) => item.label === "Copy file name",
     );
-    const copyPathItem = menuArgs.items.find(
-      (item: { text: string }) => item.text === "Copy file path",
+    const copyPathItem = entries.find(
+      (item: { label?: string }) => item.label === "Copy file path",
     );
 
     expect(copyNameItem).toBeDefined();
     expect(copyPathItem).toBeDefined();
 
-    await copyNameItem.action();
-    await copyPathItem.action();
+    await copyNameItem!.onSelect!();
+    await copyPathItem!.onSelect!();
 
     expect(clipboardWriteText).toHaveBeenCalledWith("sample.ts");
     expect(clipboardWriteText).toHaveBeenCalledWith("src/sample.ts");
@@ -202,7 +181,7 @@ describe("GitDiffPanel", () => {
 
   it("resolves relative git roots against the workspace path", async () => {
     revealPath.mockClear();
-    menuNew.mockClear();
+    showContextMenu.mockClear();
     const { container } = render(
       <GitDiffPanel
         {...baseProps}
@@ -218,14 +197,14 @@ describe("GitDiffPanel", () => {
     expect(row).not.toBeNull();
     fireEvent.contextMenu(row as Element);
 
-    await waitFor(() => expect(menuNew).toHaveBeenCalled());
-    const menuArgs = menuNew.mock.calls[menuNew.mock.calls.length - 1]?.[0];
-    const revealItem = menuArgs.items.find(
-      (item: { text: string }) => item.text === `Show in ${fileManagerName()}`,
+    await waitFor(() => expect(showContextMenu).toHaveBeenCalled());
+    const entries = showContextMenu.mock.calls[showContextMenu.mock.calls.length - 1]?.[1];
+    const revealItem = entries.find(
+      (item: { label?: string }) => item.label === `Show in ${fileManagerName()}`,
     );
 
     expect(revealItem).toBeDefined();
-    await revealItem.action();
+    await revealItem!.onSelect!();
     expect(revealPath).toHaveBeenCalledWith("/tmp/repo/apps/src/sample.ts");
   });
 
@@ -246,14 +225,14 @@ describe("GitDiffPanel", () => {
     expect(row).not.toBeNull();
     fireEvent.contextMenu(row as Element);
 
-    await waitFor(() => expect(menuNew).toHaveBeenCalled());
-    const menuArgs = menuNew.mock.calls[menuNew.mock.calls.length - 1]?.[0];
-    const copyPathItem = menuArgs.items.find(
-      (item: { text: string }) => item.text === "Copy file path",
+    await waitFor(() => expect(showContextMenu).toHaveBeenCalled());
+    const entries = showContextMenu.mock.calls[showContextMenu.mock.calls.length - 1]?.[1];
+    const copyPathItem = entries.find(
+      (item: { label?: string }) => item.label === "Copy file path",
     );
 
     expect(copyPathItem).toBeDefined();
-    await copyPathItem.action();
+    await copyPathItem!.onSelect!();
 
     expect(clipboardWriteText).toHaveBeenCalledWith("apps/src/sample.ts");
   });
@@ -275,14 +254,14 @@ describe("GitDiffPanel", () => {
     expect(row).not.toBeNull();
     fireEvent.contextMenu(row as Element);
 
-    await waitFor(() => expect(menuNew).toHaveBeenCalled());
-    const menuArgs = menuNew.mock.calls[menuNew.mock.calls.length - 1]?.[0];
-    const copyPathItem = menuArgs.items.find(
-      (item: { text: string }) => item.text === "Copy file path",
+    await waitFor(() => expect(showContextMenu).toHaveBeenCalled());
+    const entries = showContextMenu.mock.calls[showContextMenu.mock.calls.length - 1]?.[1];
+    const copyPathItem = entries.find(
+      (item: { label?: string }) => item.label === "Copy file path",
     );
 
     expect(copyPathItem).toBeDefined();
-    await copyPathItem.action();
+    await copyPathItem!.onSelect!();
 
     expect(clipboardWriteText).toHaveBeenCalledWith("src/sample.ts");
   });

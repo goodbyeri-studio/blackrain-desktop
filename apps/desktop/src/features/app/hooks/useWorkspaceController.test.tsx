@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ask, message } from "@tauri-apps/plugin-dialog";
+import { confirmDialog, showMessageDialog } from "../../../host/desktop";
 import type { AppSettings, WorkspaceInfo } from "../../../types";
 import {
   addWorkspace,
@@ -9,16 +9,16 @@ import {
   listWorkspaces,
   pickWorkspacePaths,
   removeWorkspace,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 import { isMobilePlatform } from "../../../utils/platformPaths";
 import { useWorkspaceController } from "./useWorkspaceController";
 
-vi.mock("@tauri-apps/plugin-dialog", () => ({
-  ask: vi.fn(),
-  message: vi.fn(),
+vi.mock("../../../host/desktop", () => ({
+  confirmDialog: vi.fn(),
+  showMessageDialog: vi.fn(),
 }));
 
-vi.mock("../../../services/tauri", () => ({
+vi.mock("../../../services/desktop", () => ({
   addClone: vi.fn(),
   addWorkspace: vi.fn(),
   addWorkspaceFromGitUrl: vi.fn(),
@@ -97,14 +97,14 @@ describe("useWorkspaceController dialogs", () => {
     });
 
     expect(added).toMatchObject({ id: workspaceTwo.id });
-    expect(message).toHaveBeenCalledTimes(1);
-    const [summary] = vi.mocked(message).mock.calls[0];
+    expect(showMessageDialog).toHaveBeenCalledTimes(1);
+    const [summary] = vi.mocked(showMessageDialog).mock.calls[0];
     expect(String(summary)).toContain("Skipped 1 already added workspace");
   });
 
   it("confirms workspace deletion and reports service errors", async () => {
     vi.mocked(listWorkspaces).mockResolvedValue([workspaceOne]);
-    vi.mocked(ask).mockResolvedValue(true);
+    vi.mocked(confirmDialog).mockResolvedValue(true);
     vi.mocked(removeWorkspace).mockRejectedValue(new Error("delete failed"));
 
     const { result } = renderHook(() =>
@@ -123,10 +123,10 @@ describe("useWorkspaceController dialogs", () => {
       await result.current.removeWorkspace(workspaceOne.id);
     });
 
-    expect(ask).toHaveBeenCalledTimes(1);
+    expect(confirmDialog).toHaveBeenCalledTimes(1);
     expect(removeWorkspace).toHaveBeenCalledWith(workspaceOne.id);
-    expect(message).toHaveBeenCalledTimes(1);
-    const [, options] = vi.mocked(message).mock.calls[0];
+    expect(showMessageDialog).toHaveBeenCalledTimes(1);
+    const [, options] = vi.mocked(showMessageDialog).mock.calls[0];
     expect(options).toEqual(
       expect.objectContaining({ title: "Delete workspace failed", kind: "error" }),
     );

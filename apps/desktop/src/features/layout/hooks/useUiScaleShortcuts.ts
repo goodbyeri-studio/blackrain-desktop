@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { AppSettings } from "../../../types";
 import { clampUiScale, UI_SCALE_STEP } from "../../../utils/uiScale";
 import { isMacPlatform } from "../../../utils/shortcuts";
@@ -26,16 +25,7 @@ export function useUiScaleShortcuts({
   const uiScale = clampUiScale(settings.uiScale);
 
   useEffect(() => {
-    if (typeof window === "undefined" || window.blackrain) {
-      return;
-    }
-    try {
-      getCurrentWebview()
-        .setZoom(uiScale)
-        .catch(() => undefined);
-    } catch {
-      // Electron 与普通浏览器环境没有 Tauri webview metadata。
-    }
+    document.documentElement.style.setProperty("--ui-scale", String(uiScale));
   }, [uiScale]);
 
   const scaleShortcutLabel = useMemo(() => {

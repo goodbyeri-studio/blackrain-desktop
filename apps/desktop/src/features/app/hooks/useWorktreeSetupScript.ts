@@ -6,7 +6,7 @@ import {
   markWorktreeSetupRan,
   openTerminalSession,
   writeTerminalSession,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 
 const WORKTREE_SETUP_TERMINAL_ID = "worktree-setup";
 const WORKTREE_SETUP_TERMINAL_TITLE = "Setup";

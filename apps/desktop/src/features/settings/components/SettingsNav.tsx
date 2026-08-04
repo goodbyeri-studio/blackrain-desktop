@@ -1,16 +1,9 @@
 import LayoutGrid from "lucide-react/dist/esm/icons/layout-grid";
 import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal";
-import Mic from "lucide-react/dist/esm/icons/mic";
 import Keyboard from "lucide-react/dist/esm/icons/keyboard";
 import GitBranch from "lucide-react/dist/esm/icons/git-branch";
-import TerminalSquare from "lucide-react/dist/esm/icons/terminal-square";
 import FileText from "lucide-react/dist/esm/icons/file-text";
 import FlaskConical from "lucide-react/dist/esm/icons/flask-conical";
-import ExternalLink from "lucide-react/dist/esm/icons/external-link";
-import Layers from "lucide-react/dist/esm/icons/layers";
-import Network from "lucide-react/dist/esm/icons/network";
-import ServerCog from "lucide-react/dist/esm/icons/server-cog";
-import Bot from "lucide-react/dist/esm/icons/bot";
 import Info from "lucide-react/dist/esm/icons/info";
 import UserRound from "lucide-react/dist/esm/icons/user-round";
 import { PanelNavItem, PanelNavList } from "@/features/design-system/components/panel/PanelPrimitives";
@@ -55,15 +48,6 @@ export function SettingsNav({
         </PanelNavItem>
         <PanelNavItem
           className="settings-nav"
-          icon={<Layers aria-hidden />}
-          active={activeSection === "environments"}
-          showDisclosure={showDisclosure}
-          onClick={() => onSelectSection("environments")}
-        >
-          {label("environments")}
-        </PanelNavItem>
-        <PanelNavItem
-          className="settings-nav"
           icon={<SlidersHorizontal aria-hidden />}
           active={activeSection === "display"}
           showDisclosure={showDisclosure}
@@ -82,15 +66,6 @@ export function SettingsNav({
         </PanelNavItem>
         <PanelNavItem
           className="settings-nav"
-          icon={<Mic aria-hidden />}
-          active={activeSection === "dictation"}
-          showDisclosure={showDisclosure}
-          onClick={() => onSelectSection("dictation")}
-        >
-          {label("dictation")}
-        </PanelNavItem>
-        <PanelNavItem
-          className="settings-nav"
           icon={<Keyboard aria-hidden />}
           active={activeSection === "shortcuts"}
           showDisclosure={showDisclosure}
@@ -100,57 +75,12 @@ export function SettingsNav({
         </PanelNavItem>
         <PanelNavItem
           className="settings-nav"
-          icon={<ExternalLink aria-hidden />}
-          active={activeSection === "open-apps"}
-          showDisclosure={showDisclosure}
-          onClick={() => onSelectSection("open-apps")}
-        >
-          {label("open-apps")}
-        </PanelNavItem>
-        <PanelNavItem
-          className="settings-nav"
           icon={<GitBranch aria-hidden />}
           active={activeSection === "git"}
           showDisclosure={showDisclosure}
           onClick={() => onSelectSection("git")}
         >
           {label("git")}
-        </PanelNavItem>
-        <PanelNavItem
-          className="settings-nav"
-          icon={<Network aria-hidden />}
-          active={activeSection === "model-gateway"}
-          showDisclosure={showDisclosure}
-          onClick={() => onSelectSection("model-gateway")}
-        >
-          {label("model-gateway")}
-        </PanelNavItem>
-        <PanelNavItem
-          className="settings-nav"
-          icon={<ServerCog aria-hidden />}
-          active={activeSection === "server"}
-          showDisclosure={showDisclosure}
-          onClick={() => onSelectSection("server")}
-        >
-          {label("server")}
-        </PanelNavItem>
-        <PanelNavItem
-          className="settings-nav"
-          icon={<Bot aria-hidden />}
-          active={activeSection === "agents"}
-          showDisclosure={showDisclosure}
-          onClick={() => onSelectSection("agents")}
-        >
-          {label("agents")}
-        </PanelNavItem>
-        <PanelNavItem
-          className="settings-nav"
-          icon={<TerminalSquare aria-hidden />}
-          active={activeSection === "codex"}
-          showDisclosure={showDisclosure}
-          onClick={() => onSelectSection("codex")}
-        >
-          {label("codex")}
         </PanelNavItem>
         <PanelNavItem
           className="settings-nav"

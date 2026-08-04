@@ -1,4 +1,4 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getOptionalHostClient } from "../host/client";
 
 export type DragDropPayload = {
   type: "enter" | "over" | "leave" | "drop";
@@ -6,76 +6,71 @@ export type DragDropPayload = {
   paths?: string[];
 };
 
-export type DragDropEvent = {
-  payload: DragDropPayload;
-};
-
+export type DragDropEvent = { payload: DragDropPayload };
 type Listener = (event: DragDropEvent) => void;
+type SubscriptionOptions = { onError?: (error: unknown) => void };
 
-type SubscriptionOptions = {
-  onError?: (error: unknown) => void;
-};
-
-let unlisten: (() => void) | null = null;
-let listenPromise: Promise<() => void> | null = null;
 const listeners = new Set<Listener>();
+let started = false;
+
+function dispatch(payload: DragDropPayload) {
+  for (const listener of listeners) {
+    try {
+      listener({ payload });
+    } catch (error) {
+      console.error("[drag-drop] listener failed", error);
+    }
+  }
+}
 
 function start(options?: SubscriptionOptions) {
-  if (unlisten || listenPromise) {
-    return;
-  }
-  try {
-    listenPromise = getCurrentWindow()
-      .onDragDropEvent((event) => {
-        for (const listener of listeners) {
-          try {
-            listener(event as DragDropEvent);
-          } catch (error) {
-            console.error("[drag-drop] listener failed", error);
-          }
-        }
-      }) as Promise<() => void>;
-  } catch (error) {
-    options?.onError?.(error);
-    return;
-  }
-  listenPromise
-    .then((handler) => {
-      listenPromise = null;
-      if (listeners.size === 0) {
-        handler();
-        return;
-      }
-      unlisten = handler;
-    })
-    .catch((error) => {
-      listenPromise = null;
+  if (started || typeof window === "undefined") return;
+  started = true;
+  const position = (event: DragEvent) => ({ x: event.clientX, y: event.clientY });
+  const enter = (event: DragEvent) => {
+    event.preventDefault();
+    dispatch({ type: "enter", position: position(event) });
+  };
+  const over = (event: DragEvent) => {
+    event.preventDefault();
+    dispatch({ type: "over", position: position(event) });
+  };
+  const leave = (event: DragEvent) => {
+    event.preventDefault();
+    dispatch({ type: "leave", position: position(event) });
+  };
+  const drop = (event: DragEvent) => {
+    event.preventDefault();
+    try {
+      const host = getOptionalHostClient();
+      const paths = Array.from(event.dataTransfer?.files ?? [])
+        .map((file) => host?.files.pathForFile(file) ?? "")
+        .filter(Boolean);
+      dispatch({ type: "drop", position: position(event), paths });
+    } catch (error) {
       options?.onError?.(error);
-    });
+    }
+  };
+  window.addEventListener("dragenter", enter);
+  window.addEventListener("dragover", over);
+  window.addEventListener("dragleave", leave);
+  window.addEventListener("drop", drop);
+  (start as typeof start & { dispose?: () => void }).dispose = () => {
+    window.removeEventListener("dragenter", enter);
+    window.removeEventListener("dragover", over);
+    window.removeEventListener("dragleave", leave);
+    window.removeEventListener("drop", drop);
+    started = false;
+  };
 }
 
-function stop() {
-  if (!unlisten) {
-    return;
-  }
-  try {
-    unlisten();
-  } catch {
-    // Ignore double-unlisten when tearing down.
-  }
-  unlisten = null;
-}
-
-export function subscribeWindowDragDrop(
-  onEvent: Listener,
-  options?: SubscriptionOptions,
-) {
+export function subscribeWindowDragDrop(onEvent: Listener, options?: SubscriptionOptions) {
   listeners.add(onEvent);
   start(options);
   return () => {
     listeners.delete(onEvent);
     if (listeners.size === 0) {
-      stop();
+      (start as typeof start & { dispose?: () => void }).dispose?.();
     }
   };
 }

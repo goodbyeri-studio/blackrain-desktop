@@ -1,4 +1,4 @@
-import { readGlobalCodexConfigToml, writeGlobalCodexConfigToml } from "@services/tauri";
+import { readGlobalCodexConfigToml, writeGlobalCodexConfigToml } from "@services/desktop";
 import { useFileEditor } from "@/features/shared/hooks/useFileEditor";
 
 export function useGlobalCodexConfigToml(enabled = true) {

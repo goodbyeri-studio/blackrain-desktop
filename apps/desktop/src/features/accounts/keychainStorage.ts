@@ -1,16 +1,16 @@
 // Supabase SDK 的钥匙串 storage adapter。
 // Supabase 默认把 session 存 localStorage（明文、可被扒）。桌面端改存系统钥匙串：
-// 把 SDK 的 getItem/setItem/removeItem 转发到 Rust account_session_* 命令。
+// 把 SDK 的 getItem/setItem/removeItem 转发到 Electron safeStorage。
 //
 // 注意：SDK 的 storage 接口允许 async 返回，故直接返回 Promise。
-// 非 Tauri 环境（如 vitest node）下，invoke 不可用——这里捕获并降级为内存 Map，
+// 无 typed host 的测试/预览环境降级为内存 Map，
 // 让纯逻辑测试不依赖原生层。
 
 import {
   accountSessionClear,
   accountSessionGet,
   accountSessionSet,
-} from "@services/tauri";
+} from "@services/desktop";
 
 export interface AsyncStorageAdapter {
   getItem(key: string): Promise<string | null>;
@@ -18,7 +18,7 @@ export interface AsyncStorageAdapter {
   removeItem(key: string): Promise<void>;
 }
 
-// 内存兜底（仅非 Tauri 环境，如单测）。生产路径永远走钥匙串。
+// 内存兜底仅用于单测/预览；生产路径永远走系统加密存储。
 function createMemoryFallback(): AsyncStorageAdapter {
   const store = new Map<string, string>();
   return {
@@ -36,17 +36,13 @@ function createMemoryFallback(): AsyncStorageAdapter {
 
 const memoryFallback = createMemoryFallback();
 
-// 判断是否在 Tauri 环境（有 __TAURI_INTERNALS__）。非 Tauri 时不调原生命令。
-function hasTauri(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    "__TAURI_INTERNALS__" in (window as unknown as Record<string, unknown>)
-  );
+function hasHost(): boolean {
+  return typeof window !== "undefined" && Boolean(window.blackrain);
 }
 
 export const keychainSessionStorage: AsyncStorageAdapter = {
   async getItem(key) {
-    if (!hasTauri()) {
+    if (!hasHost()) {
       return memoryFallback.getItem(key);
     }
     try {
@@ -57,7 +53,7 @@ export const keychainSessionStorage: AsyncStorageAdapter = {
     }
   },
   async setItem(key, value) {
-    if (!hasTauri()) {
+    if (!hasHost()) {
       return memoryFallback.setItem(key, value);
     }
     try {
@@ -68,7 +64,7 @@ export const keychainSessionStorage: AsyncStorageAdapter = {
     }
   },
   async removeItem(key) {
-    if (!hasTauri()) {
+    if (!hasHost()) {
       return memoryFallback.removeItem(key);
     }
     try {

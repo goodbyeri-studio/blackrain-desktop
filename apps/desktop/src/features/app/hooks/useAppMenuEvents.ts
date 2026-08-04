@@ -1,11 +1,8 @@
 import type { MutableRefObject } from "react";
-import { useTauriEvent } from "./useTauriEvent";
+import { useHostEvent } from "./useHostEvent";
 import {
   subscribeMenuAddWorkspace,
-  subscribeMenuAddWorkspaceFromUrl,
   subscribeMenuNewAgent,
-  subscribeMenuNewCloneAgent,
-  subscribeMenuNewWorktreeAgent,
   subscribeMenuOpenSettings,
   subscribeMenuPrevAgent,
   subscribeMenuNextAgent,
@@ -20,12 +17,8 @@ import type { WorkspaceInfo } from "../../../types";
 
 type Params = {
   activeWorkspaceRef: MutableRefObject<WorkspaceInfo | null>;
-  baseWorkspaceRef: MutableRefObject<WorkspaceInfo | null>;
   onAddWorkspace: () => void;
-  onAddWorkspaceFromUrl: () => void;
   onAddAgent: (workspace: WorkspaceInfo) => void;
-  onAddWorktreeAgent: (workspace: WorkspaceInfo) => void;
-  onAddCloneAgent: (workspace: WorkspaceInfo) => void;
   onOpenSettings: () => void;
   onCycleAgent: (direction: "next" | "prev") => void;
   onCycleWorkspace: (direction: "next" | "prev") => void;
@@ -41,12 +34,8 @@ type Params = {
 
 export function useAppMenuEvents({
   activeWorkspaceRef,
-  baseWorkspaceRef,
   onAddWorkspace,
-  onAddWorkspaceFromUrl,
   onAddAgent,
-  onAddWorktreeAgent,
-  onAddCloneAgent,
   onOpenSettings,
   onCycleAgent,
   onCycleWorkspace,
@@ -59,64 +48,46 @@ export function useAppMenuEvents({
   onExpandRightPanel,
   onCollapseRightPanel,
 }: Params) {
-  useTauriEvent(subscribeMenuNewAgent, () => {
+  useHostEvent(subscribeMenuNewAgent, () => {
     const workspace = activeWorkspaceRef.current;
     if (workspace) {
       onAddAgent(workspace);
     }
   });
 
-  useTauriEvent(subscribeMenuNewWorktreeAgent, () => {
-    const workspace = baseWorkspaceRef.current;
-    if (workspace) {
-      onAddWorktreeAgent(workspace);
-    }
-  });
-
-  useTauriEvent(subscribeMenuNewCloneAgent, () => {
-    const workspace = baseWorkspaceRef.current;
-    if (workspace) {
-      onAddCloneAgent(workspace);
-    }
-  });
-
-  useTauriEvent(subscribeMenuAddWorkspace, () => {
+  useHostEvent(subscribeMenuAddWorkspace, () => {
     onAddWorkspace();
   });
 
-  useTauriEvent(subscribeMenuAddWorkspaceFromUrl, () => {
-    onAddWorkspaceFromUrl();
-  });
-
-  useTauriEvent(subscribeMenuOpenSettings, () => {
+  useHostEvent(subscribeMenuOpenSettings, () => {
     onOpenSettings();
   });
 
-  useTauriEvent(subscribeMenuNextAgent, () => {
+  useHostEvent(subscribeMenuNextAgent, () => {
     onCycleAgent("next");
   });
 
-  useTauriEvent(subscribeMenuPrevAgent, () => {
+  useHostEvent(subscribeMenuPrevAgent, () => {
     onCycleAgent("prev");
   });
 
-  useTauriEvent(subscribeMenuNextWorkspace, () => {
+  useHostEvent(subscribeMenuNextWorkspace, () => {
     onCycleWorkspace("next");
   });
 
-  useTauriEvent(subscribeMenuPrevWorkspace, () => {
+  useHostEvent(subscribeMenuPrevWorkspace, () => {
     onCycleWorkspace("prev");
   });
 
-  useTauriEvent(subscribeMenuToggleDebugPanel, () => {
+  useHostEvent(subscribeMenuToggleDebugPanel, () => {
     onToggleDebug();
   });
 
-  useTauriEvent(subscribeMenuToggleTerminal, () => {
+  useHostEvent(subscribeMenuToggleTerminal, () => {
     onToggleTerminal();
   });
 
-  useTauriEvent(subscribeMenuToggleProjectsSidebar, () => {
+  useHostEvent(subscribeMenuToggleProjectsSidebar, () => {
     if (sidebarCollapsed) {
       onExpandSidebar();
     } else {
@@ -124,7 +95,7 @@ export function useAppMenuEvents({
     }
   });
 
-  useTauriEvent(subscribeMenuToggleGitSidebar, () => {
+  useHostEvent(subscribeMenuToggleGitSidebar, () => {
     if (rightPanelCollapsed) {
       onExpandRightPanel();
     } else {

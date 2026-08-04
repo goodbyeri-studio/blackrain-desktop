@@ -5,12 +5,12 @@ import type {
   ApprovalRequest,
   RequestUserInputRequest,
 } from "../../../types";
-import { sendNotification } from "../../../services/tauri";
+import { sendNotification } from "../../../services/desktop";
 import { useAgentResponseRequiredNotifications } from "./useAgentResponseRequiredNotifications";
 
 const useAppServerEventsMock = vi.fn();
 
-vi.mock("../../../services/tauri", () => ({
+vi.mock("../../../services/desktop", () => ({
   sendNotification: vi.fn(),
 }));
 

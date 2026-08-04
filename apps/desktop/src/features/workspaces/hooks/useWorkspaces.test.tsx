@@ -11,10 +11,10 @@ import {
   renameWorktree,
   renameWorktreeUpstream,
   updateWorkspaceSettings,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 import { useWorkspaces } from "./useWorkspaces";
 
-vi.mock("../../../services/tauri", () => ({
+vi.mock("../../../services/desktop", () => ({
   listWorkspaces: vi.fn(),
   renameWorktree: vi.fn(),
   renameWorktreeUpstream: vi.fn(),

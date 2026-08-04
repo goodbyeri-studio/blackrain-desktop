@@ -5,7 +5,7 @@ import {
   checkoutGitBranch,
   createGitBranch,
   listGitBranches,
-} from "../../../services/tauri";
+} from "../../../services/desktop";
 
 type UseGitBranchesOptions = {
   activeWorkspace: WorkspaceInfo | null;

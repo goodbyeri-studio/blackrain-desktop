@@ -48,6 +48,25 @@ input.on("line", (line) => {
     });
     return;
   }
+  if (message.method === "account/login/start") {
+    send({
+      id: message.id,
+      result: {
+        loginId: "login-test-1",
+        authUrl: "https://auth.example.test/login",
+      },
+    });
+    return;
+  }
+  if (message.method === "account/login/cancel") {
+    send({ method: "test/account-login-cancel-params", params: message.params });
+    send({ id: message.id, result: { status: "canceled" } });
+    return;
+  }
+  if (message.method === "account/logout") {
+    send({ id: message.id, result: { ok: true } });
+    return;
+  }
   if (message.method === "thread/list") {
     send({ method: "test/thread-list-params", params: message.params });
     send({
@@ -165,6 +184,63 @@ input.on("line", (line) => {
         },
       });
     }
+    return;
+  }
+  if (message.method === "review/start") {
+    send({ method: "test/review-start-params", params: message.params });
+    send({
+      id: message.id,
+      result: {
+        turn: { id: "turn-review-1" },
+        reviewThreadId: message.params.threadId,
+      },
+    });
+    return;
+  }
+  if (message.method === "experimentalFeature/list") {
+    send({ method: "test/experimental-feature-list-params", params: message.params });
+    send({ id: message.id, result: { data: [], nextCursor: null } });
+    return;
+  }
+  if (message.method === "experimentalFeature/enablement/set") {
+    send({ method: "test/experimental-feature-set-params", params: message.params });
+    send({ id: message.id, result: { enablement: message.params.enablement } });
+    return;
+  }
+  if (message.method === "thread/fork") {
+    send({ id: message.id, result: { thread: { id: "thread-fork-1" } } });
+    return;
+  }
+  if (message.method === "thread/compact/start") {
+    send({ id: message.id, result: {} });
+    return;
+  }
+  if (message.method === "thread/read") {
+    send({
+      id: message.id,
+      result: {
+        thread: {
+          id: message.params.threadId,
+          turns: [
+            { id: "turn-old" },
+            { id: "turn-target" },
+            { id: "turn-new" },
+          ],
+        },
+      },
+    });
+    return;
+  }
+  if (message.method === "thread/rollback") {
+    send({ method: "test/thread-rollback-params", params: message.params });
+    send({
+      id: message.id,
+      result: { thread: { id: message.params.threadId, turns: [{ id: "turn-old" }] } },
+    });
+    return;
+  }
+  if (message.method === "mcpServerStatus/list") {
+    send({ id: message.id, result: { data: [], nextCursor: null } });
     return;
   }
   if (message.method === "turn/interrupt") {

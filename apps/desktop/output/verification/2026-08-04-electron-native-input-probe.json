@@ -1,0 +1,81 @@
+{
+  "status": "pass",
+  "pid": 42296,
+  "mainWindow": {
+    "enabled": true,
+    "focusable": true,
+    "focused": true,
+    "visible": true,
+    "webContentsFocused": true,
+    "bounds": {
+      "x": 253,
+      "y": 106,
+      "width": 1201,
+      "height": 700
+    },
+    "childViews": []
+  },
+  "contentBounds": {
+    "x": 261,
+    "y": 136,
+    "width": 1186,
+    "height": 663
+  },
+  "screenPoint": {
+    "x": 371,
+    "y": 761
+  },
+  "dipConvertedScreenPoint": {
+    "x": 557,
+    "y": 1142
+  },
+  "cursorScreenPoint": {
+    "x": 371,
+    "y": 761
+  },
+  "renderer": {
+    "buttonBounds": {
+      "x": 16,
+      "y": 601.3333740234375,
+      "width": 188,
+      "height": 48
+    },
+    "events": [
+      {
+        "type": "pointerdown",
+        "clientX": 110.66667175292969,
+        "clientY": 625.3333740234375,
+        "target": "BUTTON.ghost sidebar-settings-account-button"
+      },
+      {
+        "type": "mousedown",
+        "clientX": 110,
+        "clientY": 625,
+        "target": "BUTTON.ghost sidebar-settings-account-button"
+      },
+      {
+        "type": "pointerup",
+        "clientX": 110.66667175292969,
+        "clientY": 625.3333740234375,
+        "target": "BUTTON.ghost sidebar-settings-account-button"
+      },
+      {
+        "type": "mouseup",
+        "clientX": 110,
+        "clientY": 625,
+        "target": "BUTTON.ghost sidebar-settings-account-button"
+      },
+      {
+        "type": "click",
+        "clientX": 110,
+        "clientY": 625,
+        "target": "BUTTON.ghost sidebar-settings-account-button"
+      }
+    ],
+    "settingsOpen": true,
+    "focused": true,
+    "activeElement": "BUTTON.ghost icon-button settings-close",
+    "hitTarget": "DIV.ds-modal-backdrop",
+    "buttonContainsHitTarget": false
+  }
+}

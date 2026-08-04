@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { isMobileRuntime } from "../../../services/tauri";
+import { isMobileRuntime } from "../../../services/desktop";
 import { isMobilePlatform } from "../../../utils/platformPaths";
 
 export type LayoutMode = "desktop" | "tablet" | "phone";

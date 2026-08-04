@@ -2,14 +2,14 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApprovalRequest } from "@/types";
-import { respondToServerRequest } from "@services/tauri";
+import { respondToServerRequest } from "@services/desktop";
 import {
   getApprovalCommandInfo,
   matchesCommandPrefix,
 } from "@utils/approvalRules";
 import { useThreadApprovalEvents } from "./useThreadApprovalEvents";
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   respondToServerRequest: vi.fn(),
 }));
 

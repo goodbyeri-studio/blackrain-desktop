@@ -12,20 +12,10 @@ type UseMainAppSidebarMenuOrchestrationArgs = {
     | "onCycleAgent"
     | "onCycleWorkspace"
     | "onAddWorkspace"
-    | "onAddWorkspaceFromUrl"
     | "onAddAgent"
-    | "onAddWorktreeAgent"
-    | "onAddCloneAgent"
   > & {
     onAddWorkspace: () => void;
-    onAddWorkspaceFromUrl: () => void;
     onAddAgent: NonNullable<Parameters<typeof useAppMenuEvents>[0]["onAddAgent"]>;
-    onAddWorktreeAgent: NonNullable<
-      Parameters<typeof useAppMenuEvents>[0]["onAddWorktreeAgent"]
-    >;
-    onAddCloneAgent: NonNullable<
-      Parameters<typeof useAppMenuEvents>[0]["onAddCloneAgent"]
-    >;
   };
   appSettings: Parameters<typeof useMenuAcceleratorController>[0]["appSettings"];
   onDebug: Parameters<typeof useMenuAcceleratorController>[0]["onDebug"];
@@ -46,17 +36,8 @@ export function useMainAppSidebarMenuOrchestration({
     onAddWorkspace: () => {
       appMenu.onAddWorkspace();
     },
-    onAddWorkspaceFromUrl: () => {
-      appMenu.onAddWorkspaceFromUrl();
-    },
     onAddAgent: (workspace) => {
       void appMenu.onAddAgent(workspace);
-    },
-    onAddWorktreeAgent: (workspace) => {
-      void appMenu.onAddWorktreeAgent(workspace);
-    },
-    onAddCloneAgent: (workspace) => {
-      void appMenu.onAddCloneAgent(workspace);
     },
     onOpenSettings: sidebarHandlers.onOpenSettings,
     onCycleAgent: handleCycleAgent,

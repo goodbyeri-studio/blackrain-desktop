@@ -2,10 +2,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceInfo } from "../../../types";
-import { getGlobalPromptsDir } from "../../../services/tauri";
+import { getGlobalPromptsDir } from "../../../services/desktop";
 import { useCustomPrompts } from "./useCustomPrompts";
 
-vi.mock("../../../services/tauri", () => ({
+vi.mock("../../../services/desktop", () => ({
   createPrompt: vi.fn(),
   deletePrompt: vi.fn(),
   getPromptsList: vi.fn(),

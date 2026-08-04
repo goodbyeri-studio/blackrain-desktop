@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import type { DebugEntry, WorkspaceInfo } from "../../../types";
-import { readAgentMd, writeAgentMd } from "../../../services/tauri";
+import { readAgentMd, writeAgentMd } from "../../../services/desktop";
 import { useFileEditor, type FileEditorResponse } from "../../shared/hooks/useFileEditor";
 
 type UseWorkspaceAgentMdOptions = {

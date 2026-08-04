@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { DebugEntry, RateLimitSnapshot } from "@/types";
-import { getAccountRateLimits } from "@services/tauri";
+import { getAccountRateLimits } from "@services/desktop";
 import { normalizeRateLimits } from "@threads/utils/threadNormalize";
 import type { ThreadAction } from "./useThreadsReducer";
 

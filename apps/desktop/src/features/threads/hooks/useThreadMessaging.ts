@@ -24,7 +24,7 @@ import {
   getAppsList as getAppsListService,
   listMcpServerStatus as listMcpServerStatusService,
   rollbackThread as rollbackThreadService,
-} from "@services/tauri";
+} from "@services/desktop";
 import { expandCustomPromptText } from "@utils/customPrompts";
 import {
   asString,

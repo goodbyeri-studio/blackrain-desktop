@@ -5,7 +5,7 @@ import {
   getAppBuildType,
   isMobileRuntime,
   type AppBuildType,
-} from "@services/tauri";
+} from "@services/desktop";
 import { useUpdater } from "@/features/update/hooks/useUpdater";
 import {
   SettingsSection,
@@ -74,7 +74,7 @@ export function SettingsAboutSection({
         }
       } catch {
         if (active) {
-          // In non-Tauri previews we still want local desktop-like behavior.
+          // 在无 typed host 的预览环境仍保持本地桌面式行为。
           setUpdaterEnabled(true);
         }
       }

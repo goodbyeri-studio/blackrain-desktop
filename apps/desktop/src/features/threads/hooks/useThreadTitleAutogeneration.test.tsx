@@ -2,10 +2,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ConversationItem, ThreadSummary } from "@/types";
-import { generateRunMetadata } from "@services/tauri";
+import { generateRunMetadata } from "@services/desktop";
 import { useThreadTitleAutogeneration } from "./useThreadTitleAutogeneration";
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   generateRunMetadata: vi.fn(),
 }));
 

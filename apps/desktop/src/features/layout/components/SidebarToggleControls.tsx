@@ -28,7 +28,7 @@ export function SidebarCollapseButton({
       type="button"
       className="ghost main-header-action ds-tooltip-trigger"
       onClick={onCollapseSidebar}
-      data-tauri-drag-region="false"
+      data-electron-drag-region="false"
       aria-label={tx("Hide threads sidebar")}
       title={tx("Hide threads sidebar")}
       data-tooltip={tx("Hide threads sidebar")}
@@ -53,7 +53,7 @@ export function RightPanelCollapseButton({
       type="button"
       className="ghost main-header-action ds-tooltip-trigger"
       onClick={onCollapseRightPanel}
-      data-tauri-drag-region="false"
+      data-electron-drag-region="false"
       aria-label={tx("Hide git sidebar")}
       title={tx("Hide git sidebar")}
       data-tooltip={tx("Hide git sidebar")}
@@ -78,7 +78,7 @@ export function RightPanelExpandButton({
       type="button"
       className="ghost main-header-action ds-tooltip-trigger"
       onClick={onExpandRightPanel}
-      data-tauri-drag-region="false"
+      data-electron-drag-region="false"
       aria-label={tx("Show git sidebar")}
       title={tx("Show git sidebar")}
       data-tooltip={tx("Show git sidebar")}
@@ -107,7 +107,7 @@ export function TitlebarExpandControls({
           type="button"
           className="ghost main-header-action ds-tooltip-trigger"
           onClick={sidebarCollapsed ? onExpandSidebar : onCollapseSidebar}
-          data-tauri-drag-region="false"
+          data-electron-drag-region="false"
           aria-label={label}
           title={label}
           data-tooltip={label}

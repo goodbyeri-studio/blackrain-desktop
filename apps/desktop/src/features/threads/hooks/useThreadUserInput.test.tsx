@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { respondToUserInputRequest } from "@services/tauri";
+import { respondToUserInputRequest } from "@services/desktop";
 import { useThreadUserInput } from "./useThreadUserInput";
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   respondToUserInputRequest: vi.fn().mockResolvedValue(undefined),
 }));
 

@@ -5,7 +5,7 @@ import type {
   RequestUserInputRequest,
   RequestUserInputResponse,
 } from "@/types";
-import { respondToUserInputRequest } from "@services/tauri";
+import { respondToUserInputRequest } from "@services/desktop";
 import type { ThreadAction } from "./useThreadsReducer";
 
 type UseThreadUserInputOptions = {

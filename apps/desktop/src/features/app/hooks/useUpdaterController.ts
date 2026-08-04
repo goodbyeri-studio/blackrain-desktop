@@ -3,10 +3,10 @@ import { useUpdater } from "../../update/hooks/useUpdater";
 import { useAgentSoundNotifications } from "../../notifications/hooks/useAgentSoundNotifications";
 import { useAgentSystemNotifications } from "../../notifications/hooks/useAgentSystemNotifications";
 import { useWindowFocusState } from "../../layout/hooks/useWindowFocusState";
-import { useTauriEvent } from "./useTauriEvent";
+import { useHostEvent } from "./useHostEvent";
 import { playNotificationSound } from "../../../utils/notificationSounds";
 import { subscribeUpdaterCheck } from "../../../services/events";
-import { sendNotification } from "../../../services/tauri";
+import { sendNotification } from "../../../services/desktop";
 import type { DebugEntry } from "../../../types";
 
 type Params = {
@@ -67,7 +67,7 @@ export function useUpdaterController({
     [onDebug],
   );
 
-  useTauriEvent(
+  useHostEvent(
     subscribeUpdaterCheckEvent,
     () => {
       void checkForUpdates({ announceNoUpdate: true });

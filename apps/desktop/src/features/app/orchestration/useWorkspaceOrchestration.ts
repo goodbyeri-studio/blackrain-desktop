@@ -42,7 +42,6 @@ export function useWorkspaceInsightsOrchestration({
   workspaces,
   workspacesById,
   hasLoaded,
-  showHome,
   threadsByWorkspace,
   lastAgentMessageByThread,
   threadStatusById,
@@ -129,7 +128,7 @@ export function useWorkspaceInsightsOrchestration({
     isLoading: isLoadingLocalUsage,
     error: localUsageError,
     refresh: refreshLocalUsage,
-  } = useLocalUsage(showHome, usageWorkspacePath);
+  } = useLocalUsage(false, usageWorkspacePath);
 
   return {
     latestAgentRuns,

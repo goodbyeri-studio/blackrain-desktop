@@ -9,7 +9,7 @@ import {
   listWorkspaces,
   resumeThread,
   startThread,
-} from "@services/tauri";
+} from "@services/desktop";
 import {
   buildItemsFromThread,
   getThreadCreatedTimestamp,
@@ -21,7 +21,7 @@ import {
 import { saveThreadActivity } from "@threads/utils/threadStorage";
 import { useThreadActions } from "./useThreadActions";
 
-vi.mock("@services/tauri", () => ({
+vi.mock("@services/desktop", () => ({
   startThread: vi.fn(),
   forkThread: vi.fn(),
   resumeThread: vi.fn(),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GitHubPullRequest, WorkspaceInfo } from "../../../types";
-import { getGitHubPullRequests } from "../../../services/tauri";
+import { getGitHubPullRequests } from "../../../services/desktop";
 
 type GitHubPullRequestsState = {
   pullRequests: GitHubPullRequest[];

@@ -11,7 +11,7 @@ import {
   removeWorkspace as removeWorkspaceService,
   updateWorkspaceSettings as updateWorkspaceSettingsService,
 } from "../../../services/workspaces";
-import { addWorkspaceFromGitUrl as addWorkspaceFromGitUrlService } from "../../../services/tauri";
+import { addWorkspaceFromGitUrl as addWorkspaceFromGitUrlService } from "../../../services/desktop";
 
 type UseWorkspaceCrudOptions = {
   onDebug?: (entry: DebugEntry) => void;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GitHubIssue, WorkspaceInfo } from "../../../types";
-import { getGitHubIssues } from "../../../services/tauri";
+import { getGitHubIssues } from "../../../services/desktop";
 
 type GitHubIssuesState = {
   issues: GitHubIssue[];

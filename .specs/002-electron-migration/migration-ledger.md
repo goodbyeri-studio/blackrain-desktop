@@ -1,70 +1,31 @@
 # Electron 迁移能力账本
 
-> 当前为 G0 的账本模板和基线摘要，不代表任何能力已迁移或已发布。实施时必须从 `src-tauri/src/lib.rs`、renderer source、Tauri plugins/resources/CI 重新生成逐项条目，并在每个条目上填写状态与证据。
+> 账本保存迁移前的 194 个 command 和 53 个 renderer direct import 作为历史审计输入。2026-08-05 生产边界已归零；逐项记录见 `migration-ledger.json`，产品验收状态只看 `verification.md`。
 
-## 字段与枚举
+## 当前结论
 
-每条 command/import 必须有唯一 `owner`；子域不扩展 owner 枚举，写入 `capability`。
+| 指标 | 迁移输入 | 当前生产边界 | 证据 |
+|---|---:|---:|---|
+| 旧宿主 command | 194 | 0 | `npm.cmd run check:host-boundary` |
+| renderer direct import | 53 | 0 | `npm.cmd run check:host-boundary` |
+| 旧 runtime/daemon/固定端口/安装器 | 存在 | 0 | 目录删除、final-mode 扫描、package audit |
+| 未知 owner | 0 | 0 | `migration-ledger.json` |
 
-```text
-id / 原始 command 或 import / 所属模块
-owner: app-server | electron-main/preload | renderer-only | gateway | delete
-capability: optional（例如 node-pty、credential-store、deferred-delete）
-状态 / 目标文件或 API / 任务 ID / 运行验证 / 产品验证 / 删除提交
-```
+最终扫描在 789 个 production-boundary 文件中未发现旧宿主名称/package/source、旧 daemon/固定端口/callback bridge/安装器、裸 legacy invoke/listen 或 194 个历史 command 名。
 
-## 状态枚举
+## 状态语义
 
-```text
-inventory       已盘点，未确定目标
-mapped          已确定目标所有者，未实现
-implemented     目标代码存在，未完成运行验证
-run-pass        指定命令/环境通过
-product-pass    Windows 产品流程通过
-deleted         旧实现和发布入口已删除并验证
-deferred-delete 暂停路线或明确删除项，入口必须隐藏/禁用
-```
+- `deleted`：历史入口已从生产源码、依赖、脚本、CI 和制品路径删除；不单独宣称替代能力完成产品验收。
+- `deferred-delete`：暂停或锁定版本不支持的路线已从 Electron MVP UI 隐藏，历史测试可保留为 skip，但不得重新成为可见入口。
+- `productVerification: null`：正式签名 MSIX 产品矩阵尚未执行。
+- `deletionCommit: null`：当前工作树尚未提交，不伪造删除 commit；合入 commit 由 Git 流程补证。
 
-## 当前模块级基线
+## 运行证据
 
-来源：`npm.cmd run check:host-boundary`，2026-08-04。模块级分类不是逐项完成证明。
+- `npm.cmd run typecheck`、全量 `npm.cmd run test`、`npm.cmd run lint`
+- `npm.cmd run electron:runtime:verify`、`electron:node-runtime:verify`、`electron:browser-client:verify`
+- `npm.cmd run electron:app-server:probe`
+- `npm.cmd run electron:package`、`electron:package:audit`、`electron:native-input:probe`
+- `npm.cmd run electron:smoke`、`electron:e2e`、`electron:make`
 
-| 目标 owner | 条目数量 | 目标处理 |
-|---|---:|---|
-| `app-server` | 83 | 映射到原装 app-server；验证 thread/turn/审批/恢复 |
-| `electron-main/preload` | 82 | 迁移到 Electron main/preload typed API；其中 4 项 capability=`node-pty`，3 项 capability=`credential-store` |
-| `delete` | 18 | 暂停路线，隐藏入口并明确 delete/deferred-delete |
-| `gateway` | 11 | 保持独立 sidecar，不进入 main/renderer |
-| **合计** | **194** | 必须逐项收口 |
-
-当前 renderer direct import 基线为 53，完整来源见 `apps/desktop/scripts/host-boundary-baseline.json`。该文件只作为“禁止新增”的基线，不能作为迁移完成证明。
-
-## 逐项账本格式
-
-每个 command/import 必须复制一行，禁止只填模块汇总：
-
-| ID | 原始条目 | 模块 | 目标 owner | capability | 目标 API/文件 | 任务 ID | 状态 | 运行验证 | 产品验证 | 删除提交 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| CMD-001 | `settings::get_app_settings` | settings | electron-main/preload | — | `electron/main/settings` | `G3B-CODE-02` | inventory | — | — | — |
-| CMD-002 | `files::file_read` | files | electron-main/preload | — | `electron/main/files` | `G4A-CODE-01` | inventory | — | — | — |
-| CMD-003 | `codex::start_thread` | codex | app-server | — | `app-server thread/start` | `G2-CODE-04` | inventory | — | — | — |
-| IMPORT-001 | `src/services/tauri.ts -> @tauri-apps/api/core` | renderer | delete | — | `src/host/*` | `G3A-CODE-01` | inventory | — | — | — |
-
-上面示例不是完整条目。G0 必须用脚本生成剩余条目，并为每行补齐 `目标 API/文件`、任务 ID、测试命令、证据路径和删除提交；账本中不得出现无 owner、无验证或无删除条件的条目。账本最终可以保留作为迁移审计，但它不能被生产代码、用户文档或 release package 引用。
-
-## 兼容层账本
-
-| 兼容入口 | Electron 替代 | 删除任务 | 删除验证 |
-|---|---|---|---|
-| `src/services/tauri.ts` | `src/host` + typed preload | `G5-CODE-02` | 无 `@tauri-apps` 静态搜索 |
-| `src/services/events.ts` | main 统一事件扇出 | `G3A-CODE-03` / `G5-CODE-02` | renderer 无 Tauri event import |
-| Tauri terminal commands | main `node-pty` | `G4A-CODE-03` / `G5-CODE-03` | ConPTY/进程树测试 |
-| Tauri NSIS scripts | Forge MSIX | `G5-CODE-04` | 仅 Electron maker 可构建 |
-| `127.0.0.1:4732` daemon route | app-server stdio / main service | `G5-CODE-03` | 固定端口/daemon 搜索为零 |
-
-## 收口规则
-
-- 每个条目达到 `product-pass` 后才能从“迁移中”进入“可交付”。
-- `delete` 必须同时有替代 API、调用者迁移、静态删除检查和 Windows 回归证据。
-- `deferred-delete` 只能对应暂停路线，不得被 Electron MVP 的可见 UI、构建或发布脚本引用。
-- 账本任何变更必须同步 `tasks.md`、`verification.md` 和受影响的 docs，并记录日期/commit。
+上述证据只支持 `RUN_PASS`。正式签名、安装/升级/回滚/卸载、真实登录/MFA/审批、双用户 ACL 和 Windows 输入/显示/恢复矩阵完成前，不得升级为 `PRODUCT_PASS`。

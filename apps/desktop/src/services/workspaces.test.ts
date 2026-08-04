@@ -3,25 +3,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BlackRainHostApi } from "../../electron/shared/host-api";
 import {
-  addWorkspace as addWorkspaceTauri,
-  listWorkspaces as listWorkspacesTauri,
-} from "./tauri";
-import {
   addWorkspace,
   listWorkspaces,
   pickWorkspacePath,
 } from "./workspaces";
-
-vi.mock("./tauri", () => ({
-  addWorkspace: vi.fn(),
-  connectWorkspace: vi.fn(),
-  isWorkspacePathDir: vi.fn(),
-  listWorkspaces: vi.fn(),
-  pickWorkspacePath: vi.fn(),
-  pickWorkspacePaths: vi.fn(),
-  removeWorkspace: vi.fn(),
-  updateWorkspaceSettings: vi.fn(),
-}));
 
 afterEach(() => {
   delete window.blackrain;
@@ -54,18 +39,4 @@ describe("workspace host service", () => {
     expect(host.workspace.pick).toHaveBeenCalledWith({ multiple: false });
   });
 
-  it("Tauri 下保持原调用", async () => {
-    const workspace = {
-      id: "workspace-t",
-      name: "repo",
-      path: "C:\\repo",
-      connected: true,
-      settings: { sidebarCollapsed: false },
-    };
-    vi.mocked(listWorkspacesTauri).mockResolvedValue([workspace]);
-    vi.mocked(addWorkspaceTauri).mockResolvedValue(workspace);
-    await expect(listWorkspaces()).resolves.toEqual([workspace]);
-    await expect(addWorkspace(workspace.path)).resolves.toEqual(workspace);
-    expect(addWorkspaceTauri).toHaveBeenCalledWith(workspace.path);
-  });
 });

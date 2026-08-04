@@ -27,6 +27,14 @@ const blankTab: BrowserTabState = {
   debuggerStatus: "attached",
 };
 
+const unusedHostCapabilities = {
+  git: {} as BlackRainHostApi["git"],
+  terminal: {} as BlackRainHostApi["terminal"],
+  menu: {} as BlackRainHostApi["menu"],
+  notifications: {} as BlackRainHostApi["notifications"],
+  updates: {} as BlackRainHostApi["updates"],
+};
+
 afterEach(() => {
   cleanup();
   delete window.blackrain;
@@ -45,6 +53,7 @@ describe("BrowserSidebar", () => {
     const closeTab = vi.fn().mockResolvedValue({ closed: true, browserTabId: "tab-1" });
     const setLayout = vi.fn().mockResolvedValue({ accepted: true, layoutRevision: 1 });
     const host: BlackRainHostApi = {
+      ...unusedHostCapabilities,
       app: {
         getBootstrap: vi.fn().mockResolvedValue({
           version: "0.7.68",
@@ -65,11 +74,13 @@ describe("BrowserSidebar", () => {
         update: vi.fn(),
       },
       files: {
+        pathForFile: vi.fn(),
         pick: vi.fn(),
         saveText: vi.fn(),
         readImage: vi.fn(),
         listWorkspace: vi.fn(),
         readWorkspace: vi.fn(),
+        writeWorkspace: vi.fn(),
       },
       accountSession: {
         get: vi.fn(),
@@ -99,6 +110,13 @@ describe("BrowserSidebar", () => {
         startTurn: vi.fn(),
         steerTurn: vi.fn(),
         interruptTurn: vi.fn(),
+        startReview: vi.fn(),
+        listExperimentalFeatures: vi.fn(),
+        setExperimentalFeature: vi.fn(),
+        forkThread: vi.fn(),
+        compactThread: vi.fn(),
+        rollbackThread: vi.fn(),
+        listMcpServerStatus: vi.fn(),
         respondToServerRequest: vi.fn(),
         listModels: vi.fn(),
         readConfig: vi.fn(),
@@ -107,6 +125,9 @@ describe("BrowserSidebar", () => {
         listApps: vi.fn(),
         readAccount: vi.fn(),
         readAccountRateLimits: vi.fn(),
+        startAccountLogin: vi.fn(),
+        cancelAccountLogin: vi.fn(),
+        logoutAccount: vi.fn(),
         readThread: vi.fn(),
         archiveThread: vi.fn(),
         setThreadName: vi.fn(),
@@ -196,6 +217,7 @@ describe("BrowserSidebar", () => {
       sensitiveActionRequest: null,
     });
     window.blackrain = {
+      ...unusedHostCapabilities,
       app: {
         getBootstrap: vi.fn().mockResolvedValue({
           version: "0.7.68",
@@ -216,11 +238,13 @@ describe("BrowserSidebar", () => {
         update: vi.fn(),
       },
       files: {
+        pathForFile: vi.fn(),
         pick: vi.fn(),
         saveText: vi.fn(),
         readImage: vi.fn(),
         listWorkspace: vi.fn(),
         readWorkspace: vi.fn(),
+        writeWorkspace: vi.fn(),
       },
       accountSession: {
         get: vi.fn(),
@@ -250,6 +274,13 @@ describe("BrowserSidebar", () => {
         startTurn: vi.fn(),
         steerTurn: vi.fn(),
         interruptTurn: vi.fn(),
+        startReview: vi.fn(),
+        listExperimentalFeatures: vi.fn(),
+        setExperimentalFeature: vi.fn(),
+        forkThread: vi.fn(),
+        compactThread: vi.fn(),
+        rollbackThread: vi.fn(),
+        listMcpServerStatus: vi.fn(),
         respondToServerRequest: vi.fn(),
         listModels: vi.fn(),
         readConfig: vi.fn(),
@@ -258,6 +289,9 @@ describe("BrowserSidebar", () => {
         listApps: vi.fn(),
         readAccount: vi.fn(),
         readAccountRateLimits: vi.fn(),
+        startAccountLogin: vi.fn(),
+        cancelAccountLogin: vi.fn(),
+        logoutAccount: vi.fn(),
         readThread: vi.fn(),
         archiveThread: vi.fn(),
         setThreadName: vi.fn(),

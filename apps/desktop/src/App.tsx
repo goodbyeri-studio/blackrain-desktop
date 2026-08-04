@@ -41,10 +41,12 @@ import "./styles/compact-base.css";
 import "./styles/compact-phone.css";
 import "./styles/compact-tablet.css";
 import "./styles/browser-sidebar.css";
+import "./styles/runtime-bootstrap.css";
 import { useWindowLabel } from "@/features/layout/hooks/useWindowLabel";
 import MainApp from "@app/components/MainApp";
 import { AccountProvider } from "@/features/accounts/context/AccountProvider";
 import { AccountGate } from "@/features/accounts/components/AccountGate";
+import { ElectronBootstrapGate } from "@/features/app/components/ElectronBootstrapGate";
 
 const AboutView = lazy(() =>
   import("@/features/about/components/AboutView").then((module) => ({
@@ -53,6 +55,14 @@ const AboutView = lazy(() =>
 );
 
 export default function App() {
+  return (
+    <ElectronBootstrapGate>
+      <AppContent />
+    </ElectronBootstrapGate>
+  );
+}
+
+function AppContent() {
   const windowLabel = useWindowLabel();
 
   if (windowLabel === "about") {

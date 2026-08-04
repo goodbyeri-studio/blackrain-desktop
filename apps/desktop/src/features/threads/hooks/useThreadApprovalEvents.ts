@@ -5,7 +5,7 @@ import {
   getApprovalCommandInfo,
   matchesCommandPrefix,
 } from "@utils/approvalRules";
-import { respondToServerRequest } from "@services/tauri";
+import { respondToServerRequest } from "@services/desktop";
 import type { ThreadAction } from "./useThreadsReducer";
 
 type UseThreadApprovalEventsOptions = {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 import type { AccountSnapshot, DebugEntry } from "@/types";
-import { getAccountInfo } from "@services/tauri";
+import { getAccountInfo } from "@services/desktop";
 import type { ThreadAction } from "./useThreadsReducer";
 
 type UseThreadAccountInfoOptions = {

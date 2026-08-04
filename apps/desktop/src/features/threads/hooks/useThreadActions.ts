@@ -14,7 +14,7 @@ import {
 import {
   archiveThread as archiveThreadService,
   forkThread as forkThreadService,
-} from "@services/tauri";
+} from "@services/desktop";
 import { listWorkspaces as listWorkspacesService } from "@services/workspaces";
 import {
   getThreadTimestamp,

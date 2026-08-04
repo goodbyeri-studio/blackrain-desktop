@@ -27,16 +27,28 @@ const WorkspaceFileSchema = z.object({
 export class WorkspaceStore {
   readonly #filePath: string;
   readonly #workspaces = new Map<string, WorkspaceInfo>();
+  readonly #codexHomeId: string | undefined;
+  readonly #profileId: string | undefined;
 
-  constructor(filePath: string) {
+  constructor(filePath: string, owner?: { codexHomeId?: string; profileId?: string }) {
     this.#filePath = filePath;
+    this.#codexHomeId = owner?.codexHomeId;
+    this.#profileId = owner?.profileId;
     try {
       const file = WorkspaceFileSchema.parse(
         JSON.parse(readFileSync(filePath, "utf8")),
       );
       for (const workspace of file.workspaces) {
+        if (
+          (this.#codexHomeId && workspace.codexHomeId && workspace.codexHomeId !== this.#codexHomeId) ||
+          (this.#profileId && workspace.profileId && workspace.profileId !== this.#profileId)
+        ) continue;
         if (this.isDirectory({ path: workspace.path })) {
-          this.#workspaces.set(workspace.id, workspace);
+          this.#workspaces.set(workspace.id, WorkspaceInfoSchema.parse({
+            ...workspace,
+            ...(this.#codexHomeId ? { codexHomeId: this.#codexHomeId } : {}),
+            ...(this.#profileId ? { profileId: this.#profileId } : {}),
+          }));
         }
       }
     } catch (error) {
@@ -63,6 +75,8 @@ export class WorkspaceStore {
     if (existing) return existing;
     const workspace = WorkspaceInfoSchema.parse({
       id: randomUUID(),
+      ...(this.#codexHomeId ? { codexHomeId: this.#codexHomeId } : {}),
+      ...(this.#profileId ? { profileId: this.#profileId } : {}),
       name: path.basename(normalizedPath) || normalizedPath,
       path: normalizedPath,
       connected: true,

@@ -2,7 +2,7 @@ import { useThemePreference } from "../../layout/hooks/useThemePreference";
 import { useTransparencyPreference } from "../../layout/hooks/useTransparencyPreference";
 import { useUiScaleShortcuts } from "../../layout/hooks/useUiScaleShortcuts";
 import { useAppSettings } from "../../settings/hooks/useAppSettings";
-import { runCodexUpdate } from "../../../services/tauri";
+import { runCodexUpdate } from "../../../services/desktop";
 
 export function useAppSettingsController() {
   const {
