@@ -1,0 +1,7 @@
+# 默认由维护者团队审查所有公开变更。
+* @goodbyeri-studio/founder-team
+
+# Electron、runtime 和发布边界需要维护者明确确认。
+apps/desktop/ @goodbyeri-studio/founder-team
+apps/desktop/resources/ @goodbyeri-studio/founder-team
+.github/ @goodbyeri-studio/founder-team

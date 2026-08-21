@@ -61,7 +61,7 @@ npm.cmd run electron:start
 - `apps/desktop/` 保留 CodexMonitor 的 MIT 归属；具体第三方来源见 [NOTICE](NOTICE) 和组件目录中的许可证文件。
 - Codex runtime 来自 OpenAI 的 Apache-2.0 项目，以未修改的黑盒进程方式按锁定版本使用；它不由本仓库的源码许可证重新授权。
 - 仅对齐官方 Codex App 的合法可观察行为，不复制其闭源实现或专有资源。
-- 生成的 runtime、签名材料、账号信息、Cookie、日志和测试输出不进入 Git；公开发布前必须完成 Git 历史和第三方资产审计。
+- 生成的 runtime、签名材料、账号信息、Cookie、日志和测试输出不进入 Git；公开仓库会持续接受 Git 历史、第三方资产和依赖审计。
 
 ## 贡献与反馈
 

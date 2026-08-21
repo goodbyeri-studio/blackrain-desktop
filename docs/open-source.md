@@ -40,7 +40,7 @@ OpenAI codex-rs / app-server
 | App Server stdio 与 Browser 基础链路 | 已有实现、探针和自动化回归 |
 | Browser 源码底座可移植性 | 仍按 `.specs/003-portable-electron-browser-runtime/` 收敛，不能用产品 E2E 替代 |
 | Windows 正式发布 | 未完成签名、安装/升级/回滚/卸载和完整实机矩阵 |
-| 公开仓库发布 | 需先完成 Git 历史、第三方资产和仓库设置审计 |
+| 公开仓库发布 | 已完成；当前公开 `main` 为 `e8746e8`，后续按本页门禁持续维护 |
 
 状态标签的含义见 [文档地图](README.md)。`CODE_EXISTS`、`RUN_PASS`、`PORTABILITY_PASS` 和 `PRODUCT_PASS` 不能互相替代。
 
@@ -56,16 +56,20 @@ BlackRain 自有代码按仓库根目录 MIT License 发布。`apps/desktop/` �
 
 这意味着当前仓库可以作为源码审阅和开发基线，但不能把依赖审计写成“零漏洞”或把它当成正式发布就绪。公开首版前应升级到兼容的 Forge/diff 修复版本，重跑 lockfile、typecheck、test、package、签名和 Windows 安装矩阵，并在 release notes 中记录结果。
 
-## 发布闸门
+## 公开状态与持续门禁
 
-真正切换 GitHub 仓库可见性前，维护者必须完成：
+仓库已在 2026-08-22 切换为 GitHub Public：
 
-1. 用干净临时 clone 扫描整个 Git 历史，确认没有密钥、Cookie、客户数据、私有 URL、未授权二进制或不应公开的文档。
-2. 对历史上已经删除的 Tauri/服务端/Office 资产做许可证与隐私审计；必要时重写历史或从新建公开镜像发布。
-3. 重新生成并审查第三方 License/NOTICE 清单，确认每个 vendored runtime 都有可追溯来源和 hash。
-4. 在 GitHub 启用 Issues、Discussions、Private Vulnerability Reporting、分支保护和 CI required checks。
-5. 发布第一版前，在干净环境复现安装、测试、打包和文档中的最小开发流程。
+- 地址：<https://github.com/goodbyeri-studio/blackrain-desktop>
+- 默认分支：`main`
+- 公开基线：`406d725`
+- 当前公开提交：`e8746e8`
+- 公开历史已重写为干净的单一根提交；旧内部分支未保留在远端。
 
-本次代码改动只建立开源基线，不自动替维护者执行历史重写或 GitHub 可见性切换。
+公开不是审计终点。每次合并和发布仍应完成以下门禁：
 
-公开发布前，维护者必须完成历史、许可证、第三方资产、仓库设置和首版 Windows 发布矩阵审计；公开后仍需持续维护这些门禁。
+1. 用干净临时 clone 扫描 Git 历史，确认没有密钥、Cookie、客户数据、私有 URL、未授权二进制或不应公开的文档。
+2. 审查第三方代码、字体、图标和 runtime 的来源、许可证、版本与 hash，并同步 `NOTICE`。
+3. 保持 Issues、Discussions、安全报告、分支保护和 CI required checks 开启。
+4. 在干净环境复现安装、测试、打包和文档中的最小开发流程。
+5. Windows 签名、安装/升级/回滚/卸载、真实站点/MFA 和完整产品矩阵通过后，才能发布稳定版本。
