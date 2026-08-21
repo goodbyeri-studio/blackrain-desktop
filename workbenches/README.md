@@ -1,10 +1,10 @@
-# workbenches —— 专家工作台包
+# workbenches —— 实验性内容样例
 
-> **状态（2026-07-26）：暂停。** 工作台资产保留但不进入当前 P0/P1；当前主线是 Electron 迁移与 Codex App 能力补齐。本文的包格式和生命周期描述不构成近期实现承诺。
+> **状态：实验性目录。** 这里的内容样例不进入默认产品入口或发行包。本文的包格式和生命周期描述不构成实现承诺。
 
-这里存放 BlackRain 的核心产品资产：**可安装的专家数字工作环境**。
+这里存放用于验证内容注入和工具声明的实验性样例，不是 BlackRain Desktop 的核心产品入口。
 
-产品定义以 [docs/04](../docs/04-产品形态.md) 为唯一真源；恢复工作台路线前必须重新确认产品优先级，并更新暂停中的 008/011。
+公共产品定义以 [项目范围](../docs/project-scope.md) 和 [路线图](../docs/roadmap.md) 为准；实验样例若要进入产品，必须先提交独立设计、权限和验证说明。
 
 ## 工作台不只是 Markdown
 
@@ -21,10 +21,10 @@
 - 安装后健康检查和领域验证
 - 版本、来源、License、升级、回滚和卸载
 
-正式关系是：
+内容关系示例：
 
 ```text
-Skill + 插件 + 环境 + 资源 + 验证 → 工作台 → 工作室
+Skill + 插件 + 环境 + 资源 + 验证 → 可复用任务内容包
 ```
 
 ## 目标目录草案
@@ -61,14 +61,14 @@ workbenches/
 - 人设/规则和三个 Skills 已存在
 - `workbench.yaml v1`、tasks/health/smoke 声明和 strict Core inspect 已存在
 - OfficeCLI 插件和资源注入骨架已存在
-- Windows NSIS resource mapping 已存在
+- Windows 资源映射骨架已存在
 
 但以下均未完成：
 
 - install/activate/verify/uninstall 生命周期的 Windows 实机验收
-- Session Orchestrator、工作台 surface 与任务执行合同的代码接线
-- Windows NSIS 构建、解包、安装和首启验证
+- 宿主 surface 与任务执行合同的代码接线
+- Windows 构建、解包、安装和首启验证
 - Office 5 场景 × 10 次质量基线
 - 升级、回滚、卸载和项目保留验证
 
-因此，`office-agent` 当前是参考内容/注入骨架，不是可发布工作台包。
+因此，`office-agent` 当前是参考内容/注入骨架，不是可发布产品功能。

@@ -16,6 +16,7 @@ jobs:
     name: Detect relevant changes
     runs-on: ubuntu-latest
     outputs:
+      docs: ${{ steps.filter.outputs.docs }}
       gateway: ${{ steps.filter.outputs.gateway }}
       js: ${{ steps.filter.outputs.js }}
     steps:
@@ -31,10 +32,12 @@ jobs:
         run: |
           js=false
           gateway=false
+          docs=false
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             js=true
             gateway=true
+            docs=true
           else
             while IFS= read -r file; do
               case "$file" in
@@ -47,11 +50,29 @@ jobs:
                   gateway=true
                   ;;
               esac
+              case "$file" in
+                *.md|docs/**|.github/ISSUE_TEMPLATE/**|.github/pull_request_template.md|.github/workflows/ci.yml|scripts/check-doc-links.mjs)
+                  docs=true
+                  ;;
+              esac
             done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           fi
 
           echo "js=$js" >> "$GITHUB_OUTPUT"
           echo "gateway=$gateway" >> "$GITHUB_OUTPUT"
+          echo "docs=$docs" >> "$GITHUB_OUTPUT"
+
+  docs-checks:
+    name: Documentation checks
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node scripts/check-doc-links.mjs
 
   js-checks:
     name: JS checks (Linux)
@@ -92,18 +113,23 @@ jobs:
   quality-gate:
     name: Required quality gate
     if: always()
-    needs: [changes, js-checks, gateway-checks]
+    needs: [changes, docs-checks, js-checks, gateway-checks]
     runs-on: ubuntu-latest
     steps:
       - name: Evaluate routed checks
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
+          DOCS_RESULT: ${{ needs.docs-checks.result }}
           JS_RESULT: ${{ needs.js-checks.result }}
           GATEWAY_RESULT: ${{ needs.gateway-checks.result }}
+          DOCS_REQUIRED: ${{ needs.changes.outputs.docs }}
           JS_REQUIRED: ${{ needs.changes.outputs.js }}
           GATEWAY_REQUIRED: ${{ needs.changes.outputs.gateway }}
         run: |
           test "$CHANGES_RESULT" = success
+          if [[ "$DOCS_REQUIRED" == "true" ]]; then
+            test "$DOCS_RESULT" = success
+          fi
           if [[ "$JS_REQUIRED" == "true" ]]; then
             test "$JS_RESULT" = success
           fi

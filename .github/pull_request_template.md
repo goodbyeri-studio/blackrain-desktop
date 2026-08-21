@@ -5,15 +5,15 @@
 
 ## 怎么测的
 <!-- 写出真实命令、平台、结果和未验证项；不要只写“CI 绿”。 -->
-- [ ] 已运行与改动匹配的 typecheck / test / lint / cargo check（不涉及则说明）
-- [ ] 涉及 GUI、引擎、凭据、Office、NSIS 或安装流程时，已在 Windows 实机验证；未跑的项目已明确列出
-- [ ] 涉及发布时，已验证 NSIS 安装、开始菜单启动、真实对话和卸载（不涉及则说明）
+- [ ] 已运行与改动匹配的 typecheck / test / lint（不涉及则说明）
+- [ ] 涉及 GUI、app-server、Browser、凭据或安装流程时，已在 Windows 实机验证；未跑的项目已明确列出
+- [ ] 涉及发布时，已验证签名安装包、启动、核心流程和卸载（不涉及则说明）
 
-## 文档与 living spec
+## 文档与设计合同
 
-- [ ] 产品形态变化已同步 `docs/04-产品形态.md`
-- [ ] 运行时边界变化已同步 `docs/09-运行时架构与里程碑.md`
-- [ ] 有对应 living spec 时，已同步 `tasks.md` / `decisions.md` / `verification.md`，并写入真实验证结果
+- [ ] 产品范围变化已同步 `docs/project-scope.md` 或 `docs/roadmap.md`
+- [ ] 运行时边界变化已同步 `docs/architecture/` 和必要的 `docs/design/`
+- [ ] 长期架构取舍已记录到 `docs/adr/`，并写入真实验证结果
 - [ ] 不涉及上述文档时，已在说明中写明原因
 
 ## License、隐私与安全

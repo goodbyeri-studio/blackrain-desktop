@@ -37,22 +37,6 @@ const forbidden = [
   { label: "裸 legacy invoke", pattern: /(?<![.\w])invoke\s*\(/u },
   { label: "裸 legacy listen", pattern: /(?<![.\w])listen\s*\(/u },
 ];
-const migrationLedgerPath = path.join(
-  repositoryRoot,
-  ".specs",
-  "002-electron-migration",
-  "migration-ledger.json",
-);
-const migrationLedger = JSON.parse(await readFile(migrationLedgerPath, "utf8"));
-for (const entry of migrationLedger.entries ?? []) {
-  if (entry.kind !== "command" || typeof entry.source !== "string") continue;
-  const commandName = entry.source.split("::").at(-1);
-  if (!commandName) continue;
-  forbidden.push({
-    label: `旧 command ${commandName}`,
-    pattern: new RegExp(`(?<![A-Za-z0-9_])${commandName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![A-Za-z0-9_])`, "u"),
-  });
-}
 const ignoredDirectories = new Set(["node_modules", "out", "output", "dist", ".vite"]);
 const textExtensions = new Set([
   ".cjs", ".css", ".html", ".js", ".json", ".jsx", ".mjs", ".md",

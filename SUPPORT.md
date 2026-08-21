@@ -1,6 +1,6 @@
 # 支持范围
 
-请先阅读 [README.md](README.md)、[docs/commands.md](docs/commands.md) 和 [docs/README.md](docs/README.md)。
+请先阅读 [README.md](README.md)、[docs/development/commands.md](docs/development/commands.md) 和 [docs/README.md](docs/README.md)。
 
 - 使用问题、可复现 bug 和功能建议：提交 GitHub issue，并填写系统版本、BlackRain commit、Codex runtime 版本和最小复现步骤。
 - 架构、协议或 Browser contract 讨论：先开 discussion 或 issue，再提交带测试和文档的 PR。
