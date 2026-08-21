@@ -6,6 +6,10 @@
 | [Dimillian/CodexMonitor](https://github.com/Dimillian/CodexMonitor) | Electron/React 壳的部分上游来源 | MIT |
 | [Electron 文档](https://www.electronjs.org/docs/latest/tutorial/security) | WebContentsView、session 和安全约束 | MIT |
 
+## 产品行为参考
+
+[Cursor](https://www.cursor.com/) 的多模型选择与 Auto 体验是 BlackRain 的公开产品参考之一。BlackRain 只参考公开可观察的交互范式，不复制 Cursor 的代码、私有路由策略、品牌资源或服务，也与 Cursor 没有官方隶属关系。Auto 的实际规则由 BlackRain 社区公开设计、实现和评测。
+
 精确的 Codex commit、Windows package hash、Node runtime 和 Browser adapter hash 由 `apps/desktop/resources/**/runtime-lock.json` 与相邻 manifest 锁定；更新时不要只改文档中的版本号。
 
 ## 参考原则

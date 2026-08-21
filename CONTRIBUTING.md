@@ -2,6 +2,18 @@
 
 感谢参与 BlackRain Desktop。项目采用 GitHub Flow：`main` 保持可用，所有改动通过短命分支和 Pull Request 合并。
 
+## 现在最值得参与的工作
+
+项目目前主要由一名维护者推进，欢迎把一个清晰的小问题变成可合并的 PR。最需要社区协作的方向是：
+
+- provider 适配、模型 registry 和能力描述；
+- Auto 路由策略、fallback 和可复现评测；
+- 模型选择 UI、Codex App 工作流回归和可观测性；
+- Browser 安全测试、Windows 安装与发布验证；
+- 面向新贡献者的文档、测试 fixture 和故障复现。
+
+不确定从哪里开始时，可以先看 [开放 issues](https://github.com/goodbyeri-studio/blackrain-desktop/issues)、[Discussions](https://github.com/goodbyeri-studio/blackrain-desktop/discussions) 或提交一个小的文档/测试改进；先讨论范围通常比直接实现大功能更快。
+
 ## 开始之前
 
 1. 阅读根目录 `README.md`、`AGENTS.md`、`apps/desktop/AGENTS.md` 和 [文档地图](docs/README.md)。

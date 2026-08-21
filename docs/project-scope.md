@@ -1,6 +1,8 @@
 # 项目范围
 
-BlackRain Desktop 是一个开源的 Electron Codex 客户端。它使用 OpenAI 开源的 `codex-rs` / `codex app-server` 作为唯一 agent runtime，在桌面宿主中补充窗口、文件、终端、Git、权限和 in-app Browser 等能力。
+> **一句话定位：开源 Codex App + Cursor 风格的多模型 Auto。**
+
+BlackRain Desktop 是一个开源的 Electron Codex 客户端。它使用 OpenAI 开源的 `codex-rs` / `codex app-server` 作为唯一 agent runtime，在桌面宿主中补充窗口、文件、终端、Git、权限和 in-app Browser 等能力，并公开建设多 provider、模型选择和 Auto 路由。
 
 ## 我们维护的范围
 
@@ -8,6 +10,7 @@ BlackRain Desktop 是一个开源的 Electron Codex 客户端。它使用 OpenAI
 - 与公开 app-server 协议的 stdio JSONL 连接和事件投影。
 - main-owned Browser 页面、权限、下载、用户接管和恢复。
 - 可选的独立 Model Gateway 协议适配器。
+- provider、模型能力描述和可解释 Auto 路由的公共适配层；当前仍处于逐步建设阶段。
 - 可审计的第三方来源、许可证和运行时锁定信息。
 
 ## 明确的边界
@@ -25,7 +28,7 @@ BlackRain Desktop 是一个开源的 Electron Codex 客户端。它使用 OpenAI
 | `openai/codex` | BlackRain 使用的 agent 内核和 app-server 协议来源 |
 | 官方 Codex App | 公开可观察行为和交互体验的参考，不是代码来源 |
 | CodexMonitor | Electron/React 壳的部分上游来源，归属见 [NOTICE](../NOTICE) |
-| Model Gateway | 可选的独立协议翻译进程，不拥有 thread、Browser 或 UI 状态 |
+| Model Gateway | 当前是可选的独立协议翻译原型，后续承载模型 provider 与路由适配，不拥有 thread、Browser 或 UI 状态 |
 
 BlackRain 与 OpenAI、官方 Codex App 或 CodexMonitor 维护者没有官方隶属关系。
 

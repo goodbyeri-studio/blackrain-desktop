@@ -9,13 +9,14 @@
 - 文件、终端、Git、设置、通知、更新和诊断等桌面能力。
 - main-owned Browser 的导航、快照、受控定位器、输入、下载、权限和用户接管。
 - 公开 app-server 协议、标准 Codex Home 和可选模型 provider 的适配。
+- 多模型 registry、手动模型选择、Auto 路由、fallback 和路由诊断；实现状态以对应代码和测试为准。
 
 ## 非目标
 
 - 另造 agent loop、会话存储或第二套 thread/event 真源。
 - 复制官方 Codex App 的闭源代码、私有协议实现或专有资源。
 - 让网页获得 BlackRain preload、Node.js、原始 IPC 或任意本地文件/进程权限。
-- 把 Gateway、插件或外部服务变成 UI、Browser 或 agent runtime 的隐式依赖。
+- 把 Gateway、插件或外部服务变成 UI、Browser 或 agent runtime 的隐式依赖；Auto 必须能够清晰降级并说明 provider 不可用原因。
 - 在没有独立设计和安全审查的情况下承诺移动端、云端托管或多用户服务。
 
 ## 如何处理新提案

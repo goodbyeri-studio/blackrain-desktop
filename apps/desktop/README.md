@@ -1,6 +1,6 @@
 # BlackRain Desktop
 
-BlackRain Desktop is the open-source Windows Electron client for the upstream Codex app-server. The original `codex.exe app-server` remains the only agent runtime.
+BlackRain Desktop is the open-source Windows Electron client for the upstream Codex app-server, with a public direction of **Codex App + Cursor-style multi-model Auto**. The original `codex.exe app-server` remains the only agent runtime; provider adapters and routing stay outside the agent core.
 
 The project is independent from OpenAI and does not copy the closed-source Codex App. See the repository root README, [NOTICE](../../NOTICE), and [project scope](../../docs/project-scope.md) for licensing and redistribution boundaries.
 
