@@ -17,8 +17,6 @@ dist-ssr
 out/
 output/playwright/
 *.local
-src-tauri/tauri.ios.local.conf.json
-.testflight.local.env
 
 # Editor directories and files
 .vscode/*
@@ -31,21 +29,16 @@ src-tauri/tauri.ios.local.conf.json
 *.sln
 *.sw?
 /release-artifacts
-CodexMonitor.zip
 .codex-worktrees/
-.codexmonitor/
 .agent/
 .agents/
 .claude/
 .cursor/
 public/assets/material-icons/
-src-tauri/resources/codex/windows-x64/codex.exe
 resources/codex/windows-x64/*
 !resources/codex/windows-x64/.gitkeep
 resources/node-runtime/windows-x64/*
 !resources/node-runtime/windows-x64/.gitkeep
-src-tauri/resources/python/windows-x64/*
-!src-tauri/resources/python/windows-x64/.gitkeep
 
 # Nix
 result
