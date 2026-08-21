@@ -21,7 +21,7 @@ app ready
 - app-server 负责 thread、turn、item、审批、工具和持久化事件。
 - main 将上游事件标准化后发送给 renderer；renderer 只维护展示和交互状态。
 - Browser backend 按 window、thread、profile、route 和 generation 校验每次操作。
-- Gateway（若启用）只处理模型协议，不参与桌面状态或 Browser 生命周期。
+- Gateway / routing（若启用）处理 provider 协议、模型选择和 Auto 路由，不参与桌面状态或 Browser 生命周期。
 
 ## 退出与恢复
 

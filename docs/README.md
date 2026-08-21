@@ -2,6 +2,10 @@
 
 这里是 BlackRain Desktop 的公开文档入口。文档描述可复用的架构、开发流程和当前公开范围；它不承诺尚未验证的功能，也不包含商业计划或内部资源安排。
 
+> **一句话定位：开源 Codex App + Cursor 风格的多模型 Auto。**
+
+BlackRain 以 Codex App 的 Agent 工作流为基础，公开建设多 provider、模型选择和 Auto 智能路由。模型路由仍在演进，文档会明确区分当前实现、开发方向和待验证项。
+
 ## 从哪里开始
 
 1. [项目范围](project-scope.md)：项目定位、许可证和当前限制。

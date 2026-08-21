@@ -10,6 +10,17 @@
 4. 降低 Codex 上游版本升级的协议探针、依赖审计和回归成本。
 5. 建立可复现的 Windows 打包、签名、安装、升级、回滚和卸载验证。
 
+## 多模型主线
+
+这是 BlackRain 最容易被社区理解和参与的公开方向：**Codex App + Cursor 风格的多模型 Auto。** 当前按以下顺序推进：
+
+1. 统一 provider、模型能力、价格/延迟和可用性描述；
+2. 提供可靠的手动模型选择和配置校验；
+3. 建立可解释、可测试、可替换的 Auto 路由策略；
+4. 补充 fallback、路由评测、用户接管和诊断体验。
+
+其中 Gateway 目前仍是协议翻译原型。第一批可认领任务见 [多模型 Auto RFC #95](https://github.com/goodbyeri-studio/blackrain-desktop/issues/95)。每一项只有在代码、测试和必要的平台验证都有证据后，才会标记为完成。
+
 ## 后续技术方向
 
 - 把 Browser Runtime 的中性接口与 Electron/Codex adapter 解耦，方便其他宿主复用。

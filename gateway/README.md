@@ -1,8 +1,12 @@
 # Gateway
 
+> BlackRain 的公开方向：**开源 Codex App + Cursor 风格的多模型 Auto。**
+
 Gateway 是 BlackRain Desktop 的可选模型协议翻译 sidecar。它把部分 provider 的 Chat Completions 请求/响应翻译为 Codex app-server 可使用的 Responses 形状；原生支持 Responses 的 provider 不需要它。
 
 Gateway 不拥有 thread、turn、Browser 或 UI 状态，也不修改 Codex agent loop。没有 Gateway 时，客户端仍应使用原生 Codex 路径，或显示清晰的 provider 不可用状态。
+
+后续的模型 registry、provider 能力描述、手动选择和 Auto 路由也属于这一侧的公共开发方向。路由策略必须可配置、可测试、可解释，并通过统一诊断链路报告 fallback 和失败原因。
 
 ## 当前状态
 

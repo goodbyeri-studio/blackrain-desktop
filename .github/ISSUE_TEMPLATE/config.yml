@@ -6,3 +6,6 @@ contact_links:
   - name: Documentation and project overview
     url: https://github.com/goodbyeri-studio/blackrain-desktop/blob/main/docs/project-scope.md
     about: Read the scope, license, and release-boundary notes before filing an issue.
+  - name: Community discussions
+    url: https://github.com/goodbyeri-studio/blackrain-desktop/discussions
+    about: Discuss model providers, Auto routing, architecture, and contribution ideas before opening a PR.
