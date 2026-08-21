@@ -1,0 +1,537 @@
+/* 登录开屏 + 门禁占位
+ * 美术体系：BlackRain 霓虹雨夜（品红、冰蓝紫和半透明桌面雨幕）。
+ *   主色＝品红/热粉（全息光） · 副色＝冰蓝紫（冷高光） · 底＝靛紫雾霾。
+ *   半透明毛玻璃透出桌面 + canvas 雨幕 + 重颗粒/网点。
+ * 全部 scoped 在登录开屏，不动 base.css 全局原语 —— 隔离、可逆。
+ */
+
+/* 品牌字体 Chakra Petch（工业招牌，贴 BlackRain 街景）。
+ * OFL 协议、本地打包 latin 子集 woff2（离线可用，不依赖 CDN）。
+ * 许可证见 public/assets/fonts/OFL.txt。 */
+@font-face {
+  font-family: "Chakra Petch";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/assets/fonts/ChakraPetch-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Chakra Petch";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/assets/fonts/ChakraPetch-Bold.woff2") format("woff2");
+}
+
+
+.account-login-screen,
+.account-gate-splash {
+  /* —— BlackRain scoped token（去饱和·雾感·胶片，非干净赛博）——
+   * 关键：饱和只出现在「光源核心」，UI 实色一律压灰玫/暗李子。 */
+  --br-magenta: #d96a9e; /* 灰玫品红：实色用（去饱和） */
+  --br-magenta-lit: #f06aa8; /* 光源核心：仅辉光用，才艳 */
+  --br-magenta-soft: #d9a3c2;
+  --br-ice: #93a7cc; /* 钢蓝紫：冷高光（去饱和） */
+  --br-ice-soft: #b4c2dc;
+  --br-violet: #5a4a86; /* 雾里的暗李子 */
+  --br-fog: rgba(24, 16, 40, 0.26); /* 靛紫雾纱：更透 → 桌面更明显透出 */
+  --br-fog-floor: rgba(12, 8, 24, 0.4);
+  --br-glass: rgba(26, 18, 44, 0.2); /* 磨砂玻璃面（再降一档，靠 blur 立体而非压暗） */
+  --br-glass-border: rgba(217, 163, 194, 0.18); /* 接光 hairline（灰玫） */
+  --br-text: #ece4ee;
+  --br-text-muted: #9c8aac;
+  --br-magenta-glow: rgba(240, 106, 168, 0.42);
+  --br-ice-glow: rgba(147, 167, 204, 0.34);
+}
+
+/* 仅顶部拖动条：对齐 macOS Overlay 标题栏高度，置于最上层、不挡内容点击区 */
+.account-login-dragbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  z-index: 5;
+}
+
+/* canvas 雨幕：铺满，置于雾纱之上、内容之下 */
+.account-rain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 霓虹辉光团：光源核心才艳（品红主光 + 钢蓝回光），重柔焦 bloom */
+.account-login-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(560px 680px at 30% 6%, rgba(240, 106, 168, 0.26), transparent 58%),
+    radial-gradient(480px 560px at 80% 92%, rgba(147, 167, 204, 0.14), transparent 60%),
+    radial-gradient(820px 460px at 50% -12%, rgba(90, 74, 134, 0.2), transparent 62%);
+  filter: blur(6px);
+}
+
+.account-login-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  /* 靛紫雾纱：低 alpha → 桌面隐约透出。雾里压品红/钢蓝 + 四周暗角(胶片) */
+  background:
+    radial-gradient(640px 440px at 30% 10%, rgba(240, 106, 168, 0.12), transparent 60%),
+    radial-gradient(580px 500px at 80% 90%, rgba(147, 167, 204, 0.08), transparent 58%),
+    radial-gradient(1200px 900px at 50% 50%, transparent 38%, rgba(8, 5, 16, 0.55) 100%),
+    linear-gradient(180deg, var(--br-fog) 0%, var(--br-fog-floor) 100%);
+  z-index: 1000;
+  overflow: auto;
+}
+
+/* 噪点三层：LED 网点 + 扫描线 + 胶片颗粒（要明显能看见，对应 JOI 屏质感） */
+.account-login-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.5;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E"),
+    radial-gradient(rgba(255, 255, 255, 0.16) 0.7px, transparent 0.8px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+  background-size: 160px 160px, 3px 3px, 100% 3px;
+  mix-blend-mode: soft-light;
+}
+
+.account-login-inner {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+}
+
+/* —— 品牌区 —— */
+.account-login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.account-login-title {
+  margin: 0;
+  font-family: "Chakra Petch", var(--ui-font-family);
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.04;
+  color: var(--br-text);
+  /* 全息品红辉光 bloom（光源核心才艳，带钢蓝外晕） */
+  text-shadow:
+    0 0 18px rgba(240, 106, 168, 0.42),
+    0 0 46px rgba(240, 106, 168, 0.26),
+    0 0 88px rgba(147, 167, 204, 0.18);
+}
+
+.account-login-subtitle {
+  margin: 0;
+  font-family: "Chakra Petch", var(--ui-font-family);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--br-magenta-soft);
+  opacity: 0.8;
+}
+
+/* —— 登录/注册卡片：半透明磨砂玻璃（透出雨与桌面） —— */
+.auth-card {
+  position: relative;
+  width: min(100%, 480px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 34px 44px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    /* 斜向掠光：仅左上一缕极淡品红，偏在一角，不提亮整面（保明暗层次） */
+    linear-gradient(125deg, rgba(240, 106, 168, 0.03) 0%, transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 32%),
+    var(--br-glass);
+  border: 1px solid var(--br-glass-border);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.25) inset,
+    0 40px 90px -32px rgba(0, 0, 0, 0.85),
+    0 0 80px -34px var(--br-magenta-glow);
+  backdrop-filter: blur(32px) saturate(1.4);
+  -webkit-backdrop-filter: blur(32px) saturate(1.4);
+}
+
+/* 卡面全息质感：颗粒 + LED 网点 + 扫描线（与开屏背景同语言，弱一档） */
+.auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+  border-radius: inherit;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='nc'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23nc)' opacity='0.5'/%3E%3C/svg%3E"),
+    radial-gradient(rgba(255, 255, 255, 0.12) 0.6px, transparent 0.7px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.12) 0 1px, transparent 1px 3px);
+  background-size: 160px 160px, 3px 3px, 100% 3px;
+  mix-blend-mode: soft-light;
+}
+
+/* 表单与提示位于全息层之上 */
+.auth-card-form,
+.auth-card > .auth-card-banner {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.auth-field-label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--br-ice-soft);
+  opacity: 0.88;
+}
+
+/* 输入容器：承载前置图标 + 右侧显隐按钮 */
+.auth-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-field-icon {
+  position: absolute;
+  left: 13px;
+  width: 17px;
+  height: 17px;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--br-ice);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.55;
+  transition: opacity 0.18s ease, stroke 0.18s ease;
+}
+
+.auth-input {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 11px;
+  border: 1px solid rgba(180, 160, 220, 0.18);
+  /* 真半透磨砂：自带 blur，雨/全息从输入框里也透出来 */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 60%),
+    rgba(10, 6, 20, 0.28);
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  color: var(--br-text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.auth-input--icon {
+  padding-left: 40px;
+}
+
+.auth-input--toggle {
+  padding-right: 44px;
+}
+
+/* 验证码输入：居中、加大字号、等宽数字、字距拉开（仪表盘读数感） */
+.auth-input--otp {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.42em;
+  padding-right: 0;
+  padding-left: calc(0.42em + 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 验证码步骤提示文案 */
+.auth-verify-hint {
+  margin: 0 0 2px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--br-text-muted);
+}
+
+.auth-verify-hint strong {
+  color: var(--br-ice-soft);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.auth-input::placeholder {
+  color: rgba(168, 146, 184, 0.5);
+}
+
+.auth-input:hover:not(:focus):not(:disabled) {
+  border-color: rgba(180, 160, 220, 0.32);
+}
+
+.auth-input:focus {
+  border-color: var(--br-magenta);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 60%),
+    rgba(16, 10, 30, 0.34);
+  box-shadow:
+    0 0 0 3px rgba(217, 106, 158, 0.2),
+    0 0 18px -4px var(--br-magenta-glow),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+/* 聚焦时前置图标点亮 */
+.auth-input-wrap:focus-within .auth-field-icon {
+  opacity: 0.95;
+  stroke: var(--br-magenta-soft);
+}
+
+.auth-input:disabled {
+  opacity: 0.5;
+}
+
+/* 密码显隐切换按钮 */
+.auth-input-eye {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--br-text-muted);
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.auth-input-eye svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.auth-input-eye:hover:not(:disabled) {
+  color: var(--br-magenta-soft);
+  background: rgba(217, 106, 158, 0.12);
+}
+
+.auth-input-eye:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 主按钮：磨砂玻璃透光（非糖果渐变）——灰玫面 + 品红辉光环 */
+.auth-submit {
+  height: 48px;
+  margin-top: 6px;
+  border: 1px solid rgba(240, 106, 168, 0.4);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, rgba(217, 106, 158, 0.26) 0%, rgba(90, 74, 134, 0.22) 100%);
+  color: var(--br-text);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: filter 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, transform 0.12s ease;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 0 22px -8px var(--br-magenta-glow);
+}
+
+.auth-submit:hover:not(:disabled) {
+  filter: brightness(1.12);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 0 34px -6px var(--br-magenta-glow);
+}
+
+.auth-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* 加载态：内嵌 spinner + 文案 */
+.auth-submit-busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.auth-submit-spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid rgba(236, 228, 238, 0.3);
+  border-top-color: var(--br-text);
+  animation: account-gate-spin 0.7s linear infinite;
+}
+
+.auth-submit:disabled {
+  opacity: 0.4;
+  cursor: default;
+  box-shadow: none;
+}
+
+.auth-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--br-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.18s ease, text-shadow 0.18s ease;
+}
+
+.auth-link:hover:not(:disabled) {
+  color: var(--br-magenta-soft);
+  text-shadow: 0 0 12px var(--br-magenta-glow);
+}
+
+.auth-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.auth-card-banner {
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* 错误：偏品红的暖色，去饱和 */
+.auth-card-banner--error {
+  background: rgba(217, 106, 158, 0.12);
+  border: 1px solid rgba(217, 106, 158, 0.32);
+  color: #e3a3bf;
+}
+
+.auth-card-banner--notice {
+  background: rgba(147, 167, 204, 0.12);
+  border: 1px solid rgba(147, 167, 204, 0.3);
+  color: var(--br-ice-soft);
+}
+
+/* —— 门禁占位（恢复会话中） —— */
+.account-gate-splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background:
+    radial-gradient(700px 420px at 50% 40%, rgba(240, 106, 168, 0.08), transparent 60%),
+    linear-gradient(180deg, var(--br-fog) 0%, var(--br-fog-floor) 100%);
+  z-index: 1000;
+}
+
+.account-gate-spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid rgba(180, 160, 220, 0.2);
+  border-top-color: var(--br-magenta);
+  animation: account-gate-spin 0.8s linear infinite;
+  box-shadow: 0 0 16px -2px var(--br-magenta-glow);
+}
+
+@keyframes account-gate-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.account-gate-hint {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--br-text-muted);
+}
+
+/* —— 积分额度条（设置页账号区，沿用全局 token） —— */
+.credit-usage-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.credit-usage-bar-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border-subtle, rgba(127, 127, 127, 0.2));
+  overflow: hidden;
+}
+
+.credit-usage-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--accent, #4f8cff);
+  transition: width 0.3s ease;
+}
+
+.credit-usage-bar-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted, #9a9aa2);
+  font-variant-numeric: tabular-nums;
+}

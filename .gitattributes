@@ -1,0 +1,3 @@
+apps/desktop/resources/browser-client/*.mjs text eol=lf
+apps/desktop/resources/browser-client/*.json text eol=lf
+apps/desktop/resources/browser-client/*.txt text eol=lf

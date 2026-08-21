@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.docx"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect relevant changes
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
+    outputs:
+      gateway: ${{ steps.filter.outputs.gateway }}
+      js: ${{ steps.filter.outputs.js }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: filter
+        name: Route checks by changed paths
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          js=false
+          gateway=false
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            js=true
+            gateway=true
+          else
+            while IFS= read -r file; do
+              case "$file" in
+                .github/workflows/ci.yml|.github/workflows/windows-checks.yml|apps/desktop/electron/**|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/resources/**|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/**|apps/desktop/scripts/**|scripts/vendor-electron-codex-runtime.ps1)
+                  js=true
+                  ;;
+              esac
+              case "$file" in
+                .github/workflows/ci.yml|.github/workflows/windows-checks.yml|gateway/**|scripts/dev-client.ps1)
+                  gateway=true
+                  ;;
+              esac
+            done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          fi
+
+          echo "js=$js" >> "$GITHUB_OUTPUT"
+          echo "gateway=$gateway" >> "$GITHUB_OUTPUT"
+
+  js-checks:
+    name: JS checks (Linux)
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - run: npm run electron:runtime:check-lock
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run lint
+      - run: npm run lint:ds
+      - run: npm run check:host-boundary
+      - run: npm run codemod:ds:dry
+
+  gateway-checks:
+    name: Gateway checks
+    needs: changes
+    if: needs.changes.outputs.gateway == 'true'
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: python -m unittest discover -s gateway -p 'test_gateway*.py' -v

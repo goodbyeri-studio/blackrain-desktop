@@ -1,0 +1,29 @@
+# BlackRain Desktop NOTICE
+
+Copyright (c) 2026 goodbyeri-studio
+
+BlackRain Desktop is distributed under the MIT License for its own code. The
+following components retain their own licenses and attribution requirements:
+
+## CodexMonitor
+
+- Source: https://github.com/Dimillian/CodexMonitor
+- License: MIT
+- Copyright (c) 2026 Thomas Ricouard
+- The retained attribution and license text are in `apps/desktop/LICENSE`.
+
+## OpenAI Codex
+
+- Source: https://github.com/openai/codex
+- License: Apache-2.0
+- Used as an unmodified, version-locked `codex app-server` runtime.
+- Runtime License/NOTICE files are fetched and audited according to
+  `apps/desktop/resources/codex/runtime-lock.json`; the runtime is not
+  relicensed by this repository.
+
+## Other dependencies
+
+JavaScript and Python dependencies are resolved from their lockfiles. Their
+individual licenses remain those declared by each package. A release or
+redistribution that vendors generated runtime files must include the relevant
+license and notice files from that runtime.

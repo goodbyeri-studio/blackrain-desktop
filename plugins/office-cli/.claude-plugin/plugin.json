@@ -1,0 +1,8 @@
+{
+  "name": "office-cli",
+  "version": "0.1.0",
+  "description": "Experimental Office document skill archive for BlackRain Desktop; not part of the current product runtime.",
+  "skills": [
+    "skills/office-cli/SKILL.md"
+  ]
+}

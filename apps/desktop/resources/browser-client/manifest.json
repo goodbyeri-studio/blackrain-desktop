@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "name": "blackrain-browser-client",
+  "version": "0.1.0",
+  "protocolVersion": 1,
+  "license": "MIT",
+  "files": [
+    {
+      "path": "browser-client.mjs",
+      "sha256": "72492ddbbf997cb3106def5c1bf3c2c3aaddc88cfbd8c0f8707e18b063b26858"
+    },
+    {
+      "path": "browser-mcp-server.mjs",
+      "sha256": "e3295202bd190ce04ab42781deedb07c5d202c2a1c15b8c177551ad7b06682bb"
+    },
+    {
+      "path": "LICENSE.txt",
+      "sha256": "8b7fec5bf9f1a44f3ec78487d9f0786435c6d480bf2f4ae470d570d7c77c1f72"
+    }
+  ]
+}

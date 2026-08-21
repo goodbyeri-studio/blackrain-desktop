@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/goodbyeri-studio/blackrain-desktop/security/advisories/new
+    about: Please report security issues privately instead of opening a public issue.
+  - name: Documentation and project overview
+    url: https://github.com/goodbyeri-studio/blackrain-desktop/blob/main/docs/open-source.md
+    about: Read the scope, license, and release-boundary notes before filing an issue.

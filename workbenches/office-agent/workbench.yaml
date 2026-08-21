@@ -1,0 +1,50 @@
+schema_version: 1
+id: com.blackrain.office
+name: Office 办公工作台
+version: 0.1.0
+publisher: goodbyeri-studio
+description: BlackRain Desktop 的实验性 Office 参考工作台归档，不属于当前产品主线。
+license: MIT
+
+target:
+  domains: [office]
+  roles: [office-generalist]
+  platforms:
+    - os: windows
+      arch: x86_64
+  blackrain: ">=0.7.68"
+
+skills:
+  - path: skills/generate-office-deliverable
+  - path: skills/fix-office-formatting
+  - path: skills/render-office-preview
+
+plugins: []
+
+dependencies:
+  - id: com.blackrain.office-cli
+    kind: bundled
+    version: 1.0.117
+    source: app-resource:office-cli/windows-x64/officecli.exe
+    checksum: sha256:ff4a790637bcd4fdaf046727752e9e44207425d5ceafe36131516d37500d9ebd
+    license: Apache-2.0
+    install_scope: app_managed
+    uninstall: remove_if_unused
+
+permissions:
+  files:
+    mode: user-selected-folders
+  network:
+    domains: []
+  processes:
+    spawn: [com.blackrain.office-cli]
+
+tasks:
+  source: tasks/tasks.yaml
+
+validation:
+  health: validation/health.yaml
+  smoke: validation/smoke/basic.yaml
+
+uninstall:
+  preserve_user_projects: true
