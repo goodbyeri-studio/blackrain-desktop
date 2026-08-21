@@ -64,7 +64,7 @@ BlackRain 自有代码按仓库根目录 MIT License 发布。`apps/desktop/` �
 - 默认分支：`main`
 - 公开基线：`406d725`
 - 公开化提交：`e8746e8`
-- 公开历史已重写为干净的单一根提交；旧内部分支未保留在远端。
+- `main` 的 commit history 已重写为干净的单一根提交；公开前创建的 GitHub Pull Request 记录仍由 GitHub 单独保留，不属于当前源码树。
 
 公开不是审计终点。每次合并和发布仍应完成以下门禁：
 
@@ -73,3 +73,7 @@ BlackRain 自有代码按仓库根目录 MIT License 发布。`apps/desktop/` �
 3. 保持 Issues、Discussions、安全报告、分支保护和 CI required checks 开启。
 4. 在干净环境复现安装、测试、打包和文档中的最小开发流程。
 5. Windows 签名、安装/升级/回滚/卸载、真实站点/MFA 和完整产品矩阵通过后，才能发布稳定版本。
+
+### 历史 PR 残留
+
+GitHub 不允许通过普通 Git 操作删除 `refs/pull/*`。本仓库公开前的旧 PR 页面和 diff 可能继续展示已经从 `main` 删除的历史资产；它们不应被当作当前产品、支持范围或许可证边界。若需要“代码、提交历史、PR、Issue 全部从零开始”的公开仓库，只能在确认备份和 URL 迁移方案后重建同名仓库，或向 GitHub Support 申请清理。
