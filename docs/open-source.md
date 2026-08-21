@@ -63,7 +63,7 @@ BlackRain 自有代码按仓库根目录 MIT License 发布。`apps/desktop/` �
 - 地址：<https://github.com/goodbyeri-studio/blackrain-desktop>
 - 默认分支：`main`
 - 公开基线：`406d725`
-- 当前公开提交：`e8746e8`
+- 公开化提交：`e8746e8`
 - 公开历史已重写为干净的单一根提交；旧内部分支未保留在远端。
 
 公开不是审计终点。每次合并和发布仍应完成以下门禁：
