@@ -5,10 +5,10 @@
 ## 开始之前
 
 1. 阅读根目录 `README.md`、`AGENTS.md`、`apps/desktop/AGENTS.md` 和 [文档地图](docs/README.md)。
-2. 确认改动属于 Codex-first 桌面客户端、Electron 宿主或可移植 Browser Runtime 主线。
-3. 涉及产品行为、运行时边界或公共 Browser 合同时，同步对应 living spec 的 `tasks.md`、`decisions.md` 和 `verification.md`。
+2. 确认改动属于 Codex-first 桌面客户端、Electron 宿主或 Browser Runtime 公共合同。
+3. 涉及产品行为、运行时边界或公共 Browser 合同时，同步对应的 `docs/design/`、`docs/architecture/` 或 ADR，并写出可复现的验证命令。
 
-工作台、插件市场、Office 和 OPC 资料目前是实验性归档，不会自然扩建为产品主线。恢复这些方向前必须先更新产品决策和 spec。
+`plugins/` 与 `workbenches/` 是实验性资源。除非改动确实需要它们，否则不要把它们加入产品入口或默认发布依赖。
 
 ## 本地开发
 
@@ -45,7 +45,9 @@ Windows 是发布验收平台。涉及 Electron main、Browser、凭据、输入
 
 ## 文档与验证
 
-文档是代码的一部分：产品形态看 `docs/04-产品形态.md`，运行时边界看 `docs/09-运行时架构与里程碑.md`，命令看 `docs/commands.md`，当前证据看对应 spec 的 `verification.md`。不要用目标拓扑、旧截图、测试计划或迁移账本代替实际验证。
+文档是代码的一部分：产品范围看 `docs/project-scope.md`，运行时边界看 `docs/architecture/`，命令看 `docs/development/commands.md`，设计合同看 `docs/design/` 和 `docs/adr/`。不要用目标拓扑、旧截图或测试计划代替实际验证。
+
+修改 Markdown 后运行 `node scripts/check-doc-links.mjs`；CI 会拒绝指向不存在本地文件的相对链接。
 
 ## License
 

@@ -12,7 +12,7 @@ BlackRain Desktop 由维护者团队负责代码合并、发布和安全响应�
 ## 变更流程
 
 - 小型 bug 修复和文档改动走普通 PR。
-- 产品范围、公共 Browser contract、许可证、数据边界或发布平台变化，必须先写决策记录并同步 living spec。
+- 产品范围、公共 Browser contract、许可证、数据边界或发布平台变化，必须先更新 `docs/adr/`、`docs/design/` 或对应架构文档。
 - `main` 只接受通过 review 和 CI 的 PR，使用 Squash merge。
 - 维护者可以拒绝超出项目范围、违反许可证或无法验证安全边界的改动。
 

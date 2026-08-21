@@ -49,4 +49,4 @@ sync_tagged_reference "openai/codex" "$CODEX_URL" "codex-upstream" "$CODEX_TAG" 
 
 echo ""
 echo "参考源码已按稳定版本锁定。其余竞品（Coze Studio、Dify 等）按需临时克隆即可，勿整包入库。"
-echo "详见 docs/REFERENCES.md"
+echo "详见 docs/reference/upstream-and-references.md"

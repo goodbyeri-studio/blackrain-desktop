@@ -1,6 +1,6 @@
 # BlackRain Desktop 代码地图
 
-> 2026-08-05 起，Desktop 只有 Electron 生产路径。历史宿主文件已删除，迁移审计见 `.specs/002-electron-migration/migration-ledger.json`。
+> Desktop 只有 Electron 生产路径。历史迁移不构成当前 API；当前职责以本页和仓库根 `docs/architecture/` 设计文档为准。
 
 ## 入口
 
@@ -42,4 +42,4 @@ Main 拥有进程、文件、窗口、权限、Browser、系统集成和生命�
 
 ## 验证
 
-以 `docs/commands.md` 为唯一命令真源。所有生产改动至少运行 typecheck、目标测试、lint 和 `check:host-boundary`；跨 main/preload、App Server、Browser 或发布边界时扩大到对应 probe/package/smoke/E2E。
+以 `docs/development/commands.md` 为命令入口。所有生产改动至少运行 typecheck、目标测试、lint 和 `check:host-boundary`；跨 main/preload、App Server、Browser 或发布边界时扩大到对应 probe/package/smoke/E2E。

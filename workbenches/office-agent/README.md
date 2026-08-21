@@ -1,10 +1,10 @@
-# Office 参考工作台
+# Office 内容样例
 
-> **状态（2026-07-26）：暂停资产。** Office 工作台不进入当前 P0/P1，当前主线是 Electron 迁移与 Codex App 能力补齐。本文只记录冻结内容和未完成状态。
+> **状态：实验性内容样例。** 本目录不进入默认产品入口或发行包。本文只记录样例内容和未完成状态。
 
-Office 是 BlackRain 第一套参考工作台，用于验证“专家环境如何被声明、安装、激活、执行、验证和卸载”。它不是 BlackRain 最终只做办公助手的产品定位。
+Office 是用于验证“内容如何声明、检查和复现”的样例，不代表 BlackRain 的产品定位。
 
-> **当前状态**：本目录已迁移到 `workbench.yaml v1`，并可被 Core 严格只读 inspect；这只证明声明、包内路径和基础依赖元数据可解析。尚无 install/health 执行/权限审批/activate/upgrade/uninstall 生命周期，NSIS 也未 build/unpack/install 验证；Office 质量基线仍未完成。
+> **当前状态**：本目录使用 `workbench.yaml v1`，可被 Core 只读 inspect；这只证明声明、路径和基础依赖元数据可解析。尚无完整 install/health/权限/upgrade/uninstall 生命周期或 Windows 安装验证。
 
 ## 想复制的专家环境
 
@@ -36,11 +36,11 @@ Office 是 BlackRain 第一套参考工作台，用于验证“专家环境如�
 - `skills/fix-office-formatting`
 - `skills/render-office-preview`
 - `plugins/office-cli/`：配套工具内容
-- 历史 OfficeCLI runtime 资源和旧宿主接线记录（不进入当前 Electron 产品包）
+- OfficeCLI runtime 资源样例（不代表进入当前 Electron 产品包）
 
 ## 进入可发布状态前必须补齐
 
-- 工作台 install/permission/activate 生命周期
+- 内容包 install/permission/activate 生命周期
 - OfficeCLI 来源、License、checksum 和 NOTICE
 - Windows 安装后健康检查
 - 用户项目模板和任务入口
