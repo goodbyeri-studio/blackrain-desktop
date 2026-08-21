@@ -19,7 +19,7 @@ jobs:
       gateway: ${{ steps.filter.outputs.gateway }}
       js: ${{ steps.filter.outputs.js }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: filter
@@ -62,7 +62,7 @@ jobs:
       run:
         working-directory: apps/desktop
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -83,7 +83,7 @@ jobs:
     if: needs.changes.outputs.gateway == 'true'
     runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
