@@ -54,7 +54,7 @@ BlackRain 自有代码按仓库根目录 MIT License 发布。`apps/desktop/` �
 
 2026-08-21 在 Node.js `22.23.1`、npm lockfile v3 上执行了 `npm audit`：生产依赖报告 2 个 low 级 `diff` advisory；完整开发/打包依赖还包含 Electron Forge 7 生态的 high 级 advisory。自动修复会建议跨主版本降级 Forge，未经过 Electron/MSIX 回归前不能直接采用。
 
-这意味着当前仓库可以作为源码审阅和开发基线，但不能把依赖审计写成“零漏洞”或把它当成正式发布就绪。公开首版前应升级到兼容的 Forge/diff 修复版本，重跑 lockfile、typecheck、test、package、签名和 Windows 安装矩阵，并在 release notes 中记录结果。
+这意味着当前仓库可以作为源码审阅和开发基线，但不能把依赖审计写成“零漏洞”或把它当成正式发布就绪。首个稳定版本前应升级到兼容的 Forge/diff 修复版本，重跑 lockfile、typecheck、test、package、签名和 Windows 安装矩阵，并在 release notes 中记录结果。
 
 ## 公开状态与持续门禁
 
