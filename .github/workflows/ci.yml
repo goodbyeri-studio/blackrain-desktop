@@ -14,7 +14,7 @@ concurrency:
 jobs:
   changes:
     name: Detect relevant changes
-    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     outputs:
       gateway: ${{ steps.filter.outputs.gateway }}
       js: ${{ steps.filter.outputs.js }}
@@ -57,7 +57,7 @@ jobs:
     name: JS checks (Linux)
     needs: changes
     if: needs.changes.outputs.js == 'true'
-    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/desktop
@@ -81,7 +81,7 @@ jobs:
     name: Gateway checks
     needs: changes
     if: needs.changes.outputs.gateway == 'true'
-    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -93,7 +93,7 @@ jobs:
     name: Required quality gate
     if: always()
     needs: [changes, js-checks, gateway-checks]
-    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - name: Evaluate routed checks
         env:
