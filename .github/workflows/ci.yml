@@ -2,9 +2,6 @@ name: CI
 
 on:
   pull_request:
-    paths-ignore:
-      - "**/*.md"
-      - "**/*.docx"
   workflow_dispatch:
 
 permissions:
@@ -17,7 +14,6 @@ concurrency:
 jobs:
   changes:
     name: Detect relevant changes
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
     outputs:
       gateway: ${{ steps.filter.outputs.gateway }}
@@ -92,3 +88,25 @@ jobs:
         with:
           python-version: '3.13'
       - run: python -m unittest discover -s gateway -p 'test_gateway*.py' -v
+
+  quality-gate:
+    name: Required quality gate
+    if: always()
+    needs: [changes, js-checks, gateway-checks]
+    runs-on: ${{ vars.LINUX_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Evaluate routed checks
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          JS_RESULT: ${{ needs.js-checks.result }}
+          GATEWAY_RESULT: ${{ needs.gateway-checks.result }}
+          JS_REQUIRED: ${{ needs.changes.outputs.js }}
+          GATEWAY_REQUIRED: ${{ needs.changes.outputs.gateway }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [[ "$JS_REQUIRED" == "true" ]]; then
+            test "$JS_RESULT" = success
+          fi
+          if [[ "$GATEWAY_REQUIRED" == "true" ]]; then
+            test "$GATEWAY_RESULT" = success
+          fi
