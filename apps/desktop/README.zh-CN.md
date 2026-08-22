@@ -1,6 +1,6 @@
 # BlackRain Desktop
 
-BlackRain Desktop 是面向 Windows 的开源 Electron Codex 客户端，公开方向是 **Codex App + Cursor 风格的多模型 Auto**。它直接使用上游 `codex.exe app-server`，并保持它是唯一 agent runtime；provider 适配和路由位于 agent 内核之外。项目独立于 OpenAI，不复制闭源 Codex App 实现。
+BlackRain Desktop 是开源 Codex App (ChatGPT) 客户端，对标其闭源能力，支持 Cursor 的多模型 & Auto 路由。它直接使用上游 `codex.exe app-server`，并保持它是唯一 agent runtime；provider 适配和路由位于 agent 内核之外。项目独立于 OpenAI，不复制闭源 Codex App 实现。
 
 许可证、第三方归属、开源范围和当前发布边界见仓库根目录的 [README](../../README.md)、[NOTICE](../../NOTICE) 与 [项目范围](../../docs/project-scope.md)。
 

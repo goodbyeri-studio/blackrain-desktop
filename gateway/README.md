@@ -1,6 +1,6 @@
 # Gateway
 
-> BlackRain 的公开方向：**开源 Codex App + Cursor 风格的多模型 Auto。**
+> **开源 Codex App (ChatGPT) 客户端，对标其闭源能力，支持 Cursor 的多模型 & Auto 路由。**
 
 Gateway 是 BlackRain Desktop 的可选模型协议翻译 sidecar。它把部分 provider 的 Chat Completions 请求/响应翻译为 Codex app-server 可使用的 Responses 形状；原生支持 Responses 的 provider 不需要它。
 

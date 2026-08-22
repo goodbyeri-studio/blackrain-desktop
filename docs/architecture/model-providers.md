@@ -2,7 +2,7 @@
 
 BlackRain 以原装 Codex Responses 链路为默认路径。模型 provider 的协议差异由独立 Gateway 处理，不进入 renderer、Electron main 或 agent 状态机。
 
-> **产品方向：Codex App 工作流 + 多模型 Auto。**
+> **开源 Codex App (ChatGPT) 客户端，对标其闭源能力，支持 Cursor 的多模型 & Auto 路由。**
 
 ## 默认路径
 
