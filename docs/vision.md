@@ -1,8 +1,6 @@
 # 愿景
 
-> **一句话定位：开源 Codex App + Cursor 风格的多模型 Auto。**
-
-BlackRain Desktop 的目标是把开源 Codex agent 变成一个可靠、可审计、可扩展的桌面客户端，并让开发者能够在同一个 Agent 工作流里自由选择模型或交给 Auto 路由。
+> **开源 Codex App (ChatGPT) 客户端，对标其闭源能力，支持 Cursor 的多模型 & Auto 路由。**
 
 ## 为什么需要桌面宿主
 
@@ -24,9 +22,9 @@ BlackRain 将这些能力放在 Electron main/preload/renderer 中，让上游�
 4. **公开可验证**：协议、来源、许可证和测试结果都应能被贡献者复现或审查。
 5. **行为参考而非代码复制**：参考官方 Codex App 的公开行为，不复制其闭源实现或专有资源。
 
-## 多模型方向
+## 多模型与 Auto
 
-Codex App 的 Agent、Browser、审批和恢复生态是 BlackRain 的基础；Cursor 风格的多模型与 Auto 是 BlackRain 希望补齐的产品体验。公开实现应支持：
+公开实现应支持：
 
 - provider 和模型的可发现、可配置和可测试；
 - 手动模型选择与 Auto 模式并存；
@@ -34,7 +32,7 @@ Codex App 的 Agent、Browser、审批和恢复生态是 BlackRain 的基础；C
 - 明确的 fallback、失败原因和用户接管；
 - 路由策略可替换，但不改变 Codex 的 thread、turn、审批和 Browser 状态所有权。
 
-Auto 的具体规则属于 BlackRain 的开源实现，不声称复制 Cursor 的内部策略；代码、评测和决策记录应让贡献者能够审查和改进它。
+Auto 的规则由 BlackRain 开源实现，不复制 Cursor 的内部策略；代码、评测和决策记录应让贡献者能够审查和改进它。
 
 ## 成功标准
 

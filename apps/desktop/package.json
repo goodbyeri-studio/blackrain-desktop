@@ -2,7 +2,7 @@
   "name": "blackrain-desktop",
   "private": true,
   "version": "0.7.68",
-  "description": "Open-source Electron Codex client for Windows",
+  "description": "Open-source Codex App (ChatGPT) client with Cursor-style multi-model and Auto routing",
   "license": "MIT",
   "repository": {
     "type": "git",
