@@ -90,15 +90,14 @@ BlackRain（Electron）
 
 ## License
 
-BlackRain Desktop 是 MIT 许可的开源项目；第三方组件仍按各自许可证分发：
+BlackRain Desktop 自有代码按 AGPL-3.0-only 许可分发；第三方组件仍按各自许可证分发：
 
 - MIT / Apache-2.0：可进入仓库，保留 NOTICE 和署名。
-- AGPL / GPL / BSL / 无许可证：未经单独法律审查和分发方案确认不得进入仓库。
+- 第三方 AGPL / GPL / BSL / 无许可证内容：未经单独法律审查和分发方案确认不得进入仓库。
 - 任何生成的 runtime、签名材料、账号数据或用户内容都不是公开源码制品。
 - OpenAI 闭源客户端只作为产品行为参考，不复制其闭源实现或资源。
 
-仓库根 [LICENSE](LICENSE) 适用于 BlackRain 自有代码；完整来源和第三方边界见
-[NOTICE](NOTICE) 与 [项目范围](docs/project-scope.md)。
+仓库根 [LICENSE](LICENSE) 适用于 BlackRain 自有代码；需要闭源集成时，商业授权须另行协商，且不覆盖第三方组件。完整来源和第三方边界见 [NOTICE](NOTICE) 与 [项目范围](docs/project-scope.md)。
 
 ## 验证与 Git
 

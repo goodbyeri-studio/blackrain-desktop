@@ -2,7 +2,9 @@
 
 Copyright (c) 2026 goodbyeri-studio
 
-BlackRain Desktop is distributed under the MIT License for its own code. The
+BlackRain Desktop is distributed under the GNU Affero General Public License
+version 3.0 only for its own code. A separate commercial license may be
+available from the project maintainer; see `COMMERCIAL-LICENSE.md`. The
 following components retain their own licenses and attribution requirements:
 
 ## CodexMonitor
