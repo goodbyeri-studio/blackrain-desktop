@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -10,6 +12,9 @@ permissions:
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22.23.2"
 
 jobs:
   changes:
@@ -41,12 +46,12 @@ jobs:
           else
             while IFS= read -r file; do
               case "$file" in
-                .github/workflows/ci.yml|.github/workflows/windows-checks.yml|apps/desktop/electron/**|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/resources/**|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/**|apps/desktop/scripts/**|scripts/vendor-electron-codex-runtime.ps1)
+                .github/workflows/ci.yml|apps/desktop/electron/**|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/resources/**|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/**|apps/desktop/scripts/**)
                   js=true
                   ;;
               esac
               case "$file" in
-                .github/workflows/ci.yml|.github/workflows/windows-checks.yml|gateway/**|scripts/dev-client.ps1)
+                .github/workflows/ci.yml|gateway/**)
                   gateway=true
                   ;;
               esac
@@ -62,51 +67,68 @@ jobs:
           echo "gateway=$gateway" >> "$GITHUB_OUTPUT"
           echo "docs=$docs" >> "$GITHUB_OUTPUT"
 
+  # 主检查跑在 macOS：那是唯一的产品发布目标，也是唯一会暴露
+  # 平台相关问题（Unix socket 路径长度、大小写敏感、路径分隔符）的环境。
+  js-checks:
+    name: JS checks (macOS)
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/desktop
+    env:
+      # macOS 默认 TMPDIR 是 /var/folders/<hash>/T/，加上 Browser transport 的
+      # socket 文件名会超过 Unix domain socket sun_path 的 104 字节上限，
+      # 导致相关测试报 listen EINVAL。显式指定短路径，不依赖 runner 默认值。
+      TMPDIR: /tmp/br
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: mkdir -p /tmp/br
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run check:host-boundary
+      - run: npm run codemod:ds:dry
+      # 只校验 runtime lock 的完整性；不校验 vendored 二进制（那是 Windows
+      # 制品，macOS 上不存在，且当前不构建也不发行 Windows 客户端）。
+      - run: npm run electron:runtime:check-lock
+      - run: npm run electron:node-runtime:check-lock
+      - run: npm run electron:browser-client:verify
+      # renderer 构建能捕获 vite 配置、别名和 import 层面的问题，约 1 秒。
+      - run: npm run build
+
   docs-checks:
     name: Documentation checks
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-doc-links.mjs
-
-  js-checks:
-    name: JS checks (Linux)
-    needs: changes
-    if: needs.changes.outputs.js == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/desktop
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/desktop/package-lock.json
-      - run: npm ci
-      - run: npm run electron:runtime:check-lock
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run lint
-      - run: npm run check:host-boundary
-      - run: npm run codemod:ds:dry
 
   gateway-checks:
     name: Gateway checks
     needs: changes
     if: needs.changes.outputs.gateway == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: "3.13"
       - run: python -m unittest discover -s gateway -p 'test_gateway*.py' -v
 
   quality-gate:
@@ -114,6 +136,7 @@ jobs:
     if: always()
     needs: [changes, docs-checks, js-checks, gateway-checks]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Evaluate routed checks
         env:
