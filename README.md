@@ -1,33 +1,33 @@
 # BlackRain Desktop
 
-> **开源 Codex App (ChatGPT) 客户端，对标其闭源能力，支持 Cursor 的多模型 & Auto 路由。**
+> 基于开源 `codex-rs` / `codex app-server` 独立实现的开源 Codex Desktop。
 
 [![CI](https://github.com/goodbyeri-studio/blackrain-desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/goodbyeri-studio/blackrain-desktop/actions/workflows/ci.yml)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 
-> Auto 路由开发中；Windows 正式发行版尚未发布。
+> 当前以 macOS 为唯一产品发布目标。Electron 代码和自动化检查存在，不等于已发布、已签名或已公证的 macOS 产品。
 
-## 能力
+## 目标
 
-- Codex thread、审批、停止、恢复和标准 Codex Home
-- 文件、终端、Git、diff、通知、更新和 in-app Browser
-- 多 provider、模型选择与独立 Model Gateway
+先对齐官方闭源 Codex Desktop 的可观察功能与体验：Codex thread、审批、停止与恢复、标准 Codex Home、文件、终端、Git、diff、通知，以及 main-owned in-app Browser 和 Computer Use。
+
+BlackRain 的 Router、多模型 Provider、Gateway 和 Auto 是后续可选扩展层。它们不得引入第二个 agent runtime，也不得接管 thread、turn、审批或 Browser 状态。云端账号、托管模型、Cloud Browser 和团队服务不属于当前范围；将来需要时在独立的 BlackRain Cloud 中建设。
 
 ## 快速开始
 
-需要 Windows 11 x64、Node.js 22、Git 和 PowerShell 7。
+需要 macOS、Node.js 22 和 Git。Electron 发行脚本仍在从历史 Windows 配置迁移中；不要把现有打包命令视作 macOS 发行流程。
 
-```powershell
-Set-Location apps/desktop
-npm.cmd ci
-npm.cmd run electron:start
+```sh
+cd apps/desktop
+npm ci
+npm run electron:start
 ```
 
-完整命令见[开发命令](docs/development/commands.md)。
+完整命令、测试与发布边界见[开发文档](docs/development.md)。
 
 ## 文档
 
-[文档地图](docs/README.md) · [项目范围](docs/project-scope.md) · [架构总览](docs/architecture/overview.md) · [模型与 Auto 路由](docs/architecture/model-providers.md)
+[文档地图](docs/README.md) · [产品定义](docs/product.md) · [架构](docs/architecture.md) · [Browser 与 Computer Use](docs/browser.md) · [上游与来源](docs/upstream.md)
 
 ## 参与贡献
 

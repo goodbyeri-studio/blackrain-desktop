@@ -24,10 +24,10 @@ BlackRain 需要让修改版和网络服务版能够回馈源码，同时保留�
 - 修改并分发 BlackRain，或以网络服务形式运行修改版时，使用者需要遵守 AGPL 的相应源码和通知义务。
 - 任何人都可以在 AGPL 条件下商业使用；维护者不能仅凭 README 宣称所有商业使用都必须购买授权。
 - 专有集成方需要审查 BlackRain 与第三方组件的组合边界，并单独谈判商业合同、支持范围和责任条款。
-- 许可证变更不会自动改变上游 CodexMonitor、OpenAI Codex runtime 或其他依赖的许可证。
+- 许可证变更不会自动改变历史 CodexMonitor 派生部分、OpenAI Codex runtime 或其他依赖的许可证。
 
 ## 验证
 
 - 根目录 `LICENSE` 为完整 AGPL-3.0 文本，`apps/desktop/package.json` 的 `license` 字段为 `AGPL-3.0-only`。
-- `README.md`、`NOTICE`、`CONTRIBUTING.md`、`docs/project-scope.md` 和 `COMMERCIAL-LICENSE.md` 均链接到正确的许可证与第三方边界说明。
+- `README.md`、`NOTICE`、`CONTRIBUTING.md`、`docs/upstream.md` 和 `COMMERCIAL-LICENSE.md` 均链接到正确的许可证与第三方边界说明。
 - `node scripts/check-doc-links.mjs` 和 `git diff --check` 通过。

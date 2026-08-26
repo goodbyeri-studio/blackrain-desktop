@@ -7,12 +7,14 @@ version 3.0 only for its own code. A separate commercial license may be
 available from the project maintainer; see `COMMERCIAL-LICENSE.md`. The
 following components retain their own licenses and attribution requirements:
 
-## CodexMonitor
+## CodexMonitor（历史来源，正在退役）
 
 - Source: https://github.com/Dimillian/CodexMonitor
 - License: MIT
 - Copyright (c) 2026 Thomas Ricouard
-- The retained attribution and license text are in `apps/desktop/LICENSE`.
+- Some retained Electron/React files or derived portions still require this
+  attribution. The project does not describe CodexMonitor as its current
+  product foundation. The retained license text is in `apps/desktop/LICENSE`.
 
 ## OpenAI Codex
 

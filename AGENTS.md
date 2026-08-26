@@ -1,110 +1,51 @@
 # BlackRain 仓库协作规则
 
-## 工具协作限制
+## 产品边界
 
-- 不调用、依赖或推荐本机 `claude` CLI；开发、审查、调研、测试与文档治理由当前 agent 使用仓库工具和普通 Git 工作流完成。
+BlackRain Desktop 是基于开源 `codex-rs` / `codex app-server` 独立实现的开源 Codex Desktop。优先对齐官方闭源 Codex Desktop 的可观察功能与体验；Router、多模型 Provider、Model Gateway 和 Auto 是后续的 BlackRain 扩展。
 
-## 项目定位
+当前唯一产品发布目标是 macOS。Windows/Linux 不是当前发布承诺；历史 Windows/MSIX 脚本和证据不能推导 macOS 产品已发布。macOS 的签名、公证、安装、升级、回滚、卸载和恢复必须另行完成实机验收后，才可标记 `PRODUCT_PASS`。
 
-BlackRain 以 OpenAI 开源 `codex-rs` 为唯一 agent 内核，自行补齐完整桌面 Codex 产品需要的宿主能力，并尽可能对齐官方 Codex App 的核心功能与体验。
+BlackRain Cloud、账号服务、托管模型、Cloud Browser、团队服务和商业 SLA 暂不做；未来在独立的 `blackrain-cloud` 产品边界中建设。
 
-当前重点是完成 BlackRain Windows Electron 客户端的正式签名与产品发布矩阵。Electron 代码态和 Browser 自动化已有 `RUN_PASS` 证据，但不得据此推导客户端已可发布；正式签名、安装、升级、回滚、卸载和完整设备矩阵仍需单独验收。锁定的 Codex runtime 通过标准 stdio MCP 与随包 Node adapter 接入 Browser client，测试桥接不属于第二生产路由。
+## 不可违反的架构规则
 
-`plugins/` 与 `workbenches/` 只保留实验性资源，不属于当前产品入口或默认发布依赖。不要把实验目录中的草案写成已支持能力。
+1. 原装 `codex-rs` / `codex app-server` 是唯一 agent runtime：只读、只调用、不 fork、不重写，不引入第二套 agent loop、thread、事件、审批、停止、恢复或模型状态机。
+2. App 使用标准 Codex Home，与原生 CLI 共享配置、认证和可恢复 thread；不得创建隐藏的 BlackRain 专属 `CODEX_HOME` 作为第二状态域。
+3. Electron 是唯一生产宿主。main 负责窗口、权限、更新、app-server stdio JSONL client 和 Browser；preload 只暴露类型化 allowlist；renderer 只负责 UI 与前端状态。
+4. Browser `WebContentsView`、session、下载、权限、CDP 和生命周期只由 main 持有。网页不得加载 App preload、获得 App Server transport 或非必要系统权限。
+5. Browser 生产链只使用标准 stdio MCP、随包 Node adapter 和自有鉴权 transport；测试桥接不能成为第二条生产路由。
+6. Gateway 是可选、独立的协议翻译 sidecar。它不能拥有 thread、Browser、UI 状态或成为原生 Codex 路径的隐式依赖。
+7. 对齐官方 Codex Desktop 只允许参考公开可观察行为；不得复制、反编译或再分发其闭源代码、私有 bundle、字体、图标或服务。
 
-## 真源
+## 文档真源
 
-- Electron 宿主设计：`docs/design/electron-migration.md`
-- 可移植 Browser Runtime 设计：`docs/design/portable-browser-runtime.md`
-- 产品范围与路线图：`docs/project-scope.md`、`docs/roadmap.md`
-- 运行时架构：`docs/architecture/overview.md`
-- 当前完成度：实际代码、测试结果和公开发布说明
-- 日常命令：`docs/development/commands.md`
+- [产品定义](docs/product.md)：范围、优先级与非目标。
+- [架构](docs/architecture.md)：进程、状态和权限所有权。
+- [Browser 与 Computer Use](docs/browser.md)：Browser 合同与控制链路。
+- [开发与发布](docs/development.md)：命令、上游更新和 macOS 发布边界。
+- [上游与来源](docs/upstream.md)：依赖、参考项目与许可证边界。
+- [ADR](docs/adr/README.md)：长期决策。
 
-发生冲突时必须在同一改动中修正文档；尚未收敛的公共决策写入对应 ADR。
+行为、公开边界或状态变化时，在同一个改动中更新对应真源。`CODE_EXISTS`、`RUN_PASS` 与 `PRODUCT_PASS` 不能互相推导。
 
-## 平台与运行时
+## 目录纪律
 
-MVP 仅发行 Windows。macOS / Linux 可以用于开发和快速验证，但不能替代 Windows 实机制品验收。
+| 目录 | 作用 |
+| --- | --- |
+| `apps/desktop/` | Electron 产品主线；修改前必须读其 `AGENTS.md` |
+| `gateway/` | 可选模型协议翻译原型，不是默认依赖 |
+| `codex-upstream/` | gitignored 的只读上游参考克隆，不修改内核 |
+| `plugins/`、`workbenches/` | 实验资源，不能自动成为产品入口或发行依赖 |
 
-目标运行时：
-
-```text
-BlackRain（Electron）
-  ├─ Main
-  │   ├─ App Server client / window / permissions / updates
-  │   └─ spawn bundled codex.exe app-server（stdio JSONL）
-  ├─ Preload / React Renderer
-  ├─ Codex 功能对齐的 in-app browser（main-owned WebContentsView/session/CDP）
-  ├─ 原装 codex.exe app-server（机器协议入口）
-  │   ├─ codex-core（唯一 agent 内核）
-  │   ├─ 标准 Codex Home：config/auth/sessions/rollout/SQLite
-  │   └─ 按需启动 code-mode/MCP/sandbox helper
-  └─ 可选 Model Gateway sidecar
-```
-
-当前生产代码只保留 Electron 路径。文档和 PR 必须明确区分“Electron 代码态 `RUN_PASS`”与“正式签名 Windows 产品态 `PRODUCT_PASS`”；历史迁移事实不是当前入口或公共 API。
-
-运行时规则：
-
-1. `codex-rs` 保持原装黑盒，只读、只调用、不分叉。
-2. 不得引入任何第二 agent runtime。
-3. thread、事件、审批、停止、恢复和模型路径只能有一套真源。
-4. App 沿用 Codex 标准 Home 解析并与原生 CLI 共享配置、能力和可恢复 thread；不得再创建隐藏的 BlackRain 专属 `CODEX_HOME` 作为第二状态域。
-5. 协议翻译只存在于独立 Gateway 进程，不进入 UI、Electron main 或内核。
-6. Browser 是宿主能力；任意网页不得获得 BlackRain preload、App Server transport 或非必要系统权限。
-7. 行为对齐 Codex App 不授权复制闭源代码、私有 bundle、图标 path、字体或其他专有资源。
-
-## 仓库布局
-
-| 目录 | 当前含义 | 纪律 |
-|---|---|---|
-| `apps/desktop/` | CodexMonitor 起源的 Electron Desktop 实现 | 修改前读 `apps/desktop/AGENTS.md`；不随手 subtree pull |
-| `gateway/` | 可选模型协议翻译原型 | 保持独立 sidecar |
-| `codex-upstream/` | gitignored 的 codex 只读参考克隆 | 只锁版本、构建和验证，不改内核 |
-| `plugins/` | 实验性适配器与资源 | 不自动进入产品发布依赖 |
-| `workbenches/` | 实验性内容样例 | 不自动进入产品入口 |
-| `docs/design/`、`docs/adr/` | 公共设计合同与架构决策 | 行为、边界或状态变化时同步更新 |
-
-## 设计合同
-
-公共架构合同写在 `docs/design/`，长期取舍写在 `docs/adr/`。每份文档必须声明范围、所有权、依赖和验证边界；设计存在不等于代码实现或产品发布通过。任务清单和逐项迁移账本不作为公开入口。
-
-## 桌面架构纪律
-
-修改 `apps/desktop/**` 前必须读 `apps/desktop/AGENTS.md`。
-
-- React renderer 只负责展示和前端状态。
-- Electron main 负责窗口、权限、Browser、更新和原装 app-server 生命周期，并直接实现 stdio JSONL App Server client。
-- preload 只暴露类型化 allowlist，不暴露原始 IPC 或 Node.js。
-- agent 能力交给原装 app-server，桌面宿主能力放入 Electron main/preload；不得新增第二套 daemon 或状态机。
-- Browser `WebContentsView` 只由 main 创建和持有；renderer 只上报经过校验的 bounds、visibility、active tab 和 UI 遮挡状态。
-- 可移植 Browser Runtime 核心不得依赖 BlackRain `AppServerRuntime`、总 `BlackRainHostApi`、BlackRain IPC channel 或 React UI；这些依赖只能位于 BlackRain/Codex adapter。
-- 通用源码底座使用中性的 owner/activity/surface 标识；BlackRain adapter 负责映射 thread/turn/route，不在核心中固化 Codex 生命周期。
-- Browser 页面不得加载 App preload；确需页面协调时，只允许 main 固定路径、固定 hash、无网页全局暴露的专用最小 page preload。
-- Browser 工具生产链按 Codex session/turn 绑定到唯一 main backend；发布态只使用进程级注册的标准 stdio MCP + 随包 Node adapter + 自有鉴权 transport，dynamic tools 只作测试/bootstrap。
-- main 必须校验 route、thread、window、view generation 和 profile ownership，并强制页面 WebContents 安全参数。
-- Codex App 的可观察 Browser 行为与控制面是第一实现基线；ClawX、Hermes 等项目只补充通用 Electron 工程经验。
-- 迁移期兼容层必须带删除任务，不建立永久双宿主分叉。
-- 事件扇出保持单一入口；Browser 事件也必须标准化后进入 UI。
-
-## License
-
-BlackRain Desktop 自有代码按 AGPL-3.0-only 许可分发；第三方组件仍按各自许可证分发：
-
-- MIT / Apache-2.0：可进入仓库，保留 NOTICE 和署名。
-- 第三方 AGPL / GPL / BSL / 无许可证内容：未经单独法律审查和分发方案确认不得进入仓库。
-- 任何生成的 runtime、签名材料、账号数据或用户内容都不是公开源码制品。
-- OpenAI 闭源客户端只作为产品行为参考，不复制其闭源实现或资源。
-
-仓库根 [LICENSE](LICENSE) 适用于 BlackRain 自有代码；需要闭源集成时，商业授权须另行协商，且不覆盖第三方组件。完整来源和第三方边界见 [NOTICE](NOTICE) 与 [项目范围](docs/project-scope.md)。
+CodexMonitor 仅为部分遗留文件的历史来源，正在逐域退役。不得把它写成当前产品基础，也不得在残留派生代码尚未替换并完成许可证审计前删除 NOTICE 归属。
 
 ## 验证与 Git
 
-Electron 日常与发布命令按 `docs/development/commands.md` 执行。必须持续补 main/preload 单测、App Server stdio 集成测试、Playwright Electron E2E 和 Windows MSIX 安装矩阵。
-
-Windows 浏览器登录、权限、下载、崩溃恢复、安装、升级和卸载必须实机验证。CI 或 macOS smoke 不能替代产品验收。
-
-`main` 永远可用且禁止直接 push。使用 `<type>/<短描述>` 短命分支、Conventional Commits、CI 绿、Squash 合并并删除分支。
+- 不调用、依赖或推荐本机 `claude` CLI。
+- 持续补 main/preload 单测、App Server stdio 集成测试、Playwright Electron E2E，以及 macOS 实机产品验收。
+- 生成的 runtime、签名材料、账号数据、Cookie、用户内容和测试输出不得提交。
+- `main` 永远可用且禁止直接 push；使用短命分支、Conventional Commits、CI、review 和 squash 合并。
+- BlackRain 自有代码为 AGPL-3.0-only；完整第三方边界见 [NOTICE](NOTICE)。
 
 回复、文档和代码注释默认使用中文。
