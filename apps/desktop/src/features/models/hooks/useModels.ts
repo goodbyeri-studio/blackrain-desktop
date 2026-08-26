@@ -295,7 +295,7 @@ export function useModels({
     if (lastFetchedWorkspaceId.current === workspaceId && models.length > 0) {
       return;
     }
-    refreshModels();
+    void refreshModels();
   }, [isConnected, models.length, refreshModels, workspaceId]);
 
   // 首页/未连接工作区时，loadModels 不跑（被 !workspaceId||!isConnected 拦），

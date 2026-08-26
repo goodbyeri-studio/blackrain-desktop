@@ -1,22 +1,21 @@
 /** @vitest-environment jsdom */
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useWorkspaceDropZone } from "./useWorkspaceDropZone";
 
-let mockOnDragDropEvent:
-  | ((event: {
-      payload: {
-        type: "enter" | "over" | "leave" | "drop";
-        position: { x: number; y: number };
-        paths?: string[];
-      };
-    }) => void)
-  | null = null;
+type DragDropHandler = (event: {
+  payload: {
+    type: "enter" | "over" | "leave" | "drop";
+    position: { x: number; y: number };
+    paths?: string[];
+  };
+}) => void;
 
+// 本套测试直接调用 hook 暴露的 DOM 事件处理器，不回放原生 drag-drop 事件，
+// 因此注册进来的 handler 不需要被保存。
 vi.mock("../../../services/dragDrop", () => ({
-  subscribeWindowDragDrop: (handler: typeof mockOnDragDropEvent) => {
-    mockOnDragDropEvent = handler;
+  subscribeWindowDragDrop: (_handler: DragDropHandler | null) => {
     return () => {};
   },
 }));
@@ -64,10 +63,6 @@ function renderDropHook(options: {
 }
 
 describe("useWorkspaceDropZone", () => {
-  beforeEach(() => {
-    mockOnDragDropEvent = null;
-  });
-
   it("tracks drag over state for file transfers", () => {
     const hook = renderDropHook({ onDropPaths: () => {} });
     const preventDefault = vi.fn();

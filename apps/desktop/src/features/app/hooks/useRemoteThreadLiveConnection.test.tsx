@@ -353,7 +353,7 @@ describe("useRemoteThreadLiveConnection", () => {
     );
 
     await act(async () => {
-      result.current.reconnectLive("ws-1", "thread-1", { runResume: false });
+      void result.current.reconnectLive("ws-1", "thread-1", { runResume: false });
       await Promise.resolve();
     });
 

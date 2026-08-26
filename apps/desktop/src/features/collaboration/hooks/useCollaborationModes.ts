@@ -238,7 +238,7 @@ export function useCollaborationModes({
     if (alreadyFetchedForWorkspace) {
       return;
     }
-    refreshModes();
+    void refreshModes();
   }, [enabled, isConnected, modes.length, refreshModes, workspaceId]);
 
   return {

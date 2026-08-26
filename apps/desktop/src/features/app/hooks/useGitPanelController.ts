@@ -100,7 +100,7 @@ export function useGitPanelController({
       if (activeWorkspaceIdRef.current !== workspaceId) {
         return;
       }
-      refreshGitStatus();
+      void refreshGitStatus();
     }, 500);
   }, [refreshGitStatus]);
 

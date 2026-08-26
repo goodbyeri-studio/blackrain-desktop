@@ -273,7 +273,7 @@ export function useRemoteThreadLiveConnection({
         sequence: reconnectSequence,
         promise: reconnectPromise,
       };
-      reconnectPromise.finally(() => {
+      void reconnectPromise.finally(() => {
         if (inFlightReconnectRef.current?.promise === reconnectPromise) {
           inFlightReconnectRef.current = null;
         }

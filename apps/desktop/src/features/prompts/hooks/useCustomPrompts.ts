@@ -110,7 +110,7 @@ export function useCustomPrompts({ activeWorkspace, onDebug }: UseCustomPromptsO
     if (lastFetchedWorkspaceId.current === workspaceId) {
       return;
     }
-    refreshPrompts();
+    void refreshPrompts();
   }, [isConnected, refreshPrompts, workspaceId]);
 
   const promptOptions = useMemo(

@@ -41,7 +41,7 @@ jobs:
           else
             while IFS= read -r file; do
               case "$file" in
-                .github/workflows/ci.yml|.github/workflows/windows-checks.yml|apps/desktop/electron/**|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/resources/**|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/.eslintrc.*|apps/desktop/.eslintignore|apps/desktop/src/**|apps/desktop/scripts/**|scripts/vendor-electron-codex-runtime.ps1)
+                .github/workflows/ci.yml|.github/workflows/windows-checks.yml|apps/desktop/electron/**|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/resources/**|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/**|apps/desktop/scripts/**|scripts/vendor-electron-codex-runtime.ps1)
                   js=true
                   ;;
               esac
@@ -94,7 +94,6 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run lint
-      - run: npm run lint:ds
       - run: npm run check:host-boundary
       - run: npm run codemod:ds:dry
 

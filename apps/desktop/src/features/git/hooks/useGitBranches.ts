@@ -77,7 +77,7 @@ export function useGitBranches({ activeWorkspace, onDebug }: UseGitBranchesOptio
     if (lastFetchedWorkspaceId.current === workspaceId && branches.length > 0) {
       return;
     }
-    refreshBranches();
+    void refreshBranches();
   }, [branches.length, isConnected, refreshBranches, workspaceId]);
 
   const recentBranches = useMemo(

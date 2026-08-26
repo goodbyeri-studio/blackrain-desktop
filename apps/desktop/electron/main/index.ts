@@ -175,7 +175,7 @@ function openMainWindow(): BrowserWindow {
   return window;
 }
 
-app.whenReady().then(() => {
+void app.whenReady().then(() => {
   installWorkspaceFileProtocol(workspaces);
   if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     installAppProtocol(

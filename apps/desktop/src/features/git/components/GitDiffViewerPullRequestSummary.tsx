@@ -97,7 +97,7 @@ export const PullRequestSummary = memo(function PullRequestSummary({
                 disabled={isCheckingOut}
                 onClick={() => {
                   setIsCheckingOut(true);
-                  Promise.resolve(onCheckoutPullRequest(pullRequest)).finally(() => {
+                  void Promise.resolve(onCheckoutPullRequest(pullRequest)).finally(() => {
                     setIsCheckingOut(false);
                   });
                 }}
