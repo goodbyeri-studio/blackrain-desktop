@@ -2,6 +2,12 @@
 
 命令以 `apps/desktop/package.json` 为准。当前开发机与产品优先级均为 macOS；历史 Windows 打包脚本不代表受支持的发布流程。
 
+## Node 版本
+
+仓库锁定 Node 22.23.2（`mise.toml` / `.node-version` / `.nvmrc`，与 `engines`、CI 及 `resources/node-runtime/runtime-lock.json` 一致）。用 mise 的贡献者首次进入仓库需要 `mise trust` 后再 `mise install`；nvm / fnm / nodenv / asdf 由 `.node-version`、`.nvmrc` 覆盖。
+
+macOS 上执行 `npm run test` 前需要设置较短的 `TMPDIR`（例如 `export TMPDIR=/tmp/br`）。系统默认的 `/var/folders/...` 会让 Browser transport 的 Unix socket 路径超过 104 字节上限，相关测试报 `listen EINVAL`。
+
 ## 本地开发
 
 ```sh

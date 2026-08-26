@@ -5,8 +5,8 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
 
-  // 保存时自动修 ESLint 可修问题。仓库当前是 ESLint 8 + .eslintrc.cjs，
-  // 迁移到 flat config 后需要把 eslint.useFlatConfig 设为 true。
+  // 保存时自动修 ESLint 可修问题。仓库使用 ESLint 9 + eslint.config.mjs，
+  // flat config 在 9.x 已是默认，无需再设 eslint.useFlatConfig。
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },
