@@ -67,10 +67,44 @@ jobs:
           echo "gateway=$gateway" >> "$GITHUB_OUTPUT"
           echo "docs=$docs" >> "$GITHUB_OUTPUT"
 
-  # 主检查跑在 macOS：那是唯一的产品发布目标，也是唯一会暴露
-  # 平台相关问题（Unix socket 路径长度、大小写敏感、路径分隔符）的环境。
+  # 主检查闭环跑在 Linux：实测每一步都比 macOS 快（整体 134s vs 202s），
+  # 是 PR 的关键路径。macOS 覆盖由下面的 macos-tests 并行承担。
   js-checks:
-    name: JS checks (macOS)
+    name: JS checks (Linux)
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run check:host-boundary
+      - run: npm run codemod:ds:dry
+      # 只校验 runtime lock 的完整性；不校验 vendored 二进制（那是 Windows
+      # 制品，且当前不构建也不发行 Windows 客户端）。
+      - run: npm run electron:runtime:check-lock
+      - run: npm run electron:node-runtime:check-lock
+      - run: npm run electron:browser-client:verify
+      # renderer 构建能捕获 vite 配置、别名和 import 层面的问题。
+      - run: npm run build
+
+  # macOS 是唯一的产品发布目标，也是唯一会暴露 Unix socket 路径长度、
+  # 文件系统大小写和路径行为差异的环境。只跑测试即可覆盖这些差异：
+  # typecheck/lint 与平台无关，重复执行只会拉长关键路径。
+  # 与 js-checks 并行，因此不增加 PR 的等待时间。
+  macos-tests:
+    name: Tests (macOS)
     needs: changes
     if: needs.changes.outputs.js == 'true'
     runs-on: macos-latest
@@ -92,18 +126,7 @@ jobs:
           cache-dependency-path: apps/desktop/package-lock.json
       - run: mkdir -p /tmp/br
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
       - run: npm run test
-      - run: npm run check:host-boundary
-      - run: npm run codemod:ds:dry
-      # 只校验 runtime lock 的完整性；不校验 vendored 二进制（那是 Windows
-      # 制品，macOS 上不存在，且当前不构建也不发行 Windows 客户端）。
-      - run: npm run electron:runtime:check-lock
-      - run: npm run electron:node-runtime:check-lock
-      - run: npm run electron:browser-client:verify
-      # renderer 构建能捕获 vite 配置、别名和 import 层面的问题，约 1 秒。
-      - run: npm run build
 
   docs-checks:
     name: Documentation checks
@@ -134,7 +157,7 @@ jobs:
   quality-gate:
     name: Required quality gate
     if: always()
-    needs: [changes, docs-checks, js-checks, gateway-checks]
+    needs: [changes, docs-checks, js-checks, macos-tests, gateway-checks]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -143,6 +166,7 @@ jobs:
           CHANGES_RESULT: ${{ needs.changes.result }}
           DOCS_RESULT: ${{ needs.docs-checks.result }}
           JS_RESULT: ${{ needs.js-checks.result }}
+          MACOS_RESULT: ${{ needs.macos-tests.result }}
           GATEWAY_RESULT: ${{ needs.gateway-checks.result }}
           DOCS_REQUIRED: ${{ needs.changes.outputs.docs }}
           JS_REQUIRED: ${{ needs.changes.outputs.js }}
@@ -154,6 +178,7 @@ jobs:
           fi
           if [[ "$JS_REQUIRED" == "true" ]]; then
             test "$JS_RESULT" = success
+            test "$MACOS_RESULT" = success
           fi
           if [[ "$GATEWAY_REQUIRED" == "true" ]]; then
             test "$GATEWAY_RESULT" = success
