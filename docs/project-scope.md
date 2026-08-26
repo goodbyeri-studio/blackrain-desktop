@@ -35,7 +35,7 @@ BlackRain 与 OpenAI、官方 Codex App、ChatGPT、Cursor 或 CodexMonitor 维�
 
 ## 许可证
 
-BlackRain 自有代码按根目录 [MIT License](../LICENSE) 发布。第三方代码、运行时和资源仍按各自许可证分发，完整归属见 [NOTICE](../NOTICE)。生成的 runtime、签名材料、账号数据、Cookie、日志和测试输出不属于源码发行物。
+BlackRain 自有代码按根目录 [AGPL-3.0-only](../LICENSE) 发布。需要闭源集成到专有产品或发行包时，可联系维护者申请单独的商业授权。第三方代码、运行时和资源仍按各自许可证分发，完整归属见 [NOTICE](../NOTICE)。生成的 runtime、签名材料、账号数据、Cookie、日志和测试输出不属于源码发行物。
 
 仓库会持续审查依赖、历史提交和第三方资源；公开仓库的状态不代表每个可选组件都适合再分发。
 

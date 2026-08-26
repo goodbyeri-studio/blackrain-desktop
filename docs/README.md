@@ -44,6 +44,7 @@ BlackRain Desktop 的公开文档按产品、架构、开发、设计和维护�
 - [发布维护](maintainers/release.md)
 - [仓库维护](maintainers/repository.md)
 - [上游更新](maintainers/upstream-updates.md)
+- [许可证与商业授权](../COMMERCIAL-LICENSE.md)
 - [上游与参考项目](reference/upstream-and-references.md)
 - [第三方来源](reference/third-party.md)
 - [App Server 事件](../apps/desktop/docs/app-server-events.md)
@@ -54,3 +55,7 @@ BlackRain Desktop 的公开文档按产品、架构、开发、设计和维护�
 - “已实现”、`RUN_PASS` 和 `PRODUCT_PASS` 是不同状态，不能相互替代。
 - “对标 Codex App”只表示参考公开可观察行为，不表示复制闭源代码或资源。
 - 新的公共 API、权限边界、依赖和用户可见行为，应在同一个 PR 中更新文档。
+
+## 私人笔记边界
+
+公开仓库只保存可复现、适合贡献者审查的产品和工程文档。个人学习笔记、未发布方案、私人日记、带个人信息的截图和临时调研不要放入公开文档树；本地临时笔记可以放在被忽略的 `docs/private/` 目录中，但该目录不会进入 Git，也不会成为项目公共文档的一部分。

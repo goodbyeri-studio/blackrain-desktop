@@ -19,6 +19,9 @@ apps/desktop/out/
 # 本地验证用的隔离环境（不入库）
 .scratch/
 
+# 个人本地笔记和未公开研究，不属于公开仓库文档
+docs/private/
+
 # Python
 __pycache__/
 *.pyc

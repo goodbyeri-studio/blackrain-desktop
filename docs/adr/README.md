@@ -7,6 +7,7 @@ ADR 用来记录影响公共接口、进程边界或数据所有权的长期决�
 - [0001：单一 agent runtime](0001-single-agent-runtime.md)
 - [0002：main-owned Browser](0002-main-owned-browser.md)
 - [0003：标准 Codex Home](0003-standard-codex-home.md)
+- [0004：AGPL 与商业双授权](0004-agpl-dual-licensing.md)
 
 ## 写一条 ADR
 
