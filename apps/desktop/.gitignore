@@ -22,8 +22,11 @@ output/playwright/
 *.tsbuildinfo
 
 # Editor directories and files
+# 只共享项目级配置；个人偏好（workbench/window/terminal 等）不入库
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
 .idea
 .DS_Store
 *.suo

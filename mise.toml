@@ -1,0 +1,7 @@
+# mise 用户：cd 进本仓库会自动切到该 Node 版本。
+# 与 package.json 的 engines(>=22.12 <23)、CI(node 22) 以及
+# resources/node-runtime/runtime-lock.json(22.23.2) 保持一致。
+#
+# 用 nvm/fnm/nodenv/asdf 的贡献者由 .nvmrc / .node-version 覆盖。
+[tools]
+node = "22.23.2"

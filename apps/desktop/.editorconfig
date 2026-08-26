@@ -1,0 +1,14 @@
+# 与仓库实际约定一致：2 空格缩进、LF、UTF-8。
+# 编辑器无关，配合 EditorConfig 扩展在 VSCode 生效。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
