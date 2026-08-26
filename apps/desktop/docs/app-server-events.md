@@ -1,6 +1,6 @@
 # App-Server Events Reference（当前上游锁：Codex rust-v0.146.0 / `e363b08c9175ac1cbe5893615dd2cb9ddf95043b`）
 
-> **状态说明**：本文件帮助定位当前事件映射；实现与验证只看 Electron shared schema、main App Server runtime、fixture 测试和实际命令结果。锁升级后必须重跑 bundled probe，不得从历史清单推导 Windows 产品通过。
+> **状态说明**：本文件帮助定位当前事件映射；实现与验证只看 Electron shared schema、main App Server runtime、fixture 测试和实际命令结果。锁升级后必须重跑 bundled probe，不得从历史清单推导 macOS 产品通过。
 
 This document helps agents quickly answer:
 - Which app-server events the BlackRain shell routed at the recorded baseline.

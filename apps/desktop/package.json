@@ -2,7 +2,7 @@
   "name": "blackrain-desktop",
   "private": true,
   "version": "0.7.68",
-  "description": "Open-source Codex App (ChatGPT) client with Cursor-style multi-model and Auto routing",
+  "description": "Open-source Codex Desktop built on codex-rs and codex app-server",
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",

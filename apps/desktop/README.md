@@ -1,42 +1,16 @@
-# BlackRain Desktop
+# BlackRain Desktop application
 
-BlackRain Desktop is an open-source Codex App (ChatGPT) client aligned with its closed-source capabilities, with Cursor-style multi-model and Auto routing. The original `codex.exe app-server` remains the only agent runtime; provider adapters and routing stay outside the agent core.
+This is the Electron product application for the open-source Codex Desktop. It uses the original `codex app-server` / `codex-rs` as the only agent runtime; Electron owns the desktop host and Browser.
 
-The project is independent from OpenAI and does not copy the closed-source Codex App. See the repository root README, [NOTICE](../../NOTICE), and [project scope](../../docs/project-scope.md) for licensing and redistribution boundaries.
+macOS is the current release target. Existing Windows-oriented packaging scripts are historical migration state, not a macOS release path.
 
-## Development
-
-Requirements: Windows 11 x64, Node.js `22.12.x`, Git, and PowerShell 7.
-
-```powershell
-npm.cmd ci
-npm.cmd run electron:start
+```sh
+npm ci
+npm run electron:start
+npm run typecheck
+npm run test
+npm run lint
+npm run check:host-boundary
 ```
 
-## Verification
-
-```powershell
-npm.cmd run typecheck
-npm.cmd run test
-npm.cmd run lint
-npm.cmd run check:host-boundary
-npm.cmd run electron:runtime:verify
-npm.cmd run electron:node-runtime:verify
-npm.cmd run electron:browser-client:verify
-npm.cmd run electron:app-server:probe
-npm.cmd run electron:package
-npm.cmd run electron:smoke
-npm.cmd run electron:e2e
-npm.cmd run electron:make:release
-```
-
-Windows release acceptance requires a signed MSIX and a recorded product matrix. Automated package and smoke results do not replace installation, upgrade, rollback, uninstall, login/MFA, input method, DPI, multi-monitor, sleep/resume, and crash-recovery acceptance. See [release maintenance](../../docs/maintainers/release.md).
-
-## Architecture
-
-- `electron/main`: window, app-server lifecycle, browser, files, Git, terminal, updates and system permissions.
-- `electron/preload`: typed allowlisted host API.
-- `src`: React renderer without Node.js or raw IPC access.
-- `resources`: pinned Codex, Node and Browser client release resources.
-
-See the repository root [documentation map](../../docs/README.md) for product boundaries and current evidence.
+Read the [repository README](../../README.md), [architecture](../../docs/architecture.md), [Browser contract](../../docs/browser.md), and [development guide](../../docs/development.md) before changing this application.

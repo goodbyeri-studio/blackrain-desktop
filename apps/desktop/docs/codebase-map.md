@@ -1,6 +1,6 @@
 # BlackRain Desktop 代码地图
 
-> Desktop 只有 Electron 生产路径。历史迁移不构成当前 API；当前职责以本页和仓库根 `docs/architecture/` 设计文档为准。
+> Desktop 只有 Electron 生产路径。历史迁移不构成当前 API；当前职责以本页和仓库根 [架构](../../../docs/architecture.md) 为准。
 
 ## 入口
 
@@ -37,9 +37,9 @@ Main 拥有进程、文件、窗口、权限、Browser、系统集成和生命�
 | 新增宿主 API | shared schema/host API、preload allowlist、main handler、renderer service、sender/ownership 测试 |
 | App Server 方法/事件 | runtime transport、shared agent 类型、renderer 投影、fixture/协议测试 |
 | Browser 能力 | main backend/registry、BlackRain/Codex adapter、IPC ownership、E2E；公共合同变化同时更新 `003` |
-| 文件/Git/terminal | workspace path ownership、schema、错误映射、Windows 测试 |
+| 文件/Git/terminal | workspace path ownership、schema、错误映射、macOS 测试 |
 | 发布资源 | runtime lock、License/NOTICE、Forge extraResource、package audit、verification |
 
 ## 验证
 
-以 `docs/development/commands.md` 为命令入口。所有生产改动至少运行 typecheck、目标测试、lint 和 `check:host-boundary`；跨 main/preload、App Server、Browser 或发布边界时扩大到对应 probe/package/smoke/E2E。
+以仓库根 [开发文档](../../../docs/development.md) 为命令入口。所有生产改动至少运行 typecheck、目标测试、lint 和 `check:host-boundary`；跨 main/preload、App Server、Browser 或发布边界时扩大到对应 probe/package/smoke/E2E。

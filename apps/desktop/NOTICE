@@ -1,8 +1,10 @@
 # BlackRain Desktop component notice
 
-This directory retains the upstream shell attribution for the Electron
-application. The repository-level license and complete third-party boundary
-are documented in `../../LICENSE` and `../../NOTICE`.
+This directory retains attribution for historical upstream-derived portions.
+BlackRain is independently evolving this Electron product; this notice remains
+until every derived portion is replaced and its provenance is audited. The
+repository-level license and complete third-party boundary are documented in
+`../../LICENSE` and `../../NOTICE`.
 
 ## CodexMonitor
 - Source: https://github.com/Dimillian/CodexMonitor
@@ -10,7 +12,7 @@ are documented in `../../LICENSE` and `../../NOTICE`.
 - Copyright (c) 2026 Thomas Ricouard
 
 The MIT License text is retained in the `LICENSE` file in this directory.
-Modifications have been made by goodbyeri-studio for the BlackRain product.
+Modifications have been made by goodbyeri-studio for BlackRain.
 The upstream `codex` kernel (https://github.com/openai/codex, Apache-2.0) is
 integrated as an unmodified black-box subprocess and is not relicensed by this
 shell.
