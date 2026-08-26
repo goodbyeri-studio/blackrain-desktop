@@ -18,6 +18,9 @@ out/
 output/playwright/
 *.local
 
+# tsc --build 的增量缓存（tsconfig.node.json 是 composite 项目）
+*.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
