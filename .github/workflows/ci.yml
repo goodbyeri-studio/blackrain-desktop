@@ -112,11 +112,6 @@ jobs:
     defaults:
       run:
         working-directory: apps/desktop
-    env:
-      # macOS 默认 TMPDIR 是 /var/folders/<hash>/T/，加上 Browser transport 的
-      # socket 文件名会超过 Unix domain socket sun_path 的 104 字节上限，
-      # 导致相关测试报 listen EINVAL。显式指定短路径，不依赖 runner 默认值。
-      TMPDIR: /tmp/br
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -124,7 +119,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
-      - run: mkdir -p /tmp/br
       - run: npm ci
       - run: npm run test
 

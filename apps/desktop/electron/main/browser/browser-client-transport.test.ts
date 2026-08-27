@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createConnection, type Socket } from "node:net";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BrowserTabState } from "../../shared/browser-tabs";
@@ -39,6 +40,21 @@ describe("BrowserClientTransportServer", () => {
     for (const socket of sockets.splice(0)) socket.destroy();
     for (const server of servers.splice(0)) await server.stop();
   });
+
+  // 回归：Electron 42 内置 Node 24 会对超过 sun_path 上限的路径直接 EINVAL，
+  // 而 Node 22 更危险——静默截断，不同随机后缀可能撞成同一端点。
+  // macOS 默认 TMPDIR 约 49 字节，原先 65 字符的文件名会让整条路径达 114 字节。
+  it.skipIf(process.platform === "win32")(
+    "自动生成的 endpoint 必须落在 Unix socket sun_path 预算内",
+    async () => {
+      const { server, bootstrap } = await startServer(createBackend());
+      servers.push(server);
+      // 104 是 macOS 的 sun_path 上限，比 Linux 的 108 更严格。
+      expect(Buffer.byteLength(bootstrap.endpoint)).toBeLessThanOrEqual(104);
+      // 同时留出余量：真实用户的 TMPDIR 可能比本机更长。
+      expect(path.basename(bootstrap.endpoint).length).toBeLessThanOrEqual(40);
+    },
+  );
 
   it("通过随机 endpoint、capability 和 session generation 握手后调用同一 backend", async () => {
     const backend = createBackend();

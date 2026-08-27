@@ -6,7 +6,7 @@
 
 仓库锁定 Node 22.23.2（`mise.toml` / `.node-version` / `.nvmrc`，与 `engines`、CI 及 `resources/node-runtime/runtime-lock.json` 一致）。用 mise 的贡献者首次进入仓库需要 `mise trust` 后再 `mise install`；nvm / fnm / nodenv / asdf 由 `.node-version`、`.nvmrc` 覆盖。
 
-macOS 上执行 `npm run test` 前需要设置较短的 `TMPDIR`（例如 `export TMPDIR=/tmp/br`）。系统默认的 `/var/folders/...` 会让 Browser transport 的 Unix socket 路径超过 104 字节上限，相关测试报 `listen EINVAL`。
+Browser transport 的 Unix socket 端点受 `sun_path` 上限约束（macOS 104 字节）。端点文件名已压缩到预算内，并在超限时显式报错，因此常规开发不需要设置 `TMPDIR`。若把 `TMPDIR` 指向异常长的路径，会得到一条指明字节数的明确错误，而不是 `listen EINVAL` 或静默截断。
 
 ## 本地开发
 
