@@ -9,7 +9,7 @@ assignees: []
 ## Environment
 
 - BlackRain commit or release:
-- Windows version and architecture:
+- macOS version and architecture (Apple Silicon / Intel):
 - Node.js version (if development-only):
 - Codex runtime version (if relevant):
 

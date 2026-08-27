@@ -75,7 +75,7 @@ export function useSkills({ activeWorkspace, onDebug }: UseSkillsOptions) {
     if (lastFetchedWorkspaceId.current === workspaceId && skills.length > 0) {
       return;
     }
-    refreshSkills();
+    void refreshSkills();
   }, [isConnected, refreshSkills, skills.length, workspaceId]);
 
   useEffect(() => {

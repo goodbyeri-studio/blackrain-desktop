@@ -3,49 +3,56 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
+  hostPlatformKey,
   validateLock,
   verifyRuntime,
 } from "./verify-codex-runtime.mjs";
 import {
+  hostPlatformKey as nodeHostPlatformKey,
   validateNodeRuntimeLock,
   verifyNodeRuntime,
 } from "./verify-node-runtime.mjs";
 
-if (process.platform !== "win32") {
-  throw new Error("bundled Codex app-server 探针仅支持 Windows x64");
-}
+// 随包 Node 可执行文件在包内的相对路径，按平台不同。
+const NODE_EXECUTABLE = {
+  "darwin-arm64": path.join("bin", "node"),
+  "windows-x64": "node.exe",
+};
 
 const desktopRoot = fileURLToPath(new URL("..", import.meta.url));
+const platformKey = hostPlatformKey();
 const lockPath = path.join(
   desktopRoot,
   "resources",
   "codex",
   "runtime-lock.json",
 );
-const runtimeRoot = path.join(
-  desktopRoot,
-  "resources",
-  "codex",
-  "windows-x64",
-);
+const runtimeRoot = path.join(desktopRoot, "resources", "codex", platformKey);
 const lock = JSON.parse(await readFile(lockPath, "utf8"));
-const { platform } = validateLock(lock);
-await verifyRuntime(lock, platform, { runtimeRoot });
+const { platform } = validateLock(lock, platformKey);
+await verifyRuntime(lock, platform, { runtimeRoot, platformKey });
 const nodeLockPath = path.join(
   desktopRoot,
   "resources",
   "node-runtime",
   "runtime-lock.json",
 );
+const nodePlatformKey = nodeHostPlatformKey();
 const nodeRuntimeRoot = path.join(
   desktopRoot,
   "resources",
   "node-runtime",
-  "windows-x64",
+  nodePlatformKey,
 );
 const nodeLock = JSON.parse(await readFile(nodeLockPath, "utf8"));
-const { platform: nodePlatform } = validateNodeRuntimeLock(nodeLock);
-await verifyNodeRuntime(nodeLock, nodePlatform, nodeRuntimeRoot);
+const { platform: nodePlatform } = validateNodeRuntimeLock(
+  nodeLock,
+  nodePlatformKey,
+);
+await verifyNodeRuntime(nodeLock, nodePlatform, {
+  root: nodeRuntimeRoot,
+  platformKey: nodePlatformKey,
+});
 
 const vitestEntry = path.join(
   desktopRoot,
@@ -69,7 +76,7 @@ const result = spawnSync(
       BLACKRAIN_BUNDLED_CODEX_PROBE: "1",
       BLACKRAIN_BROWSER_MCP_PROBE_NODE: path.join(
         nodeRuntimeRoot,
-        "node.exe",
+        NODE_EXECUTABLE[nodePlatformKey],
       ),
     },
     stdio: "inherit",

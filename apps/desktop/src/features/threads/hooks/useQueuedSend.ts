@@ -398,7 +398,7 @@ export function useQueuedSend({
       ...prev,
       [threadId]: (prev[threadId] ?? []).slice(1),
     }));
-    (async () => {
+    void (async () => {
       try {
         const trimmed = nextItem.text.trim();
         const command = parseSlashCommand(trimmed, appsEnabled);

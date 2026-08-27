@@ -44,7 +44,7 @@ macOS 是当前发布验收平台。涉及 Electron main、Browser、凭据、�
 - 提交信息使用 Conventional Commits，例如 `feat: add browser recovery state`。
 - 一个 PR 只解决一个可审查的问题，避免把无关重构混在一起。
 - PR 描述必须包含改动范围、真实命令和结果、未验证项、风险、文档/spec 同步情况以及第三方 License 说明。
-- 通过至少一次 review 和 CI 后 Squash 合并；不要直接 push `main`。
+- CI 通过后 Squash 合并；不要直接 push `main`。组织外贡献者需要至少一次维护者 review；维护者自己的 PR 可直接合并（GitHub 不支持自批，因此走分支保护的 bypass 名单），但同样应等 `Required quality gate` 变绿。
 - 不提交构建输出、签名证书、密钥、Cookie、客户数据、私有 URL、账号 token 或未经授权的第三方制品。
 
 ## 架构与安全边界

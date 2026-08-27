@@ -18,9 +18,15 @@ out/
 output/playwright/
 *.local
 
+# tsc --build 的增量缓存（tsconfig.node.json 是 composite 项目）
+*.tsbuildinfo
+
 # Editor directories and files
+# 只共享项目级配置；个人偏好（workbench/window/terminal 等）不入库
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
 .idea
 .DS_Store
 *.suo
@@ -37,8 +43,12 @@ output/playwright/
 public/assets/material-icons/
 resources/codex/windows-x64/*
 !resources/codex/windows-x64/.gitkeep
+resources/codex/darwin-arm64/*
+!resources/codex/darwin-arm64/.gitkeep
 resources/node-runtime/windows-x64/*
 !resources/node-runtime/windows-x64/.gitkeep
+resources/node-runtime/darwin-arm64/*
+!resources/node-runtime/darwin-arm64/.gitkeep
 
 # Nix
 result

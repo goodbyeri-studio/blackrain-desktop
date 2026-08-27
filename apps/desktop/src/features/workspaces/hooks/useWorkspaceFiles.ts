@@ -120,7 +120,7 @@ export function useWorkspaceFiles({
     if (lastFetchedWorkspaceId.current === workspaceId && files.length > 0) {
       return;
     }
-    refreshFiles();
+    void refreshFiles();
   }, [files.length, isConnected, isEnabled, refreshFiles, workspaceId]);
 
   useEffect(() => {

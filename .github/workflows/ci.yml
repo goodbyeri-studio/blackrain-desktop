@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -10,6 +12,9 @@ permissions:
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22.23.2"
 
 jobs:
   changes:
@@ -41,12 +46,12 @@ jobs:
           else
             while IFS= read -r file; do
               case "$file" in
-                .github/workflows/ci.yml|.github/workflows/windows-checks.yml|apps/desktop/electron/**|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/resources/**|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/**|apps/desktop/scripts/**|scripts/vendor-electron-codex-runtime.ps1)
+                .github/workflows/ci.yml|apps/desktop/electron/**|apps/desktop/forge.config.*|apps/desktop/package.json|apps/desktop/package-lock.json|apps/desktop/resources/**|apps/desktop/tsconfig*.json|apps/desktop/vite*.config.*|apps/desktop/vitest.config.*|apps/desktop/eslint.config.*|apps/desktop/src/**|apps/desktop/scripts/**)
                   js=true
                   ;;
               esac
               case "$file" in
-                .github/workflows/ci.yml|.github/workflows/windows-checks.yml|gateway/**|scripts/dev-client.ps1)
+                .github/workflows/ci.yml|gateway/**)
                   gateway=true
                   ;;
               esac
@@ -62,23 +67,14 @@ jobs:
           echo "gateway=$gateway" >> "$GITHUB_OUTPUT"
           echo "docs=$docs" >> "$GITHUB_OUTPUT"
 
-  docs-checks:
-    name: Documentation checks
-    needs: changes
-    if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-      - run: node scripts/check-doc-links.mjs
-
+  # 主检查闭环跑在 Linux：实测每一步都比 macOS 快（整体 134s vs 202s），
+  # 是 PR 的关键路径。macOS 覆盖由下面的 macos-tests 并行承担。
   js-checks:
     name: JS checks (Linux)
     needs: changes
     if: needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: apps/desktop
@@ -86,41 +82,85 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
-      - run: npm run electron:runtime:check-lock
       - run: npm run typecheck
-      - run: npm run test
       - run: npm run lint
-      - run: npm run lint:ds
+      - run: npm run test
       - run: npm run check:host-boundary
       - run: npm run codemod:ds:dry
+      # 只校验 runtime lock 的完整性；不校验 vendored 二进制（那是 Windows
+      # 制品，且当前不构建也不发行 Windows 客户端）。
+      - run: npm run electron:runtime:check-lock
+      - run: npm run electron:node-runtime:check-lock
+      - run: npm run electron:browser-client:verify
+      # renderer 构建能捕获 vite 配置、别名和 import 层面的问题。
+      - run: npm run build
+
+  # macOS 是唯一的产品发布目标，也是唯一会暴露 Unix socket 路径长度、
+  # 文件系统大小写和路径行为差异的环境。只跑测试即可覆盖这些差异：
+  # typecheck/lint 与平台无关，重复执行只会拉长关键路径。
+  # 与 js-checks 并行，因此不增加 PR 的等待时间。
+  macos-tests:
+    name: Tests (macOS)
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - run: npm run test
+
+  docs-checks:
+    name: Documentation checks
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-doc-links.mjs
 
   gateway-checks:
     name: Gateway checks
     needs: changes
     if: needs.changes.outputs.gateway == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: "3.13"
       - run: python -m unittest discover -s gateway -p 'test_gateway*.py' -v
 
   quality-gate:
     name: Required quality gate
     if: always()
-    needs: [changes, docs-checks, js-checks, gateway-checks]
+    needs: [changes, docs-checks, js-checks, macos-tests, gateway-checks]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Evaluate routed checks
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           DOCS_RESULT: ${{ needs.docs-checks.result }}
           JS_RESULT: ${{ needs.js-checks.result }}
+          MACOS_RESULT: ${{ needs.macos-tests.result }}
           GATEWAY_RESULT: ${{ needs.gateway-checks.result }}
           DOCS_REQUIRED: ${{ needs.changes.outputs.docs }}
           JS_REQUIRED: ${{ needs.changes.outputs.js }}
@@ -132,6 +172,7 @@ jobs:
           fi
           if [[ "$JS_REQUIRED" == "true" ]]; then
             test "$JS_RESULT" = success
+            test "$MACOS_RESULT" = success
           fi
           if [[ "$GATEWAY_REQUIRED" == "true" ]]; then
             test "$GATEWAY_RESULT" = success

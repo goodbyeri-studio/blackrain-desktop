@@ -1,0 +1,31 @@
+{
+  // 用仓库自带的 TypeScript（5.9.3），而不是 VSCode 内置版本或
+  // vscode-typescript-next（TS 6 nightly）。否则编辑器诊断与 CLI 的
+  // tsc / CI 结果不一致，会出现「编辑器报错但 CI 通过」或反之。
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // 保存时自动修 ESLint 可修问题。仓库使用 ESLint 9 + eslint.config.mjs，
+  // flat config 在 9.x 已是默认，无需再设 eslint.useFlatConfig。
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  // 仓库统一双引号、2 空格缩进（全仓 2535 处 import 均为双引号）。
+  // 没有 Prettier，因此不开 formatOnSave，避免各人编辑器默认格式化
+  // 规则不同而产生无谓 diff。
+  "editor.insertSpaces": true,
+  "editor.tabSize": 2,
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.vite": true,
+    "**/dist": true,
+    "**/out": true,
+    "**/resources/codex/windows-x64": true,
+    "**/resources/node-runtime/windows-x64": true
+  }
+}

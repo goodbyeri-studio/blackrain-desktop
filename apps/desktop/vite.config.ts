@@ -71,7 +71,9 @@ export default defineConfig(async () => ({
     },
   },
   worker: {
-    format: "es",
+    // `as const` 必需：async 配置函数会把 "es" 推断放宽为 string，
+    // 而 worker.format 要求字面量联合 "es" | "iife"。
+    format: "es" as const,
   },
   define: {
     __APP_VERSION__: JSON.stringify(packageJson.version),

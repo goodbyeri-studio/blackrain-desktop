@@ -9,6 +9,7 @@ import {
 import { BrowserViewManager } from "./browser/browser-view-manager";
 import { AppServerRuntime } from "./app-server/app-server-runtime";
 import { resolveCodexExecutablePath } from "./app-server/codex-executable";
+import { resolveNodeRuntimePath } from "./app-server/node-runtime-executable";
 import { registerIpcHandlers } from "./ipc/register-ipc";
 import {
   installAppProtocol,
@@ -101,14 +102,13 @@ const agent = new AppServerRuntime({
   resolveBrowserMcpAdapterPath: () =>
     path.join(browserClientResourceRoot, "browser-mcp-server.mjs"),
   resolveBrowserMcpNodePath: () =>
-    app.isPackaged
-      ? path.join(
-          process.resourcesPath,
-          "node-runtime",
-          "windows-x64",
-          "node.exe",
-        )
-      : process.env.BLACKRAIN_NODE_BIN?.trim() || "node",
+    resolveNodeRuntimePath({
+      resourcesPath: process.resourcesPath,
+      override: app.isPackaged
+        ? undefined
+        : process.env.BLACKRAIN_NODE_BIN?.trim() || "node",
+      allowOverride: !app.isPackaged,
+    }),
   onDiagnostic: (line) => {
     diagnostics.record(line);
     console.error(`[codex app-server] ${line}`);
@@ -175,7 +175,7 @@ function openMainWindow(): BrowserWindow {
   return window;
 }
 
-app.whenReady().then(() => {
+void app.whenReady().then(() => {
   installWorkspaceFileProtocol(workspaces);
   if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     installAppProtocol(

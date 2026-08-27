@@ -57,6 +57,19 @@ export function ensureNamedImport(source, modulePath, requiredNames) {
   );
   const existingImport = source.match(importPattern);
 
+  // 同一个 primitive 可能通过 "@/..." 别名而非相对路径导入。此时按 modulePath
+  // 精确匹配会漏判并重复插入 import（modal-shell-codemod 在 SettingsView.tsx
+  // 上就出现过 dry-run 永远报 changed=1）。因此先按导入名判断是否已存在。
+  const allNamesAlreadyImported = requiredNames.every((name) =>
+    new RegExp(
+      `^import\\s*\\{[^}]*\\b${escapeRegExp(name)}\\b[^}]*\\}\\s*from\\s*["'][^"']+["'];?`,
+      "m",
+    ).test(source),
+  );
+  if (!existingImport && allNamesAlreadyImported) {
+    return source;
+  }
+
   if (existingImport) {
     const existingNames = existingImport[1]
       .split(",")

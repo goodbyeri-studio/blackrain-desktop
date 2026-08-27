@@ -33,11 +33,26 @@ const forbidden = [
   { label: "旧 daemon", pattern: /blackrain_daemon/iu },
   { label: "旧固定端口", pattern: /127\.0\.0\.1:4732/u },
   { label: "旧 callback bridge", pattern: /transformCallback/u },
-  { label: "旧安装器", pattern: /nsis/iu },
+  // 裸 /nsis/iu 会命中 "consistent" / "inconsistent" 里的 co⟨nsis⟩tent 子串，
+  // 在任何含这两个常见英文词的文件上假阳性；但简单加 \b 又会漏掉真实类名
+  // MakerNSIS（NSIS 前是词字符 r，不构成词边界）。
+  // 因此：小写 nsis 要求两侧非字母（覆盖 nsis / maker-nsis / nsis.config.js），
+  // 大写 NSIS 直接匹配（覆盖 MakerNSIS）。
+  { label: "旧安装器", pattern: /(?<![A-Za-z])nsis(?![A-Za-z])|NSIS/u },
   { label: "裸 legacy invoke", pattern: /(?<![.\w])invoke\s*\(/u },
   { label: "裸 legacy listen", pattern: /(?<![.\w])listen\s*\(/u },
 ];
-const ignoredDirectories = new Set(["node_modules", "out", "output", "dist", ".vite"]);
+const ignoredDirectories = new Set([
+  "node_modules",
+  "out",
+  "output",
+  "dist",
+  ".vite",
+  // vendored 上游 runtime：gitignored 的第三方制品，不是本仓边界代码。
+  // 扫描它们只会在上游 CHANGELOG/文档上产生假阳性。
+  "darwin-arm64",
+  "windows-x64",
+]);
 const textExtensions = new Set([
   ".cjs", ".css", ".html", ".js", ".json", ".jsx", ".mjs", ".md",
   ".ps1", ".sh", ".ts", ".tsx", ".yaml", ".yml",
