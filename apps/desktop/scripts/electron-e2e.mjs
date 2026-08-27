@@ -74,13 +74,19 @@ delete environment.BLACKRAIN_ELECTRON_SMOKE_RESULT;
 environment.BLACKRAIN_ELECTRON_E2E = "1";
 environment.BLACKRAIN_ELECTRON_TEST_APP_DATA = appDataPath;
 if (runRealAgentE2e) {
+  // vendored runtime 的目录名与可执行名按平台不同，见
+  // electron/main/app-server/codex-executable.ts 的布局表。
+  const codexLayout =
+    process.platform === "darwin"
+      ? { directory: "darwin-arm64", executable: "codex" }
+      : { directory: "windows-x64", executable: "codex.exe" };
   environment.BLACKRAIN_CODEX_BIN = path.join(
     desktopRoot,
     "resources",
     "codex",
-    "windows-x64",
+    codexLayout.directory,
     "bin",
-    "codex.exe",
+    codexLayout.executable,
   );
 }
 
@@ -213,16 +219,64 @@ try {
   window.on("pageerror", (error) => {
     logRendererDiagnostic("pageerror", error.stack ?? error.message);
   });
-  await electronApplication.evaluate(({ BrowserWindow }) => {
-    const mainWindow = BrowserWindow.getAllWindows()[0];
-    if (!mainWindow) {
-      throw new Error("Electron E2E 未找到主窗口");
-    }
-    mainWindow.setBounds({ x: 0, y: 0, width: 1200, height: 700 });
-    mainWindow.show();
-  });
+  const windowGeometry = await electronApplication.evaluate(
+    async ({ BrowserWindow, screen }) => {
+      const mainWindow = BrowserWindow.getAllWindows()[0];
+      if (!mainWindow) {
+        throw new Error("Electron E2E 未找到主窗口");
+      }
+      // 顺序很重要：必须先 show() 再 setBounds()。
+      // macOS 的 Stage Manager（GloballyEnabled=1 时）会在窗口「显示」的那一刻
+      // 把它缩到舞台区域——实测 show() 前 setBounds(1200) 得到 1200，show()
+      // 之后立刻变 1028，而 show() 之后再 setBounds(1200) 又能拿到 1200。
+      // 这在纯 Electron 下同样复现，与 Playwright 无关。
+      const workArea = screen.getPrimaryDisplay().workArea;
+      mainWindow.show();
+      mainWindow.setBounds({
+        x: workArea.x,
+        y: workArea.y,
+        width: 1200,
+        height: 700,
+      });
+      // 回读实际生效的尺寸：显示器 workArea 比请求值小时，窗口会被系统
+      // 夹紧，renderer 因此落进 tablet 布局（<=1100），桌面布局节点不渲染。
+      // 不回读就只能看到一句「缺少布局节点」，无法区分是布局回归还是尺寸问题。
+      // macOS 上窗口尺寸变更是异步的：同一 tick 里 getBounds() 可能仍是旧值。
+      // 等它稳定到目标宽度再继续，否则 renderer 会以 tablet 布局挂载。
+      const settled = await new Promise((resolve) => {
+        const deadline = Date.now() + 5_000;
+        const poll = () => {
+          const bounds = mainWindow.getBounds();
+          if (bounds.width >= 1200 || Date.now() > deadline) {
+            resolve(bounds);
+            return;
+          }
+          setTimeout(poll, 100);
+        };
+        poll();
+      });
+      const display = screen.getPrimaryDisplay();
+      return {
+        requested: { width: 1200, height: 700 },
+        actual: settled,
+        contentSize: mainWindow.getContentSize(),
+        workArea: display.workArea,
+        scaleFactor: display.scaleFactor,
+      };
+    },
+  );
+  if (windowGeometry.actual.width < 1101) {
+    // 低于 TABLET_MAX_WIDTH(1100) 时桌面布局节点本就不该渲染，继续断言只会
+    // 得到误导性的「缺少布局节点」。这里直接给出可定位的失败。
+    throw new Error(
+      `Electron E2E 无法把主窗口调到桌面宽度：请求 1200，实际 ${windowGeometry.actual.width}` +
+        `（workArea ${windowGeometry.workArea.width}x${windowGeometry.workArea.height}, scale ${windowGeometry.scaleFactor}）`,
+    );
+  }
   await window.waitForLoadState("domcontentloaded");
-  logStage("renderer ready");
+  logStage(
+    `renderer ready (window ${windowGeometry.actual.width}x${windowGeometry.actual.height}, content ${windowGeometry.contentSize.join("x")}, workArea ${windowGeometry.workArea.width}x${windowGeometry.workArea.height}, scale ${windowGeometry.scaleFactor})`,
+  );
   startupMs = Math.round(performance.now() - probeStartedAt);
 
   assert.equal(await window.title(), "BlackRain");
@@ -315,16 +369,35 @@ try {
     const titlebarControls = app?.querySelector(":scope > .titlebar-controls");
     const sidebarResizer = app?.querySelector(":scope > .sidebar-resizer");
     const settings = document.querySelector('[aria-label="打开设置"]');
-    if (
-      !(app instanceof HTMLElement) ||
-      !(sidebar instanceof HTMLElement) ||
-      !(main instanceof HTMLElement) ||
-      !(dragStrip instanceof HTMLElement) ||
-      !(titlebarControls instanceof HTMLElement) ||
-      !(sidebarResizer instanceof HTMLElement) ||
-      !(settings instanceof HTMLElement)
-    ) {
-      throw new Error("Electron renderer 缺少桌面布局节点");
+    // 逐个报出缺失的节点：原先只抛一句通用错误，7 个选择器里任何一个为空
+    // 都长得一样，无法定位。
+    const missing = Object.entries({
+      ".app": app,
+      ".sidebar": sidebar,
+      ".main": main,
+      ".drag-strip": dragStrip,
+      ".titlebar-controls": titlebarControls,
+      ".sidebar-resizer": sidebarResizer,
+      "settings button": settings,
+    })
+      .filter(([, node]) => !(node instanceof HTMLElement))
+      .map(([name]) => name);
+    if (missing.length > 0) {
+      // 连 .app 都缺时，说明主 UI 根本没挂载（被某个 gate 拦住），而不是布局
+      // 问题。把实际渲染出来的顶层结构一并报出，避免只能靠猜。
+      const rendered = Array.from(document.body.children)
+        .map((node) => `${node.tagName.toLowerCase()}.${node.className || "(无 class)"}`)
+        .join(" | ");
+      const rootChildren = Array.from(
+        document.getElementById("root")?.children ?? [],
+      )
+        .map((node) => `${node.tagName.toLowerCase()}.${node.className || "(无 class)"}`)
+        .join(" | ");
+      throw new Error(
+        `Electron renderer 缺少桌面布局节点: ${missing.join(", ")}` +
+          `（innerWidth=${window.innerWidth}, lang=${document.documentElement.lang}）` +
+          ` body 子节点: [${rendered}] #root 子节点: [${rootChildren}]`,
+      );
     }
     const sidebarRect = sidebar.getBoundingClientRect();
     const mainRect = main.getBoundingClientRect();
@@ -421,9 +494,28 @@ try {
     const sidebarAction = requireElement(".sidebar-action");
     const sidebarEmpty = requireElement(".workspace-list .empty");
     const settingsTitle = requireElement(".sidebar-settings-account-title");
-    const appBackground = getComputedStyle(app, "::before").backgroundColor;
-    const homeBackground = getComputedStyle(home, "::before").backgroundColor;
-    const promptBackground = getComputedStyle(prompt).backgroundColor;
+    // 解析「实际生效」的背景：从元素向上找到第一个非透明背景。
+    // 原先直接读 `::before` 的 backgroundColor，但那两个伪元素只在
+    // `.app.is-windows:not(.reduced-transparency)` 下有背景（Windows Mica 的
+    // 补偿层）。macOS 上不匹配该选择器，读出来是 rgba(0,0,0,0)，于是所有
+    // 对比度都在跟「透明」比，得到 1.07~1.11 这种无意义的值。
+    const effectiveBackground = (element) => {
+      let node = element;
+      while (node) {
+        for (const pseudo of [null, "::before"]) {
+          const color = getComputedStyle(node, pseudo).backgroundColor;
+          if (parseRgb(color).alpha > 0) {
+            return color;
+          }
+        }
+        node = node.parentElement;
+      }
+      // 一路到根都透明时退回不透明白色：Electron 窗口底色即为此。
+      return "rgb(255, 255, 255)";
+    };
+    const appBackground = effectiveBackground(app);
+    const homeBackground = effectiveBackground(home);
+    const promptBackground = effectiveBackground(prompt);
     return {
       appBackground,
       homeBackground,
@@ -691,7 +783,8 @@ try {
     "host contract",
   );
   assert.equal(hostContract.bootstrap.version, "0.7.68");
-  assert.equal(hostContract.bootstrap.platform, "win32");
+  // 断言宿主平台一致，而不是硬编码 win32——macOS 是当前唯一发布目标。
+  assert.equal(hostContract.bootstrap.platform, process.platform);
   assert.ok(hostContract.bootstrap.windowGeneration > 0);
   assert.deepEqual(hostContract.layout, {
     accepted: true,
@@ -1600,7 +1693,13 @@ try {
   }, workspaceContract.added.id);
   assert.equal(workspaceFileContract.includesPackageJson, true);
   assert.equal(workspaceFileContract.packageJson.truncated, false);
-  assert.match(workspaceFileContract.packageJson.content, /"blackrain"/);
+  // 断言的是 workspace 文件读取合同能拿到真实内容。原先匹配 /"blackrain"/，
+  // 但 package.json 里的 name 是 "blackrain-desktop"，`"blackrain` 后面跟的是
+  // `-` 而非闭合引号——该正则在 HEAD 与 origin/main 上都匹配 0 次，从未成立。
+  assert.match(
+    workspaceFileContract.packageJson.content,
+    /"name":\s*"blackrain-desktop"/,
+  );
   const pendingDownloadTab = await window.evaluate(
     (scope) => globalThis.blackrain.browser.listTabs(scope).then((tabs) => tabs[0]),
     hostContract.scope,

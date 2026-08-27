@@ -16,16 +16,14 @@ const turnId = "blackrain-mcp-probe-turn";
 
 describe.skipIf(!probeEnabled)("bundled codex Browser MCP 生产接缝探针", () => {
   it("注册 stdio MCP、发现窄接口工具并透传可信 route metadata", async () => {
-    if (process.platform !== "win32") {
-      throw new Error("bundled Browser MCP 探针仅支持 Windows x64");
-    }
     const resourcesPath = fileURLToPath(
       new URL("../../../resources/", import.meta.url),
     );
+    // 用宿主平台解析；resolveCodexExecutablePath 会对未 vendored 的
+    // 平台/架构给出可定位的错误，不需要在这里再加平台守卫。
     const executablePath = resolveCodexExecutablePath({
       resourcesPath,
       allowOverride: false,
-      platform: "win32",
     });
     const browserResources = path.join(resourcesPath, "browser-client");
     const probeHome = await mkdtemp(

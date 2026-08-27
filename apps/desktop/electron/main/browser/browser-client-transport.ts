@@ -460,11 +460,32 @@ export class BrowserClientTransportServer {
   }
 }
 
+/**
+ * Unix domain socket 的 `sun_path` 上限是 104 字节（macOS）/ 108（Linux）。
+ * macOS 默认 TMPDIR 是 `/var/folders/<hash>/T/`（约 49 字节），加上原先
+ * `blackrain-browser-<pid>-<uuid>.sock` 的 65 字符文件名会达到 114 字节：
+ *   - Electron 42 内置的 Node 24 直接 EINVAL，发行版里 Browser 起不来；
+ *   - Node 22 更危险——它静默截断路径，不同 UUID 可能撞成同一端点。
+ * 因此文件名必须压缩到预算内，并在超限时显式失败而不是交给内核截断。
+ */
+const SUN_PATH_MAX_BYTES = 104;
+
 function createRandomEndpoint(): string {
-  const suffix = `${process.pid}-${randomUUID()}`;
-  return process.platform === "win32"
-    ? `\\\\.\\pipe\\blackrain-browser-${suffix}`
-    : path.join(tmpdir(), `blackrain-browser-${suffix}.sock`);
+  // 12 位 hex（48 bit）对「单进程内并发的少量 socket」足够；相比完整 UUID
+  // 省下 24 个字符，是为了把整条路径压进 sun_path 预算。
+  const suffix = `${process.pid}-${randomBytes(6).toString("hex")}`;
+  if (process.platform === "win32") {
+    // 命名管道不受 sun_path 限制。
+    return `\\\\.\\pipe\\blackrain-browser-${suffix}`;
+  }
+  const endpoint = path.join(tmpdir(), `br-${suffix}.sock`);
+  const byteLength = Buffer.byteLength(endpoint);
+  if (byteLength > SUN_PATH_MAX_BYTES) {
+    throw new Error(
+      `Browser transport 端点超过 Unix socket sun_path 上限（${byteLength} > ${SUN_PATH_MAX_BYTES} 字节）：${endpoint}。请把 TMPDIR 指向更短的路径，例如 export TMPDIR=/tmp/br。`,
+    );
+  }
+  return endpoint;
 }
 
 function cleanupEndpoint(endpoint: string): void {

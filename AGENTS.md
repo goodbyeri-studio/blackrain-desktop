@@ -45,7 +45,7 @@ CodexMonitor 仅为部分遗留文件的历史来源，正在逐域退役。不�
 - 不调用、依赖或推荐本机 `claude` CLI。
 - 持续补 main/preload 单测、App Server stdio 集成测试、Playwright Electron E2E，以及 macOS 实机产品验收。
 - 生成的 runtime、签名材料、账号数据、Cookie、用户内容和测试输出不得提交。
-- `main` 永远可用且禁止直接 push；使用短命分支、Conventional Commits、CI、review 和 squash 合并。
+- `main` 永远可用且禁止直接 push；使用短命分支、Conventional Commits、CI 和 squash 合并。维护者（分支保护 bypass 名单内）可自行合并，无需他人 review；组织外贡献者仍需 1 次 review。无论哪种情况都应等 `Required quality gate` 变绿再合并。
 - BlackRain 自有代码为 AGPL-3.0-only；完整第三方边界见 [NOTICE](NOTICE)。
 
 回复、文档和代码注释默认使用中文。
