@@ -20,7 +20,8 @@
   },
   "scripts": {
     "sync:material-icons": "node scripts/sync-material-icons.mjs",
-    "postinstall": "npm run sync:material-icons",
+    "fix:native-permissions": "node scripts/fix-native-permissions.mjs",
+    "postinstall": "npm run sync:material-icons && npm run fix:native-permissions",
     "predev": "npm run sync:material-icons",
     "dev": "vite",
     "prebuild": "npm run sync:material-icons",
