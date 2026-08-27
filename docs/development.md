@@ -59,7 +59,9 @@ Windows 的 `*:vendor:win`（PowerShell）随 Windows 暂停开发一并搁置�
 
 目标是签名和公证后的 macOS 应用，并在真实设备验收安装、首次启动、Codex 登录/MFA、Browser 权限与下载、崩溃恢复、升级、回滚和卸载。
 
-已经可用：`electron:package` 能在 macOS arm64 产出 `.app`，包内 codex 二进制可执行；`electron:app-server:probe` 能启动 bundled app-server、建 thread 并优雅退出。
+已经可用：`electron:package` 能在 macOS arm64 产出 `.app`，包内 codex 二进制可执行；`electron:app-server:probe` 能启动 bundled app-server、建 thread 并优雅退出；`electron:smoke` 能启动打包产物并校验窗口安全属性；`electron:e2e` 16 个阶段全部通过（含 Browser 崩溃恢复与重启恢复）。
+
+macOS 环境注意两点：shell 里若有 `ELECTRON_RUN_AS_NODE=1`，`npx electron` 会以纯 Node 运行（harness 脚本都显式 `delete` 它）；Stage Manager 启用时会在窗口 `show()` 的那一刻把它缩到舞台区域，因此设置窗口尺寸必须先 `show()` 再 `setBounds()`。
 
 仍然缺失：`forge.config.ts` 没有 macOS maker，签名与公证流水线尚未建立（需要 Apple Developer Program 会员、Developer ID Application 证书和公证凭据）。因此 `electron:make` 与任何 unsigned package 结果都**不能**声明 macOS `PRODUCT_PASS`；当前仓库仍然没有 `PRODUCT_PASS`。
 
