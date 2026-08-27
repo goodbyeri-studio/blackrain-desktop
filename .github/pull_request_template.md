@@ -6,14 +6,15 @@
 ## 怎么测的
 <!-- 写出真实命令、平台、结果和未验证项；不要只写“CI 绿”。 -->
 - [ ] 已运行与改动匹配的 typecheck / test / lint（不涉及则说明）
-- [ ] 涉及 GUI、app-server、Browser、凭据或安装流程时，已在 Windows 实机验证；未跑的项目已明确列出
-- [ ] 涉及发布时，已验证签名安装包、启动、核心流程和卸载（不涉及则说明）
+- [ ] 涉及 GUI、app-server、Browser、凭据或安装流程时，已在 macOS 实机验证；未跑的项目已明确列出
+- [ ] 涉及发布时，已验证签名公证后的制品、安装、启动、核心流程和卸载（不涉及则说明）
 
 ## 文档与设计合同
 
-- [ ] 产品范围变化已同步 `docs/project-scope.md` 或 `docs/roadmap.md`
-- [ ] 运行时边界变化已同步 `docs/architecture/` 和必要的 `docs/design/`
-- [ ] 长期架构取舍已记录到 `docs/adr/`，并写入真实验证结果
+- [ ] 产品范围变化已同步 [`docs/product.md`](../docs/product.md)
+- [ ] 运行时边界变化已同步 [`docs/architecture.md`](../docs/architecture.md)，Browser 合同变化同步 [`docs/browser.md`](../docs/browser.md)
+- [ ] 命令或发布边界变化已同步 [`docs/development.md`](../docs/development.md)
+- [ ] 长期架构取舍已记录到 [`docs/adr/`](../docs/adr/README.md)，并写入真实验证结果
 - [ ] 不涉及上述文档时，已在说明中写明原因
 
 ## License、隐私与安全
@@ -26,7 +27,8 @@
 ## 风险与影响
 <!-- 有无破坏性改动、影响哪些模块、需要别人注意什么。无则写「无」 -->
 
-<!-- 若有 Windows 实机未验证项、上游锁版本变化或待决架构问题，请在这里明确列出。 -->
+<!-- 若有 macOS 实机未验证项、上游锁版本变化或待决架构问题，请在这里明确列出。
+     区分 CODE_EXISTS / RUN_PASS / PRODUCT_PASS，不要用自动化结果推导产品验收。 -->
 
 ## 关联
 <!-- 关联的 issue / 文档 / 里程碑，可选 -->
