@@ -6,13 +6,30 @@ import path from "node:path";
 
 const desktopRoot = fileURLToPath(new URL("..", import.meta.url));
 const powershell7Path = String.raw`C:\Program Files\PowerShell\7\pwsh.exe`;
-const executablePath = path.join(
-  desktopRoot,
-  "out",
-  "electron",
-  "blackrain-win32-x64",
-  "BlackRain.exe",
-);
+
+/**
+ * electron-forge package 的产物布局按平台不同：
+ *   macOS   out/electron/blackrain-desktop-darwin-arm64/blackrain-desktop.app/Contents/MacOS/BlackRain
+ *   Windows out/electron/blackrain-win32-x64/BlackRain.exe
+ * 目录名来自 package.json 的 name + platform-arch；bundle 内的可执行文件名
+ * 来自 forge.config.ts 的 packagerConfig.executableName。
+ */
+function resolvePackagedExecutable() {
+  const outRoot = path.join(desktopRoot, "out", "electron");
+  if (process.platform === "darwin") {
+    return path.join(
+      outRoot,
+      `blackrain-desktop-darwin-${process.arch}`,
+      "blackrain-desktop.app",
+      "Contents",
+      "MacOS",
+      "BlackRain",
+    );
+  }
+  return path.join(outRoot, "blackrain-win32-x64", "BlackRain.exe");
+}
+
+const executablePath = resolvePackagedExecutable();
 const resultPath = path.join(
   os.tmpdir(),
   `blackrain-electron-smoke-${process.pid}.json`,
