@@ -10,7 +10,9 @@ const publisher = process.env.BLACKRAIN_RELEASE_PUBLISHER ?? "CN=goodbyeri-studi
 const config: ForgeConfig = {
   outDir: "out/electron",
   packagerConfig: {
-    asar: true,
+    // 原生 .node 文件无法从 asar 内部加载，必须解包到 app.asar.unpacked/。
+    // node-pty 的 prebuilds 是唯一需要解包的原生资产。
+    asar: { unpack: "**/*.{node,dylib,so,dll}" },
     executableName: "BlackRain",
     icon: "icon.png",
     protocols: [{ name: "BlackRain Thread Link", schemes: ["blackrain"] }],

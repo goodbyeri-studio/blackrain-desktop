@@ -205,11 +205,13 @@ async function sha256(file) {
   return createHash("sha256").update(await readFile(file)).digest("hex");
 }
 
-export async function verifyRuntime(
-  lock,
-  platform,
-  { runtimeRoot, platformKey = hostPlatformKey() } = {},
-) {
+export async function verifyRuntime(lock, platform, options = {}) {
+  // platformKey 必须惰性解析：写成默认参数会让 hostPlatformKey() 在调用方
+  // 已显式给出 runtimeRoot 时也求值，而它在未 vendored 的平台（如 CI 的
+  // linux-x64）会抛错——测试因此在 macOS 通过、在 Linux 失败。
+  const { runtimeRoot } = options;
+  const platformKey =
+    options.platformKey ?? (runtimeRoot ? undefined : hostPlatformKey());
   const resolvedRoot = runtimeRoot ?? runtimeRootFor(platformKey);
   const manifestFile = path.join(resolvedRoot, "runtime-manifest.json");
   let manifest;
@@ -217,8 +219,9 @@ export async function verifyRuntime(
     manifest = await readJson(manifestFile);
   } catch (error) {
     if (error.code === "ENOENT") {
+      // platformKey 在调用方显式给 runtimeRoot 时为 undefined，此时报路径。
       throw new Error(
-        `缺少 ${platformKey}/runtime-manifest.json；先运行 npm run electron:runtime:vendor`,
+        `缺少 ${platformKey ?? resolvedRoot}/runtime-manifest.json；先运行 npm run electron:runtime:vendor`,
       );
     }
     throw error;

@@ -94,11 +94,13 @@ function validateNodePlatform(platformKey, platform, version) {
   for (const file of requiredFiles) requireSha256(file.sha256, file.path);
 }
 
-export async function verifyNodeRuntime(
-  lock,
-  platform,
-  { root, platformKey = hostPlatformKey() } = {},
-) {
+export async function verifyNodeRuntime(lock, platform, options = {}) {
+  // 与 verify-codex-runtime.mjs 同因：platformKey 必须惰性解析，否则
+  // hostPlatformKey() 会在调用方已给出 root 时也求值，在未 vendored 的
+  // 平台（CI 的 linux-x64）抛错。
+  const { root } = options;
+  const platformKey =
+    options.platformKey ?? (root ? undefined : hostPlatformKey());
   const resolvedRoot = root ?? path.join(RESOURCE_ROOT, platformKey);
   const manifest = JSON.parse(
     await readFile(path.join(resolvedRoot, "runtime-manifest.json"), "utf8").catch(
@@ -125,7 +127,15 @@ export async function verifyNodeRuntime(
       throw new Error(`${expected.path} SHA-256 不匹配`);
     }
   }
-  const executable = SUPPORTED_PLATFORMS[platformKey].executable;
+  // platformKey 在调用方只给 root 时为 undefined，此时从 lock 的
+  // requiredFiles 反推可执行文件（node 的 requiredFiles 只有它和 LICENSE）。
+  const executable =
+    platformKey !== undefined
+      ? SUPPORTED_PLATFORMS[platformKey].executable
+      : platform.requiredFiles.find((file) => file.path !== "LICENSE")?.path;
+  if (!executable) {
+    throw new Error("无法从 runtime-lock 推断 Node 可执行文件路径");
+  }
   const { stdout } = await execFileAsync(
     path.join(resolvedRoot, executable),
     ["--version"],
