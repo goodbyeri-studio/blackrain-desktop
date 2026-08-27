@@ -25,7 +25,7 @@ Router、多模型 Provider、Model Gateway 和 Auto 是 BlackRain 自身的可�
 ## 不在当前范围
 
 - BlackRain Cloud、账号服务、托管模型、云端 Browser、团队协作和商业 SLA；未来需要时在独立仓库和产品边界内建设。
-- 移动端、Windows 和 Linux 正式发行。它们可用于未来开发或验证，但不是当前发布承诺。
+- 移动端、Windows 和 Linux 正式发行。Windows 客户端已明确**暂停开发、不构建、不发行**，列为 TODO；其 runtime lock、vendor 脚本与 MSIX 配置刻意保留以便将来恢复，但不在当前 CI 覆盖内。边界与保留清单见[开发与发布](development.md)。
 - 复制、反编译或再分发官方 Codex Desktop 的闭源代码、私有 bundle、字体、图标或服务实现。
 - 将 `plugins/`、`workbenches/` 的实验内容自动加入默认产品或发行依赖。
 

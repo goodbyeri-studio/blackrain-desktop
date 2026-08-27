@@ -13,6 +13,10 @@ const ignoredDirectories = new Set([
   "node_modules",
   "out",
   "output",
+  // vendored 上游 runtime：gitignored 的第三方制品，其 README 指向上游仓库
+  // 自己的文档树，在本仓不存在。与 check-host-boundary.mjs 的忽略列表同因。
+  "darwin-arm64",
+  "windows-x64",
 ]);
 
 async function collectMarkdownFiles(directory) {
