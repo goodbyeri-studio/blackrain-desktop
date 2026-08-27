@@ -43,8 +43,12 @@ output/playwright/
 public/assets/material-icons/
 resources/codex/windows-x64/*
 !resources/codex/windows-x64/.gitkeep
+resources/codex/darwin-arm64/*
+!resources/codex/darwin-arm64/.gitkeep
 resources/node-runtime/windows-x64/*
 !resources/node-runtime/windows-x64/.gitkeep
+resources/node-runtime/darwin-arm64/*
+!resources/node-runtime/darwin-arm64/.gitkeep
 
 # Nix
 result

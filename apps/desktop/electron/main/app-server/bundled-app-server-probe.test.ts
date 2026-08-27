@@ -11,17 +11,14 @@ const probeEnabled = process.env.BLACKRAIN_BUNDLED_CODEX_PROBE === "1";
 
 describe.skipIf(!probeEnabled)("bundled codex app-server 集成探针", () => {
   it("从生产资源布局启动、初始化 thread 并优雅退出", async () => {
-    if (process.platform !== "win32") {
-      throw new Error("bundled Codex runtime 探针仅支持 Windows x64");
-    }
-
     const resourcesPath = fileURLToPath(
       new URL("../../../resources/", import.meta.url),
     );
+    // 用宿主平台解析；resolveCodexExecutablePath 会对未 vendored 的
+    // 平台/架构给出可定位的错误，不需要在这里再加平台守卫。
     const executablePath = resolveCodexExecutablePath({
       resourcesPath,
       allowOverride: false,
-      platform: "win32",
     });
     const probeHome = await mkdtemp(
       path.join(os.tmpdir(), "blackrain-bundled-codex-probe-"),
