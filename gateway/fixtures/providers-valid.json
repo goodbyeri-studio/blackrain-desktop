@@ -1,0 +1,19 @@
+[
+  {
+    "id": "fixture",
+    "name": "Fixture Provider",
+    "base_url": "https://provider.invalid/v1",
+    "enabled": true,
+    "models": [
+      {"id": "fixture-small", "model": "fixture-small"},
+      {"id": "fixture-large", "model": "fixture-large"}
+    ]
+  },
+  {
+    "id": "disabled",
+    "name": "Disabled Fixture",
+    "base_url": "https://disabled.invalid/v1",
+    "enabled": false,
+    "models": []
+  }
+]
