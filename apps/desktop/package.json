@@ -87,7 +87,7 @@
     "@electron-forge/plugin-vite": "7.11.1",
     "@electron-forge/shared-types": "7.11.1",
     "@electron/fuses": "1.8.0",
-    "@eslint/js": "9.39.5",
+    "@eslint/js": "10.0.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "24.10.1",
     "@types/prismjs": "^1.26.6",
