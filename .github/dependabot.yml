@@ -32,26 +32,15 @@ updates:
           - minor
           - patch
     ignore:
-      # 以下版本上限由工具链兼容性决定，不能由 dependabot 自动跨越：
-      # - eslint 9.x：eslint-plugin-react 的 peer 上限是 ^9.7，且在
-      #   ESLint 10 上有未修复的运行时崩溃。
+      # 主版本升级统一人工处理，避免 Electron、原生模块、UI 库或工具链
+      # 的破坏性变化进入自动 review 队列。
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # 以下 minor 版本也受工具链兼容性约束：
       # - typescript 5.9.x：typescript-eslint 8 的 peer 上限是 <6.1.0，
       #   而 npm 上 typescript@latest 已是 7.x。
-      # - electron：主版本升级需要同步核对 Node ABI、node-pty 预编译产物
-      #   和 app-server 集成，必须人工验证。
-      - dependency-name: eslint
-        update-types: ["version-update:semver-major"]
       - dependency-name: typescript
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      - dependency-name: electron
-        update-types: ["version-update:semver-major"]
-      - dependency-name: eslint-plugin-react
-        update-types: ["version-update:semver-major"]
-      # React 主版本升级需要人工评估。
-      - dependency-name: react
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react-dom
-        update-types: ["version-update:semver-major"]
+        update-types: ["version-update:semver-minor"]
 
   - package-ecosystem: github-actions
     directory: /
