@@ -71,6 +71,67 @@ def _as_str(value, fallback=""):
         return fallback
     return str(value)
 
+class ProviderRegistryError(ValueError):
+    """A structural registry error that never includes configuration values."""
+
+def _registry_error(path, message):
+    raise ProviderRegistryError(f"provider registry {path}: {message}")
+
+def validate_provider(provider, index):
+    """Validate one provider without echoing secrets or user-supplied values."""
+    path = f"providers[{index}]"
+    if not isinstance(provider, dict):
+        _registry_error(path, "must be an object")
+
+    provider_id = provider.get("id")
+    if not isinstance(provider_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", provider_id):
+        _registry_error(f"{path}.id", "must be a lowercase identifier")
+    name = provider.get("name")
+    if not isinstance(name, str) or not name.strip():
+        _registry_error(f"{path}.name", "must be a non-empty string")
+
+    base_url = provider.get("base_url") or provider.get("baseUrl")
+    parsed = urllib.parse.urlparse(base_url) if isinstance(base_url, str) else None
+    if not parsed or parsed.scheme not in ("http", "https") or not parsed.netloc:
+        _registry_error(f"{path}.base_url", "must be an absolute HTTP(S) URL")
+
+    enabled = _as_bool(provider.get("enabled"), True)
+    models = provider.get("models")
+    if not isinstance(models, list):
+        _registry_error(f"{path}.models", "must be an array")
+    if enabled and not models:
+        _registry_error(f"{path}.models", "must not be empty for an enabled provider")
+
+    seen = set()
+    for model_index, model in enumerate(models):
+        model_path = f"{path}.models[{model_index}]"
+        if isinstance(model, str):
+            model_id = model.strip()
+        elif isinstance(model, dict):
+            model_id = _as_str(model.get("id") or model.get("model"), "").strip()
+        else:
+            _registry_error(model_path, "must be a string or object")
+        if not model_id:
+            _registry_error(f"{model_path}.id", "must be a non-empty string")
+        if model_id in seen:
+            _registry_error(model_path, "duplicates an earlier model id")
+        seen.add(model_id)
+
+def validate_provider_registry(providers):
+    """Validate a registry and return normalized providers."""
+    if not isinstance(providers, list):
+        _registry_error("root", "must be an array")
+    seen = set()
+    normalized = []
+    for index, provider in enumerate(providers):
+        validate_provider(provider, index)
+        provider_id = provider["id"]
+        if provider_id in seen:
+            _registry_error(f"providers[{index}].id", "duplicates an earlier provider id")
+        seen.add(provider_id)
+        normalized.append(normalize_provider(provider))
+    return normalized
+
 def load_provider_configs():
     """Load the model gateway registry.
 
@@ -87,22 +148,16 @@ def load_provider_configs():
     if raw and raw.strip():
         try:
             extra = json.loads(raw)
-            if isinstance(extra, list):
-                providers.extend(extra)
-            else:
-                log("provider registry ignored: JSON root is not a list")
-        except Exception as exc:
-            log("provider registry ignored:", repr(exc))
+            validate_provider_registry(extra)
+            providers.extend(extra)
+        except (json.JSONDecodeError, ProviderRegistryError) as exc:
+            log("provider registry ignored:", exc)
 
     merged = {}
     for provider in providers:
-        if not isinstance(provider, dict):
-            continue
-        pid = _as_str(provider.get("id")).strip()
-        if not pid:
-            continue
+        pid = provider["id"]
         merged[pid] = provider
-    return [normalize_provider(provider) for provider in merged.values()]
+    return validate_provider_registry(list(merged.values()))
 
 def normalize_provider(provider):
     pid = _as_str(provider.get("id")).strip()
