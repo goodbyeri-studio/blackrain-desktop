@@ -7,4 +7,4 @@
 - 安全漏洞、凭据泄露和隐私问题：只按 [SECURITY.md](SECURITY.md) 私下报告。
 - OpenAI Codex app-server、Electron、Node 或第三方 provider 的上游问题：同时查看对应项目的支持和安全政策。
 
-项目不提供托管模型、托管 Codex Home、账号服务、Cloud Browser 或商业 SLA。它们属于未来独立的 BlackRain Cloud 范围。Model Gateway 是可选本地 sidecar，未配置时客户端应使用原生 Codex 路径或明确的降级状态。
+项目不提供托管模型、托管 Codex Home、云端 Browser 或商业 SLA。Model Gateway 是可选本地 sidecar，未配置时客户端应使用原生 Codex 路径或明确的降级状态。

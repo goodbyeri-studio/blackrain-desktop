@@ -9,18 +9,18 @@
 - Codex Desktop 核心工作流回归、性能与可观测性；
 - Browser/Computer Use 的安全、恢复与真实站点验证；
 - macOS 打包、签名、公证和产品验收；
-- 后续 BlackRain 扩展：provider 适配、Router、Gateway 与可复现评测；
+- 开放模型层：provider 适配、Auto Router、Gateway 宿主 API 与可复现评测；
 - 面向新贡献者的文档、测试 fixture 和故障复现。
 
 不确定从哪里开始时，可以先看 [开放 issues](https://github.com/goodbyeri-studio/blackrain-desktop/issues)、[Discussions](https://github.com/goodbyeri-studio/blackrain-desktop/discussions) 或提交一个小的文档/测试改进；先讨论范围通常比直接实现大功能更快。
 
 ## 开始之前
 
-1. 阅读根目录 `README.md`、`AGENTS.md`、`apps/desktop/AGENTS.md` 和 [文档地图](docs/README.md)。
+1. 阅读根目录 `README.md`、`AGENTS.md` 和 [文档地图](docs/README.md)。
 2. 确认改动属于 Codex Desktop 对齐、Electron 宿主、Browser/Computer Use 或明确标记的 BlackRain 扩展。
 3. 涉及产品行为、运行时边界或公共 Browser 合同时，同步 `docs/product.md`、`docs/architecture.md`、`docs/browser.md` 或 ADR，并写出可复现的验证命令。
 
-`plugins/` 与 `workbenches/` 是实验性资源。除非改动确实需要它们，否则不要把它们加入产品入口或默认发布依赖。
+工作台市场、插件生态和内容平台化属于**已废弃的旧蓝图，不做，也不是延后事项**。相关的 `plugins/`、`workbenches/` 样例目录和 `src/features/workbenches/` 已于 2026-09-01 删除。不要重新引入这类目录或在其基础上提案。
 
 ## 本地开发
 
@@ -63,4 +63,4 @@ macOS 是当前发布验收平台。涉及 Electron main、Browser、凭据、�
 
 ## License
 
-提交到 BlackRain 的新代码和文档默认按仓库根目录 AGPL-3.0-only 提供，第三方内容仍受其原许可证约束。提交即表示你有权按该许可证提供贡献。商业授权仅覆盖维护者拥有或已明确获得再许可权的代码；如果希望自己的贡献也纳入闭源商业授权范围，需要在合并前另行签署书面贡献者许可协议或版权转让文件。若贡献包含第三方代码、生成文件或受其他许可证约束的资产，必须在 PR 中明确来源和许可证边界。
+提交到 BlackRain 的新代码和文档默认按仓库根目录 [MIT](LICENSE) 提供，第三方内容仍受其原许可证约束。提交即表示你有权按该许可证提供贡献。项目不要求签署 CLA 或版权转让。若贡献包含第三方代码、生成文件或受其他许可证约束的资产，必须在 PR 中明确来源和许可证边界。

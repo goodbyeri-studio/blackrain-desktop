@@ -1,17 +1,27 @@
 # BlackRain Desktop
 
-> 基于开源 `codex-rs` / `codex app-server` 独立实现的开源 Codex Desktop。
+> 开源版 Codex Desktop——基于原装 `codex-rs` / `codex app-server`，但对模型开放。
 
 [![CI](https://github.com/goodbyeri-studio/blackrain-desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/goodbyeri-studio/blackrain-desktop/actions/workflows/ci.yml)
-[![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > 当前以 macOS 为唯一产品发布目标。Electron 代码和自动化检查存在，不等于已发布、已签名或已公证的 macOS 产品。
 
 ## 目标
 
-先对齐官方闭源 Codex Desktop 的可观察功能与体验：Codex thread、审批、停止与恢复、标准 Codex Home、文件、终端、Git、diff、通知，以及 main-owned in-app Browser 和 Computer Use。
+BlackRain 的桌面能力对标官方 Codex Desktop，但**对模型开放**。
 
-BlackRain 的 Router、多模型 Provider、Gateway 和 Auto 是后续可选扩展层。它们不得引入第二个 agent runtime，也不得接管 thread、turn、审批或 Browser 状态。云端账号、托管模型、Cloud Browser 和团队服务不属于当前范围；将来需要时在独立的 BlackRain Cloud 中建设。
+**基线：完整的 Codex 桌面体验。** Codex thread、审批、停止与恢复、标准 Codex Home（与原生 CLI 共享配置、认证和可恢复 thread）、文件、终端、Git、diff、通知，以及 main-owned in-app Browser 和 Computer Use。
+
+**差异化：开放的模型层。** 官方 Codex Desktop 绑定官方模型，BlackRain 不绑定：
+
+- **多模型 Provider**——接入任意第三方模型，自带 key 即可用；
+- **Auto Router**——按任务自动选模型，类似 Cursor 的多模型调度；
+- **可选 credit**——不想自己管 key 的用户可以用托管额度，但它是便利选项，不是准入门槛。
+
+模型层不改变 Codex 内核：`codex-rs` / `codex app-server` 仍是唯一 agent runtime，thread、turn、审批和持久化仍由 app-server 拥有。
+
+> 模型层的当前状态是 `CODE_EXISTS`——协议翻译 sidecar 与设置 UI 已有代码，宿主 API 尚未接线，因此**在当前构建里还不可用**。进度以 [产品定义](docs/product.md) 为准。
 
 ## 快速开始
 
@@ -23,6 +33,8 @@ npm ci
 npm run electron:start
 ```
 
+**自带 key 即可用。** fork 或 clone 本仓后不需要任何账号或后端配置：应用内的账号 UI 是可选的，未配置时直接放行、不拦截使用。
+
 完整命令、测试与发布边界见[开发文档](docs/development.md)。
 
 ## 文档
@@ -33,12 +45,10 @@ npm run electron:start
 
 阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，从 [Issue #95](https://github.com/goodbyeri-studio/blackrain-desktop/issues/95) 或 [Good first issue](https://github.com/goodbyeri-studio/blackrain-desktop/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) 开始。
 
-## 商业授权与支持
+## 联系与支持
 
-BlackRain 自有代码采用 [GNU Affero General Public License v3.0 only](LICENSE)。AGPL 允许商业使用，但分发修改版或通过网络提供修改版服务时必须履行相应的源码提供和许可证义务。需要将 BlackRain 闭源集成到专有产品、服务或发行包时，请联系维护者获取单独的商业授权；商业授权不覆盖 [NOTICE](NOTICE) 中列出的第三方组件。
-
-- 商业授权与项目联系：[goodbyeri-studio](https://github.com/goodbyeri-studio)，或扫描下方微信二维码。
-- 赞赏支持：扫描下方赞赏码。赞赏不代表获得商业授权、支持承诺或服务等级协议。
+- 项目联系：[goodbyeri-studio](https://github.com/goodbyeri-studio)，或扫描下方微信二维码。
+- 赞赏支持：扫描下方赞赏码。赞赏是自愿的，不构成支持承诺或服务等级协议。
 
 <table>
   <tr>
@@ -49,4 +59,4 @@ BlackRain 自有代码采用 [GNU Affero General Public License v3.0 only](LICEN
 
 ## 许可证
 
-BlackRain 自有代码采用 [AGPL-3.0-only](LICENSE)，第三方归属见 [NOTICE](NOTICE)。项目独立于 OpenAI、ChatGPT 和 Cursor，不复制其闭源代码或专有资源。商业授权说明见 [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)。
+BlackRain 自有代码采用 [MIT](LICENSE)，第三方归属见 [NOTICE](NOTICE)。项目独立于 OpenAI、ChatGPT 和 Cursor，不复制其闭源代码或专有资源。

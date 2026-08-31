@@ -765,23 +765,3 @@ export type DictationTranscript = {
   id: string;
   text: string;
 };
-
-export type OfficeRuntimeInfo = {
-  available: boolean;
-  binPath: string | null;
-  installDir: string | null;
-  source: string;
-  version: string | null;
-  pluginPath: string | null;
-  workbenchPath: string | null;
-  message: string;
-};
-
-export type OfficeCommandResult = {
-  success: boolean;
-  exitCode: number | null;
-  stdout: string;
-  stderr: string;
-  commandLine: string;
-  binPath: string;
-};

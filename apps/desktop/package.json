@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.7.68",
   "description": "Open-source Codex Desktop built on codex-rs and codex app-server",
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/goodbyeri-studio/blackrain-desktop.git",

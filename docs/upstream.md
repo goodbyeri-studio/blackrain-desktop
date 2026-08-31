@@ -19,6 +19,6 @@ CodexMonitor 是现有仓库部分 Electron/React 文件的历史来源，正在
 
 ## 许可证规则
 
-BlackRain 自有代码按 [AGPL-3.0-only](../LICENSE) 分发。第三方代码、二进制、字体、图标和资源继续遵循各自许可证，不能被 AGPL 重新授权。新增内容必须记录来源、版本、许可证和必要的 hash/NOTICE；AGPL/GPL/BSL 或无许可证内容须经单独法律审查后才能进入发行物。
+BlackRain 自有代码按 [MIT](../LICENSE) 分发。第三方代码、二进制、字体、图标和资源继续遵循各自许可证，不能被本仓重新授权。新增内容必须记录来源、版本、许可证和必要的 hash/NOTICE；AGPL/GPL/BSL 或无许可证内容须经单独法律审查后才能进入发行物——MIT 分发物一旦混入 copyleft 依赖，整个发行边界都要重新评估。
 
-BlackRain 与 OpenAI、官方 Codex Desktop、ChatGPT、Paseo、Cursor 和 CodexMonitor 维护者均无官方隶属关系。商业授权仅可能覆盖维护者拥有再许可权的 BlackRain 自有代码，详见 [COMMERCIAL-LICENSE.md](../COMMERCIAL-LICENSE.md)。
+BlackRain 与 OpenAI、官方 Codex Desktop、ChatGPT、Paseo、Cursor 和 CodexMonitor 维护者均无官方隶属关系。

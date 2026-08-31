@@ -23,7 +23,6 @@ const topLevelFiles = [
   "vite.main.config.ts",
   "vite.preload.config.ts",
   "README.md",
-  "README.zh-CN.md",
 ].map((entry) => path.join(desktopRoot, entry));
 
 const forbidden = [

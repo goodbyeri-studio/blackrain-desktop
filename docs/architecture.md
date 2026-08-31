@@ -11,7 +11,7 @@ React renderer
        └─ Browser backend (WebContentsView)
 原装 codex app-server
   -> codex-rs / 标准 Codex Home / thread 与 turn
-可选 Model Gateway sidecar
+可选 Model Gateway sidecar（CODE_EXISTS，宿主 API 未接线）
   -> Provider 协议翻译、Router、多模型与 Auto
 ```
 
@@ -25,7 +25,7 @@ Electron 是唯一生产宿主；`codex-rs` / `codex app-server` 是唯一 agent
 | 窗口、文件、Git、终端、更新和系统能力 | Electron main |
 | UI 展示与前端交互状态 | React renderer |
 | 页面、session、权限、下载、CDP 和恢复 | Electron main Browser backend |
-| Provider 协议翻译与路由 | 独立 Gateway sidecar |
+| Provider 协议翻译与路由 | 独立 Gateway sidecar（`CODE_EXISTS`，见下） |
 
 renderer 不能访问 Node.js、原始 IPC、app-server transport 或 Browser `WebContents`。网页不能得到应用 preload、IPC 或本地文件和进程权限。
 
@@ -36,6 +36,7 @@ renderer 不能访问 Node.js、原始 IPC、app-server transport 或 Browser `W
 - main 通过 stdio JSONL 连接锁定版本的 `codex app-server`。断连、畸形消息、超时与退出都必须成为结构化 UI 状态，而不是触发备用 runtime。
 - Browser 由 main 创建和持有；其细节见 [Browser 与 Computer Use](browser.md)。
 - Gateway 只能做协议翻译和路由。它不能读取 Browser Cookie、拥有 thread、复制事件状态或成为 Codex 默认路径的隐式依赖。
+- **Gateway 的当前状态是 `CODE_EXISTS`，不是 `RUN_PASS`。** `gateway/` 有 Python sidecar，`SettingsModelGatewaySection` 有设置 UI，但 `modelGateway*` 宿主 API 在 `electron/shared`、preload 和 main 中都不存在——`src/services/desktop.ts` 里那 8 个导出直接 reject。该设置页与 `useCreditGatewaySync` 均未挂载。上表的“所有者”是目标归属，不代表链路已通。补齐时按[代码地图](../apps/desktop/docs/codebase-map.md)的「修改合同」逐项同步。
 
 ## 状态证据
 
