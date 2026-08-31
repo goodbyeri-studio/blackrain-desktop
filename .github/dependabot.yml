@@ -41,6 +41,10 @@ updates:
       #   而 npm 上 typescript@latest 已是 7.x。
       - dependency-name: typescript
         update-types: ["version-update:semver-minor"]
+      # 1.3.x 移除了当前 diff viewer 使用的 metadata 与 hover API，
+      # 需要单独做应用代码适配，不能作为自动依赖维护合并。
+      - dependency-name: "@pierre/diffs"
+        update-types: ["version-update:semver-minor"]
 
   - package-ecosystem: github-actions
     directory: /
