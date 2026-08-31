@@ -1,16 +1,18 @@
-# BlackRain Desktop application
+# BlackRain Desktop 应用
 
-This is the Electron product application for the open-source Codex Desktop. It uses the original `codex app-server` / `codex-rs` as the only agent runtime; Electron owns the desktop host and Browser.
+此目录是开源 Codex Desktop 的 Electron 产品应用。原装 `codex app-server` / `codex-rs` 是唯一 agent runtime；Electron 负责桌面宿主与 Browser。
 
-macOS is the current release target. Existing Windows-oriented packaging scripts are historical migration state, not a macOS release path.
+所有开发命令从本目录执行：
 
 ```sh
 npm ci
 npm run electron:start
-npm run typecheck
-npm run test
-npm run lint
-npm run check:host-boundary
 ```
 
-Read the [repository README](../../README.md), [architecture](../../docs/architecture.md), [Browser contract](../../docs/browser.md), and [development guide](../../docs/development.md) before changing this application.
+本文件只是入口指引，不复述规则或命令清单：
+
+- 架构铁律与产品边界：仓库根 [AGENTS.md](../../AGENTS.md)
+- 完整命令、验证链与发布边界：[开发与发布](../../docs/development.md)
+- 进程与所有权：[架构](../../docs/architecture.md)
+- Browser 合同：[Browser 与 Computer Use](../../docs/browser.md)
+- 领域索引：[代码地图](docs/codebase-map.md)

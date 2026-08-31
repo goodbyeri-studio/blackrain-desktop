@@ -17,8 +17,6 @@ import type {
   ModelGatewayProviderConfig,
   ModelGatewayProviderSecretStatus,
   ModelGatewayRuntimeStatus,
-  OfficeCommandResult,
-  OfficeRuntimeInfo,
   TcpDaemonStatus,
   TailscaleDaemonCommandPreview,
   TailscaleStatus,
@@ -28,12 +26,6 @@ import type {
   AppMention,
   WorkspaceSettings,
 } from "../types";
-import type {
-  ActivatedWorkbenchContext,
-  WorkbenchDeactivationResult,
-  OfficialWorkbenchActivationResult,
-  WorkbenchPackageInspection,
-} from "@/features/workbenches/types";
 import type {
   GitFileDiff,
   GitFileStatus,
@@ -1159,98 +1151,6 @@ export async function readWorkspaceFile(
   });
 }
 
-export async function getOfficeRuntimeInfo(): Promise<OfficeRuntimeInfo> {
-  return unavailableCapability<OfficeRuntimeInfo>("officeRuntimeInfo");
-}
-
-export async function runOfficeCommand(
-  command: string,
-  args: string[] = [],
-  workspaceId?: string | null,
-): Promise<OfficeCommandResult> {
-  return unavailableCapability<OfficeCommandResult>("officeRunCommand", {
-    command,
-    args,
-    workspaceId: workspaceId ?? null,
-  });
-}
-
-export async function createOfficeDocument(
-  filePath: string,
-  workspaceId?: string | null,
-): Promise<OfficeCommandResult> {
-  return unavailableCapability<OfficeCommandResult>("officeCreateDocument", {
-    filePath,
-    workspaceId: workspaceId ?? null,
-  });
-}
-
-export async function validateOfficeDocument(
-  filePath: string,
-  workspaceId?: string | null,
-  jsonOutput = true,
-): Promise<OfficeCommandResult> {
-  return unavailableCapability<OfficeCommandResult>("officeValidateDocument", {
-    filePath,
-    workspaceId: workspaceId ?? null,
-    jsonOutput,
-  });
-}
-
-export async function viewOfficeDocument(
-  filePath: string,
-  mode: string,
-  options?: {
-    workspaceId?: string | null;
-    jsonOutput?: boolean;
-    render?: string | null;
-    browser?: boolean;
-    outPath?: string | null;
-  },
-): Promise<OfficeCommandResult> {
-  return unavailableCapability<OfficeCommandResult>("officeViewDocument", {
-    filePath,
-    mode,
-    workspaceId: options?.workspaceId ?? null,
-    jsonOutput: options?.jsonOutput ?? null,
-    render: options?.render ?? null,
-    browser: options?.browser ?? null,
-    outPath: options?.outPath ?? null,
-  });
-}
-
-export async function getOfficeDocumentIssues(
-  filePath: string,
-  options?: {
-    workspaceId?: string | null;
-    jsonOutput?: boolean;
-    issueType?: string | null;
-    limit?: number | null;
-  },
-): Promise<OfficeCommandResult> {
-  return unavailableCapability<OfficeCommandResult>("officeDocumentIssues", {
-    filePath,
-    workspaceId: options?.workspaceId ?? null,
-    jsonOutput: options?.jsonOutput ?? null,
-    issueType: options?.issueType ?? null,
-    limit: options?.limit ?? null,
-  });
-}
-
-export async function mergeOfficeTemplate(
-  templatePath: string,
-  outputPath: string,
-  dataJson: string,
-  workspaceId?: string | null,
-): Promise<OfficeCommandResult> {
-  return unavailableCapability<OfficeCommandResult>("officeMergeTemplate", {
-    templatePath,
-    outputPath,
-    dataJson,
-    workspaceId: workspaceId ?? null,
-  });
-}
-
 export async function readAgentMd(workspaceId: string): Promise<AgentMdResponse> {
   return fileRead("workspace", "agents", workspaceId);
 }
@@ -1933,39 +1833,4 @@ export async function accountSessionClear(key: string): Promise<void> {
   const host = getOptionalHostClient();
   if (host) return host.accountSession.clear({ key });
   await unavailableCapability("accountSessionClear", { key });
-}
-
-export async function workbenchActivationList(): Promise<ActivatedWorkbenchContext[]> {
-  return unavailableCapability<ActivatedWorkbenchContext[]>("workbenchActivationList");
-}
-
-export async function workbenchBundledInspect(
-  workbenchId: string,
-): Promise<WorkbenchPackageInspection> {
-  return unavailableCapability<WorkbenchPackageInspection>("workbenchBundledInspect", {
-    workbenchId,
-  });
-}
-
-export async function workbenchActivationRead(
-  activationId: string,
-): Promise<ActivatedWorkbenchContext> {
-  return unavailableCapability<ActivatedWorkbenchContext>("workbenchActivationRead", { activationId });
-}
-
-export async function workbenchOfficialActivate(
-  workbenchId: string,
-  projectPath: string,
-): Promise<OfficialWorkbenchActivationResult> {
-  return unavailableCapability<OfficialWorkbenchActivationResult>("workbenchOfficialActivate", {
-    input: { workbenchId, projectPath },
-  });
-}
-
-export async function workbenchActivationDeactivate(
-  activationId: string,
-): Promise<WorkbenchDeactivationResult> {
-  return unavailableCapability<WorkbenchDeactivationResult>("workbenchActivationDeactivate", {
-    activationId,
-  });
 }
