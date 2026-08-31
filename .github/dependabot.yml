@@ -3,13 +3,21 @@ updates:
   - package-ecosystem: npm
     directory: /apps/desktop
     schedule:
-      interval: monthly
-    open-pull-requests-limit: 2
-    labels:
-      - dependencies
-      - javascript
-    # 把零散的版本 bump 聚合成一个 PR，减少小团队的 review 负担。
+      interval: weekly
+    open-pull-requests-limit: 5
+    # 运行时只聚合低风险补丁更新；运行时 minor 更新保持单包 PR，避免把
+    # 破坏性 API 变化藏在一个大型依赖升级中。开发工具仍按下方专组聚合。
     groups:
+      runtime-patches:
+        patterns:
+          - "@sentry/react"
+          - "@tanstack/react-virtual"
+          - "lucide-react"
+          - "prismjs"
+          - "react-markdown"
+          - "remark-gfm"
+        update-types:
+          - patch
       dev-tooling:
         patterns:
           - "@types/*"
@@ -20,12 +28,6 @@ updates:
           - "@vitejs/*"
           - "globals"
           - "@eslint/*"
-        update-types:
-          - minor
-          - patch
-      runtime-deps:
-        patterns:
-          - "*"
         update-types:
           - minor
           - patch
@@ -56,9 +58,6 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 1
-    labels:
-      - dependencies
-      - github-actions
     groups:
       actions:
         patterns:
